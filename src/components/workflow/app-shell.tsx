@@ -825,9 +825,21 @@ export function AppShell() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete {deleteTarget?.name ?? "this job"}?</AlertDialogTitle>
+            {/* t1013 — the single pair's prose truce: this keyboard door now
+                speaks the same dialect the context menu's door speaks
+                (job-card's confirm) — the connections sentence, the workdir
+                sentence, the running clause AND the link-count refusal
+                clause. One single delete, two doors, ONE prose: the old
+                wording ("its connections from the workflow") promised a
+                delete the server refuses on linked originals (409) and said
+                nothing about the files the workdir keeps. */}
             <AlertDialogDescription>
-              This removes the job and its connections from the workflow.
-              {deleteTarget?.status === "running" && " A running process will be stopped."}{" "}
+              This removes the job and every connection attached to it. Files
+              already written to the workdir stay on disk.
+              {deleteTarget?.status === "running" && " A running process will be stopped."}
+              {deleteTarget?.linkCount
+                ? ` ${deleteTarget.linkCount} linked cop${deleteTarget.linkCount === 1 ? "y" : "ies"} in other workspaces reference this job — the server refuses to delete it until they are removed.`
+                : ""}{" "}
               You'll get a short window to undo from the toast afterwards.
             </AlertDialogDescription>
           </AlertDialogHeader>

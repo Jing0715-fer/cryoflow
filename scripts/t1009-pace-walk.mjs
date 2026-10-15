@@ -49,7 +49,20 @@
  *      while the toast speaks the deletion's headline ("Deleted 2
  *      jobs") — and the world self-restores (the victims were the
  *      arc's own mint);
- *  10. the world restored — the fingerprint as-found = as-left.
+ *   10. THE SINGLE DOOR'S HEARING (the t1013 graft): the link fixture is
+ *       the walk's own mint (the kit's api POST — explicit AND VISIBLE
+ *       x/y, the fixture law; the UI's own cross-workspace door refuses
+ *       same-workspace links in a one-workspace world, so the fixture
+ *       rides the server's accepted shape), the poll merges the copy and
+ *       the original's linkCount; the keyboard's single-delete confirm
+ *       (Del on one card) speaks the TRUCE prose — the workdir sentence,
+ *       the link-count refusal clause VERBATIM (the singular branch), and
+ *       the running clause honestly ABSENT (a completed job earns no stop
+ *       word); Cancel keeps the world; then the copy's death rides the
+ *       REAL single door again (no clause — the copy's linkCount is 0)
+ *       and the two-mouth moment speaks at the single arc: the receipt's
+ *       "Selection cleared" beside the toast's "Job deleted" headline;
+ *  11. the world restored — the fingerprint as-found = as-left.
  *
  * RIDE LAWS inherited: one fresh `agent-browser open`; poll-then-probe;
  * realClick probes vis AND owns every round; the walk asserts (it is
@@ -67,7 +80,7 @@ import { createWalk } from "./walk-kit.mjs";
 
 const {
   AB, BASE, ok, sleep, sh, evalJs, evalJson, poll, realClick, escAll, shot,
-  serverFirst, readJobs, jobsArr, fingerprint, finish,
+  serverFirst, readJobs, jobsArr, fingerprint, finish, api,
 } = createWalk({ name: "t1009-pace-walk", receiptFile: "t1009-pace-walk.json" });
 
 console.log("=== t1009 pace door walk ===");
@@ -389,11 +402,141 @@ if (Array.isArray(ids9) && ids9.length === 2) {
   }
 }
 
-/* LEG 10 — the world restored */
-console.log("leg 10: the world restored");
+/* LEG 10 — the single door's hearing (the t1013 graft): the keyboard's
+   single-delete confirm speaks the SAME prose the context menu's door
+   speaks — including the link-count refusal clause the server's 409
+   guard makes true. The fixture is the walk's own mint (the kit's api
+   POST — explicit AND VISIBLE x/y); the deaths ride the REAL doors; the
+   world self-restores (the t993 pattern — the arc's victim is the arc's
+   own fixture). */
+console.log("leg 10: the single door's hearing (the t1013 graft)");
+const jobs10 = await readJobs();
+const arr10 = jobsArr(jobs10 ?? []);
+const orig10 = arr10.find((j) => j.name === "Import Movies 1");
+ok("the fixture's root stands (Import Movies 1, completed)",
+  !!orig10 && orig10.status === "completed", orig10 ? `${orig10.name} ${orig10.status}` : "none");
+let mint10 = null;
+if (orig10) {
+  const res10 = api("POST", "/api/jobs", {
+    type: orig10.type,
+    linkedJobId: orig10.id,
+    workspaceId: orig10.workspaceId,
+    x: 760, y: 120, // the explicit seat — visible in the fit framing
+  });
+  try { mint10 = JSON.parse(res10).job; } catch { mint10 = null; }
+  ok("the link fixture minted (the walk's own POST, the explicit seat)",
+    !!mint10 && mint10.linkedJobId === orig10.id, mint10 ? mint10.name : "mint failed");
+}
+if (mint10) {
+  const copyUp = await poll(
+    `(() => JSON.stringify({ live: !!document.querySelector('[data-card-btn="' + ${JSON.stringify(mint10.id)} + '"]') }))()`,
+    (v) => v.live, 16, 500);
+  ok("the copy card merged into the canvas (the poll's own merge)", !!copyUp && copyUp.live);
+  /* the single selection: bare clear, focus, one toggle (the leg 9
+     grammar — the legitimate keyboard path) */
+  const bare10 = await evalJson(`(() => {
+  const root = document.querySelector('[data-canvas=viewport]');
+  if (!root) return JSON.stringify(null);
+  const r = root.getBoundingClientRect();
+  for (let y = r.y + 10; y < r.y + r.height - 10; y += 25) {
+    for (let x = r.x + 10; x < r.x + r.width - 10; x += 35) {
+      const el = document.elementFromPoint(x, y);
+      if (el && (el === root || (root.contains(el) && !el.closest('[data-job]') && !el.closest('[data-canvas-ui=minimap]') && !el.closest('[role=toolbar]')))) return JSON.stringify({ x: Math.round(x), y: Math.round(y) });
+    }
+  }
+  return JSON.stringify(null);
+})()`);
+  if (bare10) {
+    sh(`${AB} mouse move ${bare10.x} ${bare10.y}`); sh(`${AB} mouse down`); sh(`${AB} mouse up`);
+    await sleep(400);
+  }
+  await evalJs(`(() => { const b = document.querySelector('[data-card-btn="' + ${JSON.stringify(orig10.id)} + '"]'); if (!b) return 'none'; b.focus(); return document.activeElement === b ? 'focused' : 'FOCUS-FAIL'; })()`);
+  sh(`${AB} press Shift+Space`);
+  await sleep(400);
+  const sel10 = await evalJson(`(() => JSON.stringify({ r: document.querySelector('[data-testid=selection-live-receipt]')?.textContent ?? null }))()`);
+  ok("the original holds the single selection (1 job selected)",
+    sel10?.r === "1 job selected", String(sel10?.r));
+  /* Del — the keyboard single door — the truce's words, live */
+  sh(`${AB} press Delete`);
+  const title10 = `Delete ${orig10.name}?`;
+  const door10 = await poll(
+    `(() => { const d = [...document.querySelectorAll('[role=alertdialog]')].find((x) => x.querySelector('h2')?.textContent === ${JSON.stringify(title10)}); if (!d) return JSON.stringify({ open: false }); return JSON.stringify({ open: d.getBoundingClientRect().width > 0, text: d.textContent }); })()`,
+    (v) => v.open, 12, 400);
+  ok("the keyboard single door stands (Del, one target — not the bulk title)",
+    !!door10 && door10.open);
+  ok("the door speaks the workdir sentence (the t1013 truce's word)",
+    !!door10 && /workdir stay on disk/.test(door10.text), door10 ? "present" : "absent");
+  ok("the door pre-states the 409 (the link clause, the singular branch verbatim)",
+    !!door10 && door10.text.includes("1 linked copy in other workspaces reference this job — the server refuses to delete it until they are removed"),
+    door10 ? "present" : "absent");
+  ok("the running clause is honestly ABSENT (a completed job earns no stop word)",
+    !!door10 && !door10.text.includes("A running process will be stopped"),
+    door10 ? "the honest absence" : "absent");
+  /* Cancel keeps the world */
+  const cancel10 = await evalJson(`(() => { const d = [...document.querySelectorAll('[role=alertdialog]')].find((x) => x.querySelector('h2')?.textContent === ${JSON.stringify(title10)}); if (!d) return JSON.stringify(null); const b = [...d.querySelectorAll('button')].find((x) => x.textContent.trim() === 'Cancel'); if (!b) return JSON.stringify(null); const r = b.getBoundingClientRect(); return JSON.stringify({ x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }); })()`);
+  if (cancel10) {
+    sh(`${AB} mouse move ${cancel10.x} ${cancel10.y}`); sh(`${AB} mouse down`); sh(`${AB} mouse up`);
+  }
+  await sleep(700);
+  const kept10 = await evalJson(`(() => JSON.stringify({ cards: [...document.querySelectorAll('[data-job]')].filter((e) => !e.closest('[data-canvas-ui=minimap]')).length, dlg: [...document.querySelectorAll('[role=alertdialog]')].some((d) => d.getBoundingClientRect().width > 0) }))()`);
+  ok("the cancelled delete kept the world (23 cards, dialog shut)",
+    !!kept10 && kept10.cards === 23 && kept10.dlg === false, `cards=${kept10?.cards} dlg=${kept10?.dlg}`);
+  /* the copy's death — the real single door again (no clause: the copy's
+     linkCount is 0), and the single arc's two mouths. The clear rides the
+     walk's own proven grammar (the bare click — Escape is a fallback:
+     a dismissed layer may swallow it, the interactive ride's lesson). */
+  const bare10b = await evalJson(`(() => {
+  const root = document.querySelector('[data-canvas=viewport]');
+  if (!root) return JSON.stringify(null);
+  const r = root.getBoundingClientRect();
+  for (let y = r.y + 10; y < r.y + r.height - 10; y += 25) {
+    for (let x = r.x + 10; x < r.x + r.width - 10; x += 35) {
+      const el = document.elementFromPoint(x, y);
+      if (el && (el === root || (root.contains(el) && !el.closest('[data-job]') && !el.closest('[data-canvas-ui=minimap]') && !el.closest('[role=toolbar]')))) return JSON.stringify({ x: Math.round(x), y: Math.round(y) });
+    }
+  }
+  return JSON.stringify(null);
+})()`);
+  if (bare10b) {
+    sh(`${AB} mouse move ${bare10b.x} ${bare10b.y}`); sh(`${AB} mouse down`); sh(`${AB} mouse up`);
+    await sleep(400);
+  } else {
+    sh(`${AB} press Escape`);
+    await sleep(500);
+  }
+  await evalJs(`(() => { const b = document.querySelector('[data-card-btn="' + ${JSON.stringify(mint10.id)} + '"]'); if (!b) return 'none'; b.focus(); return document.activeElement === b ? 'focused' : 'FOCUS-FAIL'; })()`);
+  sh(`${AB} press Shift+Space`);
+  await sleep(400);
+  const sel10c = await evalJson(`(() => { const cards = [...document.querySelectorAll('[data-job]')].filter((e) => !e.closest('[data-canvas-ui=minimap]')); const sel = cards.filter((c) => /ring-primary/.test(c.querySelector('[data-card-btn]')?.className ?? '')).map((c) => c.querySelector('[data-card-btn]').getAttribute('data-card-btn')); return JSON.stringify({ sel }); })()`);
+  ok("the copy holds the single selection (the arc's victim armed)",
+    Array.isArray(sel10c?.sel) && sel10c.sel.length === 1 && sel10c.sel[0] === mint10.id,
+    JSON.stringify(sel10c?.sel));
+  sh(`${AB} press Delete`);
+  const title10c = `Delete ${mint10.name}?`;
+  const door10c = await poll(
+    `(() => { const d = [...document.querySelectorAll('[role=alertdialog]')].find((x) => x.querySelector('h2')?.textContent === ${JSON.stringify(title10c)}); if (!d) return JSON.stringify({ open: false }); return JSON.stringify({ open: d.getBoundingClientRect().width > 0, text: d.textContent }); })()`,
+    (v) => v.open, 12, 400);
+  ok("the copy's door stands (the fixture's own death door)", !!door10c && door10c.open);
+  ok("the copy's door speaks NO link clause (the copy's linkCount is 0)",
+    !!door10c && !door10c.text.includes("linked cop"), "the honest absence");
+  const confirm10 = await evalJson(`(() => { const d = [...document.querySelectorAll('[role=alertdialog]')].find((x) => x.querySelector('h2')?.textContent === ${JSON.stringify(title10c)}); if (!d) return JSON.stringify(null); const b = [...d.querySelectorAll('button')].find((x) => x.textContent.trim() === 'Delete'); if (!b) return JSON.stringify(null); const r = b.getBoundingClientRect(); return JSON.stringify({ x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }); })()`);
+  if (confirm10) {
+    sh(`${AB} mouse move ${confirm10.x} ${confirm10.y}`); sh(`${AB} mouse down`); sh(`${AB} mouse up`);
+    const two10 = await poll(
+      `(() => { const r = document.querySelector('[data-testid=selection-live-receipt]'); const toast = [...document.querySelectorAll('[role=status]')].some((t) => /Job deleted/.test(t.textContent)); const cards = [...document.querySelectorAll('[data-job]')].filter((e) => !e.closest('[data-canvas-ui=minimap]')).length; return JSON.stringify({ receipt: r ? r.textContent : null, toast, cards }); })()`,
+      (v) => v.toast && v.cards === 22, 16, 500);
+    ok("the single arc's two-mouth moment (the receipt spoke the selection's exit)",
+      !!two10 && two10.receipt === "Selection cleared", String(two10?.receipt));
+    ok("the single arc's headline mouth (the toast's 'Job deleted')",
+      !!two10 && two10.toast === true);
+  }
+}
+
+/* LEG 11 — the world restored */
+console.log("leg 11: the world restored");
 const jobs1 = await readJobs();
 fpAfter = fingerprint(jobsArr(jobs1 ?? []));
 ok("the world fingerprint as-found = as-left (the arc's victims were its own mint)",
   fpBefore === fpAfter, `${fpBefore.split("|").length} jobs`);
 
-finish({ legs: 10 });
+finish({ legs: 11 });

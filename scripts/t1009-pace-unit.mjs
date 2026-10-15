@@ -238,6 +238,68 @@ console.log("R band II — the delete arc's mouths (t1012):");
     "the keyboard door gained the toolbar door's words verbatim");
 }
 
+/* ---------- R band III — the single pair's truce (t1013) ---------- */
+console.log("R band III — the single pair's truce (t1013):");
+{
+  const shell = read("src/components/workflow/app-shell.tsx");
+  const card = read("src/components/workflow/job-card.tsx");
+  // The single delete has TWO doors — the keyboard's (app-shell's Del
+  // confirm, confirmDeleteId) and the context menu's (job-card's confirm).
+  // t1013's survey found them drifted: the keyboard door said "its
+  // connections from the workflow" — no workdir sentence, no link-count
+  // clause — so it PROMISED a delete the server refuses on linked
+  // originals (DELETE /api/jobs/[id] answers 409 when _count.links > 0).
+  // The truce: both doors render ONE prose (connections, workdir,
+  // running, links, undo). The needles are whitespace-normalized — JSX
+  // re-wraps must not redder the truce (the R8 lesson); a WORD change in
+  // either door reddens by design.
+  const norm = (s) => s.replace(/\s+/g, " ");
+  // The R3 lesson (t1011): the needle must survive its own prose — the
+  // shell's t1013 comment QUOTES the dead wording as its tombstone, so
+  // the absence check reads the code with the JSX comments stripped.
+  const code = (s) => norm(s.replace(/\{\/\*[\s\S]*?\*\//g, ""));
+  const conn = "This removes the job and every connection attached to it.";
+  const wd = "Files already written to the workdir stay on disk.";
+  ok("R9 the single pair speaks ONE connections + workdir prose",
+    code(shell).includes(conn) && code(card).includes(conn) &&
+    code(shell).includes(wd) && code(card).includes(wd) &&
+    !code(shell).includes("its connections from the workflow"),
+    "the keyboard door adopted the context door's sentences; the old wording is dead");
+  ok("R10 both single doors speak the running clause",
+    shell.includes('deleteTarget?.status === "running" && " A running process will be stopped."') &&
+    card.includes('job.status === "running" && " A running process will be stopped."'),
+    "the context door gained the keyboard door's live-process word");
+  ok("R11 both single doors speak the link-count refusal clause",
+    shell.includes("deleteTarget?.linkCount") &&
+    card.includes("job.linkCount") &&
+    shell.includes("the server refuses to delete it until they are removed") &&
+    card.includes("the server refuses to delete it until they are removed") &&
+    shell.includes('linked cop${deleteTarget.linkCount === 1 ? "y" : "ies"}') &&
+    card.includes('linked cop${job.linkCount === 1 ? "y" : "ies"}'),
+    "the keyboard door pre-states the 409 the linked original will earn");
+  ok("R12 both single doors keep the undo sentence",
+    norm(shell).includes("You'll get a short window to undo from the toast afterwards.") &&
+    norm(card).includes("You'll get a short window to undo from the toast afterwards."),
+    "the promise the confirm's Delete actually keeps");
+  // The one-prose ORDER: running BEFORE links in both doors (the refusal
+  // is the freshest fact before the decision buttons — the bulk family's
+  // dialect already runs workdirs → running → undo).
+  const shN = norm(shell), cdN = norm(card);
+  ok("R13 the clauses hold one order in both doors (running before links)",
+    shN.indexOf("A running process will be stopped") < shN.indexOf("linked cop${") &&
+    cdN.indexOf("A running process will be stopped") < cdN.indexOf("linked cop${"),
+    "the refusal clause is the last conditional before the undo sentence");
+  // The honesty chain: the dialog's pre-statement is TRUE because the
+  // server's DELETE guard refuses linked originals — the route's guard is
+  // the clause's warrant, pinned beside the words it makes true.
+  const route = read("src/app/api/jobs/[id]/route.ts");
+  ok("R14 the server guard warrants the dialog's refusal clause",
+    route.includes("existing._count.links > 0") &&
+    route.includes("{ status: 409 }") &&
+    route.includes("The engine workdir on disk is intentionally kept"),
+    "the dialog pre-states what the server enforces — one story, mouth and guard");
+}
+
 /* ---------- W band — the twin wells ---------- */
 console.log("W band — the twin wells (one window law, two readers):");
 {

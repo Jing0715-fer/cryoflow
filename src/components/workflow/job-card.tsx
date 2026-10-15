@@ -838,9 +838,14 @@ function JobCardMenu({
         >
           <AlertDialogHeader>
             <AlertDialogTitle>Delete {job.name}?</AlertDialogTitle>
+            {/* t1013 — the single pair's prose truce: this context-menu door
+                adopts the running clause its keyboard sibling (app-shell's
+                Del confirm) always spoke — both doors now render ONE prose:
+                connections, workdir, running, link-count refusal, undo. */}
             <AlertDialogDescription>
               This removes the job and every connection attached to it. Files
               already written to the workdir stay on disk.
+              {job.status === "running" && " A running process will be stopped."}
               {job.linkCount
                 ? ` ${job.linkCount} linked cop${job.linkCount === 1 ? "y" : "ies"} in other workspaces reference this job — the server refuses to delete it until they are removed.`
                 : ""}{" "}
