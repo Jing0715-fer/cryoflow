@@ -1,8 +1,8 @@
 {
   "unit": "t1009-pace-unit",
   "verdict": "GREEN",
-  "pass": 40,
+  "pass": 47,
   "fail": 0,
-  "at": "2026-10-15T05:50:42.440Z",
+  "at": "2026-10-15T06:44:54.302Z",
   "face": "pipeline pace (t1009 product face): /api/projects/[id]/pace + pace-dialog + dashboard/palette doors + t1011 selection receipt/doc rows"
 }
