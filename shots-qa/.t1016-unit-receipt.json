@@ -1,9 +1,9 @@
 {
   "unit": "t1016-pace-subchain-unit",
   "verdict": "GREEN",
-  "pass": 36,
+  "pass": 42,
   "fail": 0,
-  "at": "2026-10-15T09:03:28.964Z",
+  "at": "2026-10-15T09:09:11.634Z",
   "bands": [
     "M mirror",
     "L lifted oracle + projection",
