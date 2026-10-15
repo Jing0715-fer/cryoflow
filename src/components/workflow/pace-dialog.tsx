@@ -328,6 +328,48 @@ export function PaceDialog({
                       ? " — the finisher is still running, its window stretches to now"
                       : ""}
                   </p>
+                  {/* the step roster (t1018) — the chain's own order at dialog
+                      scale: rank, name, the printed window (the picture never
+                      carries the fact alone), and the gap this step waited
+                      before starting (the analytics face's gap-row dialect;
+                      the root owns no gap). A running step confesses "so
+                      far" — its window stretches to the reading's now. Both
+                      transports feed chainWalk.chain, so the roster speaks
+                      for the selection arm and the project arm alike. */}
+                  <ol
+                    className="mt-1.5 space-y-0.5 border-t border-primary/15 pt-1.5"
+                    data-canvas-ui="pipeline-pace-critical-roster"
+                  >
+                    {chainWalk.chain.map((s, i) => (
+                      <li
+                        key={s.id}
+                        className="flex items-center gap-1.5 text-[10px]"
+                        data-critical-row={s.id}
+                        data-critical-index={i}
+                        data-critical-gap={s.gapBeforeMs}
+                      >
+                        <span className="w-3.5 shrink-0 text-right font-mono text-muted-foreground/60">
+                          {i + 1}.
+                        </span>
+                        <span className="truncate font-medium text-foreground/85">{s.name}</span>
+                        {s.status === "running" ? (
+                          <span className="shrink-0 text-running">so far</span>
+                        ) : null}
+                        <span className="ml-auto shrink-0 tabular-nums text-muted-foreground">
+                          {formatElapsed(s.ms)}
+                        </span>
+                        <span className="w-[86px] shrink-0 text-right tabular-nums text-muted-foreground/60">
+                          {i > 0 && s.gapBeforeMs != null
+                            ? s.gapBeforeMs > 0
+                              ? `+ waited ${formatElapsed(s.gapBeforeMs)}`
+                              : s.gapBeforeMs < 0
+                                ? `\u2212 overlapped ${formatElapsed(-s.gapBeforeMs)}`
+                                : "+ waited 0s"
+                            : ""}
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
                 </div>
               ) : null}
 

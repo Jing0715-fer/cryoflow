@@ -32,7 +32,10 @@
  *      printed numbers, the live-finisher confession, the ends-with
  *      chip's honest title, the TWO-TRANSPORTS merge (the memo or the
  *      route's chain — one band), the local well's critical:null (the
- *      two never double-speak), and the canvas door's wire pass-through
+ *      two never double-speak), the STEP ROSTER (t1018 — rank, printed
+ *      window, the per-row gap words, the running step's "so far",
+ *      the root's no-gap gate, the chainWalk.chain source), and the
+ *      canvas door's wire pass-through
  *   R  the ROUTE at source (t1017 — the project arm): the same libs
  *      (walkTimeline + criticalPath + summarizeCritical), the
  *      project-scoped edges query, the same ≥2 gate, the response
@@ -265,6 +268,22 @@ ok("D15 the project scope word (the t687 law for the fetch doors)",
   dlg.includes('"Critical chain of this project"'));
 ok("D16 the local well ships critical:null — the two never double-speak",
   dlg.includes("setData({ projectId: \"\", critical: null, ...computePace(jobs) });"));
+ok("D17 the step roster exists (t1018 — the chain at dialog scale)",
+  dlg.includes('data-canvas-ui="pipeline-pace-critical-roster"'));
+ok("D18 every step prints its own window",
+  dlg.includes("{formatElapsed(s.ms)}"));
+ok("D19 the roster's gap words per row (the analytics dialect)",
+  dlg.includes("+ waited ${formatElapsed(s.gapBeforeMs)}") &&
+  dlg.includes("overlapped ${formatElapsed(-s.gapBeforeMs)}"));
+ok("D20 a running step confesses \"so far\" (its window stretches)",
+  dlg.includes('so far</span>'));
+ok("D21 the root owns no gap (the i > 0 gate)",
+  /\{i > 0 && s\.gapBeforeMs != null\s*\?/.test(dlg));
+ok("D22 the roster reads chainWalk.chain (both transports feed it) + the per-row hooks",
+  dlg.includes("chainWalk.chain.map((s, i)") &&
+  dlg.includes('data-critical-row={s.id}') &&
+  dlg.includes('data-critical-index={i}') &&
+  dlg.includes('data-critical-gap={s.gapBeforeMs}'));
 
 /* ---------- R band — the route at source (t1017, the project arm) ---------- */
 console.log("R band — the project's server-side walk at source:");
