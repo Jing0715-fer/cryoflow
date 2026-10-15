@@ -28,6 +28,16 @@
  *   leg 5  THE MID PARK — a drag ending mid-range adds NO word (the
  *          echo holds the ceiling's words) while the valuetext returns
  *          to the human shape — only the refusal is news;
+ *   leg 5b THE S FLOOR (t1003 — the recorded-not-witnessed s axis): a
+ *          real drag of the height grip PAST the floor speaks
+ *          已到最小高度（420 像素）, the s grip's own valuenow/valuetext
+ *          agree (the builders' one mouth, second axis);
+ *   leg 5c THE S CEILING — the drag parks at vh−16: the echo speaks
+ *          已到最大高度（884 像素）, the valuenow MEETS the valuemax;
+ *   leg 5d THE SE JOIN — the corner grip dragged past BOTH walls speaks
+ *          the JOIN in one breath (width，height — the mode gating's
+ *          combined face, the word order the source pushes: width
+ *          first), both grips' values agree at the floor corner;
  *   leg 6  the leave-no-trace close — the stored geometry's raw echo
  *          restored exactly as found (or cleared if never there), the
  *          companion shut through its real door (the t797 law), the
@@ -49,7 +59,10 @@ const {
 
 const GEO_KEY = "cryoflow.assistant.geometry.v1";
 const GEO_MIN_W = 360;
+const GEO_MIN_H = 420;
 const E_SEL = '[data-companion-window] [role="separator"][aria-orientation="vertical"]';
+const S_SEL = '[data-companion-window] [role="separator"][aria-orientation="horizontal"]';
+const SE_SEL = '[data-companion-window] .cursor-nwse-resize';
 const ECHO_SEL = `(() => { const e = document.querySelector('[data-wall-echo]'); return e ? (e.textContent ?? "").trim() : null; })()`;
 
 /* the E grip's live read (valuenow / valuetext / valuemax) */
@@ -63,6 +76,33 @@ const dragGripBy = async (dx) => {
   sh(`${AB} mouse move ${p.x} ${p.y}`);
   sh(`${AB} mouse down`);
   sh(`${AB} mouse move ${p.x + dx} ${p.y}`);
+  sh(`${AB} mouse up`);
+  return p;
+};
+
+/* the S grip's live read + point + drag (the e-grip grammar re-aimed at
+ * the horizontal separator — the t1003 extension's second axis) */
+const readS = `(() => { const s = document.querySelector('${S_SEL}'); const a = document.activeElement; return JSON.stringify({ live: !!s, now: s ? Number(s.getAttribute('aria-valuenow')) : null, text: s ? s.getAttribute('aria-valuetext') : null, max: s && s.getAttribute('aria-valuemax') !== null ? Number(s.getAttribute('aria-valuemax')) : null, focused: a === s }); })()`;
+const sGripPoint = `(() => { const s = document.querySelector('${S_SEL}'); if (!s) return JSON.stringify({ up: false }); const r = s.getBoundingClientRect(); const x = Math.round(r.x + r.width / 2); const y = Math.round(r.y + r.height / 2); const hit = document.elementFromPoint(x, y); return JSON.stringify({ up: true, x, y, own: !!hit && s.contains(hit) }); })()`;
+const dragSGripBy = async (dy) => {
+  const p = evalJson(sGripPoint);
+  if (!p || !p.up || !p.own) return null;
+  sh(`${AB} mouse move ${p.x} ${p.y}`);
+  sh(`${AB} mouse down`);
+  sh(`${AB} mouse move ${p.x} ${p.y + dy}`);
+  sh(`${AB} mouse up`);
+  return p;
+};
+
+/* the SE corner's point + drag (aria-hidden by design — the pointer
+ * road's own organ; the e/s separators carry the values it drives) */
+const seGripPoint = `(() => { const s = document.querySelector('${SE_SEL}'); if (!s) return JSON.stringify({ up: false }); const r = s.getBoundingClientRect(); const x = Math.round(r.x + r.width / 2); const y = Math.round(r.y + r.height / 2); const hit = document.elementFromPoint(x, y); return JSON.stringify({ up: true, x, y, own: !!hit && s.contains(hit) }); })()`;
+const dragSEGripBy = async (dx, dy) => {
+  const p = evalJson(seGripPoint);
+  if (!p || !p.up || !p.own) return null;
+  sh(`${AB} mouse move ${p.x} ${p.y}`);
+  sh(`${AB} mouse down`);
+  sh(`${AB} mouse move ${p.x + dx} ${p.y + dy}`);
   sh(`${AB} mouse up`);
   return p;
 };
@@ -143,6 +183,57 @@ ok("THE MID PARK ADDS NO WORD — the echo holds the ceiling's face, the valuete
   midEcho === `已到最大宽度（${W_CEIL} 像素）` && !!midRead && midRead.text === humanW(W_CEIL - 200),
   `echo="${midEcho}" text="${midRead?.text}"`);
 
+/* LEG 5b — THE S FLOOR (the height's wall speaks — the recorded-not-
+ * witnessed s axis, ridden live at last) */
+console.log("leg 5b: the s-axis floor drag (the height wall's word arrives)");
+const sOpen = await poll(readS, (v) => v.live === true && v.now !== null, 12, 500);
+ok("the S grip is live and its valuenow speaks", !!sOpen && sOpen.live === true, sOpen ? `now=${sOpen.now}` : "");
+const s0 = sOpen?.now;
+const H_CEIL = Math.max(vp.vh - 16, GEO_MIN_H);
+const sFloorDy = -(s0 - GEO_MIN_H) - 60; // one honest move PAST the height floor — the clamp eats it
+const sFloorDrag = await dragSGripBy(sFloorDy);
+ok("the s floor drag's real mouse path landed", !!sFloorDrag, `from=${sFloorDrag?.x},${sFloorDrag?.y} dy=${sFloorDy}`);
+const sFloorEcho = await poll(ECHO_SEL, (v) => v === `已到最小高度（${GEO_MIN_H} 像素）`, 12, 400);
+ok(`THE ECHO SPEAKS THE HEIGHT FLOOR — 已到最小高度（${GEO_MIN_H} 像素）in the live region`, sFloorEcho === `已到最小高度（${GEO_MIN_H} 像素）`, `echo="${sFloorEcho}"`);
+const sFloorRead = await poll(readS, (v) => v.live && v.now === GEO_MIN_H, 12, 400);
+ok("the height landed on the floor (420) and the S grip's own face AGREES (one mouth, second axis)",
+  !!sFloorRead && sFloorRead.now === GEO_MIN_H && sFloorRead.text === `已到最小高度（${GEO_MIN_H} 像素）`,
+  `now=${sFloorRead?.now} text="${sFloorRead?.text}"`);
+shot("t999-echo-s-floor.png");
+
+/* LEG 5c — THE S CEILING (the height's other wall) */
+console.log("leg 5c: the s-axis ceiling drag (the other height wall speaks)");
+const sCeilDy = H_CEIL - GEO_MIN_H + 60; // from the floor, one honest move PAST the height ceiling
+const sCeilDrag = await dragSGripBy(sCeilDy);
+ok("the s ceiling drag's real mouse path landed", !!sCeilDrag, `from=${sCeilDrag?.x},${sCeilDrag?.y} dy=${sCeilDy}`);
+const sCeilEcho = await poll(ECHO_SEL, (v) => v === `已到最大高度（${H_CEIL} 像素）`, 12, 400);
+ok(`THE ECHO SPEAKS THE HEIGHT CEILING — 已到最大高度（${H_CEIL} 像素）in the live region`, sCeilEcho === `已到最大高度（${H_CEIL} 像素）`, `echo="${sCeilEcho}"`);
+const sCeilRead = await poll(readS, (v) => v.live && v.now === H_CEIL, 12, 400);
+ok("the height MEETS the valuemax at the ceiling and the S grip's face AGREES",
+  !!sCeilRead && sCeilRead.now === H_CEIL && sCeilRead.max === H_CEIL && sCeilRead.text === `已到最大高度（${H_CEIL} 像素）`,
+  `now=${sCeilRead?.now} max=${sCeilRead?.max} text="${sCeilRead?.text}"`);
+shot("t999-echo-s-ceiling.png");
+
+/* LEG 5d — THE SE JOIN (the corner speaks BOTH walls in one breath —
+ * the mode gating's combined face: width first, the source's own comma) */
+console.log("leg 5d: the se corner dragged past BOTH walls (the join's combined face)");
+const seDrag = await dragSEGripBy(
+  -(midRead.now - GEO_MIN_W) - 60, // width: from leg 5's mid park, PAST the floor
+  -(H_CEIL - GEO_MIN_H) - 60,      // height: from leg 5c's ceiling, PAST the floor
+);
+ok("the se corner drag's real mouse path landed", !!seDrag, `from=${seDrag?.x},${seDrag?.y}`);
+const JOIN_FACE = `已到最小宽度（${GEO_MIN_W} 像素），已到最小高度（${GEO_MIN_H} 像素）`;
+const joinEcho = await poll(ECHO_SEL, (v) => v === JOIN_FACE, 12, 400);
+ok("THE SE JOIN SPEAKS BOTH WALLS IN ONE BREATH — width，height (the mode gating's combined face, the source's word order)",
+  joinEcho === JOIN_FACE, `echo="${joinEcho}"`);
+const joinW = await poll(readE, (v) => v.live && v.now === GEO_MIN_W, 12, 400);
+const joinH = await poll(readS, (v) => v.live && v.now === GEO_MIN_H, 12, 400);
+ok("both grips' values stand at the floor corner and BOTH faces agree (the corner drove two separators)",
+  !!joinW && joinW.now === GEO_MIN_W && joinW.text === `已到最小宽度（${GEO_MIN_W} 像素）` &&
+  !!joinH && joinH.now === GEO_MIN_H && joinH.text === `已到最小高度（${GEO_MIN_H} 像素）`,
+  `w=${joinW?.now} h=${joinH?.now}`);
+shot("t999-echo-se-join.png");
+
 /* LEG 6 — the leave-no-trace close */
 console.log("leg 6: the leave-no-trace close (the echo rests, the shape is erased)");
 evalJs(geoBefore?.raw
@@ -180,13 +271,16 @@ shot("t999-world-restored.png");
 finish({
   instrument: "t999-pointer-wall-echo-walk",
   born: "2026-10-15",
-  contract: "the pointer road's wall echo witnessed live — the floor and ceiling drags speak the builders' words through the live region, the mid park adds no word, the grip's valuetext agrees at every park (one mouth), the stored geometry restored verbatim",
+  contract: "the pointer road's wall echo witnessed live on EVERY axis — the width and height floors and ceilings speak the builders' words through the live region, the se corner dragged past both walls speaks the JOIN in one breath (width，height), the mid park adds no word, every grip's valuetext agrees at every park (one mouth, three grips), the stored geometry restored verbatim",
   legs: {
     viewport: vp ?? null,
     asFoundWidth: w0 ?? null,
     floor: { echo: floorEcho ?? null, now: floorRead?.now ?? null, agreed: floorRead?.text === `已到最小宽度（${GEO_MIN_W} 像素）` },
     ceiling: { echo: ceilEcho ?? null, now: ceilRead?.now ?? null, max: ceilRead?.max ?? null, agreed: ceilRead?.text === `已到最大宽度（${W_CEIL} 像素）` },
     midPark: { echoUnchanged: midEcho === `已到最大宽度（${W_CEIL} 像素）`, text: midRead?.text ?? null },
+    sFloor: { echo: sFloorEcho ?? null, now: sFloorRead?.now ?? null, agreed: sFloorRead?.text === `已到最小高度（${GEO_MIN_H} 像素）` },
+    sCeiling: { echo: sCeilEcho ?? null, now: sCeilRead?.now ?? null, max: sCeilRead?.max ?? null, agreed: sCeilRead?.text === `已到最大高度（${H_CEIL} 像素）` },
+    seJoin: { echo: joinEcho ?? null, w: joinW?.now ?? null, h: joinH?.now ?? null, joined: joinEcho === JOIN_FACE },
     storedEcho: { asFound: geoBefore?.raw ?? null, asLeft: rawAfter?.raw ?? null, restored: rawAfter?.raw === (geoBefore?.raw ?? null) },
     worldRestored: fp6 === fp0,
   },

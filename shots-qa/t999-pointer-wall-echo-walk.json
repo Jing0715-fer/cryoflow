@@ -1,13 +1,13 @@
 {
   "walk": "t999-pointer-wall-echo-walk",
-  "at": "2026-10-15T00:55:59.944Z",
-  "pass": 20,
+  "at": "2026-10-15T01:05:07.624Z",
+  "pass": 30,
   "fail": 0,
   "phaseTrace": [],
   "results": [],
   "instrument": "t999-pointer-wall-echo-walk",
   "born": "2026-10-15",
-  "contract": "the pointer road's wall echo witnessed live — the floor and ceiling drags speak the builders' words through the live region, the mid park adds no word, the grip's valuetext agrees at every park (one mouth), the stored geometry restored verbatim",
+  "contract": "the pointer road's wall echo witnessed live on EVERY axis — the width and height floors and ceilings speak the builders' words through the live region, the se corner dragged past both walls speaks the JOIN in one breath (width，height), the mid park adds no word, every grip's valuetext agrees at every park (one mouth, three grips), the stored geometry restored verbatim",
   "legs": {
     "viewport": {
       "vw": 1440,
@@ -28,6 +28,23 @@
     "midPark": {
       "echoUnchanged": true,
       "text": "宽度 1224 像素"
+    },
+    "sFloor": {
+      "echo": "已到最小高度（420 像素）",
+      "now": 420,
+      "agreed": true
+    },
+    "sCeiling": {
+      "echo": "已到最大高度（884 像素）",
+      "now": 884,
+      "max": 884,
+      "agreed": true
+    },
+    "seJoin": {
+      "echo": "已到最小宽度（360 像素），已到最小高度（420 像素）",
+      "w": 360,
+      "h": 420,
+      "joined": true
     },
     "storedEcho": {
       "asFound": null,
