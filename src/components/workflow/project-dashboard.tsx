@@ -41,6 +41,7 @@ import {
   TriangleAlert,
   Workflow,
   Filter,
+  Gauge,
   Mountain,
   Info,
   X,
@@ -77,6 +78,7 @@ import { criticalPath } from "@/lib/critical-path"; // t686 — the walk the len
 // ordering, one chip brain); only the trigger dialect differs.
 import { SiblingComparePicker } from "./sibling-compare-picker";
 import { NewProjectDialog } from "./project-panel";
+import { PaceDialog } from "./pace-dialog"; // t1009 — the pipeline-pace face
 import {
   Select,
   SelectContent,
@@ -401,6 +403,7 @@ function DashboardProjectCard({
   isPending,
   onlyProject,
   onOpen,
+  onRequestPace,
   onRequestDelete,
   onRequestDuplicate,
   duplicating,
@@ -410,6 +413,7 @@ function DashboardProjectCard({
   isPending: boolean;
   onlyProject: boolean;
   onOpen: () => void;
+  onRequestPace: () => void;
   onRequestDelete: () => void;
   onRequestDuplicate: () => void;
   duplicating: boolean;
@@ -648,6 +652,16 @@ function DashboardProjectCard({
         </Button>
         {!editing && (
           <div className="flex items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 hover-none:opacity-100">
+            <Button
+              variant="outline"
+              size="icon"
+              className="size-8 text-muted-foreground hover:text-foreground"
+              onClick={onRequestPace}
+              aria-label={`Pipeline pace — ${project.name}`}
+              title="Pipeline pace — how fast this pipeline runs (per-stage durations, wall time, the stage table)"
+            >
+              <Gauge className="size-3.5" />
+            </Button>
             <Button
               variant="outline"
               size="icon"
@@ -2795,6 +2809,8 @@ export function ProjectDashboard() {
   const [createOpen, setCreateOpen] = React.useState(false);
   const [deleteTarget, setDeleteTarget] = React.useState<ProjectCard | null>(  null);
   const [deleting, setDeleting] = React.useState(false);
+  // t1009 — the pipeline-pace face's target (the card gauge button's door)
+  const [paceTarget, setPaceTarget] = React.useState<{ id: string; name: string } | null>(null);
   const [pendingSwitch, setPendingSwitch] = React.useState<string | null>(null);
   const [query, setQuery] = React.useState("");
   // t635 — the job lens rides under this input (Escape blurs through it)
@@ -3520,6 +3536,7 @@ export function ProjectDashboard() {
                   isPending={pendingSwitch === p.id}
                   onlyProject={onlyProject}
                   onOpen={() => openProject(p)}
+                  onRequestPace={() => setPaceTarget({ id: p.id, name: p.name })}
                   onRequestDelete={() => setDeleteTarget(p)}
                   onRequestDuplicate={() => void requestDuplicate(p.id)}
                   duplicating={duplicatingId !== null}
@@ -3542,6 +3559,14 @@ export function ProjectDashboard() {
 
       {/* dialogs */}
       <NewProjectDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <PaceDialog
+        open={paceTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setPaceTarget(null);
+        }}
+        projectId={paceTarget?.id ?? null}
+        projectName={paceTarget?.name ?? null}
+      />
       <AlertDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => {

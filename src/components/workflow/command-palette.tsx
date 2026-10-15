@@ -72,6 +72,7 @@ import {
   RefreshCcw,
   FolderOpen,
   Github,
+  Gauge,
 } from "lucide-react";
 import {
   CommandDialog,
@@ -114,6 +115,7 @@ import {
 } from "@/lib/workflow-io";
 import { TypeIcon } from "./icons";
 import { PipelineScriptDialog } from "./pipeline-script-dialog";
+import { PaceDialog } from "./pace-dialog"; // t1009 — the pipeline-pace face
 
 /** t483: exported — the help guide's finding chapter names the palette,
  *  and a named door must open: the guide dispatches this, the palette's
@@ -378,6 +380,8 @@ export function CommandPalette() {
   // selecting the row closes the palette first, then opens the dialog (the
   // exportJson/native-picker pattern: one modal at a time, no nesting).
   const [pipelineOpen, setPipelineOpen] = React.useState(false);
+  // t1009 — the pace face rides the same close-then-open handshake
+  const [paceOpen, setPaceOpen] = React.useState(false);
   const { resolvedTheme, setTheme } = useTheme();
 
   // t781 — the promise strip: what Enter WILL do, recited under the list.
@@ -2102,6 +2106,24 @@ export function CommandPalette() {
             </span>
           </CommandItem>
           <CommandItem
+            value="pipeline pace duration analytics how long stage timings wall time speed"
+            data-preview-label="Pipeline pace"
+            data-preview-hint="per-stage durations, wall time, the stage table"
+            onSelect={() => {
+              close(); // the dialog is the next modal — drop the palette first
+              setPaceOpen(true);
+            }}
+            className="gap-2.5"
+          >
+            <Gauge className="size-4 shrink-0" />
+            <span className="flex-1 text-sm">
+              Pipeline pace
+              <span className="ml-1.5 text-[10px] text-muted-foreground">
+                how fast this pipeline runs · per-stage durations · wall time
+              </span>
+            </span>
+          </CommandItem>
+          <CommandItem
             value="import workflow json file load graph"
             data-preview-label="Import workflow from JSON…"
             data-preview-hint="pick a file and recreate its graph below existing content"
@@ -2275,6 +2297,12 @@ export function CommandPalette() {
         Mounted here so the row's close-then-open handshake keeps one modal
         alive at a time. */}
     <PipelineScriptDialog open={pipelineOpen} onOpenChange={setPipelineOpen} />
+    <PaceDialog
+      open={paceOpen}
+      onOpenChange={setPaceOpen}
+      projectId={project?.id ?? null}
+      projectName={project?.name ?? null}
+    />
     </>
   );
 }
