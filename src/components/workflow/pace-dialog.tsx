@@ -52,7 +52,12 @@ import {
 import { ChartExportButtons } from "@/components/workflow/results/chart-export-buttons";
 import { fetchJsonRetry } from "@/lib/retry-fetch";
 import { computePace } from "@/lib/pace";
-import { criticalPath, type CriticalEdge } from "@/lib/critical-path";
+import {
+  criticalPath,
+  summarizeCritical,
+  type CriticalEdge,
+  type CriticalPathSummary,
+} from "@/lib/critical-path";
 import { walkTimeline } from "@/lib/timeline-walk";
 import { Gauge, Loader2, Route, TriangleAlert } from "lucide-react";
 import { formatElapsed } from "@/lib/elapsed";
@@ -96,6 +101,10 @@ type PaceResponse = {
   stages: PaceStage[];
   rows: PaceRow[];
   failed: { id: string; name: string; type: string }[];
+  /** t1017 — the project's critical chain, walked server-side by the
+   *  same libs the selection memo runs client-side (one shape, one
+   *  truth — CriticalPathSummary). null = no wired chain to speak of. */
+  critical: CriticalPathSummary | null;
 };
 
 export function PaceDialog({
@@ -128,10 +137,12 @@ export function PaceDialog({
   React.useEffect(() => setMounted(true), []);
 
   // the local well — recompute when the open flips or the selection moves
+  // (critical: null here — the selection's own chain lives in the memo,
+  // the two never double-speak)
   React.useEffect(() => {
     if (!open || !jobs) return;
     setError(false);
-    setData({ projectId: "", ...computePace(jobs) });
+    setData({ projectId: "", critical: null, ...computePace(jobs) });
   }, [open, jobs]);
 
   React.useEffect(() => {
@@ -161,15 +172,23 @@ export function PaceDialog({
   // window and is walked past, never invented). The walk reads the
   // caller's own wires, so the chain can never disagree with the canvas
   // about what connects to what. A single step is not a chain.
+  // t1017 — the projection is the SAME summarizeCritical the route
+  // ships, so both transports hand the band one shape.
   const subchain = React.useMemo(() => {
     if (!open || !jobs || !edges || edges.length === 0) return null;
     const walk = walkTimeline(jobs, Date.now());
     if (walk.rows.length === 0) return null;
     const crit = criticalPath(walk.rows, edges);
-    return crit && crit.chain.length >= 2 ? crit : null;
+    return crit && crit.chain.length >= 2 ? summarizeCritical(crit) : null;
   }, [open, jobs, edges]);
-  const subchainRunning =
-    subchain?.chain[subchain.chain.length - 1]?.job.status === "running";
+  // t1017 — the two transports, one band: the selection memo (the
+  // canvas door) or the route's server-side walk (the project and
+  // palette doors). The scope word differs with the door; the walk,
+  // the projection and the gate do not.
+  const chainWalk = subchain ?? data?.critical ?? null;
+  const chainIsSelection = subchain != null;
+  const chainFinisher = chainWalk?.chain[chainWalk.chain.length - 1] ?? null;
+  const subchainRunning = chainFinisher?.status === "running";
 
   const maxStage = data?.stages.reduce((max, s) => Math.max(max, s.maxMs), 0) ?? 0;
   const hasFaces = (data?.totals.completed ?? 0) + (data?.totals.failed ?? 0) > 0;
@@ -261,47 +280,50 @@ export function PaceDialog({
                 ) : null}
               </div>
 
-              {/* the subchain band — the critical chain WITHIN the selection
-                  (t1016): only when the caller armed it with wires and the
-                  walk found a real dependency chain. The scope is confessed
-                  in the words (the t687 law), the numbers are printed (the
-                  picture never carries the fact alone), and a live finisher
-                  confesses its open window. */}
-              {subchain ? (
+              {/* the critical-chain band — the t1016 selection arm and the
+                  t1017 project arm speak through ONE renderer: only when a
+                  transport armed it with a real wired chain (the ≥2 gate at
+                  both ends). The scope is confessed in the words (the t687
+                  law), the numbers are printed (the picture never carries
+                  the fact alone), and a live finisher confesses its open
+                  window. */}
+              {chainWalk && chainFinisher ? (
                 <div
                   className="rounded-lg border border-primary/25 bg-primary/[0.04] p-2.5"
                   data-canvas-ui="pipeline-pace-critical"
-                  data-critical-steps={subchain.chain.length}
-                  data-critical-span={subchain.spanMs}
-                  data-critical-busy={subchain.busyMs}
-                  data-critical-finisher={subchain.chain[subchain.chain.length - 1].job.id}
+                  data-critical-steps={chainWalk.chain.length}
+                  data-critical-span={chainWalk.spanMs}
+                  data-critical-busy={chainWalk.busyMs}
+                  data-critical-finisher={chainFinisher.id}
                 >
                   <p className="flex flex-wrap items-center gap-1.5 text-[11px] font-medium text-foreground/90">
                     <Route className="size-3.5 shrink-0 text-primary" aria-hidden="true" />
-                    Critical chain within the selection
+                    {chainIsSelection
+                      ? "Critical chain within the selection"
+                      : "Critical chain of this project"}
                     <span className="font-normal text-muted-foreground">
-                      · {subchain.chain.length} step{subchain.chain.length === 1 ? "" : "s"} ·{" "}
-                      {formatElapsed(subchain.spanMs)} span
+                      · {chainWalk.chain.length} step{chainWalk.chain.length === 1 ? "" : "s"} ·{" "}
+                      {formatElapsed(chainWalk.spanMs)} span
                     </span>
                     <span
                       className="ml-auto rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[9.5px] font-semibold text-primary"
-                      title={`The selection's finish was set by ${
-                        subchain.chain[subchain.chain.length - 1].job.name
-                      } — every step here is a dependency it (transitively) waited on`}
+                      title={`The ${
+                        chainIsSelection ? "selection's" : "project's"
+                      } finish was set by ${chainFinisher.name} — every step here is a dependency it (transitively) waited on`}
                     >
-                      ends with: {subchain.chain[subchain.chain.length - 1].job.name}
+                      ends with: {chainFinisher.name}
                     </span>
                   </p>
                   <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
-                    the chain the selection&apos;s finish actually waited on · ran{" "}
-                    {formatElapsed(subchain.busyMs)}
-                    {subchain.gapMs > 0
-                      ? ` + waited ${formatElapsed(subchain.gapMs)}`
-                      : subchain.gapMs < 0
-                        ? ` \u2212 overlapped ${formatElapsed(-subchain.gapMs)}`
+                    the chain the {chainIsSelection ? "selection's" : "project's"} finish actually
+                    waited on · ran {formatElapsed(chainWalk.busyMs)}
+                    {chainWalk.gapMs > 0
+                      ? ` + waited ${formatElapsed(chainWalk.gapMs)}`
+                      : chainWalk.gapMs < 0
+                        ? ` \u2212 overlapped ${formatElapsed(-chainWalk.gapMs)}`
                         : " + waited 0s"}
                     {" = "}
-                    {formatElapsed(subchain.spanMs)} span
+                    {formatElapsed(chainWalk.spanMs)} span
                     {subchainRunning
                       ? " — the finisher is still running, its window stretches to now"
                       : ""}

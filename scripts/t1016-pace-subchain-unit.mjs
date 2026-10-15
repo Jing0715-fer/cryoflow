@@ -22,13 +22,21 @@
  *      edges ignored, the single-step world
  *   L  the LIFTED oracle (the product's own libs via jiti): the walk's
  *      windows match the mirror's numbers on the same fixtures —
- *      never-started dropped, running stretched, span/busy/gap exact
+ *      never-started dropped, running stretched, span/busy/gap exact;
+ *      the summarizeCritical projection (t1017) preserves the walk's
+ *      numbers and names verbatim
  *   D  the dialog at source: the edges prop, the unarmed-doors gate,
  *      the honest-windows call (walkTimeline, not raw duration), the
- *      ≥2 chain gate, the band's data hooks, the scope confession, the
+ *      ≥2 chain gate, the band's data hooks, the scope confession (the
+ *      selection's word AND the project's word — the t687 law), the
  *      printed numbers, the live-finisher confession, the ends-with
- *      chip's honest title, and the OTHER two doors unchanged (no
- *      edges prop at the project/palette mounts)
+ *      chip's honest title, the TWO-TRANSPORTS merge (the memo or the
+ *      route's chain — one band), the local well's critical:null (the
+ *      two never double-speak), and the canvas door's wire pass-through
+ *   R  the ROUTE at source (t1017 — the project arm): the same libs
+ *      (walkTimeline + criticalPath + summarizeCritical), the
+ *      project-scoped edges query, the same ≥2 gate, the response
+ *      shipping `critical`, still FS-FREE
  *   C  the canvas at source: internalWires (both-endpoints filter) is
  *      what rides — the same wires the save dialog counts, one memo,
  *      one truth
@@ -43,7 +51,7 @@
 import { readFileSync, writeFileSync, mkdirSync, unlinkSync } from "node:fs";
 import path from "node:path";
 
-import { criticalPath } from "@/lib/critical-path";
+import { criticalPath, summarizeCritical } from "@/lib/critical-path";
 import { walkTimeline } from "@/lib/timeline-walk";
 
 const ROOT = process.cwd();
@@ -191,6 +199,18 @@ ok("L5 a live finisher stretches to now",
   lLive.chain[1].job.id === "l2" && lLive.chain[1].end >= nowProbe,
   "the window's open end pinned at the reading's now");
 
+// t1017 — the projection: one shape both transports speak
+const lSummary = summarizeCritical(lWalk);
+ok("L6 summarizeCritical preserves the walk verbatim",
+  lSummary.spanMs === lWalk.spanMs && lSummary.busyMs === lWalk.busyMs &&
+  lSummary.gapMs === lWalk.gapMs &&
+  lSummary.chain.map((s) => s.id).join(",") === lWalk.chain.map((s) => s.job.id).join(",") &&
+  lSummary.chain.map((s) => s.name).join("|") === lWalk.chain.map((s) => s.job.name).join("|") &&
+  lSummary.chain.every((s, i) => s.status === lWalk.chain[i].job.status &&
+    s.start === lWalk.chain[i].start && s.end === lWalk.chain[i].end &&
+    s.ms === lWalk.chain[i].ms && s.gapBeforeMs === lWalk.chain[i].gapBeforeMs),
+  "span/busy/gap + every step's id, name, status, window, gap — no drift");
+
 /* ---------- D band — the dialog at source ---------- */
 console.log("D band — the dialog's subchain arm at source:");
 const dlg = readFileSync(path.join(ROOT, "src/components/workflow/pace-dialog.tsx"), "utf8");
@@ -203,42 +223,62 @@ ok("D3 the honest windows, not raw duration",
   dlg.includes("const walk = walkTimeline(jobs, Date.now())"));
 ok("D4 the walk reads the caller's own wires",
   dlg.includes("criticalPath(walk.rows, edges)"));
-ok("D5 a single step is not a chain (the ≥2 gate)",
-  /crit && crit\.chain\.length >= 2 \? crit : null/.test(dlg));
+ok("D5 a single step is not a chain (the ≥2 gate, projected)",
+  /crit && crit\.chain\.length >= 2 \? summarizeCritical\(crit\) : null/.test(dlg));
 ok("D6 the band's data hooks",
   dlg.includes('data-canvas-ui="pipeline-pace-critical"') &&
-  dlg.includes("data-critical-steps={subchain.chain.length}") &&
-  dlg.includes("data-critical-span={subchain.spanMs}") &&
-  dlg.includes("data-critical-busy={subchain.busyMs}") &&
-  dlg.includes("data-critical-finisher={subchain.chain[subchain.chain.length - 1].job.id}"));
-ok("D7 the scope confession (the t687 law)",
+  dlg.includes("data-critical-steps={chainWalk.chain.length}") &&
+  dlg.includes("data-critical-span={chainWalk.spanMs}") &&
+  dlg.includes("data-critical-busy={chainWalk.busyMs}") &&
+  dlg.includes("data-critical-finisher={chainFinisher.id}"));
+ok("D7 the scope confession — the selection's word",
   dlg.includes("Critical chain within the selection"));
 ok("D8 the numbers are printed (the picture never carries the fact alone)",
-  dlg.includes("formatElapsed(subchain.spanMs)") &&
-  dlg.includes("formatElapsed(subchain.busyMs)"));
+  dlg.includes("formatElapsed(chainWalk.spanMs)") &&
+  dlg.includes("formatElapsed(chainWalk.busyMs)"));
 ok("D9 the gap words: waited / overlapped / zero",
-  dlg.includes("+ waited ${formatElapsed(subchain.gapMs)}") &&
-  dlg.includes("overlapped ${formatElapsed(-subchain.gapMs)}") &&
+  dlg.includes("+ waited ${formatElapsed(chainWalk.gapMs)}") &&
+  dlg.includes("overlapped ${formatElapsed(-chainWalk.gapMs)}") &&
   dlg.includes("+ waited 0s"));
 ok("D10 a live finisher confesses its open window",
   dlg.includes("still running, its window stretches to now"));
 ok("D11 the ends-with chip carries the honest title",
-  dlg.includes("ends with: {subchain.chain[subchain.chain.length - 1].job.name}") &&
+  dlg.includes("ends with: {chainFinisher.name}") &&
   dlg.includes("every step here is a dependency it (transitively) waited on"));
-ok("D12 the project door passes NO edges (its face unchanged)",
+ok("D12 the project door passes NO edges prop (the arm rides the transport)",
   (() => {
     const dash = readFileSync(path.join(ROOT, "src/components/workflow/project-dashboard.tsx"), "utf8");
     const at = dash.indexOf("<PaceDialog");
     const mount = dash.slice(at, dash.indexOf("/>", at));
     return !mount.includes("edges=");
   })());
-ok("D13 the palette door passes NO edges (its face unchanged)",
+ok("D13 the palette door passes NO edges prop (the arm rides the transport)",
   (() => {
     const pal = readFileSync(path.join(ROOT, "src/components/workflow/command-palette.tsx"), "utf8");
     const at = pal.indexOf("<PaceDialog");
     const mount = pal.slice(at, pal.indexOf("/>", at));
     return !mount.includes("edges=");
   })());
+ok("D14 the two transports, one band (the memo or the route's chain)",
+  dlg.includes("const chainWalk = subchain ?? data?.critical ?? null;"));
+ok("D15 the project scope word (the t687 law for the fetch doors)",
+  dlg.includes('"Critical chain of this project"'));
+ok("D16 the local well ships critical:null — the two never double-speak",
+  dlg.includes("setData({ projectId: \"\", critical: null, ...computePace(jobs) });"));
+
+/* ---------- R band — the route at source (t1017, the project arm) ---------- */
+console.log("R band — the project's server-side walk at source:");
+const route = readFileSync(path.join(ROOT, "src/app/api/projects/[id]/pace/route.ts"), "utf8");
+ok("R1 the route rides the SAME libs (one law, two transports)",
+  route.includes('walkTimeline') && route.includes('criticalPath') && route.includes('summarizeCritical'));
+ok("R2 the edges query is project-scoped",
+  route.includes("db.edge.findMany") && route.includes("where: { projectId: id }"));
+ok("R3 the same ≥2 gate at the route (a single step is not a chain)",
+  /crit && crit\.chain\.length >= 2 \? summarizeCritical\(crit\) : null/.test(route));
+ok("R4 the response ships `critical`",
+  route.includes("{ projectId: id, ...face, critical }"));
+ok("R5 still FS-FREE (the walk reads clocks + edges, never a workdir)",
+  !route.includes("readFileSync") && !route.includes("readdirSync"));
 
 /* ---------- C band — the canvas wire pass-through ---------- */
 console.log("C band — the canvas's wires at source:");
@@ -263,6 +303,6 @@ writeFileSync(TMP, JSON.stringify({
   unit: "t1016-pace-subchain-unit",
   verdict, pass, fail,
   at: new Date().toISOString(),
-  bands: ["M mirror", "L lifted oracle", "D dialog at source", "C canvas wires", "T tally law"],
+  bands: ["M mirror", "L lifted oracle + projection", "D dialog at source", "R route at source", "C canvas wires", "T tally law"],
 }, null, 2));
 process.exit(fail === 0 ? 0 : 1);
