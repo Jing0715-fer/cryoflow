@@ -8,9 +8,8 @@
  * itself:
  *
  *   leg 0  the as-found honesty (the API is the judge): ONE workspace
- *          ("Main"), FIFTEEN jobs (the t1002 adoption re-key: this
- *          sandbox's world is the fork line's fresh resurrected demo
- *          chain — the main lane's minted faces are not in it), the
+ *          ("Main"), TWENTY-TWO jobs (the standing fleet, the t1003
+ *          restoration — 15 demo + seven standing faces), the
  *          fingerprint banked;
  *   leg 2  the resting plane — the Workspaces tab opens, the rename
  *          door stands, and the CURED delete door speaks its refusal in
@@ -83,7 +82,7 @@ await serverFirst();
 console.log("leg 0: the as-found world");
 const jobs0 = await readJobs();
 const arr0 = jobsArr(jobs0 ?? {});
-ok("the as-found world carries FIFTEEN jobs (the t1002 adoption re-key — the fork line's fresh chain)", arr0.length === 15, `rows=${arr0.length}`);
+ok("the as-found world carries TWENTY-TWO jobs (the standing fleet, the t1003 restoration)", arr0.length === 22, `rows=${arr0.length}`);
 const fp0 = fingerprint(arr0);
 ok("the fingerprint banked (non-empty)", fp0.length > 0, `chars=${fp0.length}`);
 let ws0 = null;

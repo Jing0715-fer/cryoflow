@@ -1,29 +1,29 @@
 {
   "walk": "t1000-sub8s-probe",
-  "at": "2026-10-14T20:51:04.193Z",
+  "at": "2026-10-15T00:57:18.636Z",
   "pass": 37,
   "fail": 0,
   "phaseTrace": [
     "ready i0: {\"up\":true,\"tryAgain\":false,\"msg\":null,\"loading\":true,\"refresh\":true}",
-    "vigil i0: pop={\"up\":true,\"tryAgain\":false,\"msg\":null,\"loading\":false,\"refresh\":true} ctx={\"marker\":true,\"born\":1792011003338,\"nav\":1792011000861.6}",
-    "vigil i1: pop={\"up\":true,\"tryAgain\":false,\"msg\":null,\"loading\":false,\"refresh\":true} ctx={\"marker\":true,\"born\":1792011003338,\"nav\":1792011000861.6}",
-    "vigil i2: pop={\"up\":true,\"tryAgain\":false,\"msg\":null,\"loading\":false,\"refresh\":true} ctx={\"marker\":true,\"born\":1792011003338,\"nav\":1792011000861.6}",
+    "vigil i0: pop={\"up\":true,\"tryAgain\":false,\"msg\":null,\"loading\":false,\"refresh\":true} ctx={\"marker\":true,\"born\":1792025786301,\"nav\":1792025784154}",
+    "vigil i1: pop={\"up\":true,\"tryAgain\":false,\"msg\":null,\"loading\":false,\"refresh\":true} ctx={\"marker\":true,\"born\":1792025786301,\"nav\":1792025784154}",
+    "vigil i2: pop={\"up\":true,\"tryAgain\":false,\"msg\":null,\"loading\":false,\"refresh\":true} ctx={\"marker\":true,\"born\":1792025786301,\"nav\":1792025784154}",
     "error i0: {\"up\":true,\"tryAgain\":true,\"msg\":\"Failed to fetch\",\"loading\":false,\"refresh\":true}",
-    "outage: ctx={\"marker\":true,\"born\":1792011003338,\"nav\":1792011000861.6} pop={\"up\":true,\"tryAgain\":true,\"msg\":\"Failed to fetch\",\"loading\":false,\"refresh\":true}",
+    "outage: ctx={\"marker\":true,\"born\":1792025786301,\"nav\":1792025784154} pop={\"up\":true,\"tryAgain\":true,\"msg\":\"Failed to fetch\",\"loading\":false,\"refresh\":true}",
     "respawn i0: 000",
-    "race i0: {\"up\":false,\"marker\":false,\"nav\":1792011035967.6}",
+    "race i0: {\"up\":false,\"marker\":false,\"nav\":1792025816265.3}",
     "reopened-ready i0: {\"up\":true,\"tryAgain\":false,\"msg\":null,\"loading\":true,\"refresh\":true}",
     "refresh-held i0: {\"up\":true,\"tryAgain\":false,\"msg\":null,\"loading\":true,\"refresh\":true}"
   ],
   "results": [],
   "face": "Rounds Face (t989)",
   "outcome": "reload",
-  "navAtBirth": 1792011000861.6,
+  "navAtBirth": 1792025784154,
   "firstRaceSample": {
     "up": false,
     "marker": false,
-    "nav": 1792011035967.6
+    "nav": 1792025816265.3
   },
-  "asFound": "cmv79wd4h0002usbu2beh3hqb:completed:Import Movies 1|cmv79wd4j0004usbuf237mvpn:completed:Motion Correction 1|cmv79wd4k0006usbulj5k28q5:completed:CTF Estimation 1|cmv79wlwe000cusbu55kabfky:completed:Auto-pick (tutorial)|cmv79wlx4000eusbug1yy52l5:completed:Extract (tutorial)|cmv79wlxs000gusbulpq820bh:completed:2D Classification (tutorial)|cmv79wlz9000iusbu6xeqy5kr:completed:Select 2D (tutorial)|cmv79wlzo000kusbuhsukogr9:completed:Select (tutorial)|cmv79wm09000musbuoqj2p79m:completed:Initial Model (tutorial)|cmv79wm0q000ousbu9b7aqgfn:completed:3D Classification (tutorial)|cmv79wm2e000qusbu6qkmnkyh:completed:Symmetry Expansion (tutorial)|cmv79wm3a000susbuuulgqjgo:completed:Rebalance (tutorial)|cmv79wm3z000uusbutpdpbijl:completed:3D Refine (tutorial)|cmv79wm5i000wusbupq3gik6p:completed:Mask Create (tutorial)|cmv79wm66000yusbuf7z7bdlx:completed:Post-process (tutorial)|cmv7v7vx60001usbuainibtkp:failed:Failed Diagnosis Face (t970)|cmv85jpc00003us69xca0eynf:idle:Idle Shape Face (t987)|cmv863x9a0001usvbkt5ky1k0:idle:Continue Face (t988)|cmv86xfmq0001usha0t85mcfb:idle:Rounds Face (t989)|cmv8d94qz0003usejjctoakby:failed:Cancelled Diagnosis Face (t976)|cmv8d99wo0005usej4fu8ba4c:failed:Negative Diagnosis Face (t972)|cmv8eppo50001uszvjq1pwe01:failed:Custom Error Face (t995)",
-  "asLeft": "cmv79wd4h0002usbu2beh3hqb:completed:Import Movies 1|cmv79wd4j0004usbuf237mvpn:completed:Motion Correction 1|cmv79wd4k0006usbulj5k28q5:completed:CTF Estimation 1|cmv79wlwe000cusbu55kabfky:completed:Auto-pick (tutorial)|cmv79wlx4000eusbug1yy52l5:completed:Extract (tutorial)|cmv79wlxs000gusbulpq820bh:completed:2D Classification (tutorial)|cmv79wlz9000iusbu6xeqy5kr:completed:Select 2D (tutorial)|cmv79wlzo000kusbuhsukogr9:completed:Select (tutorial)|cmv79wm09000musbuoqj2p79m:completed:Initial Model (tutorial)|cmv79wm0q000ousbu9b7aqgfn:completed:3D Classification (tutorial)|cmv79wm2e000qusbu6qkmnkyh:completed:Symmetry Expansion (tutorial)|cmv79wm3a000susbuuulgqjgo:completed:Rebalance (tutorial)|cmv79wm3z000uusbutpdpbijl:completed:3D Refine (tutorial)|cmv79wm5i000wusbupq3gik6p:completed:Mask Create (tutorial)|cmv79wm66000yusbuf7z7bdlx:completed:Post-process (tutorial)|cmv7v7vx60001usbuainibtkp:failed:Failed Diagnosis Face (t970)|cmv85jpc00003us69xca0eynf:idle:Idle Shape Face (t987)|cmv863x9a0001usvbkt5ky1k0:idle:Continue Face (t988)|cmv86xfmq0001usha0t85mcfb:idle:Rounds Face (t989)|cmv8d94qz0003usejjctoakby:failed:Cancelled Diagnosis Face (t976)|cmv8d99wo0005usej4fu8ba4c:failed:Negative Diagnosis Face (t972)|cmv8eppo50001uszvjq1pwe01:failed:Custom Error Face (t995)"
+  "asFound": "cmv8nhqxq0002sy89j4c0llxu:completed:Import Movies 1|cmv8nhqxs0004sy89u8j518d2:completed:Motion Correction 1|cmv8nhqxu0006sy89h0j3lsc6:completed:CTF Estimation 1|cmv8ogdr2000csy89uu7kgomt:completed:Auto-pick (tutorial)|cmv8ogdrg000esy89xjl65ds4:completed:Extract (tutorial)|cmv8ogdrt000gsy89s3sx6n0r:completed:2D Classification (tutorial)|cmv8ogdsf000isy89efijdruw:completed:Select 2D (tutorial)|cmv8ogdss000ksy89da5cs7gs:completed:Select (tutorial)|cmv8ogdtt000msy894hlcu1kk:completed:Initial Model (tutorial)|cmv8ogdu4000osy891dgvx5iy:completed:3D Classification (tutorial)|cmv8ogduf000qsy89hy4qjyia:completed:Symmetry Expansion (tutorial)|cmv8ogdur000ssy89dr1luh4j:completed:Rebalance (tutorial)|cmv8ogdv2000usy89pd12v096:completed:3D Refine (tutorial)|cmv8ogdvb000wsy89ovn1cqm7:completed:Mask Create (tutorial)|cmv8ogdvk000ysy8969rydbc5:completed:Post-process (tutorial)|cmv8td2e20001syivxkk6b3q5:failed:Failed Diagnosis Face (t970)|cmv8tdc8r0007syivown80yks:idle:Idle Shape Face (t987)|cmv8tdcfa0009syivbofi7cwd:idle:Continue Face (t988)|cmv8tdcmp000bsyiv2xswjxwf:idle:Rounds Face (t989)|cmv8tddul000dsyiv41pngsmq:failed:Custom Error Face (t995)|cmv8tsj2p0001syf96god3ti2:failed:Negative Diagnosis Face (t972)|cmv8tsjdk0003syf9jo2d2gyv:failed:Cancelled Diagnosis Face (t976)",
+  "asLeft": "cmv8nhqxq0002sy89j4c0llxu:completed:Import Movies 1|cmv8nhqxs0004sy89u8j518d2:completed:Motion Correction 1|cmv8nhqxu0006sy89h0j3lsc6:completed:CTF Estimation 1|cmv8ogdr2000csy89uu7kgomt:completed:Auto-pick (tutorial)|cmv8ogdrg000esy89xjl65ds4:completed:Extract (tutorial)|cmv8ogdrt000gsy89s3sx6n0r:completed:2D Classification (tutorial)|cmv8ogdsf000isy89efijdruw:completed:Select 2D (tutorial)|cmv8ogdss000ksy89da5cs7gs:completed:Select (tutorial)|cmv8ogdtt000msy894hlcu1kk:completed:Initial Model (tutorial)|cmv8ogdu4000osy891dgvx5iy:completed:3D Classification (tutorial)|cmv8ogduf000qsy89hy4qjyia:completed:Symmetry Expansion (tutorial)|cmv8ogdur000ssy89dr1luh4j:completed:Rebalance (tutorial)|cmv8ogdv2000usy89pd12v096:completed:3D Refine (tutorial)|cmv8ogdvb000wsy89ovn1cqm7:completed:Mask Create (tutorial)|cmv8ogdvk000ysy8969rydbc5:completed:Post-process (tutorial)|cmv8td2e20001syivxkk6b3q5:failed:Failed Diagnosis Face (t970)|cmv8tdc8r0007syivown80yks:idle:Idle Shape Face (t987)|cmv8tdcfa0009syivbofi7cwd:idle:Continue Face (t988)|cmv8tdcmp000bsyiv2xswjxwf:idle:Rounds Face (t989)|cmv8tddul000dsyiv41pngsmq:failed:Custom Error Face (t995)|cmv8tsj2p0001syf96god3ti2:failed:Negative Diagnosis Face (t972)|cmv8tsjdk0003syf9jo2d2gyv:failed:Cancelled Diagnosis Face (t976)"
 }

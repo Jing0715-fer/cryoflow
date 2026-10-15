@@ -64,7 +64,7 @@ ok("the as-found world holds the t972 face too (the discriminator's keeper, fail
  * AND the re-home: the t976/t972 faces were re-armed in the t994 window
  * (the mint fleet's re-arm tail), and the t995 window minted the
  * custom-error face (the teaser's re-home) — the world grew by ONE. */
-ok("the as-found world holds FIFTEEN jobs (the t1002 adoption re-key — the fork line's fresh resurrected demo chain — the main lane's minted faces are not in this world)", jobs.length === 15, `n=${jobs.length}`);
+ok("the as-found world holds TWENTY-TWO jobs (the standing fleet restored (the t1003 restoration — 15 demo + seven standing faces))", jobs.length === 22, `n=${jobs.length}`);
 
 /* ---------------- leg 1: the wide-first opening (the kit's law) ---------------- */
 const first = await wideFirst();

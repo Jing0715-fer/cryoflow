@@ -95,7 +95,7 @@ if (stage === "mint") {
   ok(Math.round(j?.x ?? -1) === MINT_X && Math.round(j?.y ?? -1) === MINT_Y, "the face sits at its explicit visible coordinates", `x=${j?.x} y=${j?.y}`);
   const body = api("GET", "/api/jobs");
   const arr = Array.isArray(body) ? body : body.jobs ?? [];
-  ok(arr.length === 18, "the world now carries EIGHTEEN jobs (17 standing + the face)", `rows=${arr.length}`);
+  ok(arr.length === 22, "the world now carries TWENTY-TWO jobs (the t1003 restoration re-key — the fleet restored: 15 demo + seven standing faces)", `rows=${arr.length}`);
   ok(!existsSync(workdirOf(job.id)), "no workdir yet (the walk's own gestures create what they need)", workdirOf(job.id));
 
   console.log(`== mint ${fail === 0 ? "GREEN" : "RED"} — ${pass} ok, ${fail} fail ==`);
