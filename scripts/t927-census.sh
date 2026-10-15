@@ -43,7 +43,7 @@ declare -a NAMES=(
   "t1000-create-clear-unit"
   "t1001-dirty-draft-unit"
   "t1002-rename-busy-unit"
-  "t1016-pace-subchain-unit",
+  "t1016-pace-subchain-unit"
   "t1020-stop-walk-unit"
 )
 declare -a RUNNERS=(1 0 1 1 1 1 2 2 0 0 0 0 1 0 0 0 0 1 0 1 1 1 1 0 1 0 0 0 0 0 0 0 0 0 0 1 0)
