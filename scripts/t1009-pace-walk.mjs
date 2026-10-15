@@ -35,15 +35,31 @@
  *      mount-skip law), speaks "1 job selected" then "2 jobs selected"
  *      after each real press, and speaks "Selection cleared" after the
  *      bare-canvas clear (a screen reader hears the whole arc);
- *   8. the world restored — the fingerprint as-found = as-left.
+ *   8. (the t1011 graft's moments live in leg 7 — the leg numbering
+ *      grew when the t1012 graft joined);
+ *   9. THE DELETE ARC'S HEARING (the t1012 graft): cmd+A announces the
+ *      full count (the honest word), two fresh toggles arm the arc, the
+ *      Ctrl+D mint lands twins at the SAME count (the receipt stays
+ *      SILENT — the birth is the visual's story), Del opens the
+ *      keyboard confirm which speaks the TRUCE prose (the workdirs
+ *      sentence — one bulk delete, two doors, one dialect), Cancel
+ *      keeps the world with the receipt SILENT (a delete that did not
+ *      happen earns no word), the confirm fires the TWO-MOUTH moment —
+ *      the receipt speaks the selection's exit ("Selection cleared")
+ *      while the toast speaks the deletion's headline ("Deleted 2
+ *      jobs") — and the world self-restores (the victims were the
+ *      arc's own mint);
+ *  10. the world restored — the fingerprint as-found = as-left.
  *
  * RIDE LAWS inherited: one fresh `agent-browser open`; poll-then-probe;
  * realClick probes vis AND owns every round; the walk asserts (it is
  * the face's verifier) and exits honest. THE LITERAL-WORD LAW: the
  * asserts pin the band's words ("total compute", "wall time", "time is
  * not claimed") AND the receipt's vocabulary ("1 job selected",
- * "2 jobs selected", "Selection cleared") as LITERALS — any rewording
- * re-keys the walk IN THE SAME COMMIT.
+ * "2 jobs selected", "Selection cleared") AND the delete arc's two
+ * mouths ("22 jobs selected" — count-anchored, the world's size; the
+ * toast's "Deleted 2 jobs"; the truce's "workdirs stay on disk") as
+ * LITERALS — any rewording re-keys the walk IN THE SAME COMMIT.
  *
  *   node scripts/t1009-pace-walk.mjs
  */
@@ -265,11 +281,119 @@ const clearedReceipt = await evalJson(`(() => { const r = document.querySelector
 ok("the receipt spoke the clear (Selection cleared)",
   clearedReceipt === "Selection cleared", String(clearedReceipt));
 
-/* LEG 8 — the world restored */
-console.log("leg 8: the world restored");
+/* LEG 9 — the delete arc's hearing (the t1012 graft): the receipt's OTHER
+   mouths, all-real doors, the world self-restores (the t993 pattern —
+   the arc's victims are the arc's own mint). Four moments:
+   A. cmd+A select-all — the full count IS the honest word ("22 jobs
+      selected", one string, one announcement);
+   B. the mint (Ctrl+D twins) — same count renders the same string, so the
+      receipt is SILENT: the birth is the visual's story, not a count's;
+   C. the CANCELLED delete — Cancel closes the confirm with the selection
+      intact and the receipt unchanged: silence is the honest word for a
+      delete that did not happen;
+   D. the CONFIRMED delete — the two-mouth moment: the receipt speaks its
+      own true word ("Selection cleared", the selection's exit) while the
+      toast (role=status) speaks the deletion's headline ("Deleted 2
+      jobs") — two mouths, one story each (the t1012 R7 contract). */
+console.log("leg 9: the delete arc's hearing (the t1012 graft)");
+/* moment A — cmd+A, the loudest select */
+sh(`${AB} press Control+a`);
+await sleep(500);
+const allReceipt = await evalJson(`(() => { const r = document.querySelector('[data-testid=selection-live-receipt]'); return JSON.stringify(r ? r.textContent : null); })()`);
+ok("cmd+A announced the full count (the honest word, not noise)",
+  allReceipt === "22 jobs selected", String(allReceipt));
+/* clear, then two real toggles again */
+const bare9 = await evalJson(`(() => {
+  const root = document.querySelector('[data-canvas=viewport]');
+  if (!root) return JSON.stringify(null);
+  const r = root.getBoundingClientRect();
+  for (let y = r.y + 10; y < r.y + r.height - 10; y += 25) {
+    for (let x = r.x + 10; x < r.x + r.width - 10; x += 35) {
+      const el = document.elementFromPoint(x, y);
+      if (el && (el === root || (root.contains(el) && !el.closest('[data-job]') && !el.closest('[data-canvas-ui=minimap]') && !el.closest('[role=toolbar]')))) return JSON.stringify({ x: Math.round(x), y: Math.round(y) });
+    }
+  }
+  return JSON.stringify(null);
+})()`);
+if (bare9) {
+  sh(`${AB} mouse move ${bare9.x} ${bare9.y}`); sh(`${AB} mouse down`); sh(`${AB} mouse up`);
+  await sleep(400);
+}
+const ids9 = await evalJson(`(() => {
+  const cards = [...document.querySelectorAll('[data-job]')].filter((e) => !e.closest('[data-canvas-ui=minimap]'));
+  const done = cards.filter((c) => {
+    const b = c.querySelector('[data-card-btn]'); const r = c.getBoundingClientRect();
+    return /completed/.test(b.getAttribute('aria-label') ?? '') &&
+      r.x + r.width / 2 > 100 && r.x + r.width / 2 < innerWidth - 100 &&
+      r.y + r.height / 2 > 120 && r.y + r.height / 2 < innerHeight - 120;
+  });
+  return JSON.stringify([...new Set(done.map((c) => c.querySelector('[data-card-btn]').getAttribute('data-card-btn')))].slice(0, 2));
+})()`);
+ok("two completed cards reachable for the arc", Array.isArray(ids9) && ids9.length === 2, ids9 ? ids9.join(" + ") : "none");
+if (Array.isArray(ids9) && ids9.length === 2) {
+  for (const id of ids9) {
+    await evalJs(`(() => { const b = document.querySelector('[data-card-btn="' + ${JSON.stringify(id)} + '"]'); if (!b) return 'none'; b.focus(); return document.activeElement === b ? 'focused' : 'FOCUS-FAIL'; })()`);
+    sh(`${AB} press Shift+Space`);
+    await sleep(400);
+  }
+  const pre = await evalJson(`(() => { const r = document.querySelector('[data-testid=selection-live-receipt]'); const cards = document.querySelectorAll('[data-job]').length; return JSON.stringify({ receipt: r ? r.textContent : null, cards }); })()`);
+  ok("two toggles stand before the arc (2 jobs selected, world at 22)",
+    pre.receipt === "2 jobs selected" && pre.cards === 22, `receipt=${pre.receipt} cards=${pre.cards}`);
+  /* moment B — the mint: Ctrl+D twins, same count, SILENT receipt */
+  sh(`${AB} press Control+d`);
+  await sleep(2500);
+  const mint = await evalJson(`(() => { const r = document.querySelector('[data-testid=selection-live-receipt]'); const cards = [...document.querySelectorAll('[data-job]')].filter((e) => !e.closest('[data-canvas-ui=minimap]')); const copies = cards.filter((c) => /\(copy\)/.test(c.querySelector('[data-card-btn]')?.getAttribute('aria-label') ?? '')).length; const sel = cards.filter((e) => /ring-primary/.test(e.querySelector('[data-card-btn]')?.className ?? '')).length; return JSON.stringify({ receipt: r ? r.textContent : null, cards: cards.length, copies, sel }); })()`);
+  ok("the mint stood (twins born, selected, world at 24)",
+    mint.cards === 24 && mint.copies === 2 && mint.sel === 2, `cards=${mint.cards} copies=${mint.copies} sel=${mint.sel}`);
+  ok("the receipt stayed SILENT at the mint (same count renders the same string)",
+    mint.receipt === "2 jobs selected", String(mint.receipt));
+  /* the keyboard door: Del opens the confirm (the app-shell guard) */
+  sh(`${AB} press Delete`);
+  const dlg9 = await poll(
+    `(() => { const d = [...document.querySelectorAll('[role=alertdialog]')].find((x) => /Delete 2 jobs\\?/.test(x.querySelector('h2')?.textContent ?? '')); if (!d) return JSON.stringify({ open: false }); return JSON.stringify({ open: d.getBoundingClientRect().width > 0, hasWorkdirs: /workdirs stay on disk/.test(d.textContent) }); })()`,
+    (v) => v.open, 12, 400);
+  ok("the keyboard door's confirm stands (Del, 2 targets)",
+    !!dlg9 && dlg9.open);
+  ok("the keyboard door speaks the truce prose (the workdirs sentence — the t1012 cure's word)",
+    !!dlg9 && dlg9.hasWorkdirs === true, `hasWorkdirs=${dlg9?.hasWorkdirs}`);
+  /* moment C — the cancelled delete: silence is the honest word */
+  const cancelPos = await evalJson(`(() => { const d = [...document.querySelectorAll('[role=alertdialog]')].find((x) => /Delete 2 jobs\\?/.test(x.querySelector('h2')?.textContent ?? '')); const b = [...d.querySelectorAll('button')].find((x) => x.textContent.trim() === 'Cancel'); const r = b.getBoundingClientRect(); return JSON.stringify({ x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }); })()`);
+  if (cancelPos) {
+    sh(`${AB} mouse move ${cancelPos.x} ${cancelPos.y}`); sh(`${AB} mouse down`); sh(`${AB} mouse up`);
+  }
+  await sleep(700);
+  const cancelled = await evalJson(`(() => { const r = document.querySelector('[data-testid=selection-live-receipt]'); const dlgOpen = [...document.querySelectorAll('[role=alertdialog]')].some((d) => d.getBoundingClientRect().width > 0); const cards = [...document.querySelectorAll('[data-job]')].filter((e) => !e.closest('[data-canvas-ui=minimap]')).length; return JSON.stringify({ receipt: r ? r.textContent : null, dlgOpen, cards }); })()`);
+  ok("the cancelled delete kept the world (dialog shut, 24 cards, selection intact)",
+    cancelled.dlgOpen === false && cancelled.cards === 24, `dlgOpen=${cancelled.dlgOpen} cards=${cancelled.cards}`);
+  ok("the receipt stayed SILENT at the cancel (no delete happened, no word)",
+    cancelled.receipt === "2 jobs selected", String(cancelled.receipt));
+  /* moment D — the confirmed delete: the two-mouth moment */
+  sh(`${AB} press Delete`);
+  await sleep(800);
+  const confirmPos = await evalJson(`(() => { const d = [...document.querySelectorAll('[role=alertdialog]')].find((x) => /Delete 2 jobs\\?/.test(x.querySelector('h2')?.textContent ?? '')); if (!d) return JSON.stringify(null); const b = [...d.querySelectorAll('button')].find((x) => /^Delete 2 jobs$/.test(x.textContent.trim())); if (!b) return JSON.stringify(null); const r = b.getBoundingClientRect(); return JSON.stringify({ x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }); })()`);
+  ok("the confirm stands again (the arc's second door)", !!confirmPos);
+  if (confirmPos) {
+    sh(`${AB} mouse move ${confirmPos.x} ${confirmPos.y}`); sh(`${AB} mouse down`); sh(`${AB} mouse up`);
+    /* the two-mouth witness: poll until the world absorbs the delete */
+    const twoMouth = await poll(
+      `(() => { const r = document.querySelector('[data-testid=selection-live-receipt]'); const toast = [...document.querySelectorAll('[role=status]')].some((t) => /Deleted 2 jobs/.test(t.textContent)); const cards = [...document.querySelectorAll('[data-job]')].filter((e) => !e.closest('[data-canvas-ui=minimap]')).length; return JSON.stringify({ receipt: r ? r.textContent : null, toast, cards }); })()`,
+      (v) => v.toast && v.cards === 22, 16, 500);
+    ok("the two-mouth moment (the receipt spoke the selection's exit)",
+      !!twoMouth && twoMouth.receipt === "Selection cleared", String(twoMouth?.receipt));
+    ok("the two-mouth moment (the toast spoke the deletion's headline)",
+      !!twoMouth && twoMouth.toast === true);
+    const restored = await evalJson(`(() => { const cards = [...document.querySelectorAll('[data-job]')].filter((e) => !e.closest('[data-canvas-ui=minimap]')); const copies = cards.filter((c) => /\(copy\)/.test(c.querySelector('[data-card-btn]')?.getAttribute('aria-label') ?? '')).length; return JSON.stringify({ cards: cards.length, copies }); })()`);
+    ok("the world self-restored (22 cards, no copies left)",
+      restored.cards === 22 && restored.copies === 0, `cards=${restored.cards} copies=${restored.copies}`);
+    await shot("t1012-delete-two-mouths");
+  }
+}
+
+/* LEG 10 — the world restored */
+console.log("leg 10: the world restored");
 const jobs1 = await readJobs();
 fpAfter = fingerprint(jobsArr(jobs1 ?? []));
-ok("the world fingerprint as-found = as-left (a read-only ride)",
+ok("the world fingerprint as-found = as-left (the arc's victims were its own mint)",
   fpBefore === fpAfter, `${fpBefore.split("|").length} jobs`);
 
-finish({ legs: 8 });
+finish({ legs: 10 });

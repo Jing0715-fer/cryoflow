@@ -618,6 +618,11 @@ export function AppShell() {
     () => (confirmBulkDelete ? allJobs.filter((j) => allSelectedIds.includes(j.id)) : []),
     [confirmBulkDelete, allJobs, allSelectedIds]
   );
+  // t1012 — the prose truce: the keyboard door speaks the same dialect the
+  // toolbar's door speaks (canvas.tsx's bulk confirm) — the workdirs
+  // sentence and the counted running clause. One bulk delete, two doors,
+  // ONE prose: a user who deletes from either door reads the same story.
+  const bulkRunningCount = bulkTargets.filter((j) => j.status === "running").length;
 
   return (
     <CompanionWindowsProvider>
@@ -857,9 +862,10 @@ export function AppShell() {
                 .map((j) => `“${j.name}”`)
                 .join(", ")
                 .concat(bulkTargets.length > 3 ? ` and ${bulkTargets.length - 3} more` : "")}{" "}
-              — this removes every wire attached to them.
-              {bulkTargets.some((j) => j.status === "running") &&
-                " Running processes will be stopped."}{" "}
+              — this removes every wire attached to them. Files already written to
+              the workdirs stay on disk.
+              {bulkRunningCount > 0 &&
+                ` ${bulkRunningCount} running process${bulkRunningCount === 1 ? " will be stopped" : "es will be stopped"}.`}{" "}
               You'll get a short window to undo from the toast afterwards.
             </AlertDialogDescription>
           </AlertDialogHeader>

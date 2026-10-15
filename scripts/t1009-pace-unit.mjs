@@ -208,6 +208,36 @@ console.log("R band — the selection's live receipt + the doc rows (t1011):");
     "the manual never lags the verb");
 }
 
+/* ---------- R band II — the delete arc's mouths (t1012) ---------- */
+console.log("R band II — the delete arc's mouths (t1012):");
+{
+  const store = read("src/lib/store.ts");
+  // The two-mouth contract: at the bulk-delete moment the receipt speaks
+  // its own true word ("Selection cleared" — the selection's exit, R4's
+  // three-string vocabulary is its WHOLE vocabulary) while the deletion's
+  // headline lives in the toast (role=status — the vendor announces it).
+  // The receipt must never grow a delete-word; the toast's titles are the
+  // deletion's mouths and are pinned here.
+  ok("R7 the deletion's headline mouth is the toast (two mouths, one story each)",
+    store.includes("title: `Deleted ${deleted.length} job${deleted.length === 1 ? \"\" : \"s\"}`") &&
+    store.includes("title: `Deleted ${deleted.length} · ${failed} refused`"),
+    "the clean split's title + the refused split's title in deleteSelected");
+  const shell = read("src/components/workflow/app-shell.tsx");
+  const canvas = read("src/components/workflow/canvas.tsx");
+  // The prose truce: the keyboard door (app-shell's Del confirm) speaks the
+  // same dialect the toolbar's door speaks (canvas.tsx's bulk confirm) —
+  // the workdirs sentence verbatim in BOTH, and the counted running clause
+  // (the canvas's `${n} running process(es) will be stopped` shape). The
+  // sentence needle is whitespace-normalized: JSX re-wraps must not redder
+  // the truce (the t1011 R3 lesson — pin the words, not the wrapping).
+  const sent = "Files already written to the workdirs stay on disk.";
+  ok("R8 the prose truce — both bulk-delete doors speak ONE dialect",
+    canvas.replace(/\s+/g, " ").includes(sent) &&
+    shell.replace(/\s+/g, " ").includes(sent) &&
+    shell.includes('bulkRunningCount === 1 ? " will be stopped" : "es will be stopped"'),
+    "the keyboard door gained the toolbar door's words verbatim");
+}
+
 /* ---------- W band — the twin wells ---------- */
 console.log("W band — the twin wells (one window law, two readers):");
 {
