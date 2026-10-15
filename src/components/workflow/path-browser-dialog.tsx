@@ -37,6 +37,7 @@ import {
   Server,
   Square,
   Terminal,
+  TriangleAlert,
   X,
   Zap,
 } from "lucide-react";
@@ -238,6 +239,72 @@ export function PathBrowserDialog({
       cancelled = true;
     };
   }, [open, cwd, remote]);
+
+  // t1024 — THE FUEL FACE'S DIALOG-SIDE SEAT: the field face (job-panel,
+  // t1022) speaks the fuel arithmetic only AFTER the pick lands in the
+  // field; this seat arms the warning BEFORE it — while the user is still
+  // looking at the folder they are about to pick. The listing already
+  // carries the count (micrographs); what it lacks is the budget, so the
+  // seat fetches the SAME count mode the field face rides
+  // (GET /api/fs/browse?path=…&count=1 — a NEW MODE on the EXISTING doored
+  // route, t1022's own weighing: zero new doors, the arithmetic stays at
+  // its ONE seat in the route, the reply ships four compact numbers) on
+  // every folder-mode navigation, so the verdict is computed fresh per
+  // folder instead of going stale behind a one-shot. SEAT LAWS: the LOCAL
+  // lane only (the remote variant browses the CLUSTER — its budget is the
+  // cluster's own arithmetic and has no count mode; the field face keeps
+  // the same exclusion), FOLDER MODE only (the folder shape is the only
+  // one the gate's folder branch prices — files mode picks named files,
+  // the engine prices those differently), and the QUIET ARM: a failed or
+  // non-folder answer resets to idle — the face only ever speaks when it
+  // has an answer. THE RUN-TIME GATE REMAINS THE LAW (engine.ts, at the
+  // loop's doorstep): the count here can go stale the moment a file lands
+  // in the folder; the refusal at Start re-computes. No fetch inside a
+  // memo — the #13 lesson holds; the arithmetic constants are never
+  // copied client-side (the t1022 single-source law) — the reply carries
+  // them already priced.
+  const [fuel, setFuel] = React.useState<{
+    phase: "idle" | "ready";
+    count: number;
+    fuelBytes: number;
+    headroomBytes: number;
+    overBudget: boolean;
+  }>({ phase: "idle", count: 0, fuelBytes: 0, headroomBytes: 0, overBudget: false });
+  React.useEffect(() => {
+    if (!open || remote || mode !== "folder" || !cwd) {
+      setFuel((f) => (f.phase === "idle" ? f : { phase: "idle", count: 0, fuelBytes: 0, headroomBytes: 0, overBudget: false }));
+      return;
+    }
+    const ctrl = new AbortController();
+    fetch(`/api/fs/browse?path=${encodeURIComponent(cwd)}&count=1`, {
+      signal: ctrl.signal,
+      headers: { "Content-Type": "application/json" },
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { ok: boolean; count?: number; fuelBytes?: number; headroomBytes?: number; overBudget?: boolean } | null) => {
+        if (ctrl.signal.aborted) return; // superseded — never speak a stale count
+        if (j && j.ok && typeof j.count === "number") {
+          setFuel({
+            phase: "ready",
+            count: j.count,
+            fuelBytes: j.fuelBytes ?? 0,
+            headroomBytes: j.headroomBytes ?? 0,
+            overBudget: !!j.overBudget,
+          });
+        } else {
+          // not a folder / not accessible — the quiet arm: the dialog's
+          // own listing error line is the voice; the run's refusal at
+          // Start stays the honest verdict for everything else
+          setFuel({ phase: "idle", count: 0, fuelBytes: 0, headroomBytes: 0, overBudget: false });
+        }
+      })
+      .catch(() => {
+        /* aborted or the lane blinked — quiet, the gate still guards */
+      });
+    return () => {
+      ctrl.abort();
+    };
+  }, [open, cwd, remote, mode]);
 
   // a wildcard pattern listing is always a file listing — force files mode
   const patternView = data?.ok && data.pattern === true;
@@ -939,6 +1006,35 @@ export function PathBrowserDialog({
                 {data?.truncated
                   ? "Select this folder imports EVERY image in it (the import enumerates the whole folder)"
                   : "switch to the Files tab to pick individual files"}
+                {/* t1024 — the dialog-side fuel verdict, armed BEFORE the
+                    pick: overBudget borrows the run-time gate's own
+                    arithmetic (the count mode's reply, priced server-side)
+                    and previews its guidance — the gate at Start remains
+                    the law (the count here can go stale; the refusal
+                    re-computes). The words mirror the field face's
+                    dialect so one sentence means one thing everywhere. */}
+                {fuel.phase === "ready" && fuel.overBudget && (
+                  <span
+                    className="ml-1.5 inline-flex min-w-0 items-center gap-1 font-medium text-warning-600 dark:text-warning-400"
+                    aria-live="polite"
+                  >
+                    <TriangleAlert className="h-3 w-3 shrink-0" aria-hidden="true" />
+                    <span className="truncate">
+                      {fuel.count.toLocaleString("en-US")} images ≈ {(fuel.fuelBytes / 1024 ** 3).toFixed(1)} GB vs{" "}
+                      {(fuel.headroomBytes / 1024 ** 3).toFixed(1)} GB headroom — the run will refuse: split into
+                      smaller batches
+                    </span>
+                  </span>
+                )}
+                {/* the scale-honesty arm — the field face's own threshold:
+                    fuel becomes a story only at ≥256 MB, quoting "0.0 GB"
+                    for a four-file pick would be noise, not honesty */}
+                {fuel.phase === "ready" && !fuel.overBudget && fuel.count > 0 && fuel.fuelBytes >= 268435456 && (
+                  <span className="ml-1.5 text-muted-foreground/80" aria-live="polite">
+                    · fuel ≈{(fuel.fuelBytes / 1024 ** 3).toFixed(1)} GB of{" "}
+                    {(fuel.headroomBytes / 1024 ** 3).toFixed(1)} GB headroom
+                  </span>
+                )}
               </>
             ) : (
               "No micrograph files directly in this folder — they may be in a subfolder"
