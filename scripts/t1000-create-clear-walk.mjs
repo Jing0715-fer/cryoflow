@@ -92,7 +92,7 @@ serverFirst();
 const body = await readJobs();
 const arr = jobsArr(body);
 const asFound = fingerprint(arr);
-ok("the world carries TWENTY-TWO jobs (the standing fleet)", arr.length === 22, `rows=${arr.length}`);
+ok("the world carries FIFTEEN jobs (the standing fleet, the t1002 adoption re-key)", arr.length === 15, `rows=${arr.length}`);
 
 /* LEG 1 — the wide-first opening + the Workspaces tab + the dialog */
 console.log("leg 1: the opening (the Workspaces tab, the New button, the dialog)");
@@ -170,7 +170,7 @@ ok("the dialog closed by its own Escape (the Radix layer's honest door)", !!dlgG
 const bodyLeft = await readJobs();
 const arrLeft = jobsArr(bodyLeft);
 const asLeft = fingerprint(arrLeft);
-ok("the world carries TWENTY-TWO jobs as-left (NOTHING minted — the Create button was never clicked)", arrLeft.length === 22, `rows=${arrLeft.length}`);
+ok("the world carries FIFTEEN jobs as-left (NOTHING minted — the Create button was never clicked)", arrLeft.length === 15, `rows=${arrLeft.length}`);
 ok("THE FINGERPRINT AS-FOUND = AS-LEFT (byte-identical)", asFound === asLeft);
 const closeCode = sh(`curl -s -o /dev/null -w '%{http_code}' --max-time 5 ${BASE}/`).trim();
 ok("the server stands at 200 at the shell (the close gate)", closeCode === "200", `code=${closeCode}`);

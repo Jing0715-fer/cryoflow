@@ -73,7 +73,7 @@ ok("the as-found world holds the t995 face, failed (the mint's row-flip)", !!zer
 ok("the as-found world holds the t970 face too (the positive leg's keeper, failed)", !!posJob && posJob.status === "failed", posJob ? `${posJob.id} status=${posJob.status}` : "missing");
 /* the t992 birth law (c): the count NAMES the mint — the t995 custom-error
  * face joined this window (the teaser's re-home); the world grew by ONE. */
-ok("the as-found world holds TWENTY-TWO jobs (15 demo + the t970 face + the three picker fixtures + the t976/t972 faces + the t995 custom-error face minted this window)", jobs.length === 22, `n=${jobs.length}`);
+ok("the as-found world holds FIFTEEN jobs (the t1002 adoption re-key — the fork line's fresh resurrected demo chain — the main lane's minted faces are not in this world)", jobs.length === 15, `n=${jobs.length}`);
 
 /* ---------------- leg 1: the wide-first opening (the kit's law) ---------------- */
 const first = await wideFirst();
