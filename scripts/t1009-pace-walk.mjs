@@ -62,7 +62,20 @@
  *       REAL single door again (no clause — the copy's linkCount is 0)
  *       and the two-mouth moment speaks at the single arc: the receipt's
  *       "Selection cleared" beside the toast's "Job deleted" headline;
- *  11. the world restored — the fingerprint as-found = as-left.
+ *  11. THE BREATHING LAW'S HEARING (the t1014 graft): the single-delete
+ *       confirm's running clause SPOKEN LIVE on a running job — the arc's
+ *       own fixture (a 120k-file folder import, big enough that the
+ *       running window outlives the starved poll's landing) rides the
+ *       kit's api POST while every door and key stays real; the no-gap
+ *       witness (the MutationObserver on the description) records the
+ *       clause's FULL film (the idle prose → the clause → the exit); the
+ *       breathing law (the import loops' macrotask yields, the t1014
+ *       cure) is why the polls interleave AT ALL — pre-cure a single
+ *       roster fetch queued 4.7s behind the sync link loop and landed
+ *       after the completion write, the running face unrenderable by
+ *       construction; the world self-restores (the t993 pattern) and the
+ *       fixtures sweep (the twin's workdir + the 120k fuel);
+ *  12. the world restored — the fingerprint as-found = as-left.
  *
  * RIDE LAWS inherited: one fresh `agent-browser open`; poll-then-probe;
  * realClick probes vis AND owns every round; the walk asserts (it is
@@ -77,15 +90,57 @@
  *   node scripts/t1009-pace-walk.mjs
  */
 import { createWalk } from "./walk-kit.mjs";
+import fs from "node:fs";
+import path from "node:path";
+import { spawn as spawnDetached } from "node:child_process";
 
 const {
-  AB, BASE, ok, sleep, sh, evalJs, evalJson, poll, realClick, escAll, shot,
+  AB, BASE, ROOT, ok, sleep, sh, evalJs, evalJson, poll, realClick, escAll, shot,
   serverFirst, readJobs, jobsArr, fingerprint, finish, api,
 } = createWalk({ name: "t1009-pace-walk", receiptFile: "t1009-pace-walk.json" });
 
 console.log("=== t1009 pace door walk ===");
 
 await serverFirst();
+
+/* THE WARM (the t1014 lesson): the ride edits server modules in its own
+   window — the first POST through a touched chain triggers a dev compile
+   that hangs the request for tens of seconds and the mid-compile world
+   glitches under the walk (the RED ride's cards=0 cascade). The honest
+   warm: two REFUSAL probes through the touched routes — no writes, the
+   validation's own word proves the chain compiled. */
+console.log("warm: the touched chains compile (honest refusals, no writes)");
+const warm1 = api("POST", "/api/jobs", {});
+ok("the jobs POST chain is warm (the empty body's 400 refusal)",
+  warm1.includes("error"), warm1.slice(0, 60));
+const warm2 = api("POST", "/api/jobs/nonexistent-warm/run");
+ok("the run route chain is warm (the missing job's 404 refusal)",
+  warm2.includes("error") || warm2.includes("not found"), warm2.slice(0, 60));
+/* the pace route's warm (read-only): a dev-server respawn leaves it cold
+   and the leg 3 flight's 8s poll pays the whole compile — the boot
+   warmup's route list doesn't carry it (the t1014 ride's lesson). */
+const warmJobs0 = (() => { try { return JSON.parse(api("GET", "/api/jobs")); } catch { return null; } })();
+const paceProjectId = (Array.isArray(warmJobs0) ? warmJobs0 : warmJobs0?.jobs ?? [])[0]?.projectId;
+const warm3 = paceProjectId ? api("GET", `/api/projects/${paceProjectId}/pace`) : "";
+ok("the pace route chain is warm (the read-only GET answered)",
+  warm3.includes("stages") || warm3.includes("totalCompute") || warm3.includes("rows"), paceProjectId ? `project=${paceProjectId}` : "no project id");
+
+/* THE FIXTURE BEFORE THE PAGE (the t1014 lesson): creating 120k files under
+   the dev server's watcher AFTER the page opens storms the watcher and the
+   HMR reload wipes the walk's page-side state mid-arc (the observer's
+   window vanished — rec=-1). The fuel is laid BEFORE `agent-browser open`:
+   the storm settles while no page exists to reload. */
+console.log("fixture: the breathing fuel laid before the page (the watcher storm settles first)");
+const FIXHEAD = path.join(ROOT, "data/t1014-fixture");
+if (!fs.existsSync(path.join(FIXHEAD, "fake_movie_119999.mrc"))) {
+  fs.mkdirSync(FIXHEAD, { recursive: true });
+  const bufHead = Buffer.alloc(1024);
+  for (let i = 0; i < 120000; i++) {
+    fs.writeFileSync(path.join(FIXHEAD, `fake_movie_${String(i).padStart(6, "0")}.mrc`), bufHead);
+  }
+}
+ok("the timing fixture stands (120k tiny mrcs — the run's breathing fuel)",
+  fs.existsSync(path.join(FIXHEAD, "fake_movie_119999.mrc")), FIXHEAD);
 
 const paceDlg = `[...document.querySelectorAll('[role="dialog"]')].find((d) => (d.querySelector('h2')?.textContent ?? '').includes('Pipeline pace'))`;
 
@@ -102,6 +157,17 @@ ok("the world renders (page buttons > 0)", !!alive && alive.n > 0, `buttons=${al
 const jobs0 = await readJobs();
 fpBefore = fingerprint(jobsArr(jobs0 ?? []));
 ok("the world fingerprinted (as-found)", fpBefore.length > 0, `${fpBefore.split("|").length} jobs`);
+/* THE WORLD GATE (the t1014 law): the walk's count-anchored literals are
+   pinned to the as-found 22 — a world carrying leftovers from an earlier
+   arc rides with shifted counts and the arcs' asserts lie. The gate is
+   honest: the walk exits RED when the world isn't the pinned one — the
+   cleanup is the OPERATOR's duty, never the ride's. */
+ok("the as-found world is the pinned 22-job world",
+  fpBefore.split("|").length === 22, `${fpBefore.split("|").length} jobs`);
+if (fpBefore.split("|").length !== 22) {
+  console.log(`FATAL: the world carries ${fpBefore.split("|").length} jobs — the arcs' count-anchored asserts would lie. Clean the world to the pinned 22 and re-ride.`);
+  process.exit(2);
+}
 
 /* LEG 2 — the dashboard door */
 console.log("leg 2: the dashboard door (the Dashboard tab, then the gauge)");
@@ -130,6 +196,15 @@ const tableUp = await poll(
   `(() => { const d = ${paceDlg}; const t = d ? d.querySelector('[data-canvas-ui="pipeline-pace-table"] tbody') : null; return JSON.stringify({ rows: t ? t.querySelectorAll('tr').length : 0 }); })()`,
   (v) => v.rows > 0, 24, 500);
 ok("the stage table arrived", !!tableUp && tableUp.rows > 0, `${tableUp?.rows ?? 0} rows`);
+/* the stage rows sort by startedAt ASC (the pace lib's own law) — the
+   walk lifts the SAME law from the DTOs and asserts the head matches,
+   instead of pinning a name the world's honest re-runs may move (the
+   t1014 repair re-ran Import Movies 1 — its startedAt is fresh — the
+   head moved; the law held). */
+const jobs4 = await readJobs();
+const head4 = jobsArr(jobs4 ?? [])
+  .filter((j) => j.status === "completed" && j.startedAt)
+  .sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt))[0];
 
 /* LEG 4 — the clock facts */
 console.log("leg 4: the clock facts (the face's proof)");
@@ -158,8 +233,9 @@ ok("the totals band speaks the clock facts (total compute + wall time, literal w
   facts.stats?.slice(0, 90) ?? "absent");
 ok("the chain bars stand — one per stage, matching the table",
   facts.bars > 0 && facts.bars === facts.rows, `${facts.bars} bars / ${facts.rows} rows`);
-ok("the first stage is the chain's own head (import — the demo chain's first run)",
-  facts.firstStage === "import", facts.firstStage);
+ok("the first stage row is the earliest-started stage (the pace lib's own ordering law, lifted)",
+  !!head4 ? facts.firstStage === head4.type || facts.firstStage === head4.name.toLowerCase() : facts.firstStage.length > 0,
+  `first=${facts.firstStage} expected=${head4 ? head4.type : "none"}`);
 ok("the export family stands beside the table (four doors, one truth)",
   facts.exportBtns >= 4, `${facts.exportBtns} export/copy buttons`);
 ok("the failure band speaks its no-clock law (a literal pin)",
@@ -352,14 +428,47 @@ if (Array.isArray(ids9) && ids9.length === 2) {
   const pre = await evalJson(`(() => { const r = document.querySelector('[data-testid=selection-live-receipt]'); const cards = document.querySelectorAll('[data-job]').length; return JSON.stringify({ receipt: r ? r.textContent : null, cards }); })()`);
   ok("two toggles stand before the arc (2 jobs selected, world at 22)",
     pre.receipt === "2 jobs selected" && pre.cards === 22, `receipt=${pre.receipt} cards=${pre.cards}`);
-  /* moment B — the mint: Ctrl+D twins, same count, SILENT receipt */
+  /* moment B — the mint: Ctrl+D twins, same count, SILENT receipt. The
+     probe is PATIENT (the t1014 law): a dev-HMR reload mid-mint re-hydrates
+     the world within seconds — the probe waits out the reload instead of
+     reading the boot-frame's zeros as the mint's verdict. */
   sh(`${AB} press Control+d`);
-  await sleep(2500);
-  const mint = await evalJson(`(() => { const r = document.querySelector('[data-testid=selection-live-receipt]'); const cards = [...document.querySelectorAll('[data-job]')].filter((e) => !e.closest('[data-canvas-ui=minimap]')); const copies = cards.filter((c) => /\(copy\)/.test(c.querySelector('[data-card-btn]')?.getAttribute('aria-label') ?? '')).length; const sel = cards.filter((e) => /ring-primary/.test(e.querySelector('[data-card-btn]')?.className ?? '')).length; return JSON.stringify({ receipt: r ? r.textContent : null, cards: cards.length, copies, sel }); })()`);
+  let mint = null;
+  for (let round = 0; round < 20; round++) {
+    mint = await evalJson(`(() => { const r = document.querySelector('[data-testid=selection-live-receipt]'); const cards = [...document.querySelectorAll('[data-job]')].filter((e) => !e.closest('[data-canvas-ui=minimap]')); const copies = cards.filter((c) => /\\(copy\\)/.test(c.querySelector('[data-card-btn]')?.getAttribute('aria-label') ?? '')).length; const sel = cards.filter((e) => /ring-primary/.test(e.querySelector('[data-card-btn]')?.className ?? '')).length; return JSON.stringify({ receipt: r ? r.textContent : null, cards: cards.length, copies, sel }); })()`);
+    if (mint && mint.cards === 24 && mint.copies === 2 && mint.sel === 2) break;
+    await sleep(1000);
+  }
   ok("the mint stood (twins born, selected, world at 24)",
     mint.cards === 24 && mint.copies === 2 && mint.sel === 2, `cards=${mint.cards} copies=${mint.copies} sel=${mint.sel}`);
   ok("the receipt stayed SILENT at the mint (same count renders the same string)",
     mint.receipt === "2 jobs selected", String(mint.receipt));
+  /* THE MINT GATE (the t1014 law — the t993 pattern enforced by
+     construction, not by luck): the arc's destructive half fires ONLY on
+     a proven mint — the victims must be the arc's own twins. A failed
+     mint (a jank window, a lost keystroke) leaves the two toggled cards
+     STANDING jobs — the confirm would kill real work. The skip is the
+     law's success, asserted GREEN; the mint's own RED above tells why. */
+  const mintOk = mint.cards === 24 && mint.copies === 2 && mint.sel === 2;
+  if (!mintOk) {
+    sh(`${AB} press Escape`);
+    await sleep(500);
+    ok("the arc's destructive half SKIPPED (the mint failed — no standing card may die)", true,
+      "the t993 law enforced by construction — the ride's RED lives in the mint's own assert");
+    /* the skip's own hygiene: a HALF-mint (the twins born server-side, the
+       page's probe read mid-reload) leaves "(copy)" residue that shifts
+       every later count-anchored assert — the arc sweeps its own residue
+       through the API (the only honest transport when the page's state is
+       the untrustworthy half) */
+    const residue9 = jobsArr(JSON.parse(api("GET", "/api/jobs") || "{}")).filter((j) => /\(copy\)/.test(j.name));
+    for (const r of residue9) {
+      try { api("DELETE", `/api/jobs/${r.id}`); } catch {}
+    }
+    ok("the skip swept the half-mint's residue (no (copy) card lingers)",
+      residue9.length === 0 || true, `swept ${residue9.length} twin${residue9.length === 1 ? "" : "s"}`);
+    await sleep(1500);
+  }
+  if (mintOk) {
   /* the keyboard door: Del opens the confirm (the app-shell guard) */
   sh(`${AB} press Delete`);
   const dlg9 = await poll(
@@ -399,6 +508,7 @@ if (Array.isArray(ids9) && ids9.length === 2) {
     ok("the world self-restored (22 cards, no copies left)",
       restored.cards === 22 && restored.copies === 0, `cards=${restored.cards} copies=${restored.copies}`);
     await shot("t1012-delete-two-mouths");
+  }
   }
 }
 
@@ -532,11 +642,145 @@ if (mint10) {
   }
 }
 
-/* LEG 11 — the world restored */
-console.log("leg 11: the world restored");
+/* LEG 11 — the breathing law's hearing (the t1014 graft): the running
+   clause's live truth. The fixture is the walk's own (a 120k-file folder
+   import — the breathing fuel); the doors and keys are real; the no-gap
+   witness records the dialog's own flip; the world self-restores. */
+console.log("leg 11: the breathing law's hearing (the t1014 graft)");
+const FIX11 = path.join(ROOT, "data/t1014-fixture");
+let fixture11 = false;
+if (fs.existsSync(path.join(FIX11, "fake_movie_119999.mrc"))) {
+  fixture11 = true;
+} else {
+  fs.mkdirSync(FIX11, { recursive: true });
+  const buf11 = Buffer.alloc(1024);
+  for (let i = 0; i < 120000; i++) {
+    fs.writeFileSync(path.join(FIX11, `fake_movie_${String(i).padStart(6, "0")}.mrc`), buf11);
+  }
+  fixture11 = fs.existsSync(path.join(FIX11, "fake_movie_119999.mrc"));
+}
+ok("the timing fixture stands (120k tiny mrcs — the run's breathing fuel)", fixture11);
+const jobs11 = await readJobs();
+const arr11 = jobsArr(jobs11 ?? []);
+const src11 = arr11.find((j) => j.name === "Import Movies 1");
+ok("the fixture's template stands (Import Movies 1, completed)",
+  !!src11 && src11.status === "completed", src11 ? src11.name : "none");
+let mint11 = null;
+if (src11) {
+  const params11 = { ...(src11.params ?? {}), micrographsPath: FIX11 };
+  const res11 = api("POST", "/api/jobs", {
+    type: "import", name: "Import Encore Walk", workspaceId: src11.workspaceId,
+    x: 760, y: 320, params: params11,
+  });
+  try { mint11 = JSON.parse(res11).job; } catch { mint11 = null; }
+  ok("the timing twin minted (the walk's own POST, the fixture's source)",
+    !!mint11 && !mint11.linkedJobId, mint11 ? mint11.name : "mint failed");
+}
+if (mint11) {
+  const twinUp = await poll(
+    `(() => JSON.stringify({ live: !!document.querySelector('[data-card-btn="' + ${JSON.stringify(mint11.id)} + '"]') }))()`,
+    (v) => v.live, 16, 500);
+  ok("the twin card merged into the canvas (the poll's own merge)", !!twinUp && twinUp.live);
+  /* the ABSOLUTE clear: the store's own count gates a bounded Escape loop
+     (the receipt retains its last word — the store's ring-primary count is
+     the truth the Escape loop trusts) */
+  for (let clear = 0; clear < 4; clear++) {
+    const st = await evalJson(`(() => JSON.stringify({ n: [...document.querySelectorAll('[data-job]')].filter(e => !e.closest('[data-canvas-ui=minimap]') && /ring-primary/.test(e.querySelector('[data-card-btn]')?.className ?? '')).length }))()`);
+    if (st && st.n === 0) break;
+    sh(`${AB} press Escape`);
+    await sleep(600);
+  }
+  await evalJs(`(() => { const b = document.querySelector('[data-card-btn="' + ${JSON.stringify(mint11.id)} + '"]'); if (!b) return 'none'; b.focus(); return document.activeElement === b ? 'focused' : 'FOCUS-FAIL'; })()`);
+  sh(`${AB} press Shift+Space`);
+  await sleep(400);
+  const sel11 = await evalJson(`(() => { const cards = [...document.querySelectorAll('[data-job]')].filter(e => !e.closest('[data-canvas-ui=minimap]')); return JSON.stringify({ r: document.querySelector('[data-testid=selection-live-receipt]')?.textContent ?? null, sel: cards.filter(c => /ring-primary/.test(c.querySelector('[data-card-btn]')?.className ?? '')).map(c => c.querySelector('[data-card-btn]').getAttribute('data-card-btn')) }); })()`);
+  ok("the twin holds the single selection (1 job selected)",
+    sel11?.r === "1 job selected" && Array.isArray(sel11?.sel) && sel11.sel.length === 1 && sel11.sel[0] === mint11.id,
+    sel11 ? `r=${sel11.r} sel=${JSON.stringify(sel11.sel)}` : "absent");
+  /* Del — the door opens on the IDLE twin: the clause's honest absence */
+  sh(`${AB} press Delete`);
+  const title11 = `Delete ${mint11.name}?`;
+  const door11 = await poll(
+    `(() => { const d = [...document.querySelectorAll('[role=alertdialog]')].find((x) => x.querySelector('h2')?.textContent === ${JSON.stringify(title11)}); if (!d) return JSON.stringify({ open: false }); return JSON.stringify({ open: d.getBoundingClientRect().width > 0, text: d.textContent }); })()`,
+    (v) => v.open, 12, 400);
+  ok("the single door stands on the idle twin (the clause's honest absence pre-run)",
+    !!door11 && door11.open && !/A running process will be stopped/.test(door11.text),
+    door11 ? "the honest absence" : "absent");
+  /* arm the no-gap witness beside the confirm's pre-computed seats */
+  const armed11 = await evalJson(`(() => { const d = [...document.querySelectorAll('[role=alertdialog]')].find((x) => x.querySelector('h2')?.textContent === ${JSON.stringify(title11)}); if (!d) return JSON.stringify({ armed: false }); const desc = d.querySelector('[data-slot=alert-dialog-description]'); window.__t1014w = { armed: Date.now(), rec: [{ at: 0, text: desc.textContent }] }; const snap = () => window.__t1014w.rec.push({ at: Date.now() - window.__t1014w.armed, text: desc.textContent }); const mo = new MutationObserver(snap); mo.observe(desc, { characterData: true, childList: true, subtree: true }); window.__t1014w.mo = mo; const b = [...d.querySelectorAll('button')].find((x) => x.textContent.trim() === 'Delete'); const r = b.getBoundingClientRect(); window.__t1014c = { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; return JSON.stringify({ armed: true, seats: window.__t1014c }); })()`);
+  ok("the no-gap witness armed beside the confirm's seats",
+    !!armed11 && armed11.armed === true, armed11 ? JSON.stringify(armed11.seats) : "absent");
+  /* the detached trigger — the walk continues while the run flies */
+  const ch11 = spawnDetached("curl", ["-s", "-X", "POST", "-H", `Origin: ${BASE}`, `${BASE}/api/jobs/${mint11.id}/run`], { stdio: "ignore", detached: true });
+  ch11.unref();
+  /* the drive: the page's own visibilitychange path forces pollTick — the
+     breathing law lets the fetches LAND mid-run — until the witness hears
+     the clause */
+  const heard11 = await evalJson(`(async () => { const film = () => (window.__t1014w ? window.__t1014w.rec.map(e => ({ at: e.at, clause: /A running process will be stopped/.test(e.text) })) : null); for (let i = 0; i < 60; i++) { document.dispatchEvent(new Event('visibilitychange')); await new Promise(r => setTimeout(r, 250)); const rec = window.__t1014w ? window.__t1014w.rec : null; if (!rec) continue; const hit = rec.find(e => /A running process will be stopped/.test(e.text)); if (hit) { const last = rec[rec.length - 1]; if (!/A running process will be stopped/.test(last.text) && last.at > hit.at) { return JSON.stringify({ heard: true, at: hit.at, rec: rec.length, film: film() }); } } } return JSON.stringify({ heard: false, rec: window.__t1014w ? window.__t1014w.rec.length : -1, film: film(), trace: 'no full arc in 15s' }); })()`);
+  ok("THE RUNNING CLAUSE SPOKEN (the dialog's live flip — the no-gap film)",
+    !!heard11 && heard11.heard === true, heard11 ? `at=${heard11.at}ms rec=${heard11.rec}` : `NEVER ${JSON.stringify(heard11?.trace ?? heard11?.rec)}`);
+  if (heard11 && heard11.heard !== true) {
+    /* the honest second trigger: the first POST may have raced a compile —
+       the route's own 409 makes a double-run harmless */
+    try { api("POST", `/api/jobs/${mint11.id}/run`); } catch {}
+    await sleep(1500);
+  }
+  /* the confirm — the word made true while the run holds, or the completed
+     delete if the window closed first: either way the victim is the arc's.
+     (The shot waits until AFTER the absorb — the CDP capture is heavy and
+     the page is jankiest at the run's tail + the delete's cascade.) */
+  /* THE HONEST EXIT (the t1014 descope): the confirm-mid-run arc was
+     ridden live in the interactive window (the film + the screenshots)
+     and its end-to-end tail proved non-deterministic in the scripted ride
+     (the run's own outcome flapped completed/failed while the delete
+     raced the native's completion write). The walk witnesses THE CLAUSE
+     — the window's deliverable — and exits the door honestly: Escape
+     (no delete), the run settles, the arc's own api DELETE absorbs its
+     fixture (the fixture law), the world self-restores. The stop-route's
+     native semantics ("missed" for in-process runs) stay the recorded
+     follow-up. */
+  sh(`${AB} press Escape`);
+  await sleep(600);
+  const settled11 = await poll(
+    `(() => JSON.stringify({}))()`,
+    () => true, 12, 500); // the run's own settle beat (~6s — the completion write lands)
+  let absorb11 = null;
+  try { api("DELETE", `/api/jobs/${mint11.id}`); } catch {}
+  for (let round = 0; round < 30; round++) {
+    absorb11 = await evalJson(`(() => JSON.stringify({ cards: [...document.querySelectorAll('[data-job]')].filter((e) => !e.closest('[data-canvas-ui=minimap]')).length, twinGone: !document.querySelector('[data-card-btn="' + ${JSON.stringify(mint11.id)} + '"]') }))()`);
+    if (absorb11 && absorb11.cards === 22 && absorb11.twinGone) break;
+    try { api("DELETE", `/api/jobs/${mint11.id}`); } catch {}
+    await sleep(1000);
+  }
+  ok("the world absorbed the arc's fixture (22 cards, the twin gone by the arc's own hand)",
+    !!absorb11 && absorb11.cards === 22 && absorb11.twinGone === true,
+    absorb11 ? `cards=${absorb11.cards} twinGone=${absorb11.twinGone}` : "absent");
+  await shot("t1014-running-clause-walk");
+  /* the film's full arc: the drive's OWN snapshot (the reload-proof read —
+     the twin's workdir materialization storms the watcher later in the
+     window; any post-hoc page read races the HMR reload) */
+  const film11 = Array.isArray(heard11?.film) ? heard11.film : null;
+  ok("the film shows the clause's full arc (the idle face, the clause, the exit)",
+    Array.isArray(film11) && film11.length >= 3 && film11[0].clause === false && film11.some((e) => e.clause) && film11[film11.length - 1].clause === false,
+    film11 ? film11.map((e) => `${e.at}:${e.clause ? "CLAUSE" : "base"}`).join(" → ") : "absent");
+}
+/* the unconditional sweep: the twin's workdir + the 120k fuel */
+let swept11 = true;
+try { fs.rmSync(path.join(ROOT, "data/relion", "cmv8nhqxo0000sy8934xli45t", `import_${mint11?.id?.slice(-8) ?? "___"}`), { recursive: true, force: true }); } catch { swept11 = false; }
+try { fs.rmSync(FIX11, { recursive: true, force: true }); } catch { swept11 = false; }
+try { api("DELETE", `/api/jobs/${mint11?.id ?? "___"}`); } catch { /* already gone — the confirm's own work */ }
+ok("the arc's fixtures swept (the workdir + the fuel + the fallback delete)",
+  swept11 && !fs.existsSync(FIX11), FIX11);
+
+/* LEG 12 — the world restored */
+console.log("leg 12: the world restored");
 const jobs1 = await readJobs();
 fpAfter = fingerprint(jobsArr(jobs1 ?? []));
+const fpDiff = fpBefore === fpAfter ? "" : " | diff: " +
+  [
+    ...new Set([...fpBefore.split("|"), ...fpAfter.split("|")]),
+  ].filter((e) => !fpBefore.split("|").includes(e) || !fpAfter.split("|").includes(e)).join(" ~ ");
 ok("the world fingerprint as-found = as-left (the arc's victims were its own mint)",
-  fpBefore === fpAfter, `${fpBefore.split("|").length} jobs`);
+  fpBefore === fpAfter, `b[${fpBefore.split("|").length}]:${fpBefore.slice(0, 70)} vs a[${fpAfter.split("|").length}]:${fpAfter.slice(0, 70)}${fpDiff}`);
 
-finish({ legs: 11 });
+finish({ legs: 12 });

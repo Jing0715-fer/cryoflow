@@ -917,7 +917,8 @@ function importFileSet(
   projectDir: string,
   workdir: string,
   bridge: WslBridge | null
-): { entries: string[]; unlinked: number } {
+): Promise<{ entries: string[]; unlinked: number }> {
+  return (async () => {
   const projectMic = path.join(projectDir, "micrographs");
   const workdirMic = path.join(workdir, "micrographs");
   // fresh real dir — removes a previous import's symlink/junction (the link
@@ -956,6 +957,7 @@ function importFileSet(
       unlinkedFiles.push({ name, abs: f });
       entries.push(bridge ? hostToWsl(f) : f);
     }
+    if (++importYieldCount % IMPORT_YIELD_EVERY === 0) await breatheImport();
   }
   // t914 — expose the set inside the import job's workdir (Files tab +
   // gallery) as PER-FILE links, ALWAYS. The old primary lane linked the
@@ -983,6 +985,7 @@ function importFileSet(
         /* gallery preview lost for this file — import still works */
       }
     }
+    if (++importYieldCount % IMPORT_YIELD_EVERY === 0) await breatheImport();
   }
   // markers for the unlinkable files (both trees — the junction case only
   // carries projectMic's markers into the workdir automatically)
@@ -996,11 +999,34 @@ function importFileSet(
     }
   }
   return { entries, unlinked: unlinkedFiles.length };
+  })();
 }
 
 /* ------------------------------------------------------------------ */
 /* Param helpers                                                        */
 /* ------------------------------------------------------------------ */
+
+/* ------------------------------------------------------------------ */
+/* The import loops' breathing law (t1014)                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * t1014 — a folder/file-set import of a big bundle runs 100k+ SYNC link
+ * syscalls INSIDE the server's own event loop. Without a yield, every
+ * client's poll (and this run's own progress writes) starves behind the
+ * work: the GET /api/jobs that would carry status:"running" cannot even
+ * be ANSWERED while the run holds the loop (measured live: a single
+ * roster fetch queued 4.7s behind a 120k-file import and landed after
+ * the completion write) — the running face and the progress face were
+ * unrenderable BY CONSTRUCTION, and the single-delete confirm's "A
+ * running process will be stopped." could never speak for exactly the
+ * runs big enough to need it. A macrotask every IMPORT_YIELD_EVERY
+ * files lets the loop breathe: the polls interleave, the faces render,
+ * the word can be spoken — and made true — while the run still holds.
+ */
+const IMPORT_YIELD_EVERY = 256;
+let importYieldCount = 0;
+const breatheImport = (): Promise<void> => new Promise((r) => setImmediate(r));
 
 function num(job: EngineJobRef, key: string, fallback: number): number {
   const v = job.params[key];
@@ -3360,6 +3386,7 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
           /* nothing there yet — mkdir below */
         }
         if (linked) {
+          let folderYield = 0;
           for (const f of hostFiles) {
             const dst = path.join(workdirMic, path.basename(f));
             try {
@@ -3373,11 +3400,12 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
                 /* gallery preview lost for this file — import still works */
               }
             }
+            if (++folderYield % IMPORT_YIELD_EVERY === 0) await breatheImport();
           }
         }
       } else {
         // pattern / file-list — link the FILES into a real project dir
-        const r = importFileSet(hostFiles, projectDir, workdir, bridge);
+        const r = await importFileSet(hostFiles, projectDir, workdir, bridge);
         for (const e of r.entries) lines.push(`${e} 1`);
         unlinked = r.unlinked;
       }

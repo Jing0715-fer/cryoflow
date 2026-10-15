@@ -298,6 +298,55 @@ console.log("R band III — the single pair's truce (t1013):");
     route.includes("{ status: 409 }") &&
     route.includes("The engine workdir on disk is intentionally kept"),
     "the dialog pre-states what the server enforces — one story, mouth and guard");
+  // R15 — the mint's own dto must speak the COPY's own count (zero). The
+  // old line wrote the ROOT's count (+1) onto the copy's dto — the copy's
+  // card badge claimed "×N linked copies consume this copy's outputs" and
+  // its single-delete confirm spoke the refusal clause for a delete the
+  // server accepts (_count.links for a fresh copy is 0). The clause's word
+  // is true from birth; the root's badge rides the store's own bump.
+  const jobsRoute = read("src/app/api/jobs/route.ts");
+  ok("R15 the link mint's dto speaks the copy's OWN count (zero — the clause true from birth)",
+    /dto\.linkCount = 0;/.test(jobsRoute) &&
+    jobsRoute.includes("the copy's OWN inbound-link count is ZERO"),
+    "the optimistic window's badge and door render the honest zero");
+}
+
+/* ---------- B band — the breathing law (t1014) ---------- */
+console.log("B band — the import loops' breathing law (t1014):");
+{
+  // A folder/file-set import of a big bundle runs 100k+ SYNC link syscalls
+  // inside the server's own event loop. Without a yield the roster GET that
+  // would carry status:"running" cannot even be ANSWERED while the run
+  // holds the loop (measured live: one fetch queued 4.7s behind a 120k-file
+  // import and landed after the completion write) — the running face and
+  // the progress face were unrenderable by construction, and the
+  // single-delete confirm's "A running process will be stopped." could
+  // never speak for exactly the runs big enough to need it. The cure: a
+  // macrotask every IMPORT_YIELD_EVERY files — the polls interleave, the
+  // faces render, the word can be spoken and made true mid-run (the walk's
+  // leg 11 rides it live).
+  const eng = read("src/lib/relion/engine.ts");
+  ok("B1 the breathing helper stands with its measured law in words",
+    eng.includes("const IMPORT_YIELD_EVERY = 256") &&
+    eng.includes("const breatheImport = (): Promise<void> => new Promise((r) => setImmediate(r));") &&
+    eng.includes("queued 4.7s behind a 120k-file import"),
+    "the macrotask cadence + the honest measurement recorded beside the law");
+  ok("B2 the folder face's workdir loop yields",
+    eng.includes("if (++folderYield % IMPORT_YIELD_EVERY === 0) await breatheImport();"),
+    "the demo/EMPIAR shape — the loop every big folder import walks");
+  ok("B3 importFileSet is async (the IIFE lift kept the signature's shape)",
+    eng.includes("): Promise<{ entries: string[]; unlinked: number }> {") &&
+    eng.includes("return (async () => {"),
+    "the sync per-file link loops became awaitable without renaming the law");
+  ok("B4 both importFileSet loops yield",
+    (eng.match(/if \(\+\+importYieldCount % IMPORT_YIELD_EVERY === 0\) await breatheImport\(\);/g) ?? []).length >= 2,
+    "the projectMic links AND the workdir exposure breathe");
+  ok("B5 the single call site awaits the lifted set",
+    eng.includes("const r = await importFileSet(hostFiles, projectDir, workdir, bridge);"),
+    "the folder branch's sibling — the pattern/file-list path");
+  ok("B6 the yield cadence is a named constant, not a magic number",
+    (eng.match(/IMPORT_YIELD_EVERY/g) ?? []).length >= 4,
+    "the law reads by name at every yield site");
 }
 
 /* ---------- W band — the twin wells ---------- */
