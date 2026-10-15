@@ -211,7 +211,7 @@ export function PipelineScriptDialog({
             ) : (
               <Copy className="size-3.5" aria-hidden="true" />
             )}
-            {copied ? "Copied" : "Copy script"}
+            <span aria-live="polite">{copied ? "Copied" : "Copy script"}</span>
           </Button>
           <Button
             size="sm"

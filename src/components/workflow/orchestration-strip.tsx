@@ -160,6 +160,7 @@ export function OrchestrationStrip() {
           size="sm"
           variant="ghost"
           disabled={orch.stopRequested}
+          aria-busy={orch.stopRequested}
           onClick={() => stopSubtreeRun()}
           title="Stops dispatching further jobs — the one now running finishes on its own."
           className="h-7 shrink-0 gap-1.5 px-2 text-xs"

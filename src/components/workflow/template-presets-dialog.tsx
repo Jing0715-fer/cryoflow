@@ -960,7 +960,7 @@ export function TemplatePresetsDialog() {
             >
               Cancel
             </Button>
-            <Button size="sm" onClick={() => void create()} disabled={busy} className="gap-1.5">
+            <Button size="sm" onClick={() => void create()} disabled={busy} aria-busy={busy} className="gap-1.5">
               <Wand2 className="size-3.5" aria-hidden="true" />
               {busy ? "Creating…" : "Create pipeline"}
             </Button>

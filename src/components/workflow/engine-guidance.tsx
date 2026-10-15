@@ -195,6 +195,7 @@ export function EngineReDetectRow() {
         type="button"
         onClick={() => void refreshSystem()}
         disabled={systemRefreshing}
+        aria-busy={systemRefreshing}
         className="flex items-center gap-1.5 rounded-md border bg-card px-2 py-1 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground disabled:opacity-60"
         title="Re-run the RELION/WSL environment probe (bypasses the 60s cache)"
       >

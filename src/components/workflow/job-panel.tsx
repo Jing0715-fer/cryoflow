@@ -1651,6 +1651,7 @@ function ParamsTab({
             className="flex-1"
             onClick={() => void commit()}
             disabled={!dirty && autoSave.phase !== "error"}
+            aria-busy={autoSave.phase === "saving"}
             title="Save immediately — normally unnecessary (edits persist on their own), but handy after a failed auto-save"
           >
             {autoSave.phase === "saving" ? (

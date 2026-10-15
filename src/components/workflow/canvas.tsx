@@ -608,6 +608,7 @@ const TemplateSuggestionsChip = React.memo(function TemplateSuggestionsChip() {
           className="h-6 gap-1 px-2.5 text-[11px]"
           onClick={connectIncluded}
           disabled={busy || included.length === 0}
+          aria-busy={busy}
           title="Wire the included suggestions through the same endpoint a manual drag uses"
           data-testid="template-suggestions-connect"
         >

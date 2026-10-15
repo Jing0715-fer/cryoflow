@@ -1588,6 +1588,7 @@ function ConnectionEditor({
             className="h-9 shrink-0 gap-1.5 text-xs"
             onClick={() => void verifyModule()}
             disabled={verifying || !verifyInput.trim() || (creating && !valid)}
+            aria-busy={verifying}
             data-verify-module-button=""
           >
             {verifying ? (
@@ -1731,6 +1732,7 @@ function ConnectionEditor({
             className="h-9 gap-1.5 text-sm"
             onClick={() => void storageCheck()}
             disabled={storageChecking || testing || saving}
+            aria-busy={storageChecking}
             title="Write 2 MB of random bytes ON A COMPUTE NODE and read them back from the login node — the storage conviction test. Can take up to ~3 minutes (a compute node has to be allocated first)."
             data-storage-check-button=""
           >

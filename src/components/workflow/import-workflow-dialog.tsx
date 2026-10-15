@@ -386,6 +386,7 @@ export function ImportWorkflowDialog() {
             className="gap-1.5"
             onClick={() => void confirm()}
             disabled={busy || !targetWs || entries.length === 0}
+            aria-busy={busy}
           >
             <ArrowDownToLine className="size-3.5" aria-hidden="true" />
             {busy

@@ -206,7 +206,7 @@ export function HpcSbatchDialog({
           <div className="flex-1" />
           <Button size="sm" variant="outline" onClick={() => void copy()} disabled={!data?.script}>
             {copied ? <Check className="size-3.5" aria-hidden="true" /> : <Copy className="size-3.5" aria-hidden="true" />}
-            {copied ? "Copied" : "Copy script"}
+            <span aria-live="polite">{copied ? "Copied" : "Copy script"}</span>
           </Button>
         </div>
 

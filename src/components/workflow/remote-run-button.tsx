@@ -1311,6 +1311,7 @@ export function RemoteRunButton({
                 className="h-9 gap-1.5 text-sm"
                 onClick={() => void submit()}
                 disabled={pending || !conn || (mode === "slurm" && !slurmAvailable)}
+                aria-busy={pending}
               >
                 {pending ? (
                   <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />

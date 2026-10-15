@@ -504,6 +504,7 @@ export function TypeCardDialog({
             size="sm"
             onClick={handleAdd}
             disabled={adding}
+            aria-busy={adding}
             data-testid="type-card-add"
           >
             {adding ? "Adding…" : "Add to canvas"}

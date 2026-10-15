@@ -5990,6 +5990,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                       type="button"
                       onClick={sendSubvolumeToJob}
                       disabled={!dims || sendBusy}
+                      aria-busy={sendBusy}
                       data-testid="clip-send-job"
                       title="Send the kept box to a NEW Import Map job — the crop is materialized in this job's SubVolumes folder and wired into the workflow graph (box-subregion → focused refinement)"
                       className="flex w-full items-center justify-center gap-1.5 rounded-md border border-violet-600/40 bg-background/60 px-2 py-1 text-[10.5px] font-semibold text-violet-700 transition-colors hover:bg-violet-600/25 hover:text-violet-800 dark:text-violet-300 dark:hover:text-violet-200 disabled:cursor-not-allowed disabled:opacity-50"

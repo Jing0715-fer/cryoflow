@@ -3095,6 +3095,7 @@ function FilesTab({
           data-remote-more=""
           onClick={onLoadMore}
           disabled={loadingMore}
+          aria-busy={loadingMore}
           className="no-print flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-2 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground disabled:opacity-50"
         >
           {loadingMore ? (
@@ -3793,6 +3794,7 @@ function InspectorHeader({
                 <Button
                   size="sm"
                   disabled={busy}
+                  aria-busy={busy}
                   onClick={() => setConfirmRerun(true)}
                   className={cn(
                     "h-7 gap-1.5 bg-running-600 px-3 text-xs text-white hover:bg-running-700",
