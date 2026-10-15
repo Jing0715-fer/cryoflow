@@ -142,6 +142,7 @@ export const HELP_CHAPTERS: HelpChapter[] = [
       "Right-click a card for the quick-action menu — run, duplicate, delete. A deleted job keeps a tombstone, so it can come back.",
       "Run a job from the details panel — the engine drives it live and progress updates in place.",
       "Zoom with the floating controls; the minimap and the Ctrl/⌘+F find bar help on crowded canvases.",
+      "Select with the keyboard too: focus a card and press Shift+Space to toggle it in the multi-selection — the toolbar then aligns, distributes, duplicates or paces the whole group, and a screen reader hears each count change.",
     ],
   },
   {

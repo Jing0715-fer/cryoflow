@@ -30,15 +30,20 @@
  *      a11y arm — the keyboard's multi-select), the toolbar's pace
  *      button takes the real click, the selection-scoped dialog stands
  *      on its LOCAL well (two rows, no fetch), the bare-canvas click
- *      clears;
+ *      clears; THE t1011 GRAFT — the selection's live receipt rides the
+ *      same leg: the region is mounted-and-silent at the landing (the
+ *      mount-skip law), speaks "1 job selected" then "2 jobs selected"
+ *      after each real press, and speaks "Selection cleared" after the
+ *      bare-canvas clear (a screen reader hears the whole arc);
  *   8. the world restored — the fingerprint as-found = as-left.
  *
  * RIDE LAWS inherited: one fresh `agent-browser open`; poll-then-probe;
  * realClick probes vis AND owns every round; the walk asserts (it is
  * the face's verifier) and exits honest. THE LITERAL-WORD LAW: the
  * asserts pin the band's words ("total compute", "wall time", "time is
- * not claimed") as LITERALS — any rewording re-keys the walk IN THE
- * SAME COMMIT.
+ * not claimed") AND the receipt's vocabulary ("1 job selected",
+ * "2 jobs selected", "Selection cleared") as LITERALS — any rewording
+ * re-keys the walk IN THE SAME COMMIT.
  *
  *   node scripts/t1009-pace-walk.mjs
  */
@@ -163,6 +168,13 @@ console.log("leg 7: the canvas keyboard door (Shift+Space, the t1010 a11y arm)")
 const wfClick = await realClick(`[...document.querySelectorAll('[role="tab"]')].find((t) => t.textContent.trim() === 'Workflow')`);
 ok("the Workflow tab took the real click", String(wfClick).startsWith("clicked@"), String(wfClick));
 await sleep(800);
+/* the t1011 graft, moment one: the receipt is MOUNTED and SILENT at the
+   landing — a live region must precede its change, and the landing is
+   not an event worth hearing (the mount-skip law) */
+const landing = await evalJson(`(() => { const r = document.querySelector('[data-testid=selection-live-receipt]'); return JSON.stringify({ mounted: !!r, text: r ? r.textContent : null }); })()`);
+ok("the receipt is mounted and silent at the landing (the mount-skip law)",
+  !!landing && landing.mounted === true && landing.text === "",
+  `text=${JSON.stringify(landing?.text)}`);
 /* zoom to fit through the REAL context menu (the demo chain's completed
    cards sit off-viewport at the boot framing) */
 sh(`${AB} mouse move 700 500`); sh(`${AB} mouse down right`); sh(`${AB} mouse up right`);
@@ -189,11 +201,15 @@ const ids = await evalJson(`(() => {
 })()`);
 ok("two completed cards reachable after the fit", Array.isArray(ids) && ids.length === 2, ids ? ids.join(" + ") : "none");
 let togglesOk = false;
+const receipts = [];
 if (Array.isArray(ids) && ids.length === 2) {
   for (const id of ids) {
     await evalJs(`(() => { const b = document.querySelector('[data-card-btn="' + ${JSON.stringify(id)} + '"]'); if (!b) return 'none'; b.focus(); return document.activeElement === b ? 'focused' : 'FOCUS-FAIL'; })()`);
     sh(`${AB} press Shift+Space`);
     await sleep(400);
+    /* the t1011 graft, moment two: the receipt speaks each press —
+       every count renders a different string, so each step re-announces */
+    receipts.push(await evalJson(`(() => { const r = document.querySelector('[data-testid=selection-live-receipt]'); return JSON.stringify(r ? r.textContent : null); })()`));
   }
   const selState = await evalJson(`(() => JSON.stringify({
     selected: [...document.querySelectorAll('[data-job]')].filter((e) => !e.closest('[data-canvas-ui=minimap]') && /ring-primary/.test(e.querySelector('[data-card-btn]')?.className ?? '')).length,
@@ -202,6 +218,9 @@ if (Array.isArray(ids) && ids.length === 2) {
   togglesOk = selState.selected === 2 && selState.paceBtn === true;
   ok("two Shift+Space toggles stand (the toolbar's pace button with them)",
     togglesOk, `selected=${selState.selected} paceBtn=${selState.paceBtn}`);
+  ok("the receipt spoke each toggle (1 → 2, the count's own words)",
+    receipts.length === 2 && receipts[0] === "1 job selected" && receipts[1] === "2 jobs selected",
+    receipts.join(" → ") || "none");
   if (togglesOk) {
     const paceBtnPos = await evalJson(`(() => { const b = document.querySelector('[data-testid=toolbar-pace-selection]'); const r = b.getBoundingClientRect(); return JSON.stringify({ x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }); })()`);
     sh(`${AB} mouse move ${paceBtnPos.x} ${paceBtnPos.y}`); sh(`${AB} mouse down`); sh(`${AB} mouse up`);
@@ -240,6 +259,11 @@ if (bare) {
 const selCleared = await evalJson(`(() => JSON.stringify({ selected: [...document.querySelectorAll('[data-job]')].filter((e) => !e.closest('[data-canvas-ui=minimap]') && /ring-primary/.test(e.querySelector('[data-card-btn]')?.className ?? '')).length }))()`);
 ok("the selection cleared on the bare canvas (the world ready to leave)",
   !!selCleared && selCleared.selected === 0, `selected=${selCleared?.selected}`);
+/* the t1011 graft, moment three: the receipt speaks the clear — the
+   exit is announced as honestly as the entry */
+const clearedReceipt = await evalJson(`(() => { const r = document.querySelector('[data-testid=selection-live-receipt]'); return JSON.stringify(r ? r.textContent : null); })()`);
+ok("the receipt spoke the clear (Selection cleared)",
+  clearedReceipt === "Selection cleared", String(clearedReceipt));
 
 /* LEG 8 — the world restored */
 console.log("leg 8: the world restored");

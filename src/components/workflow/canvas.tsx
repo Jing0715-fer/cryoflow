@@ -629,6 +629,54 @@ const TemplateSuggestionsChip = React.memo(function TemplateSuggestionsChip() {
 });
 
 /**
+ * t1011 — the selection's live receipt. A screen-reader user toggling a
+ * card with Shift+Space hears nothing today: the toolbar's aria-label
+ * recounts only once the toolbar is mounted (2+ selected — the first
+ * toggle is exactly the moment it is absent), and the cards themselves
+ * are silent about membership. A polite status region mounted at the
+ * canvas root announces every count change — "1 job selected" / "N jobs
+ * selected" / "Selection cleared". The region is ALWAYS mounted (a live
+ * region must already exist for the change it reports, so gating it on
+ * the count would miss the very transitions it exists to speak) and the
+ * announcement skips the initial render — landing on the canvas is not
+ * an event worth hearing. Rapid Shift+Space walks announce each step
+ * honestly: every count renders a different string, so each step is a
+ * text change; only an N→0→N round-trip inside one count reuses a
+ * string, and the cleared announcement already spoke for the exit.
+ */
+const SelectionLiveReceipt = React.memo(function SelectionLiveReceipt() {
+  const selectedIds = useWorkflowStore((s) => s.selectedIds);
+  const [receipt, setReceipt] = React.useState("");
+  // the mount skip: the first effect run is the LANDING, not a selection
+  // event — the receipt starts empty and speaks only from the first
+  // genuine change onward.
+  const landedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!landedRef.current) {
+      landedRef.current = true;
+      return;
+    }
+    setReceipt(
+      selectedIds.length === 0
+        ? "Selection cleared"
+        : selectedIds.length === 1
+          ? "1 job selected"
+          : `${selectedIds.length} jobs selected`
+    );
+  }, [selectedIds]);
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      data-testid="selection-live-receipt"
+      className="sr-only"
+    >
+      {receipt}
+    </div>
+  );
+});
+
+/**
  * Appears above the selection's bounding box whenever 2+ cards of the
  * ACTIVE workspace are selected. Screen-space chrome: hidden while a
  * rubber band is being drawn (the band owns the gesture) and driven by
@@ -2906,6 +2954,10 @@ export function WorkflowCanvas() {
           </span>
         </span>
       )}
+
+      {/* t1011 — the selection's live receipt (always mounted — a live
+          region must precede the change it reports) */}
+      <SelectionLiveReceipt />
 
       {/* Bulk-selection toolbar (align · distribute · duplicate · delete) */}
       <SelectionToolbar rootRef={rootRef} hidden={band != null} />

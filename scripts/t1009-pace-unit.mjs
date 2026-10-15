@@ -30,6 +30,14 @@
  *           units' numbers stand because this face added nothing to
  *           count (the tombstone unit's "no seventh pinner" law, kept
  *           by needle rather than by number).
+ *   R       THE RECEIPT + THE DOC ROWS (t1011 — the keyboard arc's
+ *           completion): the canvas's live region (role=status,
+ *           aria-live=polite, sr-only, ALWAYS mounted — a live region
+ *           must precede the change it reports), the mount-skip law
+ *           (landing is not an event), the three honest count strings,
+ *           the shortcuts dialog's ⇧ Space row (the verb's manual entry,
+ *           seated beside its pointer siblings), the help guide's
+ *           canvas chapter row naming Shift+Space and the receipt.
  *
  * THE PROBE PROTOCOL: node-only, readFileSync includes + one lifted
  * eval, exit honest, receipt to shots-qa/.t1009-unit-receipt.json.
@@ -168,6 +176,38 @@ console.log("D band — the selection arm (t1010):");
     dlg.includes("selection (${jobs.length}"));
 }
 
+/* ---------- D16–D19: the t1011 receipt + doc rows ---------- */
+console.log("R band — the selection's live receipt + the doc rows (t1011):");
+{
+  const canvas = read("src/components/workflow/canvas.tsx");
+  ok("R1 the canvas hosts a polite status region for the selection",
+    canvas.includes('data-testid="selection-live-receipt"') &&
+    /role="status"[\s\S]{0,80}aria-live="polite"/.test(canvas) &&
+    canvas.includes('className="sr-only"'),
+    "role=status + aria-live=polite + sr-only (the t999 wall-echo pattern)");
+  ok("R2 the receipt is ALWAYS mounted (a live region must precede its change)",
+    /^\s*<SelectionLiveReceipt \/>\s*$/m.test(canvas) &&
+    !/\{\s*\w+\s*&&\s*<SelectionLiveReceipt/.test(canvas),
+    "rendered unconditionally — gating it would mute the first toggle");
+  ok("R3 the receipt skips the landing (mount-skip before any string)",
+    /if \(!landedRef\.current\) \{\s*\n\s*landedRef\.current = true;\s*\n\s*return;/.test(canvas),
+    "the flip-then-bail shape: landing is not an event worth hearing");
+  ok("R4 the three count strings are the receipt's whole vocabulary",
+    canvas.includes('"Selection cleared"') &&
+    canvas.includes('"1 job selected"') &&
+    canvas.includes("`${selectedIds.length} jobs selected`"),
+    "every count renders a different string — each step re-announces");
+  const sd = read("src/components/workflow/shortcuts-dialog.tsx");
+  ok("R5 the shortcuts dialog teaches the keyboard verb beside its siblings",
+    sd.includes('{ keys: "⇧ Space", text: "Toggle the focused card in the selection — the keyboard\'s shift+click" }'),
+    "the doc row seated between ⇧ Click and ⇧ Drag");
+  const hg = read("src/components/workflow/help-guide-dialog.tsx");
+  ok("R6 the help guide's canvas chapter names Shift+Space and the receipt",
+    hg.includes("press Shift+Space to toggle it in the multi-selection") &&
+    hg.includes("hears each count change"),
+    "the manual never lags the verb");
+}
+
 /* ---------- W band — the twin wells ---------- */
 console.log("W band — the twin wells (one window law, two readers):");
 {
@@ -197,7 +237,7 @@ try {
   mkdirSync(path.join(ROOT, "shots-qa"), { recursive: true });
   writeFileSync(TMP, JSON.stringify({
     unit: "t1009-pace-unit", verdict, pass, fail, at: new Date().toISOString(),
-    face: "pipeline pace (t1009 product face): /api/projects/[id]/pace + pace-dialog + dashboard/palette doors",
+    face: "pipeline pace (t1009 product face): /api/projects/[id]/pace + pace-dialog + dashboard/palette doors + t1011 selection receipt/doc rows",
   }, null, 2));
 } catch { /* receipt best-effort */ }
 process.exit(fail === 0 ? 0 : 1);

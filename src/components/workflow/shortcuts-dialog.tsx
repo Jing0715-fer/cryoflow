@@ -124,6 +124,10 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: "P", text: "Critical path lens — dim everything the finish didn't wait on" },
       { keys: "Delete", text: "Delete the selection (asks first)" },
       { keys: "⇧ Click", text: "Toggle a card in the selection" },
+      // t1011 — the keyboard multi-select's doc row: the verb shipped in
+      // t1010 (Shift+Space on a focused card), the manual now teaches it
+      // beside its pointer siblings — the help never lags the verb.
+      { keys: "⇧ Space", text: "Toggle the focused card in the selection — the keyboard's shift+click" },
       { keys: "⇧ Drag", text: "Box-select on empty canvas" },
     ],
   },
