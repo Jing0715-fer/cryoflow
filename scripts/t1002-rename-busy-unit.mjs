@@ -69,10 +69,10 @@ try { unlinkSync(TMP); } catch {}
 
 ok("R8a the disabled census's population stands at 171 (the busy gate added no disabled row)",
   receipt?.population === 171, `got ${receipt?.population}`);
-ok("R8b stateful 116 · silent-static 30 · silences 55 — every tally unmoved",
-  receipt?.tally?.stateful === 116 &&
-  receipt?.tally?.["silent-static"] === 30 &&
-  receipt?.silences === 55,
+ok("R8b stateful 146 · silent-static 0 · silences 25 — the t1005 second arm's re-key: the thirty refusal-name cures genuinely moved the naming signal (the static bucket EMPTIED), this unit's own no-disabled-prop law stands untouched",
+  receipt?.tally?.stateful === 146 &&
+  receipt?.tally?.["silent-static"] === 0 &&
+  receipt?.silences === 25,
   `stateful=${receipt?.tally?.stateful} static=${receipt?.tally?.["silent-static"]} silences=${receipt?.silences}`);
 
 const panel = (() => { try { return readFileSync(path.join(ROOT, PANEL), "utf8"); } catch { return ""; } })();
