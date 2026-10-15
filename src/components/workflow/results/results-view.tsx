@@ -1444,6 +1444,9 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                             onChange={(e) => setStackSlice(Math.trunc(Number(e.target.value)) || 0)}
                             className="h-1.5 flex-1 accent-teal-600"
                             aria-label="Particle image index"
+                            aria-valuenow={stackSlice}
+                            aria-valuemin={0}
+                            aria-valuemax={Math.max(0, (imageFile.slices ?? 1) - 1)}
                             data-canvas-ui="stack-slice-range"
                           />
                           <Button

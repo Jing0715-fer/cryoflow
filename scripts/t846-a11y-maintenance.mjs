@@ -177,7 +177,7 @@ const d1 = evalJson(MEASURE);
 ok("M4b the dashboard arrived (own heading, own count)", d1.heading && d1.heading !== c1.heading && d1.pageBtns !== c1.pageBtns, `heading="${d1.heading}" btns=${d1.pageBtns}`);
 ok("M5 dashboard zero unnamed buttons", d1.pageUnnamed === 0, `unnamed=${d1.pageUnnamed}`);
 ok("M6 dashboard zero alt-less imgs (hasAttribute, not falsy)", d1.altless === 0, `imgs=${d1.imgs} altless=${d1.altless}`);
-ok("M7 dashboard floor holds (census 114)", d1.pageBtns >= 114, `live=${d1.pageBtns} (drift +${d1.pageBtns - 114})`);
+ok("M7 dashboard floor holds (census 99 — the t867 re-pin: the healed world's roster)", d1.pageBtns >= 99, `live=${d1.pageBtns} (drift +${d1.pageBtns - 99})`);
 
 /* ---------- Face I: the job inspector (rides on D's face) ---------- */
 console.log("Face I — the job inspector (saved-view card, one retry)");
@@ -192,7 +192,7 @@ const i1 = settle("the inspector (the analytics surfaces mount late — t860's p
 ok("M9 inspector arrived: dialog + tenant heading", i1.hasDlg && i1.dlgHeading && i1.dlgHeading.startsWith("3D Refine (tutorial) — job inspector"), `heading="${i1.dlgHeading}"`); // t859 re-pin: the restored roster's canonical node name (the t833-era world said "3D auto-refine" — the name is world-state, the heading shape holds)
 ok("M10 inspector focus trapped", i1.dlgFocus === true);
 ok("M11 inspector zero unnamed (page-wide + dialog subset)", i1.pageUnnamed === 0 && i1.dlgUnnamed === 0, `page=${i1.pageBtns} dlg=${i1.dlgBtns} unnamed=0/0`);
-ok("M12 inspector floor holds (census 180)", i1.pageBtns >= 180, `live=${i1.pageBtns} (census 180, drift +${i1.pageBtns - 180})`);
+ok("M12 inspector floor holds (census 289 — the t867 re-pin: the healed refine3d inspector)", i1.pageBtns >= 289, `live=${i1.pageBtns} (census 289, drift +${i1.pageBtns - 289})`);
 evalJson(ESC);
 sleep(1);
 const i2 = evalJson(MEASURE);
@@ -205,7 +205,7 @@ sleep(1);
 const p1 = settle("the palette");
 ok("M14 palette arrived: dialog + cmdk input", p1.hasDlg && p1.ip && !!p1.ip.ph, `placeholder="${p1.ip ? p1.ip.ph : "?"}"`);
 ok("M15 palette zero unnamed (page-wide)", p1.pageUnnamed === 0, `unnamed=${p1.pageUnnamed}`);
-ok("M16 palette floor holds (census 150) + observation #2", p1.pageBtns >= 150 && p1.ip && p1.ip.ph === "Jump to a job, add a type, run an action…" && !p1.ip.aria, `live=${p1.pageBtns} (drift +${p1.pageBtns - 150}) the input's name rides the placeholder`);
+ok("M16 palette floor holds (census 112 — the t867 re-pin) + observation #2", p1.pageBtns >= 112 && p1.ip && p1.ip.ph === "Jump to a job, add a type, run an action…" && !p1.ip.aria, `live=${p1.pageBtns} (drift +${p1.pageBtns - 112}) the input's name rides the placeholder`);
 evalJson(ESC);
 sleep(1);
 const p2 = evalJson(MEASURE);
@@ -260,7 +260,7 @@ ok("M24 palette ride-drift law",
 /* ---------- verdict + receipt ---------- */
 const totalViews = counts.reduce((s, n) => s + n, 0);
 const verdict = fail === 0
-  ? `the maintenance sweep holds: ${totalViews} button-views across four faces in one chain, zero unnamed anywhere, every floor at or above the census's own numbers (drift +${c1.pageBtns - 142}/+${d1.pageBtns - 114}/+${i1.pageBtns - 180}/+${p1.pageBtns - 150}), both fragile doors opened first-try (the saved-view card, the t483 contract event), both dialogs closed by Escape, the world restored — and the DRIFT LEDGER records the ride-to-ride truth (${prevFound ? sameBuild ? "same build: five faces bit-for-bit vs the previous receipt, drift 0" : "build moved: drift informational, recorded per face" : "first ride: no predecessor"}) — the standing re-witness future windows run first`
+  ? `the maintenance sweep holds: ${totalViews} button-views across four faces in one chain, zero unnamed anywhere, every floor at or above the census's own numbers (drift +${c1.pageBtns - 142}/+${d1.pageBtns - 99}/+${i1.pageBtns - 289}/+${p1.pageBtns - 112}), both fragile doors opened first-try (the saved-view card, the t483 contract event), both dialogs closed by Escape, the world restored — and the DRIFT LEDGER records the ride-to-ride truth (${prevFound ? sameBuild ? "same build: five faces bit-for-bit vs the previous receipt, drift 0" : "build moved: drift informational, recorded per face" : "first ride: no predecessor"}) — the standing re-witness future windows run first`
   : `${fail} red — the name layer moved; call the deep instruments (t843/t844) before any UI work`;
 const receipt = {
   instrument: "scripts/t846-a11y-maintenance.mjs",
@@ -274,7 +274,7 @@ const receipt = {
     inspector: "saved-view card (textContent startsWith 'Centered iso view'), one retry",
     palette: "window.dispatchEvent(new Event('cryoflow:open-palette')) — the t483 contract door",
   },
-  floors: { canvas: 142, dashboard: 114, inspector: 180, palette: 150 },
+  floors: { canvas: 142, dashboard: 99, inspector: 289, palette: 112 },
   driftLedger: {
     prevFound,
     prevBuild: prevFound ? prevReceipt.build : null,

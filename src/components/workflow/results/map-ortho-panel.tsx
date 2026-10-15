@@ -1905,7 +1905,7 @@ function ObliqueSectionBlock({
                 onClick={jumpToView}
                 data-canvas-ui="ortho-oblique-jump"
                 className="rounded p-0.5 text-violet-600 transition-colors hover:bg-violet-600/10"
-                aria-label="Swing the 3D camera to look straight down this plane's normal"
+                aria-label="Jump the 3D camera to look straight down this plane's normal"
                 title="⌖ the 3D view jumps face-on to this cut (the same ⌖ language the tiles speak)"
               >
                 <Focus className="h-3 w-3" aria-hidden="true" />

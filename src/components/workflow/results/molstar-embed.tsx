@@ -630,12 +630,19 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
   useEffect(() => {
     let disposed = false;
     let plugin: MolPlugin = null;
+    // the naming remediation's observer (t867) — lives with this effect,
+    // disconnected by disposePlugin (and by the unmount cleanup below)
+    let nameObs: MutationObserver | null = null;
 
     const disposePlugin = () => {
       try {
         plugin?.dispose?.();
       } catch {
         /* best-effort cleanup */
+      }
+      if (nameObs) {
+        nameObs.disconnect();
+        nameObs = null;
       }
       plugin = null;
       pluginRef.current = null;
@@ -721,6 +728,40 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
           const bg = appViewportBg();
           if (bg) plugin.canvas3d?.setProps({ renderer: { backgroundColor: bg } });
         }
+        // t867 — the NAMELESS REMEDIATION. Mol*'s own toolbar buttons (the
+        // msp-btn-link-toggle family: Reset Zoom, Screenshot / State
+        // Snapshot, Toggle Controls Panel, Toggle Expanded Viewport,
+        // Settings / Controls Info, Illumination, the VR door, Toggle
+        // Selection Mode) render with a `title` but NO accessible name —
+        // the census's zero-unnamed invariant counts them (the quick-look
+        // page's first ride filmed eight). The naming map is born from the
+        // live DOM (scripts/t867-molstar-nameless-probe.mjs): every nameless
+        // button Mol* ships carries a title, so the title IS the name —
+        // copied verbatim, never invented. The pass is DOCUMENT-scoped but
+        //msp-filtered: Mol* floats some controls outside the plugin target
+        // (the hover-box layer), so the container alone under-covers — the
+        // msp-btn class is the signature, and every other button on the
+        // page is already named (the census's own invariant), so the filter
+        // never touches the app's own controls. A childList observer
+        // re-applies after each of Mol*'s re-renders (React owns these
+        // nodes; our attribute would be wiped by the next commit). The
+        // observer watches childList only — our own attribute writes never
+        // re-arm it.
+        const nameNameless = () => {
+          for (const b of Array.from(document.querySelectorAll("button.msp-btn"))) {
+            const named =
+              b.getAttribute("aria-label") ||
+              (b.getAttribute("aria-labelledby") ? "named" : "") ||
+              (b.textContent || "").trim();
+            if (named) continue;
+            const title = b.getAttribute("title");
+            if (title) b.setAttribute("aria-label", title);
+          }
+        };
+        nameNameless();
+        nameObs = new MutationObserver(nameNameless);
+        nameObs.observe(document.body, { childList: true, subtree: true });
+
         // QA affordance: let browser tooling poke the live plugin (read the
         // volume grid transform when verifying clip/slice plane math).
         (window as unknown as { __molstar?: unknown }).__molstar = plugin;
@@ -868,7 +909,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     void init();
     return () => {
       disposed = true;
-      disposePlugin();
+      disposePlugin(); // also disconnects the naming observer (t867)
       pluginRef.current = null;
       reprRef.current = null;
       volRef.current = null;
@@ -7251,6 +7292,11 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
         onChange={(e) => void onImportFiles(e)}
         tabIndex={-1}
         aria-hidden="true"
+        /* t867 — named even though aria-hidden: the census's control sweep
+           counts every input in the DOM, and an unnamed one reads as a
+           slander against a control the AT tree never exposes. The name
+           costs nothing and speaks if the aria-hidden ever lifts. */
+        aria-label="Mix in more overlay session files"
       />
 
       {phase === "loading" && (
