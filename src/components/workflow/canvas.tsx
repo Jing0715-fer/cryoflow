@@ -31,6 +31,7 @@ import {
   RotateCcw,
   Route,
   Search,
+  Timer,
   Trash2,
   Map as MapIcon,
   Move,
@@ -79,6 +80,7 @@ import { JobCard } from "./job-card";
 import { STATUS_FLOOR, type StatusWord } from "@/lib/status-style"; // t647 — the floor map lives with the word law
 import { TypeIcon } from "./icons";
 import { ParamsDiffDialog } from "./params-diff-dialog";
+import { PaceDialog } from "./pace-dialog"; // t1010 — the selection's pace face
 import { useDropImport, DropImportOverlay } from "./drop-import";
 import { stageWorkflowFiles } from "@/lib/import-stage";
 import { Button } from "@/components/ui/button";
@@ -662,6 +664,10 @@ const SelectionToolbar = React.memo(function SelectionToolbar({
   // reads the selection in PICK order (first click = left column), which
   // selectedIds preserves and the jobs-list filter would scramble
   const [compareOpen, setCompareOpen] = React.useState(false);
+  // t1010 — the selection's pace face: the toolbar's gauge opens the
+  // pace dialog on the SELECTED rows (the local well — the same lib the
+  // project face drinks from, no fetch)
+  const [paceOpen, setPaceOpen] = React.useState(false);
   // canvas layout size, measured outside render (refs are off-limits there)
   const [canvasSize, setCanvasSize] = React.useState<{ w: number; h: number }>({ w: 0, h: 0 });
   React.useEffect(() => {
@@ -746,6 +752,18 @@ const SelectionToolbar = React.memo(function SelectionToolbar({
             <span className="h-4 w-px bg-border" aria-hidden="true" />
           </>
         )}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-7"
+          onClick={() => setPaceOpen(true)}
+          aria-label={`Pace of ${sel.length} selected jobs`}
+          title="Pipeline pace of the selection — per-stage durations and wall time for just these jobs"
+          data-testid="toolbar-pace-selection"
+        >
+          <Timer className="size-3.5" />
+        </Button>
+        <span className="h-4 w-px bg-border" aria-hidden="true" />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs font-medium">
@@ -834,6 +852,16 @@ const SelectionToolbar = React.memo(function SelectionToolbar({
         jobs={pickOrderPair ?? []}
         open={compareOpen}
         onOpenChange={setCompareOpen}
+      />
+
+      {/* t1010 — the selection's pace: the local well (the same lib the
+          project face drinks from), scoped to the selected rows */}
+      <PaceDialog
+        open={paceOpen}
+        onOpenChange={setPaceOpen}
+        projectId={null}
+        projectName={null}
+        jobs={sel}
       />
 
       {/* Task 127 — name-and-save the selection as a reusable template.

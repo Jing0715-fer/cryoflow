@@ -150,6 +150,46 @@ console.log("D band — the doors:");
     /setPaceOpen\(true\)/.test(pal));
 }
 
+/* ---------- D13–D15: the t1010 selection arm ---------- */
+console.log("D band — the selection arm (t1010):");
+{
+  const card = read("src/components/workflow/job-card.tsx");
+  ok("D13 the card's keyboard toggle speaks (Shift+Space before the act branch)",
+    /if \(e\.key === " " && e\.shiftKey\) \{\s*\n\s*e\.preventDefault\(\);\s*\n\s*onToggleSelect\(job\.id\);/.test(card),
+    "the keyboard users' multi-select (the shift modifier everywhere else)");
+  const canvas = read("src/components/workflow/canvas.tsx");
+  ok("D14 the toolbar's pace button carries the dynamic scope name",
+    canvas.includes("aria-label={`Pace of ${sel.length} selected jobs`}") &&
+    canvas.includes('data-testid="toolbar-pace-selection"'));
+  const dlg = read("src/components/workflow/pace-dialog.tsx");
+  ok("D15 the dialog's local well rides the SAME lib (no fetch, one truth)",
+    dlg.includes('import { computePace } from "@/lib/pace"') &&
+    dlg.includes("...computePace(jobs)") &&
+    dlg.includes("selection (${jobs.length}"));
+}
+
+/* ---------- W band — the twin wells ---------- */
+console.log("W band — the twin wells (one window law, two readers):");
+{
+  // The pace face and the analytics panel (the t504 timeline, the t677
+  // stage lens) are renderings of ONE window law: [startedAt, startedAt
+  // + duration]. timeline-walk.ts is TS-shaped (interfaces + generics)
+  // so it does not lift raw — the band pins the LAW AT BOTH SOURCES
+  // instead: either reader changing its window arithmetic reddens here,
+  // and the faces can never quietly fork.
+  ok("W1 the pace well derives finishedAt from the window law",
+    read("src/lib/pace.ts").includes("Date.parse(j.startedAt) + j.duration"),
+    "pace.ts: finishedAt = start + duration");
+  const tw = read("src/lib/timeline-walk.ts");
+  ok("W2 the timeline well closes the window on the same law",
+    tw.includes("start + Math.max(TIMELINE_MIN_WINDOW_MS, j.duration)") &&
+    tw.includes("j.startedAt &&"),
+    "timeline-walk.ts: end = start + max(1000, duration)");
+  ok("W3 the failed rows keep their timeline windows but claim NO pace",
+    face.failed.length === 1 && !face.rows.some((r) => r.id === "j4"),
+    "the pace face never turns the failed window into a stage time");
+}
+
 /* ---------- the receipt ---------- */
 const verdict = fail === 0 ? "GREEN" : "RED";
 console.log(`\n${verdict} ${pass}/${pass + fail}`);

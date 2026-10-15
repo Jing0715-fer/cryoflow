@@ -2189,6 +2189,19 @@ export const JobCard = React.memo(function JobCard({
                 : "Click to open the results inspector"
           }
           onKeyDown={(e) => {
+            // t1010 — Shift+Space toggles the card in the multi-selection
+            // (the keyboard edition of shift+click: the selection modifier
+            // is Shift everywhere else on the canvas, so the keyboard
+            // contract reads the same). Keyboard users had NO multi-select
+            // before this — the rubber band and shift+click are both
+            // pointer-only. Lives BEFORE the act branch: the modifier
+            // changes the verb, and a fall-through would open the
+            // inspector instead of selecting.
+            if (e.key === " " && e.shiftKey) {
+              e.preventDefault();
+              onToggleSelect(job.id);
+              return;
+            }
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
               if (job.status === "idle") onSelect(job.id);

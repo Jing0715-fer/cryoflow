@@ -40,9 +40,18 @@ import {
 } from "@/components/ui/dialog";
 import { ChartExportButtons } from "@/components/workflow/results/chart-export-buttons";
 import { fetchJsonRetry } from "@/lib/retry-fetch";
+import { computePace } from "@/lib/pace";
 import { Gauge, Loader2, TriangleAlert } from "lucide-react";
 import { formatElapsed } from "@/lib/elapsed";
 
+type PaceJobInput = {
+  id: string;
+  name: string;
+  type: string;
+  status: string;
+  duration: number;
+  startedAt: string | null;
+};
 type PaceStage = {
   type: string;
   count: number;
@@ -81,11 +90,17 @@ export function PaceDialog({
   onOpenChange,
   projectId,
   projectName,
+  jobs,
 }: {
   open: boolean;
   onOpenChange: (next: boolean) => void;
   projectId: string | null;
   projectName: string | null;
+  /** t1010 — the SELECTION well: when the caller already holds the job
+   *  rows (the canvas toolbar's pace button), the face computes locally
+   *  from the same lib — no fetch, one truth, two transports. The shape
+   *  is the computePace input verbatim (the JobDTO reads as-is). */
+  jobs?: PaceJobInput[];
 }) {
   const [data, setData] = React.useState<PaceResponse | null>(null);
   const [error, setError] = React.useState(false);
@@ -93,8 +108,15 @@ export function PaceDialog({
 
   React.useEffect(() => setMounted(true), []);
 
+  // the local well — recompute when the open flips or the selection moves
   React.useEffect(() => {
-    if (!open || !projectId) return;
+    if (!open || !jobs) return;
+    setError(false);
+    setData({ projectId: "", ...computePace(jobs) });
+  }, [open, jobs]);
+
+  React.useEffect(() => {
+    if (!open || !projectId || jobs) return;
     let cancelled = false;
     setData(null);
     setError(false);
@@ -116,6 +138,9 @@ export function PaceDialog({
 
   const maxStage = data?.stages.reduce((max, s) => Math.max(max, s.maxMs), 0) ?? 0;
   const hasFaces = (data?.totals.completed ?? 0) + (data?.totals.failed ?? 0) > 0;
+  const titleName = jobs
+    ? `selection (${jobs.length} job${jobs.length === 1 ? "" : "s"})`
+    : projectName ?? "…";
 
   return (
     <Dialog
@@ -131,7 +156,7 @@ export function PaceDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Gauge className="size-4 text-primary" aria-hidden="true" />
-            Pipeline pace · {projectName ?? "…"}
+            Pipeline pace · {titleName}
           </DialogTitle>
           <DialogDescription>
             How fast this pipeline actually runs — every completed job&apos;s

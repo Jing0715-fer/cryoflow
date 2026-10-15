@@ -20,8 +20,18 @@
  *      count matches the stage count, the failure band speaks its
  *      no-clock law ("time is not claimed"), the export family stands
  *      (four doors, one truth);
- *   5. the world restored — Escape shuts the dialog, the fingerprint
- *      as-found = as-left.
+ *   5. the dialog shuts;
+ *   6. THE PALETTE DOOR (the second door, the t1007 grammar) — the
+ *      chip's real click, the real keystrokes narrow to "Pipeline
+ *      pace", the item's real click hands the modal over;
+ *   7. THE CANVAS KEYBOARD DOOR (the t1010 selection arm, all-real
+ *      keys): the context menu's Zoom to fit brings the completed cards
+ *      into view, two cards take REAL Shift+Space toggles (the t1010
+ *      a11y arm — the keyboard's multi-select), the toolbar's pace
+ *      button takes the real click, the selection-scoped dialog stands
+ *      on its LOCAL well (two rows, no fetch), the bare-canvas click
+ *      clears;
+ *   8. the world restored — the fingerprint as-found = as-left.
  *
  * RIDE LAWS inherited: one fresh `agent-browser open`; poll-then-probe;
  * realClick probes vis AND owns every round; the walk asserts (it is
@@ -123,15 +133,119 @@ ok("the failure band speaks its no-clock law (a literal pin)",
   facts.failedFace?.slice(0, 70) ?? "absent");
 await shot("t1009-pace-dialog");
 
-/* LEG 5 — the world restored */
-console.log("leg 5: the world restored");
+/* LEG 5 — the dialog shut */
+console.log("leg 5: the dialog shut");
 await escAll();
 await sleep(600);
 const gone = await evalJson(`(() => { const d = ${paceDlg}; return JSON.stringify({ gone: !d || d.getBoundingClientRect().width === 0 }); })()`);
 ok("the dialog shut through Escape", !!gone && gone.gone === true, gone ? `gone=${gone.gone}` : "absent");
+
+/* LEG 6 — the palette door (the second door, the t1007 grammar) */
+console.log("leg 6: the palette door");
+const chipClick2 = await realClick(`document.querySelector('[aria-label="Open command palette (Ctrl+K)"]')`);
+ok("the palette chip took the real click", String(chipClick2).startsWith("clicked@"), String(chipClick2));
+sh(`${AB} keyboard type pace`);
+const paceItem = await poll(
+  `(() => { const it = [...document.querySelectorAll('[cmdk-item]')].find((x) => (x.textContent ?? '').includes('Pipeline pace')); if (!it) return JSON.stringify({ live: false }); const r = it.getBoundingClientRect(); return JSON.stringify({ live: r.width > 0, text: (it.textContent ?? '').trim().slice(0, 30) }); })()`,
+  (v) => v.live, 12, 400);
+ok("the pace item stands narrowed (a literal label pin)", !!paceItem && paceItem.live, paceItem?.text ?? "absent");
+const paceItemClick = await realClick(`[...document.querySelectorAll('[cmdk-item]')].find((x) => (x.textContent ?? '').includes('Pipeline pace'))`);
+ok("the pace item took the real click (the palette hands the modal over)", String(paceItemClick).startsWith("clicked@"), String(paceItemClick));
+const dlg2Up = await poll(
+  `(() => { const d = ${paceDlg}; return d ? JSON.stringify({ open: d.getBoundingClientRect().width > 0 }) : JSON.stringify({ open: false }); })()`,
+  (v) => v.open, 16, 500);
+ok("the pace dialog stands through the palette door", !!dlg2Up && dlg2Up.open);
+await escAll();
+await sleep(500);
+
+/* LEG 7 — the canvas keyboard door (the t1010 selection arm, all-real keys) */
+console.log("leg 7: the canvas keyboard door (Shift+Space, the t1010 a11y arm)");
+const wfClick = await realClick(`[...document.querySelectorAll('[role="tab"]')].find((t) => t.textContent.trim() === 'Workflow')`);
+ok("the Workflow tab took the real click", String(wfClick).startsWith("clicked@"), String(wfClick));
+await sleep(800);
+/* zoom to fit through the REAL context menu (the demo chain's completed
+   cards sit off-viewport at the boot framing) */
+sh(`${AB} mouse move 700 500`); sh(`${AB} mouse down right`); sh(`${AB} mouse up right`);
+const fitItem = await poll(
+  `(() => { const it = [...document.querySelectorAll('[role=menuitem]')].find((i) => (i.textContent ?? '').includes('Zoom to fit workflow')); if (!it) return JSON.stringify({ live: false }); const r = it.getBoundingClientRect(); return JSON.stringify({ live: r.width > 0, x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }); })()`,
+  (v) => v.live, 12, 400);
+ok("the context menu stands (Zoom to fit workflow)", !!fitItem && fitItem.live);
+if (fitItem && fitItem.live) {
+  sh(`${AB} mouse move ${fitItem.x} ${fitItem.y}`); sh(`${AB} mouse down`); sh(`${AB} mouse up`);
+}
+await sleep(800);
+/* two distinct COMPLETED cards, focused by id (the legitimate keyboard
+   path — tab focus, then Shift+Space toggles; the walk reads the ids
+   from the DOM and presses REAL keys) */
+const ids = await evalJson(`(() => {
+  const cards = [...document.querySelectorAll('[data-job]')].filter((e) => !e.closest('[data-canvas-ui=minimap]'));
+  const done = cards.filter((c) => {
+    const b = c.querySelector('[data-card-btn]'); const r = c.getBoundingClientRect();
+    return /completed/.test(b.getAttribute('aria-label') ?? '') &&
+      r.x + r.width / 2 > 100 && r.x + r.width / 2 < innerWidth - 100 &&
+      r.y + r.height / 2 > 120 && r.y + r.height / 2 < innerHeight - 120;
+  });
+  return JSON.stringify([...new Set(done.map((c) => c.querySelector('[data-card-btn]').getAttribute('data-card-btn')))].slice(0, 2));
+})()`);
+ok("two completed cards reachable after the fit", Array.isArray(ids) && ids.length === 2, ids ? ids.join(" + ") : "none");
+let togglesOk = false;
+if (Array.isArray(ids) && ids.length === 2) {
+  for (const id of ids) {
+    await evalJs(`(() => { const b = document.querySelector('[data-card-btn="' + ${JSON.stringify(id)} + '"]'); if (!b) return 'none'; b.focus(); return document.activeElement === b ? 'focused' : 'FOCUS-FAIL'; })()`);
+    sh(`${AB} press Shift+Space`);
+    await sleep(400);
+  }
+  const selState = await evalJson(`(() => JSON.stringify({
+    selected: [...document.querySelectorAll('[data-job]')].filter((e) => !e.closest('[data-canvas-ui=minimap]') && /ring-primary/.test(e.querySelector('[data-card-btn]')?.className ?? '')).length,
+    paceBtn: !!document.querySelector('[data-testid=toolbar-pace-selection]'),
+  }))()`);
+  togglesOk = selState.selected === 2 && selState.paceBtn === true;
+  ok("two Shift+Space toggles stand (the toolbar's pace button with them)",
+    togglesOk, `selected=${selState.selected} paceBtn=${selState.paceBtn}`);
+  if (togglesOk) {
+    const paceBtnPos = await evalJson(`(() => { const b = document.querySelector('[data-testid=toolbar-pace-selection]'); const r = b.getBoundingClientRect(); return JSON.stringify({ x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }); })()`);
+    sh(`${AB} mouse move ${paceBtnPos.x} ${paceBtnPos.y}`); sh(`${AB} mouse down`); sh(`${AB} mouse up`);
+    const selDlg = await poll(
+      `(() => { const d = ${paceDlg}; if (!d) return JSON.stringify({ open: false }); return JSON.stringify({ open: d.getBoundingClientRect().width > 0, title: d.querySelector('h2').textContent.slice(0, 46) }); })()`,
+      (v) => v.open, 16, 500);
+    ok("the selection-scoped pace dialog stands (the local well, no fetch)",
+      !!selDlg && selDlg.open, selDlg?.title ?? "absent");
+    const selRows = await poll(
+      `(() => { const d = ${paceDlg}; const t = d ? d.querySelector('[data-canvas-ui="pipeline-pace-table"] tbody') : null; return JSON.stringify({ rows: t ? t.querySelectorAll('tr').length : 0 }); })()`,
+      (v) => v.rows > 0, 20, 500);
+    ok("the selection's stage rows arrived (two completed runs, two stages)",
+      !!selRows && selRows.rows === 2, `${selRows?.rows ?? 0} rows`);
+    await shot("t1009-pace-selection");
+    await escAll(); // shut the selection dialog BEFORE the bare-canvas clear
+    await sleep(600);
+  }
+}
+/* the clear: a real click on bare viewport (the background click's own law) */
+const bare = await evalJson(`(() => {
+  const root = document.querySelector('[data-canvas=viewport]');
+  if (!root) return JSON.stringify(null);
+  const r = root.getBoundingClientRect();
+  for (let y = r.y + 10; y < r.y + r.height - 10; y += 25) {
+    for (let x = r.x + 10; x < r.x + r.width - 10; x += 35) {
+      const el = document.elementFromPoint(x, y);
+      if (el && (el === root || (root.contains(el) && !el.closest('[data-job]') && !el.closest('[data-canvas-ui=minimap]') && !el.closest('[role=toolbar]')))) return JSON.stringify({ x: Math.round(x), y: Math.round(y) });
+    }
+  }
+  return JSON.stringify(null);
+})()`);
+if (bare) {
+  sh(`${AB} mouse move ${bare.x} ${bare.y}`); sh(`${AB} mouse down`); sh(`${AB} mouse up`);
+  await sleep(400);
+}
+const selCleared = await evalJson(`(() => JSON.stringify({ selected: [...document.querySelectorAll('[data-job]')].filter((e) => !e.closest('[data-canvas-ui=minimap]') && /ring-primary/.test(e.querySelector('[data-card-btn]')?.className ?? '')).length }))()`);
+ok("the selection cleared on the bare canvas (the world ready to leave)",
+  !!selCleared && selCleared.selected === 0, `selected=${selCleared?.selected}`);
+
+/* LEG 8 — the world restored */
+console.log("leg 8: the world restored");
 const jobs1 = await readJobs();
 fpAfter = fingerprint(jobsArr(jobs1 ?? []));
 ok("the world fingerprint as-found = as-left (a read-only ride)",
   fpBefore === fpAfter, `${fpBefore.split("|").length} jobs`);
 
-finish({ legs: 5 });
+finish({ legs: 8 });
