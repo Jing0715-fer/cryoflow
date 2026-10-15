@@ -1,13 +1,14 @@
 {
   "unit": "t1016-pace-subchain-unit",
   "verdict": "GREEN",
-  "pass": 27,
+  "pass": 36,
   "fail": 0,
-  "at": "2026-10-15T08:46:18.296Z",
+  "at": "2026-10-15T09:03:28.964Z",
   "bands": [
     "M mirror",
-    "L lifted oracle",
+    "L lifted oracle + projection",
     "D dialog at source",
+    "R route at source",
     "C canvas wires",
     "T tally law"
   ]
