@@ -1,0 +1,11 @@
+{
+  "unit": "t1022-fuel-face-unit",
+  "verdict": "GREEN",
+  "pass": 19,
+  "fail": 0,
+  "at": "2026-10-15T11:03:18.351Z",
+  "bands": [
+    "F the face at source",
+    "L the count mode live"
+  ]
+}
