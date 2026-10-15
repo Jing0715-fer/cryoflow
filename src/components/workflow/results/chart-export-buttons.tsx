@@ -27,6 +27,13 @@ import {
  * else. Empty data stays honest: the data buttons disable (a zero-row file
  * helps nobody) while the PNG buttons stay enabled (an empty-axes frame is
  * still a real snapshot of what the user sees).
+ *
+ * THE TWO-DOOR DIALECT (t1019): a LIST has no drawing to snapshot — the
+ * PNG pipeline rasterizes an <svg>, and a roster of step rows owns none.
+ * Callers passing png={false} get the two DATA doors only (CSV + TSV),
+ * and the PNG doors are ABSENT, never disabled — a dead door dressed as a
+ * disabled face is the one shape this census's tally law forbids. Four
+ * doors on a drawing, two on a list; every door that exists, works.
  */
 
 const COPIED_MS = 1600;
@@ -35,12 +42,16 @@ export function ChartExportButtons({
   name,
   getRows,
   className,
+  png = true,
 }: {
   /** filename fragment — slugged; the human label appears in toasts */
   name: string;
   /** the chart's rendered rows; null/empty while data is missing */
   getRows: () => CsvRow[] | null;
   className?: string;
+  /** t1019 — false omits the two PNG doors (a list owns no <svg> to
+   *  rasterize). Omission, not disablement: the tally law's only shape. */
+  png?: boolean;
 }) {
   const [busy, setBusy] = React.useState<"csv" | "png" | "tsv" | "png-clip" | null>(null);
   const [copied, setCopied] = React.useState<"tsv" | "png" | null>(null);
@@ -184,21 +195,23 @@ export function ChartExportButtons({
           <FileSpreadsheet className="size-3.5" aria-hidden="true" />
         )}
       </button>
-      <button
-        type="button"
-        onClick={() => void onPng()}
-        disabled={busy !== null}
-        title={`Snapshot this chart as a 2× PNG (cryoflow-${slug}.png)`}
-        aria-label={`Export ${name} as PNG`}
-        data-canvas-ui="chart-export-png"
-        className={btnCls}
-      >
-        {busy === "png" ? (
-          <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
-        ) : (
-          <ImageDown className="size-3.5" aria-hidden="true" />
-        )}
-      </button>
+      {png ? (
+        <button
+          type="button"
+          onClick={() => void onPng()}
+          disabled={busy !== null}
+          title={`Snapshot this chart as a 2× PNG (cryoflow-${slug}.png)`}
+          aria-label={`Export ${name} as PNG`}
+          data-canvas-ui="chart-export-png"
+          className={btnCls}
+        >
+          {busy === "png" ? (
+            <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+          ) : (
+            <ImageDown className="size-3.5" aria-hidden="true" />
+          )}
+        </button>
+      ) : null}
       {/* downloads land on disk, copies land on the clipboard — a hairline
           keeps the two destination families readable at a glance */}
       <span aria-hidden="true" className="mx-0.5 h-4 w-px bg-border" />
@@ -225,27 +238,29 @@ export function ChartExportButtons({
           <Copy className="size-3.5" aria-hidden="true" />
         )}
       </button>
-      <button
-        type="button"
-        onClick={() => void onPngCopy()}
-        disabled={busy !== null}
-        title={
-          copied === "png"
-            ? "Copied — paste it wherever you need it"
-            : "Copy this chart as a 2× PNG image — paste into docs or slides"
-        }
-        aria-label={`Copy ${name} as PNG image`}
-        data-canvas-ui="chart-export-png-copy"
-        className={cn(btnCls, copied === "png" && "text-primary")}
-      >
-        {busy === "png-clip" ? (
-          <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
-        ) : copied === "png" ? (
-          <Check className="size-3.5" aria-hidden="true" />
-        ) : (
-          <ImageUp className="size-3.5" aria-hidden="true" />
-        )}
-      </button>
+      {png ? (
+        <button
+          type="button"
+          onClick={() => void onPngCopy()}
+          disabled={busy !== null}
+          title={
+            copied === "png"
+              ? "Copied — paste it wherever you need it"
+              : "Copy this chart as a 2× PNG image — paste into docs or slides"
+          }
+          aria-label={`Copy ${name} as PNG image`}
+          data-canvas-ui="chart-export-png-copy"
+          className={cn(btnCls, copied === "png" && "text-primary")}
+        >
+          {busy === "png-clip" ? (
+            <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+          ) : copied === "png" ? (
+            <Check className="size-3.5" aria-hidden="true" />
+          ) : (
+            <ImageUp className="size-3.5" aria-hidden="true" />
+          )}
+        </button>
+      ) : null}
     </span>
   );
 }

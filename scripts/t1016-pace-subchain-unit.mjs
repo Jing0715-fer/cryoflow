@@ -43,6 +43,13 @@
  *   C  the canvas at source: internalWires (both-endpoints filter) is
  *      what rides — the same wires the save dialog counts, one memo,
  *      one truth
+ *   X  the EXPORT FACE (t1019 — the data doors at the chain's scale):
+ *      the band's own ChartExportButtons with png={false} (a list owns
+ *      no <svg> — the PNG doors are ABSENT, never disabled), getRows
+ *      mapping the SAME chainWalk.chain the roster renders (one
+ *      source, every sink), the root's gap cell empty (the i > 0 gate
+ *      made law in the file), and the component omitting — never
+ *      disabling — the PNG doors under the png prop
  *   T  THE TALLY LAW BY CONSTRUCTION: pace-dialog.tsx carries ZERO
  *      disabled={ sites — the six tally-pin units' numbers stand
  *      because this arm added nothing to count
@@ -309,6 +316,23 @@ ok("C2 internalWires is the both-endpoints filter (the save dialog's own wires)"
 ok("C3 the count is the array's length (one memo, one truth)",
   canvas.includes("const internalWireCount = internalWires.length;"));
 
+/* ---------- X band — the export face (t1019, the data doors) ---------- */
+console.log("X band — the export face (the data doors at the chain's scale):");
+const ceb = readFileSync(path.join(ROOT, "src/components/workflow/results/chart-export-buttons.tsx"), "utf8");
+ok("X1 the band carries its own export face (name=\"Critical chain\")",
+  dlg.includes('name="Critical chain"'));
+ok("X2 the face confesses its dialect — png={false} (the two DATA doors only)",
+  dlg.includes("png={false}"));
+ok("X3 one source, every sink — getRows maps the SAME chainWalk.chain the roster renders",
+  (dlg.match(/chainWalk\.chain\.map\(\(s, i\)/g) || []).length === 2);
+ok("X4 the export's root owns no gap — the i > 0 gate lives in the file too",
+  (dlg.match(/i > 0 && s\.gapBeforeMs != null/g) || []).length === 2);
+ok("X5 the component OMITS the PNG doors under {png ? ( — twice — and defaults them on",
+  (ceb.match(/\{png \? \(/g) || []).length === 2 && ceb.includes("png = true"));
+ok("X6 the seconds dialect — window/gap columns round like the stage table (one formatter's law)",
+  dlg.includes('"window (s)"') && dlg.includes('"gap before (s)"') &&
+  /"window \(s\)": Math\.round\(s\.ms \/ 100\) \/ 10/.test(dlg));
+
 /* ---------- T band — the tally law by construction ---------- */
 console.log("T band — the tally law by construction:");
 ok("T1 pace-dialog carries ZERO disabled={ sites — the six tally pins' numbers stand",
@@ -322,6 +346,6 @@ writeFileSync(TMP, JSON.stringify({
   unit: "t1016-pace-subchain-unit",
   verdict, pass, fail,
   at: new Date().toISOString(),
-  bands: ["M mirror", "L lifted oracle + projection", "D dialog at source", "R route at source", "C canvas wires", "T tally law"],
+  bands: ["M mirror", "L lifted oracle + projection", "D dialog at source", "R route at source", "C canvas wires", "X export face", "T tally law"],
 }, null, 2));
 process.exit(fail === 0 ? 0 : 1);

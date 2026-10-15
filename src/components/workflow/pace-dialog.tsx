@@ -25,7 +25,12 @@
  *
  * THE EXPORT FAMILY: the stage table rides ChartExportButtons (CSV /
  * TSV / PNG, the four-doors-one-truth law) with getRows() mapped from
- * the same stages array the bars render — one source, every sink.
+ * the same stages array the bars render — one source, every sink. The
+ * chain band carries its own face (t1019) with png={false}: a roster is
+ * a LIST, no <svg> to rasterize, so it ships the two DATA doors and the
+ * PNG doors stay ABSENT (never disabled — the tally law's only shape);
+ * its getRows() maps the same chainWalk.chain the roster renders, and
+ * the root's gap cell is empty (the i > 0 gate made law in the file).
  *
  * THE SUBCHAIN ARM (t1016): when the caller hands the WIRES alongside
  * the jobs (the canvas's internal edges — wires whose both endpoints
@@ -314,20 +319,46 @@ export function PaceDialog({
                       ends with: {chainFinisher.name}
                     </span>
                   </p>
-                  <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
-                    the chain the {chainIsSelection ? "selection's" : "project's"} finish actually
-                    waited on · ran {formatElapsed(chainWalk.busyMs)}
-                    {chainWalk.gapMs > 0
-                      ? ` + waited ${formatElapsed(chainWalk.gapMs)}`
-                      : chainWalk.gapMs < 0
-                        ? ` \u2212 overlapped ${formatElapsed(-chainWalk.gapMs)}`
-                        : " + waited 0s"}
-                    {" = "}
-                    {formatElapsed(chainWalk.spanMs)} span
-                    {subchainRunning
-                      ? " — the finisher is still running, its window stretches to now"
-                      : ""}
-                  </p>
+                  <div className="mt-1 flex items-center gap-1.5 text-[10px] leading-relaxed text-muted-foreground">
+                    <p className="min-w-0 flex-1">
+                      the chain the {chainIsSelection ? "selection's" : "project's"} finish actually
+                      waited on · ran {formatElapsed(chainWalk.busyMs)}
+                      {chainWalk.gapMs > 0
+                        ? ` + waited ${formatElapsed(chainWalk.gapMs)}`
+                        : chainWalk.gapMs < 0
+                          ? ` \u2212 overlapped ${formatElapsed(-chainWalk.gapMs)}`
+                          : " + waited 0s"}
+                      {" = "}
+                      {formatElapsed(chainWalk.spanMs)} span
+                      {subchainRunning
+                        ? " — the finisher is still running, its window stretches to now"
+                        : ""}
+                    </p>
+                    {/* the roster's data doors (t1019) — the same export
+                        family at the chain's scale: a list owns no <svg>,
+                        so png={false} ships the two DATA doors and the PNG
+                        doors stay absent (never disabled). getRows maps the
+                        SAME chainWalk.chain the roster renders — one
+                        source, every sink; the root's gap cell is empty
+                        (the i > 0 gate made law in the file). */}
+                    <ChartExportButtons
+                      name="Critical chain"
+                      png={false}
+                      getRows={() =>
+                        chainWalk.chain.map((s, i) => ({
+                          step: i + 1,
+                          job: s.name,
+                          status: s.status,
+                          "window (s)": Math.round(s.ms / 100) / 10,
+                          "gap before (s)":
+                            i > 0 && s.gapBeforeMs != null
+                              ? Math.round(s.gapBeforeMs / 100) / 10
+                              : "",
+                        }))
+                      }
+                      className="shrink-0"
+                    />
+                  </div>
                   {/* the step roster (t1018) — the chain's own order at dialog
                       scale: rank, name, the printed window (the picture never
                       carries the fact alone), and the gap this step waited
