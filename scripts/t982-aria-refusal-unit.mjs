@@ -71,9 +71,9 @@ try { unlinkSync(TMP); } catch {}
  * stateful (the static bucket EMPTIED — the fifth pass's milestone),
  * the census signal genuinely moved, the re-key rides the same era. */
 ok("A2 population = 171 (the world's shape)", receipt?.population === 171, `got ${receipt?.population}`);
-ok("A3 stateful = 146 (61 standing + the 13 t982 + the 7 t983 + the 18 t984 + the 17 t985 cures + the 30 t1005 refusal names)", receipt?.tally?.stateful === 146, `got ${receipt?.tally?.stateful}`);
+ok("A3 stateful = 149 (61 standing + the 13 t982 + the 7 t983 + the 18 t984 + the 17 t985 cures + the 30 t1005 refusal names + the 3 t1008 dynamic names)", receipt?.tally?.stateful === 149, `got ${receipt?.tally?.stateful}`);
 ok("A4 silent-static = 0 (43 − the 13 cures − the 30 t1005 cures — THE BUCKET EMPTIED)", receipt?.tally?.["silent-static"] === 0, `got ${receipt?.tally?.["silent-static"]}`);
-ok("A5 silences = 25 (55 − the 30 t1005 cures — only the flip bucket remains)", receipt?.silences === 25, `got ${receipt?.silences}`);
+ok("A5 silences = 22 (55 − the 30 t1005 cures − the 3 t1008 dynamic names — the honest-name stories spoke)", receipt?.silences === 22, `got ${receipt?.silences}`);
 
 /* A6 — the design-exclusion law, pinned at the census's source */
 const censusSrc = readFileSync(CENSUS, "utf8");
@@ -129,8 +129,8 @@ ok("A20 the story classifier lives (six classes in the census source)",
   ["flip", "var", "blind", "unnamed", "component", "vendor"].every((c) => censusSrc.includes(`"${c}"`)) &&
   censusSrc.includes("nameStory"));
 const st = receipt?.storyTally ?? {};
-ok("A21 the story tally by SLOT (flip 20 · var 2 · component 1 · blind 0 · vendor 2 · unnamed 0) — var 19 → 2: the t985 wave cured 17 var faces, the 2 standing are flip-HONEST through their variables (the knock's permLabel asks…, the ledger's Fetching…)",
-  st.flip === 20 && st.var === 2 && st.component === 1 && (st.blind ?? 0) === 0 && st.vendor === 2 && (st.unnamed ?? 0) === 0,
+ok("A21 the story tally by SLOT (flip 17 · var 2 · component 1 · blind 0 · vendor 2 · unnamed 0) — var 19 → 2: the t985 wave cured 17 var faces, the 2 standing are flip-HONEST through their variables (the knock's permLabel asks…, the ledger's Fetching…); flip 20 → 17: the t1008 arm moved three honest-name flips into stateful",
+  st.flip === 17 && st.var === 2 && st.component === 1 && (st.blind ?? 0) === 0 && st.vendor === 2 && (st.unnamed ?? 0) === 0,
   `flip=${st.flip} var=${st.var} comp=${st.component} blind=${st.blind ?? 0} vendor=${st.vendor} unnamed=${st.unnamed ?? 0}`);
 
 /* A22–A28 — the seven t983 cures (the BLIND pool's first wave — every

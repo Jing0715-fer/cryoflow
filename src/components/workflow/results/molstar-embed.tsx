@@ -5969,6 +5969,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                       onClick={exportSubvolume}
                       disabled={!dims}
                       title="Download the kept box as a standalone MRC map — the RELION box-subregion workflow (crop a region of interest for focused processing)"
+                      aria-label={dims ? `Export sub-volume (${dims[0]}×${dims[1]}×${dims[2]} vox)` : "Export sub-volume — set a crop box first"}
                       className="flex w-full items-center justify-center gap-1.5 rounded-md border border-violet-600/40 bg-violet-600/15 px-2 py-1 text-[10.5px] font-semibold text-violet-700 transition-colors hover:bg-violet-600/25 hover:text-violet-800 dark:text-violet-300 dark:hover:text-violet-200 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <Download className="h-3 w-3 shrink-0" aria-hidden="true" />
@@ -7371,7 +7372,16 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
               <Button variant="ghost" size="sm" onClick={closeImport}>
                 Cancel
               </Button>
-              <Button size="sm" disabled={importPreview.picked.size === 0} onClick={confirmImport}>
+              <Button
+                size="sm"
+                disabled={importPreview.picked.size === 0}
+                aria-label={
+                  importPreview.picked.size === 0
+                    ? "Import — nothing picked yet"
+                    : `Import ${importPreview.picked.size} picked file${importPreview.picked.size === 1 ? "" : "s"}`
+                }
+                onClick={confirmImport}
+              >
                 Import{importPreview.picked.size > 0 ? ` ${importPreview.picked.size}` : ""}
               </Button>
             </DialogFooter>

@@ -80,13 +80,13 @@ try { unlinkSync(TMP); } catch {}
 
 ok("R1 the population stands at 171 (no site added, none removed)",
   receipt?.population === 171, `got ${receipt?.population}`);
-ok("R2 stateful 146 · silent-static 0 · silent-text 25 — thirty name cures moved the whole static bucket into stateful",
-  receipt?.tally?.stateful === 146 &&
+ok("R2 stateful 149 · silent-static 0 · silent-text 22 — thirty name cures moved the whole static bucket into stateful; the t1008 arm moved three honest-name flips in after",
+  receipt?.tally?.stateful === 149 &&
   receipt?.tally?.["silent-static"] === 0 &&
-  receipt?.tally?.["silent-text"] === 25,
+  receipt?.tally?.["silent-text"] === 22,
   `stateful=${receipt?.tally?.stateful} static=${receipt?.tally?.["silent-static"]} text=${receipt?.tally?.["silent-text"]}`);
-ok("R3 silences 25 — only the flip bucket remains silent (its arm landed in t1004)",
-  receipt?.silences === 25, `got ${receipt?.silences}`);
+ok("R3 silences 22 — only the flip bucket remains silent (its flight arm landed in t1004, its honest names spoke in t1008)",
+  receipt?.silences === 22, `got ${receipt?.silences}`);
 
 /* ---------- N band — the thirty refusal-name cures ---------- */
 console.log("N band — every site speaks its own refusal nature: flight, wall, or gate");

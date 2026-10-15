@@ -77,14 +77,14 @@ ok("B21 the census's population gate stands (the disabled-refusal law the no-re-
   (() => { try { return readFileSync(path.join(ROOT, CENSUS_SRC), "utf8").includes("if (!/\\bdisabled=\\{/.test(text)) continue;"); } catch { return false; } })());
 ok("B22 population = 171 (the cured faces were never in it — the no-re-key ruling, live)",
   receipt?.population === 171, `got ${receipt?.population}`);
-ok("B23 stateful = 146 (the delete door stays stateful through its cure; +30 from the t1005 refusal-name arm)",
-  receipt?.tally?.stateful === 146, `got ${receipt?.tally?.stateful}`);
+ok("B23 stateful = 149 (the delete door stays stateful through its cure; +30 from the t1005 refusal-name arm, +3 from the t1008 dynamic names)",
+  receipt?.tally?.stateful === 149, `got ${receipt?.tally?.stateful}`);
 ok("B24 silent-static = 0 (the rename input was never counted — no disabled prop; the t1005 arm emptied the bucket)",
   receipt?.tally?.["silent-static"] === 0, `got ${receipt?.tally?.["silent-static"]}`);
-ok("B25 silences = 25 (the flip bucket only — the t1005 arm retired the static half)",
-  receipt?.silences === 25, `got ${receipt?.silences}`);
-ok("B26 the story slots hold (flip 20 · var 2 · component 1 · blind 0 · vendor 2 · unnamed 0)",
-  receipt?.storyTally?.flip === 20 && receipt?.storyTally?.var === 2 &&
+ok("B25 silences = 22 (the flip bucket only — the t1005 arm retired the static half, the t1008 arm spoke three honest names)",
+  receipt?.silences === 22, `got ${receipt?.silences}`);
+ok("B26 the story slots hold (flip 17 · var 2 · component 1 · blind 0 · vendor 2 · unnamed 0) — flip 20 → 17: the t1008 arm moved three honest-name flips into stateful",
+  receipt?.storyTally?.flip === 17 && receipt?.storyTally?.var === 2 &&
   receipt?.storyTally?.component === 1 && (receipt?.storyTally?.blind ?? 0) === 0 &&
   receipt?.storyTally?.vendor === 2 && (receipt?.storyTally?.unnamed ?? 0) === 0,
   `flip=${receipt?.storyTally?.flip} var=${receipt?.storyTally?.var} vendor=${receipt?.storyTally?.vendor}`);

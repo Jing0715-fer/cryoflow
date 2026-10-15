@@ -99,13 +99,13 @@ try { unlinkSync(TMP); } catch {}
 
 ok("R1 the disabled census's population stands at 171",
   receipt?.population === 171, `got ${receipt?.population}`);
-ok("R2 stateful 146 · silent-static 0 · silent-text 25 — the t1005 second arm's re-key: the thirty refusal-name cures moved every silent-static site into stateful (the static bucket EMPTIED), the text bucket untouched",
-  receipt?.tally?.stateful === 146 &&
+ok("R2 stateful 149 · silent-static 0 · silent-text 22 — the re-key chain: the t1005 arm emptied the static bucket into stateful, the t1008 arm moved three honest-name flips into stateful (the census signal genuinely moved again)",
+  receipt?.tally?.stateful === 149 &&
   receipt?.tally?.["silent-static"] === 0 &&
-  receipt?.tally?.["silent-text"] === 25,
+  receipt?.tally?.["silent-text"] === 22,
   `stateful=${receipt?.tally?.stateful} static=${receipt?.tally?.["silent-static"]} text=${receipt?.tally?.["silent-text"]}`);
-ok("R3 silences 25 — the bucket sum after the second arm (the t1004-window receipt took 55; the thirty name cures retired the static half)",
-  receipt?.silences === 25, `got ${receipt?.silences}`);
+ok("R3 silences 22 — the bucket sum after the third arm (55 → 25 in t1005, 25 → 22 here)",
+  receipt?.silences === 22, `got ${receipt?.silences}`);
 
 /* ---------- F band — the fourteen aria-busy cures ---------- */
 console.log("F band — the in-flight cohort: aria-busy rides beside its disabled=, one control");

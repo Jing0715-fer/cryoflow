@@ -690,7 +690,10 @@ function RunCompareDialog<R extends { name: string }>({
               onValueChange={(v) => setRunBId(v)}
               disabled={candidates.length === 0}
             >
-              <SelectTrigger className="h-8 w-full text-xs" aria-label="Run B">
+              <SelectTrigger
+                className="h-8 w-full text-xs"
+                aria-label={candidates.length ? "Run B" : "Run B — no sibling runs to compare"}
+              >
                 <SelectValue placeholder={candidates.length ? "Pick a run" : "No sibling runs"} />
               </SelectTrigger>
               <SelectContent>

@@ -640,7 +640,8 @@ function DashboardProjectCard({
           size="sm"
           className="h-8 flex-1 gap-1.5 text-xs"
           onClick={onOpen}
-          disabled={isPending}
+          disabled={isPending} aria-busy={isPending}
+          aria-label={isPending ? "Switching projects…" : isActive ? "Open workflow" : "Switch & open"}
         >
           <Workflow className="size-3.5" aria-hidden="true" />
           {isActive ? "Open workflow" : "Switch & open"}
