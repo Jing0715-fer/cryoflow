@@ -26,6 +26,17 @@
  * THE EXPORT FAMILY: the stage table rides ChartExportButtons (CSV /
  * TSV / PNG, the four-doors-one-truth law) with getRows() mapped from
  * the same stages array the bars render — one source, every sink.
+ *
+ * THE SUBCHAIN ARM (t1016): when the caller hands the WIRES alongside
+ * the jobs (the canvas's internal edges — wires whose both endpoints
+ * are in the selection), the face also walks the CRITICAL CHAIN within
+ * the selection: the same backward walk the analytics page's fifth
+ * face runs project-wide (lib/critical-path, t681), scoped to the
+ * picked subgraph, drinking the same honest windows (lib/timeline-walk
+ * — never raw duration). A single step is not a chain — the band stays
+ * silent unless the walk found a dependency to speak of, and it
+ * confesses its scope ("within the selection", the t687 law): a scoped
+ * chain is a chain within the scope, not "the" one.
  */
 
 import * as React from "react";
@@ -41,7 +52,9 @@ import {
 import { ChartExportButtons } from "@/components/workflow/results/chart-export-buttons";
 import { fetchJsonRetry } from "@/lib/retry-fetch";
 import { computePace } from "@/lib/pace";
-import { Gauge, Loader2, TriangleAlert } from "lucide-react";
+import { criticalPath, type CriticalEdge } from "@/lib/critical-path";
+import { walkTimeline } from "@/lib/timeline-walk";
+import { Gauge, Loader2, Route, TriangleAlert } from "lucide-react";
 import { formatElapsed } from "@/lib/elapsed";
 
 type PaceJobInput = {
@@ -91,6 +104,7 @@ export function PaceDialog({
   projectId,
   projectName,
   jobs,
+  edges,
 }: {
   open: boolean;
   onOpenChange: (next: boolean) => void;
@@ -101,6 +115,11 @@ export function PaceDialog({
    *  from the same lib — no fetch, one truth, two transports. The shape
    *  is the computePace input verbatim (the JobDTO reads as-is). */
   jobs?: PaceJobInput[];
+  /** t1016 — the SELECTION's wires: the canvas's internal edges (both
+   *  endpoints in the selection). Their presence arms the subchain
+   *  critical walk; their absence (the project and palette doors) keeps
+   *  the face exactly as it was — one prop, zero behavior change. */
+  edges?: CriticalEdge[];
 }) {
   const [data, setData] = React.useState<PaceResponse | null>(null);
   const [error, setError] = React.useState(false);
@@ -135,6 +154,22 @@ export function PaceDialog({
       cancelled = true;
     };
   }, [open, projectId]);
+
+  // t1016 — the subchain walk: the critical chain WITHIN the selection,
+  // from the same honest windows the timeline drinks (a running job's
+  // window stretches to the reading's now; a never-started job owns no
+  // window and is walked past, never invented). The walk reads the
+  // caller's own wires, so the chain can never disagree with the canvas
+  // about what connects to what. A single step is not a chain.
+  const subchain = React.useMemo(() => {
+    if (!open || !jobs || !edges || edges.length === 0) return null;
+    const walk = walkTimeline(jobs, Date.now());
+    if (walk.rows.length === 0) return null;
+    const crit = criticalPath(walk.rows, edges);
+    return crit && crit.chain.length >= 2 ? crit : null;
+  }, [open, jobs, edges]);
+  const subchainRunning =
+    subchain?.chain[subchain.chain.length - 1]?.job.status === "running";
 
   const maxStage = data?.stages.reduce((max, s) => Math.max(max, s.maxMs), 0) ?? 0;
   const hasFaces = (data?.totals.completed ?? 0) + (data?.totals.failed ?? 0) > 0;
@@ -225,6 +260,54 @@ export function PaceDialog({
                   </Badge>
                 ) : null}
               </div>
+
+              {/* the subchain band — the critical chain WITHIN the selection
+                  (t1016): only when the caller armed it with wires and the
+                  walk found a real dependency chain. The scope is confessed
+                  in the words (the t687 law), the numbers are printed (the
+                  picture never carries the fact alone), and a live finisher
+                  confesses its open window. */}
+              {subchain ? (
+                <div
+                  className="rounded-lg border border-primary/25 bg-primary/[0.04] p-2.5"
+                  data-canvas-ui="pipeline-pace-critical"
+                  data-critical-steps={subchain.chain.length}
+                  data-critical-span={subchain.spanMs}
+                  data-critical-busy={subchain.busyMs}
+                  data-critical-finisher={subchain.chain[subchain.chain.length - 1].job.id}
+                >
+                  <p className="flex flex-wrap items-center gap-1.5 text-[11px] font-medium text-foreground/90">
+                    <Route className="size-3.5 shrink-0 text-primary" aria-hidden="true" />
+                    Critical chain within the selection
+                    <span className="font-normal text-muted-foreground">
+                      · {subchain.chain.length} step{subchain.chain.length === 1 ? "" : "s"} ·{" "}
+                      {formatElapsed(subchain.spanMs)} span
+                    </span>
+                    <span
+                      className="ml-auto rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[9.5px] font-semibold text-primary"
+                      title={`The selection's finish was set by ${
+                        subchain.chain[subchain.chain.length - 1].job.name
+                      } — every step here is a dependency it (transitively) waited on`}
+                    >
+                      ends with: {subchain.chain[subchain.chain.length - 1].job.name}
+                    </span>
+                  </p>
+                  <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
+                    the chain the selection&apos;s finish actually waited on · ran{" "}
+                    {formatElapsed(subchain.busyMs)}
+                    {subchain.gapMs > 0
+                      ? ` + waited ${formatElapsed(subchain.gapMs)}`
+                      : subchain.gapMs < 0
+                        ? ` \u2212 overlapped ${formatElapsed(-subchain.gapMs)}`
+                        : " + waited 0s"}
+                    {" = "}
+                    {formatElapsed(subchain.spanMs)} span
+                    {subchainRunning
+                      ? " — the finisher is still running, its window stretches to now"
+                      : ""}
+                  </p>
+                </div>
+              ) : null}
 
               {/* the chain bars — per stage, first-run order; the number is
                   always printed beside the bar (the picture never carries

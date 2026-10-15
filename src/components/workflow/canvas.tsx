@@ -743,11 +743,15 @@ const SelectionToolbar = React.memo(function SelectionToolbar({
     [sel, selectedIds]
   );
   // Task 127 — wires whose BOTH endpoints are in the selection (the count
-  // shown in the save dialog, and what the snapshot will carry)
-  const internalWireCount = React.useMemo(() => {
+  // shown in the save dialog, and what the snapshot will carry). t1016 —
+  // the same wires ride to the pace dialog: the subchain critical walk
+  // reads the canvas's own edges, so the chain it speaks can never
+  // disagree with the picture about what connects to what.
+  const internalWires = React.useMemo(() => {
     const ids = new Set(sel.map((j) => j.id));
-    return wsEdges.filter((e) => ids.has(e.fromJobId) && ids.has(e.toJobId)).length;
+    return wsEdges.filter((e) => ids.has(e.fromJobId) && ids.has(e.toJobId));
   }, [sel, wsEdges]);
+  const internalWireCount = internalWires.length;
 
   if (hidden || sel.length < 2) return null;
 
@@ -903,13 +907,16 @@ const SelectionToolbar = React.memo(function SelectionToolbar({
       />
 
       {/* t1010 — the selection's pace: the local well (the same lib the
-          project face drinks from), scoped to the selected rows */}
+          project face drinks from), scoped to the selected rows. t1016 —
+          the internal wires ride along: the face walks the critical chain
+          within the selection when the picks actually connect. */}
       <PaceDialog
         open={paceOpen}
         onOpenChange={setPaceOpen}
         projectId={null}
         projectName={null}
         jobs={sel}
+        edges={internalWires}
       />
 
       {/* Task 127 — name-and-save the selection as a reusable template.
