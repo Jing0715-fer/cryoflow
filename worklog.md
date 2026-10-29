@@ -19519,3 +19519,21 @@ The honesty spine:
 3. the standing candidates (the interrupt face's walk leg; the t999 ride-side growth) — queued behind the re-key.
 
 **Ledger**: the world confirmed on camera (17/17, console clean), the armor law amended (setsid), the shell-leak chronicity documented, the t527 corpse swept within seconds, the re-key scoped with a per-unit map, zero product changes (the tree stands at `65e5ed6d` + this entry).
+
+## Task 1027 (2026-10-29, Job 362852 @ 23:03:57 +08:00 — trace `1a07549302235a99-cron-agent-loop-202610292303`)
+
+**THE CAMPAIGN MAP, CORRECTED — the census world is a t979-replant world, and its seed is IN THE REPO.** Window start: HEAD `353e6afe`, server **already 200** (the t1026 setsid boot **survived the window transition** — the amendment proven), shell leak chronic as documented (re-armored). The window's plan was t1026's "fleet re-key (22→17)"; the archaeology KILLED that plan and found the true road.
+
+**The kill chain (each find falsifying the last plan)**:
+1. The 22-pins inventory: most `=== 22` hits are **tally pins** (the t1002/t1004/t1005 `silences`/`silent-text` counts — NEVER touch); the true world pins live in the t1000→t1024 walk/unit line — and they pin **CONTENT, not just a count** (named faces "Cancelled Diagnosis Face (t976)", "Import Movies 1", edge counts, fingerprints).
+2. The t1003 entry (line 18846) is the authoritative restoration record: the standing world = **the 15-job demo chain + seven minted faces** (t970/t972/t976/t987/t988/t989/t995 — all idempotent, all gated by `MINT_PROJECT_ID`), creation/z-order `t970,t987,t988,t989,t995,t972,t976` (THE Z-ORDER RE-ARM LAW: numeric-order minting paints t988 over t972 — 38px overlap swallowing clicks — the fleet's ORDER is world geometry).
+3. My newborn t635+t531 world (17 jobs / 18 edges) is **NOT the census world's base**: the census base = the fork-adoption demo chain (15 jobs / **14 edges**, "Import Movies 1" naming — the t1017 drill gate pins `jobs 22 / edges 14`). Different names, different graph, different world.
+4. **THE ORACLE FOUND**: `scripts/t979-world-replant.mjs` — "the t955/t967 ritual, scripted for the fork-landing": registry upsert (conn-mv6a23lx) → project bound (PATCH remoteConnectionId) → seed import re-pointed at **the mock cluster's own mics** (nodeType "movies") → import→MotionCorr→CTF through the product's REAL run doors, each polled to COMPLETED; then the mint fleet (t963 door, t966 bench, t970, t972, t976, t978 — later grown by t987/t988/t989/t995), then the doctor + census.
+5. **THE SEED EXISTS**: `services/mock-cluster/fs/data2/micrographs/` — six 5120-byte `mic_00N.mrc` fixtures, **NOT gitignored, survived the rollback** (mtime Oct 29 14:20 = snapshot boot). The EBI blocker (t527) gates ONLY the EMPIAR-10017 fixtures lane — it NEVER gated the census world. The mock fs also carries `_probe_t372.spi`, `run_it003_class001.mrc`, `pp_mask.mrc`, `home/`, `opt/`, `projects/`.
+
+**The corrected plan (next windows, in order)**:
+1. **THE CENSUS-WORLD REPLANT** (a full window): mock-cluster service up (`launch.sh`) → fresh-db question weighed HONESTLY (the replant was born for a 0-byte db + 3-node starter; running it on the live 17-job demo world risks binding/re-pointing the wrong project — the swap means wiping cryoflow.db and re-running the starter→replant→mint chain; the t635+t531 recipe is documented in t1025 if the app-world ever needs re-minting) → t979 replant → mint fleet in creation order → the doctor → **the census ride ×2 GREEN**.
+2. the t527 re-probe (EBI) stays queued — it feeds the EMPIAR fixtures lane (qa58/qa60, the fidelity exam), NOT the census world.
+3. the standing candidates (the interrupt face's walk leg; the t999 ride-side growth) — after the census world stands.
+
+**Ledger**: zero product changes; the campaign map corrected with five falsifications recorded; the mock-mics discovery documented; the tally-pin law restated (the 22s that must never move); worklog this entry. Tree: `353e6afe` + this entry.
