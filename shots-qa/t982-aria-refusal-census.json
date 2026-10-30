@@ -1681,7 +1681,7 @@
     },
     {
       "f": "src/components/workflow/results/map-ortho-panel.tsx",
-      "line": 1482,
+      "line": 1518,
       "tag": "button",
       "cond": "exportState === \"busy\"",
       "condKind": "comparison",
@@ -1694,7 +1694,7 @@
     },
     {
       "f": "src/components/workflow/results/map-ortho-panel.tsx",
-      "line": 1932,
+      "line": 1968,
       "tag": "button",
       "cond": "!on || state === \"busy\"",
       "condKind": "comparison",
@@ -1707,7 +1707,7 @@
     },
     {
       "f": "src/components/workflow/results/map-ortho-panel.tsx",
-      "line": 2080,
+      "line": 2116,
       "tag": "button",
       "cond": "state === \"busy\"",
       "condKind": "comparison",

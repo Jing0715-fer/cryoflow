@@ -159,12 +159,14 @@ ok("W1 the tile imports the ONE lib — the gesture is never re-derived inline",
   panelSrc.includes("obliqueTraceDragOffset(") &&
   panelSrc.includes("obliqueTraceHit("));
 
-ok("W2 the grab gates on the hit and the button (a stray click never steals the pick)",
+ok("W2 the grab gates on the hit and the button (a stray click never steals the pick) — the t1100 re-key: the rim's own endpoint test now answers FIRST, both hits still gate the grab (the span widened for the second DOF's gate)",
   /tracePointerDown = \(e: React\.PointerEvent<HTMLDivElement>\) => \{\s*\n\s*if \(!obliqueCut \|\| !obliqueTrace \|\| e\.button !== 0\) return;/.test(panelSrc) &&
-  /tracePointerDown[\s\S]{0,400}obliqueTraceHit\(/.test(panelSrc));
+  /tracePointerDown[\s\S]{0,800}obliqueTraceHit\(/.test(panelSrc) &&
+  /tracePointerDown[\s\S]{0,500}obliqueTraceEndpointHit\(/.test(panelSrc));
 
-ok("W3 the dispatch rides the sliders' own door (OBLIQUE_CLIP_EVENT, the cut's θ/φ intact)",
-  /traceSlideTo[\s\S]{0,900}new CustomEvent\(OBLIQUE_CLIP_EVENT, \{\s*\n?\s*detail: \{ on: true, theta: cut\.theta, phi: cut\.phi, offset \},/.test(panelSrc));
+ok("W3 the dispatch rides the sliders' own door (OBLIQUE_CLIP_EVENT, the cut's θ/φ intact) — the t1100 re-key: the detail is now built once per mode (the slide's own bytes unchanged, the dispatch unified), the door and the shape are the loop's own",
+  /traceSlideTo[\s\S]{0,1400}\{ on: true, theta: cut\.theta, phi: cut\.phi, offset \}/.test(panelSrc) &&
+  /traceSlideTo[\s\S]{0,1800}new CustomEvent\(OBLIQUE_CLIP_EVENT, \{ detail \}\)/.test(panelSrc));
 
 ok("W4 the throttle and the trailing word (the embed's plane rebuild deserves a breath)",
   panelSrc.includes(">= 120") &&

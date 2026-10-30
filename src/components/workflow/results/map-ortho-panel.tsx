@@ -72,7 +72,12 @@ import { downloadBlob } from "@/lib/download"; // t646 — one blob sink (this d
 import { obliqueDepthVox, obliqueDepthVoice, obliqueNormal, obliqueOffsetPctVoice, obliqueSupportVox, voxelReadout } from "@/lib/voxel-voice"; // t906/t907 — the tile's and the oblique block's voices ride the ONE lib (the embed's commit site reads the same seats); t1099 — the cut's direction rides the ONE father too
 import { FILMSTRIP_FRAMES, obliqueFilmstripFilename, obliqueFilmstripUrls, planObliqueFilmstrip } from "@/lib/oblique-filmstrip"; // t1096 — the walk's geometry rides the ONE lib: the plan, the URLs and the name are decided before a fetch flies
 import { ORTHO_FILMSTRIP_FRAMES, orthoFilmstripFilename, orthoFilmstripUrls, planOrthoFilmstrip } from "@/lib/ortho-filmstrip"; // t1098 — the axis walks ride the ONE lib: the plan, the URLs and the name are decided before a fetch flies
-import { obliqueTraceDragOffset, obliqueTraceHit } from "@/lib/oblique-trace-drag"; // t1099 — the trace's HAND rides the ONE lib: the hit-test and the offset solve are decided before an event flies
+import {
+  obliqueTraceDragOffset,
+  obliqueTraceEndpointHit, // t1100 — the rim's own word: the endpoints answer first, the body keeps the slide
+  obliqueTraceHit,
+  obliqueTraceTurn,
+} from "@/lib/oblique-trace-drag"; // t1099 — the trace's HAND rides the ONE lib: the hit-test and the offset solve are decided before an event flies
 
 /** event names for the two-way 3D↔2D linkage — see molstar-embed.tsx */
 export const ORTHO_SLICE_EVENT = "cryoflow:ortho-slice";
@@ -348,6 +353,11 @@ function OrthoTile({
   const [pos, setPos] = useState(0.5);
   const [rendered, setRendered] = useState(0.5);
   const [flash, setFlash] = useState(false);
+  // t1100 — declared EARLY: the oblique overlay's endpoint handles read
+  // these below, and a hooks-order TDZ here would unmount the whole tree
+  // the moment the cut turns on (the live walk's own catch)
+  const [traceHover, setTraceHover] = useState(false);
+  const [traceRiding, setTraceRiding] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // t1099 — the trace's HAND: grab the cut's line on this tile and slide
@@ -604,6 +614,26 @@ function OrthoTile({
         >
           <Scissors className="size-2.5" />
         </div>
+        {/* t1100 — the endpoints' own handles: the rim is grabbable, and
+            the handles SAY so (the badge names the slide, the handles
+            name the turn — each affordance speaks its sentence). Small
+            violet rings at the drawn endpoints; they wake when the line
+            is under the hand (hover) or riding (drag). */}
+        {[
+          { x: obliqueTrace.x1, y: obliqueTrace.y1 },
+          { x: obliqueTrace.x2, y: obliqueTrace.y2 },
+        ].map((pt, i) => (
+          <div
+            key={i}
+            data-canvas-ui={`ortho-oblique-end-${spec.axis}-${i + 1}`}
+            aria-hidden="true"
+            className={cn(
+              "pointer-events-none absolute size-2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white bg-violet-600 shadow-sm transition-transform duration-150",
+              (traceHover || traceRiding) && "scale-150 ring-1 ring-violet-400"
+            )}
+            style={{ left: pct(pt.x / 100), top: pct(pt.y / 100) }}
+          />
+        ))}
       </>
     );
   }
@@ -705,35 +735,42 @@ function OrthoTile({
   // release — the embed's plane rebuild deserves a breath), the release
   // (the final word rides NOW; the pick's suppression flag stays for the
   // click that follows), and the cursor's vocabulary (grab when the line
-  // is under the hand, grabbing while it rides). The θ/φ endpoint turn
-  // is the NEXT seat — this window's increment is the one-DOF slide.
-  const traceDrag = useRef<{ active: boolean; moved: boolean } | null>(null);
+  // is under the hand, grabbing while it rides). t1100 — the SECOND DOF:
+  // a grab near an endpoint TURNs the cut (θ, φ) instead of sliding its
+  // depth — the mode rides the drag ref, the solve branches, the door
+  // (OBLIQUE_CLIP_EVENT) and the throttle stay the loop's own.
+  const traceDrag = useRef<{ active: boolean; moved: boolean; mode: "slide" | "turn" } | null>(null);
   const traceDragTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const traceLastSent = useRef(0);
-  const [traceHover, setTraceHover] = useState(false);
-  const [traceRiding, setTraceRiding] = useState(false);
 
   const traceSlideTo = (e: React.PointerEvent<HTMLDivElement>, force = false) => {
     const cut = obliqueCut;
     if (!cut || !dims) return;
     const r = e.currentTarget.getBoundingClientRect();
     if (r.width <= 0 || r.height <= 0) return;
-    const offset = obliqueTraceDragOffset(
-      spec,
-      dims,
-      pos,
-      cut,
-      { h: (e.clientX - r.left) / r.width, v: (e.clientY - r.top) / r.height }
-    );
-    if (offset === null) return;
+    const fracs = { h: (e.clientX - r.left) / r.width, v: (e.clientY - r.top) / r.height };
+    // t1100 — the mode branches the solve, never the door: the slide
+    // solves the offset, the turn solves the angles — both speak the
+    // sliders' own OBLIQUE_CLIP_EVENT with the loop's own detail shape
+    const detail =
+      traceDrag.current?.mode === "turn"
+        ? (() => {
+            const turned = obliqueTraceTurn(spec, dims, pos, cut, fracs);
+            return turned
+              ? { on: true, theta: turned.theta, phi: turned.phi, offset: turned.offset }
+              : null;
+          })()
+        : (() => {
+            const offset = obliqueTraceDragOffset(spec, dims, pos, cut, fracs);
+            return offset === null
+              ? null
+              : { on: true, theta: cut.theta, phi: cut.phi, offset };
+          })();
+    if (detail === null) return;
     if (traceDrag.current) traceDrag.current.moved = true;
     const speak = () => {
       traceLastSent.current = Date.now();
-      window.dispatchEvent(
-        new CustomEvent(OBLIQUE_CLIP_EVENT, {
-          detail: { on: true, theta: cut.theta, phi: cut.phi, offset },
-        })
-      );
+      window.dispatchEvent(new CustomEvent(OBLIQUE_CLIP_EVENT, { detail }));
     };
     if (force || Date.now() - traceLastSent.current >= 120) {
       if (traceDragTimer.current) {
@@ -749,20 +786,22 @@ function OrthoTile({
   const tracePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!obliqueCut || !obliqueTrace || e.button !== 0) return;
     const r = e.currentTarget.getBoundingClientRect();
-    if (
-      !obliqueTraceHit(obliqueTrace, { w: r.width, h: r.height }, {
-        x: e.clientX - r.left,
-        y: e.clientY - r.top,
-      })
-    )
-      return;
+    const ppx = { x: e.clientX - r.left, y: e.clientY - r.top };
+    // t1100 — the rim answers first: an endpoint grab TURNs the cut,
+    // the body keeps the slide (the more specific word wins)
+    const onEndpoint =
+      r.width > 0 && r.height > 0
+        ? obliqueTraceEndpointHit(obliqueTrace, { w: r.width, h: r.height }, ppx)
+        : false;
+    const onBody = obliqueTraceHit(obliqueTrace, { w: r.width, h: r.height }, ppx);
+    if (!onEndpoint && !onBody) return;
     e.preventDefault();
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
     } catch {
       /* a lost capture never kills the gesture — the move handlers re-arm */
     }
-    traceDrag.current = { active: true, moved: false };
+    traceDrag.current = { active: true, moved: false, mode: onEndpoint ? "turn" : "slide" };
     setTraceRiding(true);
     traceSlideTo(e, true);
   };
@@ -792,7 +831,7 @@ function OrthoTile({
       traceDragTimer.current = null;
     }
     traceSlideTo(e, true); // the trailing word: the final offset rides NOW
-    traceDrag.current = { active: false, moved: traceDrag.current.moved };
+    traceDrag.current = { active: false, moved: traceDrag.current.moved, mode: traceDrag.current.mode };
     setTraceRiding(false);
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
@@ -878,7 +917,7 @@ function OrthoTile({
         onPointerDown={tracePointerDown}
         onPointerMove={tracePointerMove}
         onPointerUp={tracePointerUp}
-        title="Hover reads the density at the cursor · click to move the focus point — the sibling planes follow · drag the violet cut line to slide the cut"
+        title="Hover reads the density at the cursor · click to move the focus point — the sibling planes follow · drag the violet cut line to slide the cut · drag an endpoint to turn the cut"
       >
         <MrcImage
           src={src}
