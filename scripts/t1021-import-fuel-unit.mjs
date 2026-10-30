@@ -87,12 +87,12 @@ for (let i = 0; i < 10 && !world; i++) {
   } catch { /* the warmup */ }
 }
 if (!world) { console.error("FATAL: the server never answered 200"); process.exit(2); }
-if (world.length !== 22) {
-  console.error(`FATAL: world gate — jobs ${world.length} (want 22)`);
+if (world.length !== 16) {
+  console.error(`FATAL: world gate — jobs ${world.length} (want 16 — the t1075 replant census; the t1003 22-world's db died in the epoch rollback)`);
   process.exit(1);
 }
 const project = world[0]?.projectId ?? null;
-console.log(`world: 22 jobs as-found (project ${project})`);
+console.log(`world: 16 jobs as-found (project ${project})`);
 
 /* ---------- F band — the gate at source ---------- */
 console.log("F band — the fuel gate at source:");
@@ -140,6 +140,13 @@ console.log(`  ${files} files laid (${((files * 6 * 1024) / 1024 ** 3).toFixed(1
 console.log("L band — the refusal live (the gate speaks, the kernel never does):");
 const template = world.find((j) => j.name === "Import Movies 1");
 ok("the template stands (Import Movies 1)", !!template);
+// the t1075 replant world: the project is BOUND (the t979 ritual's step 2 —
+// the t535 feed law), and a bound project's imports ride the remote leg
+// first (runImportRemoteLeg's connId gate — "imported from Cluster").
+// The fuel gate guards the NATIVE lane, so the ride unbinds through the
+// t300 door (null unbinds), rides, and rebinds bit-for-bit after the row.
+const bind0 = (await api("GET", "/api/project"))?.json?.project?.remote?.connectionId ?? null;
+if (bind0) await api("PATCH", `/api/projects/${project}`, { remoteConnectionId: null });
 let twin = null;
 if (template) {
   const params = { ...(template.params ?? {}), micrographsPath: FIX };
@@ -193,19 +200,16 @@ if (twin) {
 }
 rmSync(FIX, { force: true, recursive: true });
 ok("the fixture swept", !existsSync(FIX));
-// the project-level micrographs link is the folder import's own residue
-// (the ride's linkDirInto aimed it at the fixture) — restored to the
-// project's own as-found source (the EMPIAR face's dir), the t1015-era
-// latent lesson finally on the record
+// the t1075 replant re-key: the EMPIAR demo dir is gone with the old epoch —
+// the replant world's mics stay on the cluster (the t979 feed, zero upload),
+// so the ride's link residue is SWEPT, not restored, and the binding comes
+// back bit-for-bit through the t300 door instead.
+if (bind0) await api("PATCH", `/api/projects/${project}`, { remoteConnectionId: bind0 });
+const rebound = (await api("GET", "/api/project"))?.json?.project?.remote?.connectionId ?? null;
+ok("the binding restored bit-for-bit after the native-lane ride (the t1075 re-key — the t300 door)",
+  rebound === bind0, `${rebound ?? "unbound"} vs ${bind0 ?? "unbound"}`);
 const MIC_LINK = path.join(ROOT, "data/relion", twin?.projectId ?? project, "micrographs");
 rmSync(MIC_LINK, { force: true });
-try {
-  symlinkSync("/home/z/empiar-10017/micrographs", MIC_LINK, "dir");
-  ok("the micrographs link restored to the project's own source (the as-found)",
-    existsSync(path.join(MIC_LINK, "mic_001.mrc")));
-} catch (e) {
-  ok("the micrographs link restored to the project's own source (the as-found)", false, String(e).slice(0, 60));
-}
 if (twin?.projectId && twin?.id) {
   rmSync(path.join(ROOT, "data/relion", twin.projectId, `import_${twin.id.slice(-8)}`), { force: true, recursive: true });
 }
@@ -220,9 +224,9 @@ for (let i = 0; i < 10 && !worldAfter; i++) {
     if (r.status === 200) worldAfter = jobsArr(r.json);
   } catch { /* the beat */ }
 }
-ok("the world as-left (22 jobs, nothing minted standing)", worldAfter?.length === 22, `got ${worldAfter?.length}`);
+ok("the world as-left (16 jobs, nothing minted standing — the t1075 replant re-key)", worldAfter?.length === 16, `got ${worldAfter?.length}`);
 const dbBytes = statSync(path.join(ROOT, "db/cryoflow.db")).size;
-ok("the DB byte size held (the high-water)", dbBytes === 155648, `${dbBytes}`);
+ok("the DB byte size held (the high-water — the t1075 replant re-key)", dbBytes === 135168, `${dbBytes}`);
 
 /* ---------- the receipt ---------- */
 const verdict = fail === 0 ? "GREEN" : "RED";

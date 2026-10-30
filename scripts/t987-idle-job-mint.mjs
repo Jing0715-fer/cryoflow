@@ -106,7 +106,7 @@ if (stage === "mint") {
   ok(Math.round(j?.x ?? -1) === MINT_X && Math.round(j?.y ?? -1) === MINT_Y, "the face sits at its explicit visible coordinates", `x=${j?.x} y=${j?.y}`);
   const body = api("GET", "/api/jobs");
   const arr = Array.isArray(body) ? body : body.jobs ?? [];
-  ok(arr.length === 22, "the world now carries TWENTY-TWO jobs (the t1003 restoration re-key — the fleet restored: 15 demo + seven standing faces)", `rows=${arr.length}`);
+  ok(arr.length === 16, "the world now carries SIXTEEN jobs (the t1075 replant re-key — the t979 world's steady census: 3 starter + nine standing faces + the t978 rider world of four; the t1003 22-world's db died in the epoch rollback and the t979 replant is the successor)", `rows=${arr.length}`);
   ok(!existsSync(workdirOf(job.id)), "no workdir yet (the walk's own Run click creates it)", workdirOf(job.id));
 
   console.log(`== mint ${fail === 0 ? "GREEN" : "RED"} — ${pass} ok, ${fail} fail ==`);

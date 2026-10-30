@@ -86,11 +86,11 @@ for (let i = 0; i < 15 && !world; i++) {
   } catch { /* the warmup — the window's recycle boot may still be prewarming */ }
 }
 if (!world) { console.error("FATAL: the server never answered 200"); process.exit(2); }
-if (world.length !== 22) {
-  console.error(`FATAL: world gate — jobs ${world.length} (want 22)`);
+if (world.length !== 16) {
+  console.error(`FATAL: world gate — jobs ${world.length} (want 16 — the t1075 replant census; the t1003 22-world's db died in the epoch rollback)`);
   process.exit(1);
 }
-console.log(`world: 22 jobs as-found (the keeper's recycle boot already prewarmed)`);
+console.log(`world: 16 jobs as-found (the keeper's recycle boot already prewarmed)`);
 
 /* ---------- F band — the guard at source ---------- */
 console.log("F band — the thin-host recycle at source:");
@@ -208,10 +208,10 @@ for (let i = 0; i < 10 && !worldAfter; i++) {
     if (r.status === 200) worldAfter = jobsArr(r.json);
   } catch { /* the beat */ }
 }
-ok("the world as-left (22 jobs — the window's controlled recycle swept clean)",
-  worldAfter?.length === 22, `got ${worldAfter?.length}`);
+ok("the world as-left (16 jobs — the t1075 replant re-key; the window's controlled recycle swept clean)",
+  worldAfter?.length === 16, `got ${worldAfter?.length}`);
 const dbBytes = statSync(path.join(ROOT, "db/cryoflow.db")).size;
-ok("the DB byte size held (the high-water)", dbBytes === 155648, `${dbBytes}`);
+ok("the DB byte size held (the high-water — the t1075 replant re-key)", dbBytes === 135168, `${dbBytes}`);
 
 /* ---------- the receipt ---------- */
 const verdict = fail === 0 ? "GREEN" : "RED";

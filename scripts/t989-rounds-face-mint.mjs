@@ -93,7 +93,7 @@ if (stage === "mint") {
   ok(j?.type === "refine3d", "the face's type is refine3d (the merged spec carries fn_cont)", `type=${j?.type}`);
   ok(Math.round(j?.x ?? -1) === MINT_X && Math.round(j?.y ?? -1) === MINT_Y, "the face sits at its explicit visible coordinates", `x=${j?.x} y=${j?.y}`);
   const arr = jobsArr();
-  ok(arr.length === 22, "the world now carries TWENTY-TWO jobs (the t1003 restoration re-key — the fleet restored: 15 demo + seven standing faces)", `rows=${arr.length}`);
+  ok(arr.length === 16, "the world now carries SIXTEEN jobs (the t1075 replant re-key — the t979 world's steady census: 3 starter + nine standing faces + the t978 rider world of four; the t1003 22-world's db died in the epoch rollback and the t979 replant is the successor)", `rows=${arr.length}`);
   ok(!existsSync(workdirOf(job.id)), "no workdir yet (the walk's own gestures create what they need)", workdirOf(job.id));
 
   // the picker's refusal face answers the API lane BEFORE any browser ride

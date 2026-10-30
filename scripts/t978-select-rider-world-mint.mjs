@@ -304,6 +304,7 @@ const workdirOf = (type, jobId) => path.join(DATA_ROOT, `${type}_${jobId.slice(-
 
 /* ------------------------------------------------------------ guards */
 let PRE_EDGES = 0;
+let PRE_JOBS = 0;
 function guards() {
   const probe = api("GET", "/api/jobs");
   ok("guard: server answers", !probe.error && (Array.isArray(probe) || Array.isArray(probe.jobs)));
@@ -311,7 +312,8 @@ function guards() {
   const stale = jobs().filter((j) => SUFFIX_RE.test(j.name ?? ""));
   ok("guard: no stale t978 mints", stale.length === 0, stale.length ? stale.map((s) => s.name).join(", ") : "");
   if (stale.length) { console.log("FATAL: singular-world guard — remove first"); process.exit(2); }
-  ok("guard: the world holds 8 jobs pre-mint", jobs().length === 8, String(jobs().length));
+  ok("guard: the world holds 12 jobs pre-mint (the t1075 replant re-key — 3 starter + the nine standing faces)", jobs().length === 12, String(jobs().length));
+  PRE_JOBS = jobs().length;
   if (fail > 0) { console.log("FATAL: guards failed"); process.exit(2); }
 }
 
@@ -398,7 +400,7 @@ if (process.argv[2] === "mint") {
   // 8. the manifest
   writeFileSync(MANIFEST, JSON.stringify({
     writtenAt: new Date().toISOString(),
-    preJobs: 8, preEdges: PRE_EDGES,
+    preJobs: PRE_JOBS, preEdges: PRE_EDGES,
     a: { id: a.id, name: NAME_A, type: "class2d", workdir: wdA, counts: A_COUNTS, total: TOTAL },
     b: { id: b.id, name: NAME_B, type: "class3d", workdir: wdB, counts: B_COUNTS, total: TOTAL },
     c: { id: c.id, name: NAME_C, edge: "NINTH.classAverages→C.classes" },
