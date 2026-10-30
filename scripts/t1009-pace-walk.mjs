@@ -83,7 +83,7 @@
  * asserts pin the band's words ("total compute", "wall time", "time is
  * not claimed") AND the receipt's vocabulary ("1 job selected",
  * "2 jobs selected", "Selection cleared") AND the delete arc's two
- * mouths ("22 jobs selected" — count-anchored, the world's size; the
+ * mouths ("16 jobs selected" — count-anchored, the world's size; the
  * toast's "Deleted 2 jobs"; the truce's "workdirs stay on disk") as
  * LITERALS — any rewording re-keys the walk IN THE SAME COMMIT.
  *
@@ -375,7 +375,7 @@ ok("the receipt spoke the clear (Selection cleared)",
 /* LEG 9 — the delete arc's hearing (the t1012 graft): the receipt's OTHER
    mouths, all-real doors, the world self-restores (the t993 pattern —
    the arc's victims are the arc's own mint). Four moments:
-   A. cmd+A select-all — the full count IS the honest word ("22 jobs
+   A. cmd+A select-all — the full count IS the honest word ("16 jobs
       selected", one string, one announcement);
    B. the mint (Ctrl+D twins) — same count renders the same string, so the
       receipt is SILENT: the birth is the visual's story, not a count's;
@@ -391,8 +391,8 @@ console.log("leg 9: the delete arc's hearing (the t1012 graft)");
 sh(`${AB} press Control+a`);
 await sleep(500);
 const allReceipt = await evalJson(`(() => { const r = document.querySelector('[data-testid=selection-live-receipt]'); return JSON.stringify(r ? r.textContent : null); })()`);
-ok("cmd+A announced the full count (the honest word, not noise)",
-  allReceipt === "22 jobs selected", String(allReceipt));
+ok("cmd+A announced the full count (the honest word, not noise — the t1077 re-key 22→16)",
+  allReceipt === "16 jobs selected", String(allReceipt));
 /* clear, then two real toggles again */
 const bare9 = await evalJson(`(() => {
   const root = document.querySelector('[data-canvas=viewport]');
