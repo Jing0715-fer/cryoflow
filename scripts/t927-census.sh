@@ -1,9 +1,9 @@
 #!/bin/bash
-# t927 census runner — the 51 node instruments at their standing values (t1082 added the resume-receipt unit; t1083 grew it 23→29 and added the lane-chip unit, the 43rd seat; t1084 grew the pointer-wall-echo unit 22→30; t1087 added the paper-census unit, the 44th seat; t1088 added the fuel-family unit, the 45th seat; t1089 added the print-honesty unit, the 46th seat; t1090 added the lazy-host unit, the 47th seat; t1091 added the receipt-ledger unit, the 48th seat — the canvas paper's second voice; t1092 added the inspector-paper unit, the 49th seat — the job report face's second pass; t1093 added the params-paper unit, the 50th seat — the diff brain's standalone face; t1094 added the fsc-paper unit, the 51st seat — the FSC compare's print face).
+# t927 census runner — the 52 node instruments at their standing values (t1082 added the resume-receipt unit; t1083 grew it 23→29 and added the lane-chip unit, the 43rd seat; t1084 grew the pointer-wall-echo unit 22→30; t1087 added the paper-census unit, the 44th seat; t1088 added the fuel-family unit, the 45th seat; t1089 added the print-honesty unit, the 46th seat; t1090 added the lazy-host unit, the 47th seat; t1091 added the receipt-ledger unit, the 48th seat — the canvas paper's second voice; t1092 added the inspector-paper unit, the 49th seat — the job report face's second pass; t1093 added the params-paper unit, the 50th seat — the diff brain's standalone face; t1094 added the fsc-paper unit, the 51st seat — the FSC compare's print face; t1095 added the stray-verify unit, the 52nd seat — the audit's borderline shapes cured at the source).
 # Law: unset DATABASE_URL per invocation; lib-import units via unit-runner (bare node dies on @/lib).
 cd /home/z/my-project
 export DATABASE_URL=""
-EXPECTED=(22 23 25 38 33 28 28 25 20 20 16 17 11 8 14 28 13 23 10 17 33 16 22 32 91 23 63 33 18 45 28 30 14 13 11 48 9 19 19 24 17 29 7 16 16 11 10 16 15 20 20)
+EXPECTED=(22 23 25 38 33 28 28 25 20 20 16 17 11 8 14 28 13 23 10 17 33 16 22 32 91 23 63 33 18 45 28 30 14 13 11 48 9 19 19 24 17 29 7 16 16 11 10 16 15 20 20 16)
 # the bash-word law: NO trailing commas inside this array — in bash,
 # "x", is ONE word (x,) — the comma joins the element and the runner
 # hunts a file that does not exist
@@ -59,8 +59,9 @@ declare -a NAMES=(
   "t1092-inspector-paper-unit"
   "t1093-params-paper-unit"
   "t1094-fsc-paper-unit"
+  "t1095-stray-verify-unit"
 )
-declare -a RUNNERS=(1 0 1 1 1 1 2 2 0 0 0 0 1 0 0 0 0 1 0 1 1 1 1 0 1 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+declare -a RUNNERS=(1 0 1 1 1 1 2 2 0 0 0 0 1 0 0 0 0 1 0 1 1 1 1 0 1 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
 i=0
 for name in "${NAMES[@]}"; do
   unset DATABASE_URL

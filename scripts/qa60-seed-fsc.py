@@ -321,6 +321,14 @@ def main() -> None:
             except Exception as e:
                 print(f"clean: state pop failed ({e})")
             api(f"/api/jobs/{live['id']}", "DELETE")
+            # t1095 — the stray law's seeder edition (the qa55 lesson): the
+            # delete's own 200 is not the proof, the WORLD READ is.
+            after = api("/api/jobs")
+            if isinstance(after, dict):
+                after = after.get("jobs", [])
+            if any(j.get("id") == live["id"] for j in after):
+                print(f"clean: REFUSAL — {LIVE[0]} still stands after its DELETE")
+                sys.exit(2)
             print(f"clean: deleted live job {LIVE[0]}")
         else:
             print("clean: live job already absent")
@@ -354,6 +362,16 @@ def main() -> None:
             except Exception as e:
                 print(f"take-home: state pop failed for {name} ({e})")
             api(f"/api/jobs/{row['id']}", "DELETE")
+            # t1095 — the stray law's seeder edition (the qa55 lesson): the
+            # delete's own 200 is not the proof, the WORLD READ is. A row
+            # that stands after its delete exits 2 so the rider's warn
+            # carries the truth instead of a printed lie.
+            after = api("/api/jobs")
+            if isinstance(after, dict):
+                after = after.get("jobs", [])
+            if any(j.get("id") == row["id"] for j in after):
+                print(f"take-home: REFUSAL — {name} still stands after its DELETE")
+                sys.exit(2)
             print(f"take-home: deleted {name} ({row['id'][:10]}) via the product door")
             # whole-specimen rule (t630): DELETE never sweeps disk (t97) —
             # rmdir the per-job workdir only when the radius left it empty

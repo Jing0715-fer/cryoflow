@@ -1,0 +1,90 @@
+{
+  "unit": "t1095-stray-verify-unit",
+  "window": "t1095",
+  "date": "2026-10-30T16:06:34.593Z",
+  "pins": 16,
+  "failed": 0,
+  "verdict": "GREEN",
+  "results": [
+    {
+      "id": "S1",
+      "ok": true,
+      "why": "qa58 take-home: the DELETE is followed by the world read"
+    },
+    {
+      "id": "S2",
+      "ok": true,
+      "why": "qa60 clean: the live card's DELETE is followed by the world read"
+    },
+    {
+      "id": "S3",
+      "ok": true,
+      "why": "qa60 take-home: the SPECS delete is followed by the world read"
+    },
+    {
+      "id": "S4",
+      "ok": true,
+      "why": "seed-twin --clean: the twin delete is followed by the live lookup"
+    },
+    {
+      "id": "R1",
+      "ok": true,
+      "why": "exactly 4 REFUSAL prints across the seeders (got 4)"
+    },
+    {
+      "id": "R2",
+      "ok": true,
+      "why": "every REFUSAL is followed by sys.exit(2)"
+    },
+    {
+      "id": "R3",
+      "ok": true,
+      "why": "the refusals name the standing row"
+    },
+    {
+      "id": "W1",
+      "ok": true,
+      "why": "qa63's take-home warn prints"
+    },
+    {
+      "id": "W2",
+      "ok": true,
+      "why": "qa66's take-home warn prints"
+    },
+    {
+      "id": "W3",
+      "ok": true,
+      "why": "qa67's tenant warn prints"
+    },
+    {
+      "id": "W4",
+      "ok": true,
+      "why": "qa68's both warns print"
+    },
+    {
+      "id": "L1",
+      "ok": true,
+      "why": "the law's comment rides all three seeders"
+    },
+    {
+      "id": "L2",
+      "ok": true,
+      "why": "scripts/qa58-seed-gallery.py compiles"
+    },
+    {
+      "id": "L3",
+      "ok": true,
+      "why": "scripts/qa60-seed-fsc.py compiles"
+    },
+    {
+      "id": "L4",
+      "ok": true,
+      "why": "scripts/seed-twin.py compiles"
+    },
+    {
+      "id": "L5",
+      "ok": true,
+      "why": "the audit instrument runs clean (SUSPECTS none)"
+    }
+  ]
+}
