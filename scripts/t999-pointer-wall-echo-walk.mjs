@@ -8,9 +8,9 @@
  * and the grip's own valuetext AGREES with the echo at every park (the
  * one-mouth law, live — two roads, one voice):
  *
- *   leg 0  the as-found honesty (the API is the judge): TWENTY-TWO
- *          jobs (the standing fleet, the t1003 restoration), the
- *          fingerprint banked, the stored geometry's raw
+ *   leg 0  the as-found honesty (the API is the judge): SIXTEEN
+ *          jobs (the t1075 replant re-key — the t979 world's steady
+ *          census), the fingerprint banked, the stored geometry's raw
  *          echo captured (the leave-no-trace law's bank);
  *   leg 1  the wide-first fresh open (the kit's opening — 1440×900,
  *          the ceiling is the clampGeo formula's, read live);
@@ -116,7 +116,7 @@ await serverFirst();
 console.log("leg 0: the as-found world");
 const jobs0 = await readJobs();
 const arr0 = jobsArr(jobs0 ?? {});
-ok("the as-found world carries TWENTY-TWO jobs (the standing fleet, the t1003 restoration)", arr0.length === 22, `rows=${arr0.length}`);
+ok("the as-found world carries SIXTEEN jobs (the t1075 replant re-key — the t979 world's steady census: 3 starter + nine standing faces + the t978 rider world of four; the t1003 22-world's db died in the epoch rollback and the t979 replant is the successor)", arr0.length === 16, `rows=${arr0.length}`);
 const fp0 = fingerprint(arr0);
 ok("the fingerprint banked (non-empty)", fp0.length > 0, `chars=${fp0.length}`);
 const geoBefore = evalJson(`(() => JSON.stringify({ raw: localStorage.getItem(${JSON.stringify(GEO_KEY)}) }))()`);

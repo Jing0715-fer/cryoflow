@@ -118,7 +118,7 @@ const mock = await mockOpen();
 ok("the mock cluster's door is open (:3022 TCP)", mock);
 serverFirst();
 const asFound = await worldRead("as-found");
-ok("the world carries TWENTY-TWO jobs (the standing fleet restored (the t1003 restoration — 15 demo + seven standing faces))", asFound.arr.length === 22, `rows=${asFound.arr.length}`);
+ok("the world carries SIXTEEN jobs (the t1075 replant re-key — the t979 world's steady census: 3 starter + nine standing faces + the t978 rider world of four; the t1003 22-world's db died in the epoch rollback and the t979 replant is the successor)", asFound.arr.length === 16, `rows=${asFound.arr.length}`);
 const live = asFound.arr.filter((j) => !TERM.has(j.status));
 ok("ZERO non-terminal jobs (the kill orphans nothing)",
   live.length === 0, live.map((j) => `${j.name}:${j.status}`).join(","));
@@ -272,7 +272,7 @@ await sleep(600);
 const dlgGone = await poll(`(() => { const d = document.querySelector('[data-slot="dialog-content"]'); return JSON.stringify({ gone: !d || d.getBoundingClientRect().width === 0 }); })()`, (v) => v.gone, 8, 400);
 ok("the edit panel closed (the dialog's own door)", !!dlgGone && dlgGone.gone);
 const asLeft = await worldRead("as-left");
-ok("the world carries TWENTY-TWO jobs as-left (nothing minted)", asLeft.arr.length === 22, `rows=${asLeft.arr.length}`);
+ok("the world carries SIXTEEN jobs as-left (nothing minted — the t1075 replant re-key)", asLeft.arr.length === 16, `rows=${asLeft.arr.length}`);
 ok("THE FINGERPRINT AS-FOUND = AS-LEFT (byte-identical)", asFound.fp === asLeft.fp);
 const closeCode = sh(`curl -s -o /dev/null -w '%{http_code}' --max-time 5 ${BASE}/`).trim();
 ok("the server stands at 200 at the shell (the close gate)", closeCode === "200", `code=${closeCode}`);

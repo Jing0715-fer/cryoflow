@@ -63,8 +63,11 @@ ok("the as-found world holds the t972 face too (the discriminator's keeper, fail
  * is stale the moment another walk mints — this count NAMES the re-arm
  * AND the re-home: the t976/t972 faces were re-armed in the t994 window
  * (the mint fleet's re-arm tail), and the t995 window minted the
- * custom-error face (the teaser's re-home) — the world grew by ONE. */
-ok("the as-found world holds TWENTY-TWO jobs (the standing fleet restored (the t1003 restoration — 15 demo + seven standing faces))", jobs.length === 22, `n=${jobs.length}`);
+ * custom-error face (the teaser's re-home) — the world grew by ONE.
+ * (the t1077 sweep re-keys the count: the t1003 22-world's db died in the
+ * epoch rollback and the t979 replant is the successor — the t979 world's
+ * steady census is SIXTEEN.) */
+ok("the as-found world holds SIXTEEN jobs (the t1075 replant re-key — the t979 world's steady census: 3 starter + nine standing faces + the t978 rider world of four; the t1003 22-world's db died in the epoch rollback and the t979 replant is the successor)", jobs.length === 16, `n=${jobs.length}`);
 
 /* ---------------- leg 1: the wide-first opening (the kit's law) ---------------- */
 const first = await wideFirst();

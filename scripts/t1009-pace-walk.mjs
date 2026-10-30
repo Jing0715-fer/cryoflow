@@ -158,14 +158,16 @@ const jobs0 = await readJobs();
 fpBefore = fingerprint(jobsArr(jobs0 ?? []));
 ok("the world fingerprinted (as-found)", fpBefore.length > 0, `${fpBefore.split("|").length} jobs`);
 /* THE WORLD GATE (the t1014 law): the walk's count-anchored literals are
-   pinned to the as-found 22 — a world carrying leftovers from an earlier
+   pinned to the as-found world — a world carrying leftovers from an earlier
    arc rides with shifted counts and the arcs' asserts lie. The gate is
    honest: the walk exits RED when the world isn't the pinned one — the
-   cleanup is the OPERATOR's duty, never the ride's. */
-ok("the as-found world is the pinned 22-job world",
-  fpBefore.split("|").length === 22, `${fpBefore.split("|").length} jobs`);
-if (fpBefore.split("|").length !== 22) {
-  console.log(`FATAL: the world carries ${fpBefore.split("|").length} jobs — the arcs' count-anchored asserts would lie. Clean the world to the pinned 22 and re-ride.`);
+   cleanup is the OPERATOR's duty, never the ride's. (The t1077 sweep
+   re-keyed the family 22→16: the t1003 22-world's db died in the epoch
+   rollback and the t979 replant is the successor — SIXTEEN.) */
+ok("the as-found world is the pinned 16-job world",
+  fpBefore.split("|").length === 16, `${fpBefore.split("|").length} jobs`);
+if (fpBefore.split("|").length !== 16) {
+  console.log(`FATAL: the world carries ${fpBefore.split("|").length} jobs — the arcs' count-anchored asserts would lie. Clean the world to the pinned 16 and re-ride.`);
   process.exit(2);
 }
 
@@ -426,8 +428,8 @@ if (Array.isArray(ids9) && ids9.length === 2) {
     await sleep(400);
   }
   const pre = await evalJson(`(() => { const r = document.querySelector('[data-testid=selection-live-receipt]'); const cards = document.querySelectorAll('[data-job]').length; return JSON.stringify({ receipt: r ? r.textContent : null, cards }); })()`);
-  ok("two toggles stand before the arc (2 jobs selected, world at 22)",
-    pre.receipt === "2 jobs selected" && pre.cards === 22, `receipt=${pre.receipt} cards=${pre.cards}`);
+  ok("two toggles stand before the arc (2 jobs selected, world at 16)",
+    pre.receipt === "2 jobs selected" && pre.cards === 16, `receipt=${pre.receipt} cards=${pre.cards}`);
   /* moment B — the mint: Ctrl+D twins, same count, SILENT receipt. The
      probe is PATIENT (the t1014 law): a dev-HMR reload mid-mint re-hydrates
      the world within seconds — the probe waits out the reload instead of
@@ -436,11 +438,11 @@ if (Array.isArray(ids9) && ids9.length === 2) {
   let mint = null;
   for (let round = 0; round < 20; round++) {
     mint = await evalJson(`(() => { const r = document.querySelector('[data-testid=selection-live-receipt]'); const cards = [...document.querySelectorAll('[data-job]')].filter((e) => !e.closest('[data-canvas-ui=minimap]')); const copies = cards.filter((c) => /\\(copy\\)/.test(c.querySelector('[data-card-btn]')?.getAttribute('aria-label') ?? '')).length; const sel = cards.filter((e) => /ring-primary/.test(e.querySelector('[data-card-btn]')?.className ?? '')).length; return JSON.stringify({ receipt: r ? r.textContent : null, cards: cards.length, copies, sel }); })()`);
-    if (mint && mint.cards === 24 && mint.copies === 2 && mint.sel === 2) break;
+    if (mint && mint.cards === 18 && mint.copies === 2 && mint.sel === 2) break;
     await sleep(1000);
   }
-  ok("the mint stood (twins born, selected, world at 24)",
-    mint.cards === 24 && mint.copies === 2 && mint.sel === 2, `cards=${mint.cards} copies=${mint.copies} sel=${mint.sel}`);
+  ok("the mint stood (twins born, selected, world at 18)",
+    mint.cards === 18 && mint.copies === 2 && mint.sel === 2, `cards=${mint.cards} copies=${mint.copies} sel=${mint.sel}`);
   ok("the receipt stayed SILENT at the mint (same count renders the same string)",
     mint.receipt === "2 jobs selected", String(mint.receipt));
   /* THE MINT GATE (the t1014 law — the t993 pattern enforced by
@@ -449,7 +451,7 @@ if (Array.isArray(ids9) && ids9.length === 2) {
      mint (a jank window, a lost keystroke) leaves the two toggled cards
      STANDING jobs — the confirm would kill real work. The skip is the
      law's success, asserted GREEN; the mint's own RED above tells why. */
-  const mintOk = mint.cards === 24 && mint.copies === 2 && mint.sel === 2;
+  const mintOk = mint.cards === 18 && mint.copies === 2 && mint.sel === 2;
   if (!mintOk) {
     sh(`${AB} press Escape`);
     await sleep(500);
@@ -485,8 +487,8 @@ if (Array.isArray(ids9) && ids9.length === 2) {
   }
   await sleep(700);
   const cancelled = await evalJson(`(() => { const r = document.querySelector('[data-testid=selection-live-receipt]'); const dlgOpen = [...document.querySelectorAll('[role=alertdialog]')].some((d) => d.getBoundingClientRect().width > 0); const cards = [...document.querySelectorAll('[data-job]')].filter((e) => !e.closest('[data-canvas-ui=minimap]')).length; return JSON.stringify({ receipt: r ? r.textContent : null, dlgOpen, cards }); })()`);
-  ok("the cancelled delete kept the world (dialog shut, 24 cards, selection intact)",
-    cancelled.dlgOpen === false && cancelled.cards === 24, `dlgOpen=${cancelled.dlgOpen} cards=${cancelled.cards}`);
+  ok("the cancelled delete kept the world (dialog shut, 18 cards, selection intact)",
+    cancelled.dlgOpen === false && cancelled.cards === 18, `dlgOpen=${cancelled.dlgOpen} cards=${cancelled.cards}`);
   ok("the receipt stayed SILENT at the cancel (no delete happened, no word)",
     cancelled.receipt === "2 jobs selected", String(cancelled.receipt));
   /* moment D — the confirmed delete: the two-mouth moment */
@@ -499,14 +501,14 @@ if (Array.isArray(ids9) && ids9.length === 2) {
     /* the two-mouth witness: poll until the world absorbs the delete */
     const twoMouth = await poll(
       `(() => { const r = document.querySelector('[data-testid=selection-live-receipt]'); const toast = [...document.querySelectorAll('[role=status]')].some((t) => /Deleted 2 jobs/.test(t.textContent)); const cards = [...document.querySelectorAll('[data-job]')].filter((e) => !e.closest('[data-canvas-ui=minimap]')).length; return JSON.stringify({ receipt: r ? r.textContent : null, toast, cards }); })()`,
-      (v) => v.toast && v.cards === 22, 16, 500);
+      (v) => v.toast && v.cards === 16, 16, 500);
     ok("the two-mouth moment (the receipt spoke the selection's exit)",
       !!twoMouth && twoMouth.receipt === "Selection cleared", String(twoMouth?.receipt));
     ok("the two-mouth moment (the toast spoke the deletion's headline)",
       !!twoMouth && twoMouth.toast === true);
     const restored = await evalJson(`(() => { const cards = [...document.querySelectorAll('[data-job]')].filter((e) => !e.closest('[data-canvas-ui=minimap]')); const copies = cards.filter((c) => /\(copy\)/.test(c.querySelector('[data-card-btn]')?.getAttribute('aria-label') ?? '')).length; return JSON.stringify({ cards: cards.length, copies }); })()`);
-    ok("the world self-restored (22 cards, no copies left)",
-      restored.cards === 22 && restored.copies === 0, `cards=${restored.cards} copies=${restored.copies}`);
+    ok("the world self-restored (16 cards, no copies left)",
+      restored.cards === 16 && restored.copies === 0, `cards=${restored.cards} copies=${restored.copies}`);
     await shot("t1012-delete-two-mouths");
   }
   }
@@ -589,8 +591,8 @@ if (mint10) {
   }
   await sleep(700);
   const kept10 = await evalJson(`(() => JSON.stringify({ cards: [...document.querySelectorAll('[data-job]')].filter((e) => !e.closest('[data-canvas-ui=minimap]')).length, dlg: [...document.querySelectorAll('[role=alertdialog]')].some((d) => d.getBoundingClientRect().width > 0) }))()`);
-  ok("the cancelled delete kept the world (23 cards, dialog shut)",
-    !!kept10 && kept10.cards === 23 && kept10.dlg === false, `cards=${kept10?.cards} dlg=${kept10?.dlg}`);
+  ok("the cancelled delete kept the world (17 cards, dialog shut)",
+    !!kept10 && kept10.cards === 17 && kept10.dlg === false, `cards=${kept10?.cards} dlg=${kept10?.dlg}`);
   /* the copy's death — the real single door again (no clause: the copy's
      linkCount is 0), and the single arc's two mouths. The clear rides the
      walk's own proven grammar (the bare click — Escape is a fallback:
@@ -634,7 +636,7 @@ if (mint10) {
     sh(`${AB} mouse move ${confirm10.x} ${confirm10.y}`); sh(`${AB} mouse down`); sh(`${AB} mouse up`);
     const two10 = await poll(
       `(() => { const r = document.querySelector('[data-testid=selection-live-receipt]'); const toast = [...document.querySelectorAll('[role=status]')].some((t) => /Job deleted/.test(t.textContent)); const cards = [...document.querySelectorAll('[data-job]')].filter((e) => !e.closest('[data-canvas-ui=minimap]')).length; return JSON.stringify({ receipt: r ? r.textContent : null, toast, cards }); })()`,
-      (v) => v.toast && v.cards === 22, 16, 500);
+      (v) => v.toast && v.cards === 16, 16, 500);
     ok("the single arc's two-mouth moment (the receipt spoke the selection's exit)",
       !!two10 && two10.receipt === "Selection cleared", String(two10?.receipt));
     ok("the single arc's headline mouth (the toast's 'Job deleted')",
@@ -748,12 +750,12 @@ if (mint11) {
   try { api("DELETE", `/api/jobs/${mint11.id}`); } catch {}
   for (let round = 0; round < 30; round++) {
     absorb11 = await evalJson(`(() => JSON.stringify({ cards: [...document.querySelectorAll('[data-job]')].filter((e) => !e.closest('[data-canvas-ui=minimap]')).length, twinGone: !document.querySelector('[data-card-btn="' + ${JSON.stringify(mint11.id)} + '"]') }))()`);
-    if (absorb11 && absorb11.cards === 22 && absorb11.twinGone) break;
+    if (absorb11 && absorb11.cards === 16 && absorb11.twinGone) break;
     try { api("DELETE", `/api/jobs/${mint11.id}`); } catch {}
     await sleep(1000);
   }
-  ok("the world absorbed the arc's fixture (22 cards, the twin gone by the arc's own hand)",
-    !!absorb11 && absorb11.cards === 22 && absorb11.twinGone === true,
+  ok("the world absorbed the arc's fixture (16 cards, the twin gone by the arc's own hand)",
+    !!absorb11 && absorb11.cards === 16 && absorb11.twinGone === true,
     absorb11 ? `cards=${absorb11.cards} twinGone=${absorb11.twinGone}` : "absent");
   await shot("t1014-running-clause-walk");
   /* the film's full arc: the drive's OWN snapshot (the reload-proof read —

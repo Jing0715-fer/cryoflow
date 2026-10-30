@@ -72,8 +72,10 @@ const posJob = jobs.find((j) => j.name === POS_NAME);
 ok("the as-found world holds the t995 face, failed (the mint's row-flip)", !!zeroJob && zeroJob.status === "failed", zeroJob ? `${zeroJob.id} status=${zeroJob.status}` : "missing");
 ok("the as-found world holds the t970 face too (the positive leg's keeper, failed)", !!posJob && posJob.status === "failed", posJob ? `${posJob.id} status=${posJob.status}` : "missing");
 /* the t992 birth law (c): the count NAMES the mint — the t995 custom-error
- * face joined this window (the teaser's re-home); the world grew by ONE. */
-ok("the as-found world holds TWENTY-TWO jobs (the standing fleet restored (the t1003 restoration — 15 demo + seven standing faces))", jobs.length === 22, `n=${jobs.length}`);
+ * face joined this window (the teaser's re-home); the world grew by ONE.
+ * (the t1077 sweep re-keys the count: the t1003 22-world's db died in the
+ * epoch rollback and the t979 replant is the successor — SIXTEEN.) */
+ok("the as-found world holds SIXTEEN jobs (the t1075 replant re-key — the t979 world's steady census: 3 starter + nine standing faces + the t978 rider world of four; the t1003 22-world's db died in the epoch rollback and the t979 replant is the successor)", jobs.length === 16, `n=${jobs.length}`);
 
 /* ---------------- leg 1: the wide-first opening (the kit's law) ---------------- */
 const first = await wideFirst();
