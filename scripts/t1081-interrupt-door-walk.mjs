@@ -62,6 +62,14 @@ const SH = { Origin: BASE, Referer: `${BASE}/` };
 const SHJ = { ...SH, "Content-Type": "application/json" };
 const uptoIdx = process.argv.indexOf("--upto");
 const UPTO = uptoIdx >= 0 ? Number(process.argv[uptoIdx + 1] ?? 3) : 3;
+// t1082 — the camera hold: the resume receipt chip (the Log toolbar's new
+// face) needs a window BETWEEN Act 3's completion and the cleanup — the hold
+// skips the cleanup and writes the walkId to a state file; `--cleanup-only`
+// (a later invocation, camera done) reads it and runs the SAME cleanup block
+// (the pointer restore law included). No residue by either exit.
+const HOLD = process.argv.includes("--hold-after-resume");
+const CLEANUP_ONLY = process.argv.includes("--cleanup-only");
+const HOLD_FILE = path.join(ROOT, "shots-qa/.t1082-walk-hold.json");
 const CONN_ID = "conn-mv6a23lx";
 const MIRROR = "/home/z/empiar-10017/micrographs";
 const PROJECT_NAME_RE = /^Interrupt Door Walk t1081/;
@@ -124,22 +132,86 @@ const killServer = () => {
  *  own next iteration (the verdict's tail grew it[007]→it[010] between
  *  phases — the orphan lived on and the continue-receipt vanished into a
  *  completed fresh run's log). The dance now proves the death: pkill, then
- *  poll pgrep until empty. */
+ *  poll pgrep until empty.
+ *  t1082 — the SELF-MATCH cure: pgrep/pkill -f match their own execSync
+ *  bash wrapper's cmdline (the pattern rides /bin/bash -c verbatim), so
+ *  the verify NEVER went empty and the check timed out on every ride
+ *  (t1081 named it "the race" — the bracket-class spelling is the honest
+ *  fix: `relion_refin[e]` cannot match its own literal text). */
 async function killWrapperVerified({ timeoutMs = 20_000 } = {}) {
-  try { execSync('pkill -f "bin/relion_refine" 2>/dev/null', { shell: "/bin/bash" }); } catch { /* already dead */ }
+  try { execSync('pkill -f "bin/relion_refin[e]" 2>/dev/null', { shell: "/bin/bash" }); } catch { /* already dead */ }
   const t0 = Date.now();
   for (;;) {
     let alive = "";
-    try { alive = execSync('pgrep -f "bin/relion_refine" 2>/dev/null | head -1', { encoding: "utf8", shell: "/bin/bash" }).trim(); } catch { alive = ""; }
+    try { alive = execSync('pgrep -f "bin/relion_refin[e]" 2>/dev/null | head -1', { encoding: "utf8", shell: "/bin/bash" }).trim(); } catch { alive = ""; }
     if (!alive) return true;
     if (Date.now() - t0 > timeoutMs) return false;
-    try { execSync('pkill -9 -f "bin/relion_refine" 2>/dev/null', { shell: "/bin/bash" }); } catch { /* raced */ }
+    try { execSync('pkill -9 -f "bin/relion_refin[e]" 2>/dev/null', { shell: "/bin/bash" }); } catch { /* raced */ }
     await sleep(1000);
   }
 }
 
+/** the shared cleanup — the walk's own exit AND the --cleanup-only rider
+ *  both land here (one body, no drift). */
+async function cleanupWalk(walkId, entryActive) {
+  console.log("\n━━━ cleanup — the walk leaves no residue ━━━");
+  const del = await api(`/api/projects/${walkId}`, { method: "DELETE", headers: SHJ });
+  must(del.status < 300, "the walk project deletes (the jobs cascade)");
+  try { rmSync(path.join(ROOT, "data/relion", walkId), { recursive: true, force: true }); } catch { /* gone */ }
+  try { rmSync(path.join(ROOT, "services/mock-cluster/fs/projects/cryoflow", walkId), { recursive: true, force: true }); } catch { /* gone */ }
+  try { rmSync("/tmp/t1081-walk-fuel", { recursive: true, force: true }); } catch { /* gone */ }
+  // pop the walk's runs entries (the qa60 take-home pattern)
+  try {
+    const statePath = path.join(ROOT, "data/engine-state.json");
+    if (existsSync(statePath)) {
+      const state = JSON.parse(readFileSync(statePath, "utf8"));
+      const bag = state.jobs ?? state;
+      let popped = 0;
+      for (const k of Object.keys(bag)) {
+        const rec = bag[k];
+        if (rec?.projectId === walkId || k.includes(walkId)) { delete bag[k]; popped++; }
+      }
+      if (popped > 0) writeFileSync(statePath, JSON.stringify(state, null, 2));
+      console.log(`    runs entries popped: ${popped}`);
+    }
+  } catch (e) { console.log(`    runs pop warn: ${String(e).slice(0, 120)}`); }
+  // the pointer's home: the hold left the WALK project active, so the
+  // rider derives the home as the one project that is NOT the walk (the
+  // standing world is single-project); an explicit --home overrides.
+  let home = entryActive;
+  const homeIdx = process.argv.indexOf("--home");
+  if (homeIdx >= 0) home = process.argv[homeIdx + 1] ?? null;
+  if (!home) {
+    const list = await api("/api/projects", { headers: SH });
+    home = list.body?.projects?.find?.((p) => p.id !== walkId)?.id ?? null;
+  }
+  if (home && home !== walkId) {
+    const back = await api("/api/projects/switch", { method: "POST", headers: SHJ, body: JSON.stringify({ id: home }) });
+    must(back.status < 300, "the pointer returns home (the t1080 law, obeyed)");
+  }
+  try { rmSync(HOLD_FILE, { force: true }); } catch { /* gone */ }
+}
+
 async function main() {
-  console.log(`t1081 interrupt-door walk — upto act ${UPTO}`);
+  console.log(`t1081 interrupt-door walk — upto act ${UPTO}${HOLD ? " (hold after resume)" : ""}${CLEANUP_ONLY ? " (cleanup-only rider)" : ""}`);
+
+  /* ---------- the cleanup-only rider (camera done) ---------- */
+  if (CLEANUP_ONLY) {
+    let walkId = null;
+    let entryActive = null;
+    try {
+      const held = JSON.parse(readFileSync(HOLD_FILE, "utf8"));
+      walkId = held.walkId ?? null;
+    } catch { walkId = null; }
+    if (!walkId) {
+      const list = await api("/api/projects", { headers: SH });
+      walkId = list.body?.projects?.find?.((p) => PROJECT_NAME_RE.test(p.name ?? ""))?.id ?? null;
+    }
+    if (!must(walkId != null, "the held walk project is findable", HOLD_FILE)) process.exit(1);
+    await cleanupWalk(walkId, entryActive);
+    console.log(`\n===== t1081 cleanup-only rider: ${pass} passed, ${fail} failed =====`);
+    process.exit(fail === 0 ? 0 : 1);
+  }
 
   /* ---------- preflight ---------- */
   must(existsSync(MIRROR), "the REAL EMPIAR mirror is home (the t527 identity-law asset)", MIRROR);
@@ -306,50 +378,47 @@ async function main() {
     const res = await waitTerminal(target.id, { timeoutMs: 240_000 });
     must(res.job?.status === "completed", "Act 3: THE RESUME FACE — the checkpoint contract carried the run to completion", JSON.stringify({ status: res.job?.status, result: String(res.job?.result).slice(0, 160) }));
     // the resume's receipts, read BEFORE any cleanup touches the world
-    let sawContinue = false;
+    // t1082 — the mock's REAL continue dialect is "CONTINUE from
+    // run_itNNN_optimiser.star" (its own print, relion_refine:244);
+    // "mode=continue" was this check's invention (t1081 named the
+    // instrumentation error). The stronger assert: the binary's marker
+    // must name EXACTLY the checkpoint the record's resumedFrom computes
+    // — engine record, argv target and binary witness all agree.
+    let contFrom = null;
     let recAfter = null;
     try {
       const out = execSync(`cat data/relion/${walkId}/class2d_${target.id.slice(-8)}/run.out 2>/dev/null`, { encoding: "utf8", shell: "/bin/bash" });
-      sawContinue = out.includes("mode=continue");
-    } catch { sawContinue = false; }
+      const m = out.match(/CONTINUE from (run_it\d+_optimiser\.star)/);
+      contFrom = m ? m[1] : null;
+    } catch { contFrom = null; }
     try {
       const state = JSON.parse(readFileSync(path.join(ROOT, "data/engine-state.json"), "utf8"));
       recAfter = (state.jobs ?? state)[target.id] ?? null;
     } catch { recAfter = null; }
-    must(sawContinue, "Act 3: the mock's run.out says mode=continue (the --continue landed on the binary)");
+    must(contFrom != null, "Act 3: the mock's run.out speaks CONTINUE from (the --continue landed on the binary)", String(contFrom));
     must(recAfter != null && recAfter.resumedFrom != null, "Act 3: the record carries resumedFrom (the iteration the contract picked up)", JSON.stringify(recAfter ? { resumedFrom: recAfter.resumedFrom, done: recAfter.done } : null));
+    if (contFrom != null && recAfter?.resumedFrom != null) {
+      must(contFrom === `run_it${String(recAfter.resumedFrom).padStart(3, "0")}_optimiser.star`,
+        "Act 3: THREE-WITNESS AGREEMENT — the record's resumedFrom, the argv's --continue target and the binary's CONTINUE-from marker name the same checkpoint",
+        `${contFrom} vs resumedFrom=${recAfter.resumedFrom}`);
+    }
     writeFileSync(path.join(ROOT, "shots-qa/.t1081-resume-receipt.json"), JSON.stringify({
-      jobId: target.id, status: res.job?.status, result: res.job?.result, sawContinue, record: recAfter, at: new Date().toISOString(),
+      jobId: target.id, status: res.job?.status, result: res.job?.result, contFrom, record: recAfter, at: new Date().toISOString(),
     }, null, 2));
+    if (HOLD) {
+      // t1082 — the camera hold: the chip's face is filmed through the
+      // product's own inspector BEFORE any cleanup touches the world; the
+      // rider (--cleanup-only) runs the same cleanup body afterward.
+      writeFileSync(HOLD_FILE, JSON.stringify({ walkId, jobId: target.id, at: new Date().toISOString() }, null, 2));
+      console.log(`\n    HELD AFTER RESUME — the walk project ${walkId} stands for the camera`);
+      console.log(`    film the Log tab's resume chip on job ${target.id}, then:`);
+      console.log("    node scripts/t1081-interrupt-door-walk.mjs --cleanup-only");
+    }
   }
 
   /* ---------- CLEANUP (the walk obeys the pointer restore law) ---------- */
-  if (UPTO >= 3) {
-    console.log("\n━━━ cleanup — the walk leaves no residue ━━━");
-    const del = await api(`/api/projects/${walkId}`, { method: "DELETE", headers: SHJ });
-    must(del.status < 300, "the walk project deletes (the jobs cascade)");
-    try { rmSync(path.join(ROOT, "data/relion", walkId), { recursive: true, force: true }); } catch { /* gone */ }
-    try { rmSync(path.join(ROOT, "services/mock-cluster/fs/projects/cryoflow", walkId), { recursive: true, force: true }); } catch { /* gone */ }
-    try { rmSync("/tmp/t1081-walk-fuel", { recursive: true, force: true }); } catch { /* gone */ }
-    // pop the walk's runs entries (the qa60 take-home pattern)
-    try {
-      const statePath = path.join(ROOT, "data/engine-state.json");
-      if (existsSync(statePath)) {
-        const state = JSON.parse(readFileSync(statePath, "utf8"));
-        const bag = state.jobs ?? state;
-        let popped = 0;
-        for (const k of Object.keys(bag)) {
-          const rec = bag[k];
-          if (rec?.projectId === walkId || k.includes(walkId)) { delete bag[k]; popped++; }
-        }
-        if (popped > 0) writeFileSync(statePath, JSON.stringify(state, null, 2));
-        console.log(`    runs entries popped: ${popped}`);
-      }
-    } catch (e) { console.log(`    runs pop warn: ${String(e).slice(0, 120)}`); }
-    if (entryActive && entryActive !== walkId) {
-      const back = await api("/api/projects/switch", { method: "POST", headers: SHJ, body: JSON.stringify({ id: entryActive }) });
-      must(back.status < 300, "the pointer returns home (the t1080 law, obeyed)");
-    }
+  if (UPTO >= 3 && !HOLD) {
+    await cleanupWalk(walkId, entryActive);
   }
 
   console.log(`\n===== t1081 interrupt-door walk [upto ${UPTO}]: ${pass} passed, ${fail} failed =====`);

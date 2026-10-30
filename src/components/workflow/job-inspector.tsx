@@ -517,6 +517,10 @@ function LogConsole({
   const [mode, setMode] = React.useState<"tail" | "full">(initialMode ?? "tail");
   const [totalLines, setTotalLines] = React.useState(0);
   const [truncated, setTruncated] = React.useState(false);
+  /** t1082 — the resume receipt: the checkpoint iteration this run resumed
+   *  from (the record's resumedFrom, riding the log response). null for a
+   *  fresh run — the chip only speaks when the contract actually continued. */
+  const [resumedFrom, setResumedFrom] = React.useState<number | null>(null);
   /** t980 — the follow mode survives the close (the t977 law's second
    *  seat): the lazy initializer reads the stored preference ONCE at
    *  mount (tab switches and dialog closes both remount the console —
@@ -602,6 +606,7 @@ function LogConsole({
         note?: string;
         unchanged?: boolean;
         version?: string;
+        resumedFrom?: number | null;
       };
       setLogError(null);
       if (body.pending) {
@@ -620,6 +625,9 @@ function LogConsole({
       }
       setWaitingHint(null);
       setNoLog(false);
+      // t1082 — the receipt lands with the text (the first full answer after
+      // a mount carries it; the unchanged short-circuit above never blots it)
+      setResumedFrom(body.resumedFrom ?? null);
       logVersionRef.current = body.version ?? "";
       const text = body.tail ?? "";
       // t391 — identical text must not re-render the console: a new string
@@ -648,6 +656,7 @@ function LogConsole({
       setNoLog(false);
       setTotalLines(0);
       setTruncated(false);
+      setResumedFrom(null); // t1082 — another run's receipt never survives a job switch
       logVersionRef.current = ""; // t391 — another run's answer is never "unchanged"
       const seed = readLogSeed(job.id);
       if (seed) {
@@ -773,6 +782,19 @@ function LogConsole({
             {job.status}
           </span>
         )}
+        {resumedFrom != null ? (
+          /* t1082 — the resume receipt chip: the checkpoint contract kept
+             the already-paid iterations, and the toolbar says so. The
+             tooltip names the exact --continue target (the t1081 walk's
+             Act 3 receipt, now readable from the console's own face). */
+          <span
+            data-log-resumed=""
+            className="rounded-full bg-running/15 px-2 py-0.5 text-[10px] font-semibold text-running-300"
+            title={`Resumed from checkpoint iteration ${resumedFrom} (--continue run_it${String(resumedFrom).padStart(3, "0")}_optimiser.star) — the re-run kept the iterations this run had already paid for`}
+          >
+            resumed from it {resumedFrom}
+          </span>
+        ) : null}
         <span className="text-[10px] text-zinc-600">
           {mode === "full" ? `${totalLines.toLocaleString()} lines (full)` : `${lineCount} lines`}
         </span>

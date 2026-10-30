@@ -131,6 +131,13 @@ export interface RunRecord {
    * is owned by lib/remote/remote-run.ts (reconcileRemoteJobs), not by the
    * local pidAlive branch below. See docs/remote-relion.md. */
   remote?: RemoteRunState;
+  /** t1082 — present when this run was a RESUME (--continue): the checkpoint
+   * iteration the re-run picked up from. Written into the record at spawn
+   * time (spawnTrackedRun's literal) so the exit handler's finalize spread
+   * carries it into the COMPLETED record — the t1081 walk's receipt check
+   * ("the record carries resumedFrom") reads exactly this field. A fresh
+   * run never sets it (undefined), which is the honest zero. */
+  resumedFrom?: number;
 }
 
 export interface EngineJobRef {
@@ -9168,6 +9175,14 @@ function spawnTrackedRun(
     outputs: {},
     done: false,
     exitCode: null,
+    // t1082 — the resume's receipt rides the RECORD, not just the return
+    // value: the exit handler finalizes with { ...rec, done, exitCode,
+    // outputs, result }, so anything the record holds at spawn survives
+    // into the completed row. (t1081's walk caught the gap: the dispatch-
+    // level --continue was proven by the cmd while the record itself
+    // dropped the iteration — honest bookkeeping means the state file
+    // answers "resumed from it N" without re-reading the log.)
+    ...(resumedFrom != null ? { resumedFrom } : {}),
   };
   upsertRun(job.id, record);
 

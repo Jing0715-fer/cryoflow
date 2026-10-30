@@ -117,6 +117,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
       totalLines: tail.totalLines,
       truncated: tail.truncated,
       version: tail.version,
+      // t1082 — the resume's receipt rides the log response: the record
+      // holds the checkpoint iteration the run resumed from (written at
+      // spawn time by spawnTrackedRun), and the inspector's Log toolbar
+      // renders it as a quiet chip. null for fresh runs (the honest zero).
+      resumedFrom: rec?.resumedFrom ?? null,
     });
   } catch (error) {
     return serverErrorReply("GET /api/jobs/[id]/log", error);
