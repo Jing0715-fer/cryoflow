@@ -62,7 +62,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { BarChart3, Check, ChevronDown, ChevronLeft, ChevronRight, Crosshair, Download, Film, Focus, Loader2, ScanEye, ScanLine, Scissors, Slice, TriangleAlert } from "lucide-react";
+import { BarChart3, Check, ChevronDown, ChevronLeft, ChevronRight, Crosshair, Download, Film, Focus, Loader2, Printer, ScanEye, ScanLine, Scissors, Slice, TriangleAlert } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Kbd } from "@/components/ui/kbd"; // t830 — the keymap row speaks the one kbd vocabulary (t642)
 import { MrcImage } from "./mrc-image";
@@ -72,6 +72,8 @@ import { downloadBlob } from "@/lib/download"; // t646 — one blob sink (this d
 import { obliqueDepthVox, obliqueDepthVoice, obliqueNormal, obliqueOffsetPctVoice, obliqueSupportVox, voxelReadout } from "@/lib/voxel-voice"; // t906/t907 — the tile's and the oblique block's voices ride the ONE lib (the embed's commit site reads the same seats); t1099 — the cut's direction rides the ONE father too
 import { FILMSTRIP_FRAMES, obliqueFilmstripFilename, obliqueFilmstripUrls, planObliqueFilmstrip } from "@/lib/oblique-filmstrip"; // t1096 — the walk's geometry rides the ONE lib: the plan, the URLs and the name are decided before a fetch flies
 import { ORTHO_FILMSTRIP_FRAMES, orthoFilmstripFilename, orthoFilmstripUrls, planOrthoFilmstrip } from "@/lib/ortho-filmstrip"; // t1098 — the axis walks ride the ONE lib: the plan, the URLs and the name are decided before a fetch flies
+import { orthoPlateMetaLine, orthoPlateTileUrl, planOrthoPlate } from "@/lib/ortho-plate"; // t1103 — the plate's words ride the ONE plan lib (the voices' own bytes, decided before any print)
+import { usePrintedDate } from "@/lib/use-now"; // t1103 — the plate's paper clock (the t232 law: paper clocks do not hydrate)
 import {
   obliqueTraceDragOffset,
   obliqueTraceEndpointHit, // t1100 — the rim's own word: the endpoints answer first, the body keeps the slide
@@ -1000,6 +1002,12 @@ export function MapOrthoPanel({
     y: 0.5,
     z: 0.5,
   });
+  // t1103 — the plate's paper clock (the t232 law: paper clocks do not
+  // hydrate). A TOP-LEVEL hook: the plate renders below the stack early
+  // return, but the clock belongs to the component's hook ledger —
+  // calling it past `if (isStack) return null` would be the hooks-order
+  // sin the t1100 TDZ lesson already paid for.
+  const printed = usePrintedDate();
   /** t278 — crosshair lines on/off (panel-level; default ON) */
   const [crosshairOn, setCrosshairOn] = useState(true);
   /** t283 — the density histogram strip on/off (default OFF: the first
@@ -1013,6 +1021,18 @@ export function MapOrthoPanel({
    *  the chip stays absent and the export footer skips the σ segment
    *  rather than guessing a default (the footer must not lie). */
   const [isoSigma, setIsoSigma] = useState<OrthoSigmaState | null>(null);
+  /** t1103 — the panel's own echo of the live oblique cut: the plate's
+   *  words (the cut line, the violet trace) need the cut as STATE, not
+   *  the block's onChange ref — a ref moves without a render, and paper
+   *  must never print a stale cut. Rides the SAME wire the tiles ride
+   *  (OBLIQUE_CLIP_EVENT + the applied-state ACK), the tile's own adopt
+   *  law at panel altitude; the effect lives right below with the
+   *  panel's other window listeners. */
+  const [plateOblique, setPlateOblique] = useState<{
+    theta: number;
+    phi: number;
+    offset: number;
+  } | null>(null);
   /** t556 — the oblique block's export-facing state, kept in a ref (the
    *  triptych export reads it at click time; scrubbing never re-renders
    *  the panel). Null until the block mounts; .on gates the 4th panel. */
@@ -1113,6 +1133,35 @@ export function MapOrthoPanel({
     return () => window.removeEventListener(ORTHO_CLIP_STATE_EVENT, onClipState);
   }, []);
 
+  // t1103 — the plate's cut echo: the SAME wire the tiles' shadows ride
+  // (the embed's clip intent + the applied-state ACK), adopted at panel
+  // altitude so the plate's cut line and violet trace re-render with the
+  // cut (a ref moves silently — paper must never print a stale cut). The
+  // tile's own adopt law, verbatim shape.
+  useEffect(() => {
+    const adopt = (d: unknown) => {
+      if (!d || typeof d !== "object") return;
+      const det = d as { on?: unknown; theta?: unknown; phi?: unknown; offset?: unknown };
+      if (det.on !== true) {
+        setPlateOblique(null);
+        return;
+      }
+      const theta = typeof det.theta === "number" && Number.isFinite(det.theta) ? det.theta : null;
+      const phi = typeof det.phi === "number" && Number.isFinite(det.phi) ? det.phi : null;
+      const offset = typeof det.offset === "number" && Number.isFinite(det.offset) ? det.offset : null;
+      if (theta == null || phi == null || offset == null) return;
+      setPlateOblique({ theta, phi, offset });
+    };
+    const onClip = (e: Event) => adopt((e as CustomEvent).detail);
+    const onAck = (e: Event) => adopt((e as CustomEvent).detail);
+    window.addEventListener(OBLIQUE_CLIP_EVENT, onClip);
+    window.addEventListener(OBLIQUE_CLIP_STATE_EVENT, onAck);
+    return () => {
+      window.removeEventListener(OBLIQUE_CLIP_EVENT, onClip);
+      window.removeEventListener(OBLIQUE_CLIP_STATE_EVENT, onAck);
+    };
+  }, []);
+
   // 2D → 3D (t279): the focus point is part of a saved view — every
   // committed positions change is reported once to the embed, whose
   // bookmark capture reads it from a ref (fire-and-forget; the embed
@@ -1159,6 +1208,31 @@ export function MapOrthoPanel({
 
   const dimFor = (axis: "x" | "y" | "z") =>
     dims ? (axis === "x" ? dims[0] : axis === "y" ? dims[1] : dims[2]) : undefined;
+
+  // t1103 — the plate's words, decided before any print: the plan rides
+  // the ONE voices lib, so the paper can never drift from the screen's
+  // own readouts (the captions, the σ chip, the cut's annotation).
+  const platePlan = planOrthoPlate({ positions, dims, sigma: isoSigma, oblique: plateOblique });
+  const plateMeta = orthoPlateMetaLine(platePlan);
+  const plateBase = path.split("/").pop() || path;
+
+  // t1103 — the plate's print verb: set the body flag (the print CSS's
+  // only key), print, and ALWAYS clean the flag up — afterprint owns the
+  // happy path, the timeout is the headless failsafe. No printout inherits
+  // a flag it did not ask for (the session report's cleanup law,
+  // verb-scoped edition: the flag lives for THIS print, not the mount).
+  const printPlate = () => {
+    const body = document.body;
+    body.setAttribute("data-plate-print", "");
+    const clear = () => body.removeAttribute("data-plate-print");
+    window.addEventListener("afterprint", clear, { once: true });
+    try {
+      window.print(); // headless probes: no dialog — the flag rides for the pdf instrument
+    } catch {
+      /* the flag stays for the instrument; the failsafe clears it below */
+    }
+    window.setTimeout(clear, 8000);
+  };
 
   /** t278 — a tile clicked its image: move the TWO sibling planes to the
    *  clicked fractions (hAxis/vAxis of THAT tile). The fractions land in
@@ -1459,7 +1533,7 @@ export function MapOrthoPanel({
     <section
       aria-label="Orthogonal slice browser"
       data-canvas-ui="ortho-panel"
-      className="shrink-0 rounded-lg border border-border/80 bg-card/40"
+      className="plate-walk shrink-0 rounded-lg border border-border/80 bg-card/40"
     >
       <div className="flex w-full items-center gap-2 px-3 py-2">
         <button
@@ -1544,6 +1618,19 @@ export function MapOrthoPanel({
           ) : (
             <Download className="h-3.5 w-3.5" aria-hidden="true" />
           )}
+        </button>
+        {/* t1103 — the walk's paper verb. Sibling of the export button
+            (never nested): the plate is the screen's paper edition — the
+            body-flag door the session report opened, verb-scoped. */}
+        <button
+          type="button"
+          onClick={printPlate}
+          data-canvas-ui="ortho-plate-print"
+          aria-label="Print the three sections as a paper plate"
+          title="Print the tri-panar plate — the three sections at the focus point, their voxel readouts and the σ contour, as one paper figure"
+          className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
+          <Printer className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
         {/* t283 — the density histogram toggle. Sibling of the export
             button (never nested); the strip is the σ PICKER — click a
@@ -1660,6 +1747,114 @@ export function MapOrthoPanel({
             <span className="ml-1">flips the side</span>
           </span>
         </div>
+      )}
+      {/* t1103 — the walk's PRINTER: the plate. The tiles live in the Mol*
+          modal and paper never sees them (the Task 70 law); the plate is
+          the paper's own edition — one print verb flips
+          body[data-plate-print], the dialog un-dialogs, and this figure
+          prints: the three sections at the focus point, the σ contour
+          the 3D view is drawn at, the live cut's annotation voice, each
+          tile's voxel address. The screen never sees it (hidden
+          print:block); the words ride the ONE plan lib, the pixels ride
+          the SAME request law as the screen tiles. */}
+      {open && (
+        <section
+          data-ortho-plate-doc
+          aria-hidden="true"
+          className="hidden print:block border-t border-foreground/10 px-3 pt-2 pb-1"
+        >
+          <header className="flex items-baseline justify-between gap-2">
+            <span className="text-[11px] font-semibold">Ortho plate</span>
+            <span className="truncate font-mono text-[9px] text-muted-foreground">
+              {plateBase}
+              {plateBase && printed ? " · " : ""}
+              {printed}
+            </span>
+          </header>
+          <p className="font-mono text-[9px] leading-4 text-muted-foreground">
+            {plateMeta || "—"}
+          </p>
+          <div className="mt-1 grid grid-cols-3 gap-2">
+            {TILES.map((t) => {
+              const trace =
+                plateOblique && dims
+                  ? obliqueTraceOnTile(t, dims, positions[t.axis], plateOblique)
+                  : null;
+              return (
+                <figure key={t.axis} className="min-w-0">
+                  <div className="relative aspect-square w-full overflow-hidden rounded-sm border border-foreground/15 bg-white">
+                    <img
+                      src={orthoPlateTileUrl(jobId, path, t.axis, positions[t.axis])}
+                      alt=""
+                      className="absolute inset-0 h-full w-full object-contain"
+                    />
+                    {crosshairOn &&
+                      ([t.hAxis, t.vAxis] as const).map((src) => {
+                        const vertical = src === t.hAxis;
+                        const at = positions[src];
+                        return (
+                          <div
+                            key={src}
+                            className="pointer-events-none absolute"
+                            style={{
+                              left: vertical ? pct(at) : 0,
+                              top: vertical ? 0 : pct(at),
+                              width: vertical ? 0 : "100%",
+                              height: vertical ? "100%" : 0,
+                              borderLeft: vertical
+                                ? `1px dashed ${AXIS_COLOR[src]}`
+                                : undefined,
+                              borderTop: vertical
+                                ? undefined
+                                : `1px dashed ${AXIS_COLOR[src]}`,
+                            }}
+                          />
+                        );
+                      })}
+                    {trace && (
+                      <>
+                        <svg
+                          className="pointer-events-none absolute inset-0 h-full w-full"
+                          viewBox="0 0 100 100"
+                          preserveAspectRatio="none"
+                          aria-hidden="true"
+                        >
+                          <line
+                            x1={trace.x1}
+                            y1={trace.y1}
+                            x2={trace.x2}
+                            y2={trace.y2}
+                            stroke="#7c3aed"
+                            strokeWidth={2}
+                            strokeDasharray="5 3"
+                            vectorEffect="non-scaling-stroke"
+                          />
+                        </svg>
+                        {[
+                          { x: trace.x1, y: trace.y1 },
+                          { x: trace.x2, y: trace.y2 },
+                        ].map((pt, i) => (
+                          <span
+                            key={i}
+                            className="pointer-events-none absolute size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white bg-violet-600"
+                            style={{ left: pct(pt.x / 100), top: pct(pt.y / 100) }}
+                          />
+                        ))}
+                      </>
+                    )}
+                  </div>
+                  <figcaption className="pt-0.5 font-mono text-[8px] leading-3 text-muted-foreground">
+                    {t.plane} · {platePlan.readouts[t.axis]}
+                  </figcaption>
+                </figure>
+              );
+            })}
+          </div>
+          <footer className="pt-1 font-mono text-[8px] leading-3 text-muted-foreground">
+            {path}
+            {printed ? ` · printed ${printed}` : ""}
+          </footer>
+        </section>
       )}
     </section>
   );

@@ -3792,6 +3792,81 @@ li[data-swipe="end"] {
 /* tree is gone): the vertical viewport button stack, the panels       */
 /* they open, toasts, the background-task bar and the help bubbles.    */
 /*                                                                     */
+/* The walk's paper (t1103) — the ortho plate's print exception. The
+   session report's own precedent, second edition: while
+   body[data-plate-print] is set (only while the plate verb runs — the
+   panel's print button owns the flag; afterprint and a failsafe timeout
+   own the cleanup, so no printout inherits a flag it did not ask for),
+   everything that does not carry the plate hides and the Mol* dialog
+   un-dialogs into the plate's paper. The walk down the tree rides
+   .plate-walk: each ancestor on the plate's path (the viewer's body
+   wrappers, the panel's own <section>) hides its children that do not
+   carry the plate — the dialog chrome, the Mol* viewport, the panel's
+   screen instruments — while the plate's internals are never touched
+   (their parents are not walk nodes). :has() is print-engine Chromium —
+   measured, not assumed (the session report's probe precedent). The
+   dialog's standalone translate/rotate/scale kill lives in
+   print:[translate:none]-class utilities on the DialogContent (the
+   t1093/t1092 lesson: Lightning CSS folds a same-block shorthand, an
+   own-rule utility survives). */
+@media print {
+  /* the carrier portal: Radix mounts dialogs in a display:flex wrapper —
+     left alone, the un-dialoged plate shrinks to its content's natural
+     width (the tiles' intrinsic pixel size), printing a half-page figure.
+     The carrier speaks block + full width; everything else at the body
+     level hides. */
+  body[data-plate-print] > *:has([data-ortho-plate-doc]) {
+    display: block !important;
+    width: 100% !important;
+  }
+  body[data-plate-print] > *:not(:has([data-ortho-plate-doc])) {
+    display: none !important;
+  }
+  body[data-plate-print] [data-slot="dialog-overlay"],
+  body[data-plate-print] [data-slot="dialog-close"] {
+    display: none !important;
+  }
+  body[data-plate-print] [data-slot="dialog-content"]:has([data-ortho-plate-doc]) {
+    display: block !important;
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: white !important;
+    color: oklch(0.25 0.02 244) !important;
+  }
+  body[data-plate-print] [data-slot="dialog-content"] > *:not(:has([data-ortho-plate-doc])):not([data-ortho-plate-doc]) {
+    display: none !important;
+  }
+  /* the plate's own ink: the screen's `hidden` utility is a single-class
+     rule — in the print cascade it can out-race `print:block`, so the
+     flag's paper speaks display directly (the session report's own
+     [data-report-doc] display:block law, plate edition) */
+  body[data-plate-print] [data-ortho-plate-doc] {
+    display: block !important;
+  }
+  /* the :not(:has()) walk's own rim: :has() sees only DESCENDANTS, so a
+     plate that IS the walked child would hide itself — the self-exclusion
+     is the rule's own honesty (found on the live paper: the plate printed
+     one border and no ink, the walk rule out-racing display:block) */
+  body[data-plate-print] .plate-walk > *:not(:has([data-ortho-plate-doc])):not([data-ortho-plate-doc]) {
+    display: none !important;
+  }
+  body[data-plate-print] .plate-walk {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+}
+
 /* Three disciplines:                                                  */
 /*  1. SCOPE — every rule lives under `.dark .msp-plugin`; light mode  */
 /*     never sees any of it (the fix's boundary is its ambition).      */
