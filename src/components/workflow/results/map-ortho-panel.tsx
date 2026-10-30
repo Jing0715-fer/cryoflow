@@ -62,7 +62,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { BarChart3, Check, ChevronDown, ChevronLeft, ChevronRight, Crosshair, Download, Focus, Loader2, ScanEye, ScanLine, Scissors, Slice, TriangleAlert } from "lucide-react";
+import { BarChart3, Check, ChevronDown, ChevronLeft, ChevronRight, Crosshair, Download, Film, Focus, Loader2, ScanEye, ScanLine, Scissors, Slice, TriangleAlert } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Kbd } from "@/components/ui/kbd"; // t830 — the keymap row speaks the one kbd vocabulary (t642)
 import { MrcImage } from "./mrc-image";
@@ -70,6 +70,7 @@ import { DensityHistogramStrip } from "./density-histogram";
 import { cn } from "@/lib/utils";
 import { downloadBlob } from "@/lib/download"; // t646 — one blob sink (this dance skipped the attach-before-click law)
 import { obliqueDepthVox, obliqueDepthVoice, obliqueOffsetPctVoice, obliqueSupportVox, voxelReadout } from "@/lib/voxel-voice"; // t906/t907 — the tile's and the oblique block's voices ride the ONE lib (the embed's commit site reads the same seats)
+import { FILMSTRIP_FRAMES, obliqueFilmstripFilename, obliqueFilmstripUrls, planObliqueFilmstrip } from "@/lib/oblique-filmstrip"; // t1096 — the walk's geometry rides the ONE lib: the plan, the URLs and the name are decided before a fetch flies
 
 /** event names for the two-way 3D↔2D linkage — see molstar-embed.tsx */
 export const ORTHO_SLICE_EVENT = "cryoflow:ortho-slice";
@@ -1660,6 +1661,170 @@ interface ObliqueExportInfo {
   provenance?: { kind: "jump" | "adopt"; theta: number; phi: number } | null;
 }
 
+/**
+ * t1096 — the cut's WALK, exported: the current oblique cut swept face
+ * to face through the box along its own normal, composed into ONE PNG
+ * document. The strip rides the same publishing-grid language as the
+ * triptych (fixed tiles, measure-first labels, the block's violet
+ * accent) and the SAME server truth the live view rides — the frames
+ * are the block's own src shape at the plan's offsets, so a frame and
+ * the screen can never disagree. The voices ride along: each frame is
+ * signed with its pct (violet) and, when the grid is usable, its depth
+ * in voxels (muted) — a strip that can be cited frame by frame.
+ *
+ * The provenance glyph rides the header while its reading holds (the
+ * t559 law — a hand on a slider revokes it; the live values it names
+ * are the fetch's own params, so the header never lies).
+ */
+function ObliqueFilmstripButton({
+  jobId,
+  path,
+  dims,
+  on,
+  live,
+  provenance,
+}: {
+  jobId: string;
+  path: string;
+  dims: [number, number, number];
+  on: boolean;
+  live: { theta: number; phi: number; offset: number };
+  provenance: ObliqueExportInfo["provenance"];
+}) {
+  const [state, setState] = useState<"idle" | "busy" | "ok" | "err">("idle");
+  useEffect(() => {
+    if (state !== "ok" && state !== "err") return;
+    const t = setTimeout(() => setState("idle"), 1600);
+    return () => clearTimeout(t);
+  }, [state]);
+
+  const walk = async () => {
+    if (state === "busy" || !on) return;
+    setState("busy");
+    try {
+      const plan = planObliqueFilmstrip(live.theta, live.phi, dims);
+      const urls = obliqueFilmstripUrls(jobId, path, plan);
+      const bitmaps = await Promise.all(
+        urls.map(async (u) => {
+          const r = await fetch(u, { cache: "no-store" });
+          if (!r.ok) throw new Error(`frame render failed (${r.status})`);
+          return createImageBitmap(await r.blob());
+        })
+      );
+      // the publishing grid: fixed tiles, label strip per frame, a
+      // header naming the cut and a footer naming the map + the moment.
+      const TILE = 220;
+      const LABEL_H = 26;
+      const HEAD_H = 30;
+      const FOOT_H = 46;
+      const GAP = 12;
+      const n = bitmaps.length;
+      const W = GAP * (n + 1) + TILE * n;
+      const H = GAP + HEAD_H + GAP + LABEL_H + TILE + GAP + FOOT_H;
+      const cv = document.createElement("canvas");
+      cv.width = W;
+      cv.height = H;
+      const ctx = cv.getContext("2d");
+      if (!ctx) throw new Error("no 2d context");
+      ctx.fillStyle = EXPORT_BG;
+      ctx.fillRect(0, 0, W, H);
+      // header: the walk's name in the block's violet, the cut's angles
+      // (+ the provenance glyph while it holds) and the walk's span right
+      ctx.textBaseline = "middle";
+      ctx.textAlign = "left";
+      ctx.font = "600 13px ui-sans-serif, system-ui, sans-serif";
+      ctx.fillStyle = EXPORT_OBLIQUE_ACCENT;
+      ctx.fillText("Oblique walk", GAP, GAP + HEAD_H / 2);
+      ctx.font = "11px ui-monospace, SFMono-Regular, Menlo, monospace";
+      ctx.fillStyle = EXPORT_TEXT;
+      ctx.textAlign = "right";
+      const prov = provenance ? `${provenance.kind === "jump" ? "\u2302" : "\u2938"} ` : "";
+      const span =
+        plan.supportVox != null ? `${(plan.supportVox * 2).toFixed(1)} vox face to face · ` : "";
+      ctx.fillText(
+        `${prov}\u03b8 ${live.theta}\u00b0 \u00b7 \u03c6 ${live.phi}\u00b0 \u00b7 ${span}${n} frames`,
+        W - GAP,
+        GAP + HEAD_H / 2
+      );
+      ctx.textAlign = "left";
+      // the frames: pct voice left (violet), depth voice right (muted),
+      // the plane beneath — a strip that can be cited frame by frame
+      const rowTop = GAP + HEAD_H + GAP;
+      plan.frames.forEach((f, i) => {
+        const x0 = GAP + i * (TILE + GAP);
+        ctx.font = "600 11px ui-monospace, SFMono-Regular, Menlo, monospace";
+        ctx.fillStyle = EXPORT_OBLIQUE_ACCENT;
+        ctx.textBaseline = "middle";
+        ctx.fillText(f.pctLabel, x0, rowTop + LABEL_H / 2);
+        if (f.depthLabel) {
+          ctx.font = "11px ui-monospace, SFMono-Regular, Menlo, monospace";
+          ctx.fillStyle = EXPORT_TEXT;
+          ctx.textAlign = "right";
+          ctx.fillText(f.depthLabel, x0 + TILE, rowTop + LABEL_H / 2);
+          ctx.textAlign = "left";
+        }
+        ctx.drawImage(bitmaps[i], x0, rowTop + LABEL_H, TILE, TILE);
+        ctx.strokeStyle = EXPORT_TILE_BORDER;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x0 + 0.5, rowTop + LABEL_H + 0.5, TILE - 1, TILE - 1);
+      });
+      // footer: the map's name left, the moment right — the document
+      // provenance the triptych already speaks
+      const footTop = H - GAP - FOOT_H;
+      const footY = footTop + FOOT_H / 2;
+      const base = path.split("/").pop() || path;
+      ctx.font = "600 13px ui-sans-serif, system-ui, sans-serif";
+      ctx.fillStyle = "#e2e8f0";
+      ctx.fillText(base, GAP, footY);
+      ctx.font = "12px ui-monospace, SFMono-Regular, Menlo, monospace";
+      ctx.fillStyle = EXPORT_TEXT;
+      ctx.textAlign = "right";
+      ctx.fillText(
+        `${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC`,
+        W - GAP,
+        footY
+      );
+      ctx.textAlign = "left";
+      const blob = await new Promise<Blob | null>((res) => cv.toBlob(res, "image/png"));
+      if (!blob) throw new Error("encode failed");
+      const stamp = new Date().toISOString().slice(11, 19).replace(/:/g, "");
+      downloadBlob(blob, obliqueFilmstripFilename(path, stamp));
+      setState("ok");
+    } catch {
+      setState("err");
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={walk}
+      disabled={!on || state === "busy"}
+      data-canvas-ui="ortho-oblique-filmstrip"
+      aria-label={
+        state === "busy"
+          ? "Exporting the walk\u2026"
+          : `Export the cut's walk \u2014 ${FILMSTRIP_FRAMES} frames from face to face along the normal`
+      }
+      title="\u2317 the walk: the current cut swept face to face through the box along its own normal, one document \u2014 each frame signed with its offset and depth"
+      className={cn(
+        "rounded p-0.5 text-violet-600 transition-colors hover:bg-violet-600/10",
+        (!on || state === "busy") && "cursor-not-allowed opacity-50"
+      )}
+    >
+      {state === "busy" ? (
+        <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+      ) : state === "ok" ? (
+        <Check className="h-3 w-3" aria-hidden="true" />
+      ) : state === "err" ? (
+        <TriangleAlert className="h-3 w-3" aria-hidden="true" />
+      ) : (
+        <Film className="h-3 w-3" aria-hidden="true" />
+      )}
+    </button>
+  );
+}
+
 function ObliqueSectionBlock({
   jobId,
   path,
@@ -2007,6 +2172,14 @@ function ObliqueSectionBlock({
               >
                 <Scissors className="h-3 w-3" aria-hidden="true" />
               </button>
+              <ObliqueFilmstripButton
+                jobId={jobId}
+                path={path}
+                dims={dims}
+                on={on}
+                live={live}
+                provenance={provenance}
+              />
             </div>
           </div>
         </div>

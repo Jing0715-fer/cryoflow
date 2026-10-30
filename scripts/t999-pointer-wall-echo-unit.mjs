@@ -82,10 +82,10 @@ try { unlinkSync(TMP); } catch {}
 
 ok("C1 the census's population gate stands (the disabled-refusal law)",
   (() => { try { return readFileSync(path.join(ROOT, "scripts/t982-aria-refusal-census.mjs"), "utf8").includes("if (!/\\bdisabled=\\{/.test(text)) continue;"); } catch { return false; } })());
-ok("C2 population = 171 (the grips carry no disabled prop — the no-shift ruling, live)",
-  receipt?.population === 171, `got ${receipt?.population}`);
-ok("C3 stateful = 149 (the panel's population tags unmoved; +30 from the t1005 refusal-name arm, +3 from the t1008 dynamic names)",
-  receipt?.tally?.stateful === 149, `got ${receipt?.tally?.stateful}`);
+ok("C2 population = 172 (the grips carry no disabled prop — the no-shift ruling, live; +1 the t1096 filmstrip walk name)",
+  receipt?.population === 172, `got ${receipt?.population}`);
+ok("C3 stateful = 150 (the panel's population tags unmoved; +30 from the t1005 refusal-name arm, +3 from the t1008 dynamic names, +1 from the t1096 filmstrip walk name)",
+  receipt?.tally?.stateful === 150, `got ${receipt?.tally?.stateful}`);
 ok("C4 silent-static = 0 (the echo region is not an interactive tag; the t1005 arm emptied the bucket)",
   receipt?.tally?.["silent-static"] === 0, `got ${receipt?.tally?.["silent-static"]}`);
 ok("C5 silences = 22 (the flip bucket only — the t1005 arm retired the static half, the t1008 arm spoke three honest names)",
