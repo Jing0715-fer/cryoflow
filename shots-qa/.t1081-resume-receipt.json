@@ -1,0 +1,25 @@
+{
+  "jobId": "cmvuqn88u0003obnrj7wio1ni",
+  "status": "completed",
+  "result": "REAL: 2D classification finished — 4 of 4 classes populated · 18 particles · top: class 4 28%, class 3 28%, class 2 22%",
+  "sawContinue": false,
+  "record": {
+    "jobId": "cmvuqn88u0003obnrj7wio1ni",
+    "projectId": "cmvuqma710000ob6oi81a9cal",
+    "type": "class2d",
+    "pid": 16878,
+    "cmd": "/home/z/my-project/services/mock-cluster/fs/opt/bin/relion_refine --continue /home/z/my-project/data/relion/cmvuqma710000ob6oi81a9cal/class2d_j7wio1ni/run_it007_optimiser.star --o /home/z/my-project/data/relion/cmvuqma710000ob6oi81a9cal/class2d_j7wio1ni/run --j 2",
+    "workdir": "/home/z/my-project/data/relion/cmvuqma710000ob6oi81a9cal/class2d_j7wio1ni",
+    "logFile": "/home/z/my-project/data/relion/cmvuqma710000ob6oi81a9cal/class2d_j7wio1ni/run.out",
+    "errFile": "/home/z/my-project/data/relion/cmvuqma710000ob6oi81a9cal/class2d_j7wio1ni/run.err",
+    "startedAt": "2026-10-30T08:57:27.059Z",
+    "outputs": {
+      "classes_mrc": "/home/z/my-project/data/relion/cmvuqma710000ob6oi81a9cal/class2d_j7wio1ni/run_classes.mrcs",
+      "particles_star": "/home/z/my-project/data/relion/cmvuqma710000ob6oi81a9cal/class2d_j7wio1ni/run_it019_data.star"
+    },
+    "done": true,
+    "exitCode": 0,
+    "result": "REAL: 2D classification finished — 4 of 4 classes populated · 18 particles · top: class 4 28%, class 3 28%, class 2 22%"
+  },
+  "at": "2026-10-30T08:57:43.506Z"
+}

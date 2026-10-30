@@ -1,0 +1,8 @@
+{
+  "jobId": "cmvuqn88u0003obnrj7wio1ni",
+  "walkId": "cmvuqma710000ob6oi81a9cal",
+  "status": "failed",
+  "result": "interrupted (exit unknown) — re-run — [003] : R1=0.43 R2=0.33 fsc=0.5 ll=-111.3 avgmax=0.03 it [004] : R1=0.44 R2=0.34 fsc=0.8 ll=-108.4 avgmax=0.04 it [005] : R1=0.45 R2=0.35 fsc=0.7 ll=-105.5 avgmax=0.05 it [006] : R1=0.46 R2=0.36 fsc=0.6 ll=-102.6 avgmax=0.06 it [007] : R1=0.47 R2=0.37 fsc=0.5 ll=-99.7 avgmax=0.07 — command: /home/z/my-project/services/mock-cluster/fs/opt/bin/relion_refine --i /home/z/my-project/data/relion/cmvuqma710000ob6oi81a9cal/import_4xrd4k1r/particles.star --… — logs: /home/z/my-project/data/relion/cmvuqma710000ob6oi81a9cal/class2d_j7wio1ni/run.err + /home/z/my-project/data/relion/cmvuqma710000ob6oi81a9cal/class2d_j7wio1ni/run.out",
+  "checkpoints": 8,
+  "at": "2026-10-30T08:57:22.988Z"
+}
