@@ -53,6 +53,14 @@ const { evalJs, J } = makeTransport({ url: B, log: step });
 const HOST_JOB = "QA Post 320";
 const SEED = "python3 /home/z/my-project/scripts/qa60-seed-fsc.py";
 const SEED_CLEAN = "python3 /home/z/my-project/scripts/qa60-seed-fsc.py --clean";
+// t1085 — the take-home const QA60 BORROWED from qa58's law without ever
+// defining it: the t1080 edit introduced the --take-home call but not the
+// string, the ReferenceError landed in a try/catch warn, and the suite
+// exited ALL GREEN while its five seeds stayed in the world (the prod ride
+// caught the tear: 21 jobs where 16 belong). The stray law below makes the
+// cleanup's success an assertion, not a warning.
+const SEED_TAKE_HOME = "python3 /home/z/my-project/scripts/qa60-seed-fsc.py --take-home";
+const QA60_SEED_NAMES = ["QA Post 300", "QA Post 320", "QA Post 385", "QA Refine 410", "QA Refine Live"];
 const FATAL = (msg) => { step(`FATAL: ${msg}`); console.error(`FATAL: ${msg}`); process.exit(1); };
 const must = (cond, label) => { if (!cond) FATAL(label); else step(`  ok: ${label}`); };
 
@@ -435,7 +443,14 @@ async function phaseC() {
   // +4 jobs breaks every later census. The qa6x family's Task 86 doctrine
   // (self-seeding, no dependence on who ran before) covers the other
   // suites: they re-seed their own fixtures when they ride.
-  try { sh(SEED_TAKE_HOME); } catch (e) { step(`cleanup warn: ${String(e).slice(0, 120)}`); }
+  sh(SEED_TAKE_HOME);
+  // the rows are GONE — the world carries no qa60 seeds (t630 lifecycle,
+  // the qa58 stray law's fifth-name form; the t1085 tear's witness)
+  const rest = JSON.parse(sh("curl -s -H 'Origin: http://localhost:3000' http://localhost:3000/api/jobs"));
+  const rows = Array.isArray(rest) ? rest : rest.jobs;
+  const strays = rows.filter((j) => QA60_SEED_NAMES.includes(j.name));
+  must(strays.length === 0, `world carries no qa60 seeds after take-home (got ${strays.map((s) => s.name).join(", ") || "none"})`);
+  step("  seed taken home (radius + product-door DELETE, rows verified gone)");
 }
 
 // ============================================================ main
