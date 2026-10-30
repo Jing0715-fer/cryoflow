@@ -3447,7 +3447,10 @@ export function ProjectDashboard() {
             gridFlash && "ring-2 ring-primary/40 ring-offset-4 ring-offset-background"
           )}
         >
-          <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+          {/* t1102 — the heading row never orphans: break-after:avoid keeps
+              the title on the same sheet as the first card it names (the
+              t1092 door-plate law, heading edition). */}
+          <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1.5 print:break-after-avoid">
             <h2 className="text-sm font-semibold tracking-tight">All projects</h2>
             <span className="text-[11px] tabular-nums text-muted-foreground">
               {filtered.length}
@@ -3459,8 +3462,12 @@ export function ProjectDashboard() {
                 search holds a query the counts cascade to the slice the
                 click would actually produce; zero-survivor chips dim in
                 place (shared StatusFilterChip dialect). */}
+            {/* t1102 — the presence chips follow the jobs-roster chips'
+                own .no-print law (t1089): a click filter and its kbd
+                hints are screen verbs — on paper they were unexplained
+                interactive ink orphaned from the cards they filter. */}
             {projects.length > 0 && (
-              <div className="ml-auto flex items-center gap-1" role="group" aria-label="Filter projects by job presence">
+              <div className="no-print ml-auto flex items-center gap-1" role="group" aria-label="Filter projects by job presence">
                 <StatusFilterChip
                   label="All"
                   n={gridQueryOpen ? cascadedPresence.all : projects.length}
