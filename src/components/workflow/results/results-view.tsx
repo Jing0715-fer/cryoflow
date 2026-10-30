@@ -1271,7 +1271,16 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
 
       {/* workdir footer */}
       {data.workdir && (
-        <footer className="flex items-center gap-1.5 border-t pt-3 text-[11px] text-muted-foreground">
+        /* t1092 — data-results-workdir: on paper the dialog's own workdir
+           footer (data-insp-face="footer") already closes EVERY tab's
+           sheet with the same path; this tab-level repeat would print
+           the identical line twice, inches apart. Screen keeps both
+           faces (the tab row lives in the scroll's context); the paper
+           keeps one canonical door plate per sheet. */
+        <footer
+          data-results-workdir=""
+          className="flex items-center gap-1.5 border-t pt-3 text-[11px] text-muted-foreground"
+        >
           <span className="shrink-0 font-medium">workdir:</span>
           <span className="truncate font-mono" title={data.workdir}>
             {data.workdir}
@@ -2208,7 +2217,15 @@ function RemoteFileTile({
       data-remote-file=""
       data-remote-path={file.path}
     >
-      <span className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded-full border border-running/40 bg-background/90 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-running-700 shadow-sm dark:text-running-300">
+      {/* t1092 — data-remote-badge: on screen the chip hovers over the
+          preview's top-right corner; on paper (preview buttons hidden by
+          the Task 114 generic rule) it would land ON the file-name line
+          and mask its tail — the print pass makes it static so the name
+          reads in full under it. */}
+      <span
+        data-remote-badge=""
+        className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded-full border border-running/40 bg-background/90 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-running-700 shadow-sm dark:text-running-300"
+      >
         <Cloud className="size-2.5" aria-hidden="true" />
         on cluster
       </span>

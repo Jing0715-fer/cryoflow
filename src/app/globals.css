@@ -2197,7 +2197,16 @@
     /* inspector re-layout: modal → document. The :has() chain lands at
        (0,3,1)+ — it beats the generic step-aside display:none (0,1,0)
        for THIS content while every other dialog stays hidden. */
-    display: flex !important;
+    /* t1092 — display:BLOCK, not flex: the dialog's flex column is the
+       screen's layout tool, but Chromium's fragmentation of a flex
+       container across printed pages is unreliable — the shrink-0 workdir
+       footer (the container's last flex child) was caught BOTH painted
+       over the Overview tab's OUTPUTS tiles mid-page-3 AND orphaned onto
+       a 95%-blank page 2 of the Results tab. Every direct child is
+       already block-level in reading order (header, tabs, footer), so
+       the paper loses nothing and the fragmentation engine finally sees
+       a plain block flow it knows how to paginate. */
+    display: block !important;
     position: static !important;
     inset: auto !important;
     /* the -50%/-50% centering: top/left die with position:static, but
@@ -2464,6 +2473,69 @@
     white-space: normal !important;
     overflow: visible !important;
     text-overflow: unset !important;
+  }
+  /* --------------------------------------------------------------------
+   * The t1092 pass — the footer lands in the flow, the badge stops
+   * covering the name, the paper has no keyboard, the empty editor is
+   * not a fact. Four cures found by riding the actual sheets:
+   *
+   * 1. THE FOOTER: with the container a plain block (above), the workdir
+   *    footer paginates honestly — but a footer straddling a boundary
+   *    still reads as two half-doors, so it is atomic.
+   * 2. THE BADGE: a cluster-resident tile's "on cluster" chip is
+   *    absolutely positioned over the tile's top-right corner on screen
+   *    (it hovers over the preview image there); on paper the preview
+   *    buttons are hidden and the chip lands ON TOP of the file-name
+   *    line, masking its tail — "Micrograph nr_003332" printed as
+   *    "Micrograph nr_" for six of six tiles, six names unreadable on
+   *    the very sheet that claims to archive them. Static on paper: the
+   *    chip becomes the tile's first line, the name reads in full under
+   *    it. (The .truncate unwrap above already unwraps the name — it
+   *    cannot un-COVER it; overlay and unwrap are different diseases.)
+   * 3. THE LEGEND: the log console's footer legend re-inks its zinc
+   *    text via the console rules above, but keeps its dark strip
+   *    background — a near-black bar across the archival sheet (and its
+   *    keyboard hint "↑↓ scroll · Home/End head/tail" is screen
+   *    semantics: paper has no arrows). The strip washes out, the keys
+   *    stay on the screen.
+   * 4. THE EMPTY EDITOR: an untyped note prints as an empty box, a
+   *    placeholder sentence ("Annotate this job…") and a 0/500 counter
+   *    — furniture, not facts. A TYPED note is a record (field-sizing
+   *    above already unrolls it). :has(textarea:placeholder-shown) is
+   *    the pure-CSS empty test: the shell hides only while the scientist
+   *    never wrote anything.
+   * ------------------------------------------------------------------ */
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-insp-face="footer"] {
+    break-inside: avoid;
+  }
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-remote-badge] {
+    position: static !important;
+    align-self: flex-start;
+    margin-bottom: 2px;
+  }
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-log-legend] {
+    background: none !important;
+    border-color: oklch(0.85 0.01 220) !important;
+  }
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-log-legend-keys] {
+    display: none !important;
+  }
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-note-shell]:has(textarea:placeholder-shown) {
+    display: none !important;
+  }
+  /* 5. ONE DOOR PLATE PER SHEET: the Results tab carries its own
+   *    "workdir:" row in the scroll's context, and the dialog's footer
+   *    repeats the identical path a few inches lower — on paper the
+   *    same fact twice is noise, not corroboration. The tab row stays
+   *    on screen; the dialog footer stays the sheet's canonical close. */
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-results-workdir] {
+    display: none !important;
   }
   /* the Get column hosts per-row download buttons (screen-only) — on
      paper it would print as a header over an empty column; the manifest

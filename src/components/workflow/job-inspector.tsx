@@ -364,8 +364,15 @@ function LogLegend() {
     /* Task 176: the legend wraps below sm — the error chip measured 33px
        past a 269px dialog (280 fold band); ≥sm never wraps. t780: the
        keyboard hint rides the legend's right edge on ≥md only — the fold
-       band keeps its four chips, the face lives where the width lives. */
-    <div className="flex max-sm:flex-wrap shrink-0 items-center gap-2.5 border-t border-zinc-800 bg-zinc-900/60 px-3 py-1">
+       band keeps its four chips, the face lives where the width lives.
+       t1092 — data-log-legend anchors the print re-ink (the console's
+       dark strip washes out on paper; its zinc text already re-inks via
+       the Task 114 console rules), and the keyboard hint carries
+       data-log-legend-keys — paper has no arrows to press. */
+    <div
+      data-log-legend=""
+      className="flex max-sm:flex-wrap shrink-0 items-center gap-2.5 border-t border-zinc-800 bg-zinc-900/60 px-3 py-1"
+    >
       <span className="text-[9px] font-medium uppercase tracking-wider text-zinc-600">legend</span>
       {items.map(([dot, label]) => (
         <span key={label} className="inline-flex items-center gap-1">
@@ -373,7 +380,10 @@ function LogLegend() {
           <span className="text-[9.5px] text-zinc-500">{label}</span>
         </span>
       ))}
-      <span className="ml-auto hidden shrink-0 items-center gap-1 text-[9.5px] text-zinc-600 md:inline-flex">
+      <span
+        data-log-legend-keys=""
+        className="ml-auto hidden shrink-0 items-center gap-1 text-[9.5px] text-zinc-600 md:inline-flex"
+      >
         <span aria-hidden="true">↑↓ scroll</span>
         <span aria-hidden="true" className="text-zinc-700">·</span>
         <span aria-hidden="true">Home/End head/tail</span>
@@ -2388,11 +2398,17 @@ function JobNoteSection({ job }: { job: JobDTO }) {
         : "text-muted-foreground";
 
   return (
-    <Section
-      icon={StickyNote}
-      title="Note"
-      hint={state === "idle" && draft.length === 0 ? "autosaves as you type" : undefined}
-    >
+    /* t1092 — data-note-shell lets the paper decline the EMPTY editor
+       (globals.css: :has(textarea:placeholder-shown)) while a typed note
+       still prints as the record it is. The wrapper is style-free on
+       screen — the parent's space-y rhythm treats it as any other
+       section shell. */
+    <div data-note-shell="">
+      <Section
+        icon={StickyNote}
+        title="Note"
+        hint={state === "idle" && draft.length === 0 ? "autosaves as you type" : undefined}
+      >
       <div
         className="rounded-xl border bg-card p-4 space-y-2.5"
         data-note-editor=""
@@ -2467,7 +2483,8 @@ function JobNoteSection({ job }: { job: JobDTO }) {
           </div>
         </div>
       </div>
-    </Section>
+      </Section>
+    </div>
   );
 }
 
