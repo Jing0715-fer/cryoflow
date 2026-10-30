@@ -155,21 +155,26 @@ const OBLIQUE_DEG = Math.PI / 180;
  * axis contributes a zero-length corner leg; unlike voxelIndexOf there
  * is no denominator to go degenerate).
  */
+/** The cut's unit normal — the ONE father of the oblique direction: the
+ * panel's plane builder (obliqueFrame), the support arithmetic below and
+ * the t1099 trace drag all ride this seat, so a cut and its shadow can
+ * never disagree about which way is out. Clamps θ to [0,180] and φ to
+ * [0,360]; non-finite reads as 0 (the builder's own law). Pure. */
+export function obliqueNormal(thetaDeg: number, phiDeg: number): [number, number, number] {
+  const t =
+    (Number.isFinite(thetaDeg) ? Math.min(180, Math.max(0, thetaDeg)) : 0) * OBLIQUE_DEG;
+  const p =
+    (Number.isFinite(phiDeg) ? Math.min(360, Math.max(0, phiDeg)) : 0) * OBLIQUE_DEG;
+  return [Math.sin(t) * Math.cos(p), Math.sin(t) * Math.sin(p), Math.cos(t)];
+}
+
 export function obliqueSupportVox(
   dims: readonly number[] | null | undefined,
   thetaDeg: number,
   phiDeg: number
 ): number | null {
   if (!Array.isArray(dims) || dims.length !== 3 || dims.some((d) => !(d >= 1))) return null;
-  const t =
-    (Number.isFinite(thetaDeg) ? Math.min(180, Math.max(0, thetaDeg)) : 0) * OBLIQUE_DEG;
-  const p =
-    (Number.isFinite(phiDeg) ? Math.min(360, Math.max(0, phiDeg)) : 0) * OBLIQUE_DEG;
-  const n: [number, number, number] = [
-    Math.sin(t) * Math.cos(p),
-    Math.sin(t) * Math.sin(p),
-    Math.cos(t),
-  ];
+  const n = obliqueNormal(thetaDeg, phiDeg);
   const c: [number, number, number] = [(dims[0] - 1) / 2, (dims[1] - 1) / 2, (dims[2] - 1) / 2];
   let support = 0;
   for (let i = 0; i < 2; i++)

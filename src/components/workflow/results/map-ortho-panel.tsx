@@ -69,9 +69,10 @@ import { MrcImage } from "./mrc-image";
 import { DensityHistogramStrip } from "./density-histogram";
 import { cn } from "@/lib/utils";
 import { downloadBlob } from "@/lib/download"; // t646 — one blob sink (this dance skipped the attach-before-click law)
-import { obliqueDepthVox, obliqueDepthVoice, obliqueOffsetPctVoice, obliqueSupportVox, voxelReadout } from "@/lib/voxel-voice"; // t906/t907 — the tile's and the oblique block's voices ride the ONE lib (the embed's commit site reads the same seats)
+import { obliqueDepthVox, obliqueDepthVoice, obliqueNormal, obliqueOffsetPctVoice, obliqueSupportVox, voxelReadout } from "@/lib/voxel-voice"; // t906/t907 — the tile's and the oblique block's voices ride the ONE lib (the embed's commit site reads the same seats); t1099 — the cut's direction rides the ONE father too
 import { FILMSTRIP_FRAMES, obliqueFilmstripFilename, obliqueFilmstripUrls, planObliqueFilmstrip } from "@/lib/oblique-filmstrip"; // t1096 — the walk's geometry rides the ONE lib: the plan, the URLs and the name are decided before a fetch flies
 import { ORTHO_FILMSTRIP_FRAMES, orthoFilmstripFilename, orthoFilmstripUrls, planOrthoFilmstrip } from "@/lib/ortho-filmstrip"; // t1098 — the axis walks ride the ONE lib: the plan, the URLs and the name are decided before a fetch flies
+import { obliqueTraceDragOffset, obliqueTraceHit } from "@/lib/oblique-trace-drag"; // t1099 — the trace's HAND rides the ONE lib: the hit-test and the offset solve are decided before an event flies
 
 /** event names for the two-way 3D↔2D linkage — see molstar-embed.tsx */
 export const ORTHO_SLICE_EVENT = "cryoflow:ortho-slice";
@@ -348,6 +349,14 @@ function OrthoTile({
   const [rendered, setRendered] = useState(0.5);
   const [flash, setFlash] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // t1099 — the trace's HAND: grab the cut's line on this tile and slide
+  // it along its own normal. The grab gates on the pixel hit-test (the
+  // lib's own); the drag solves the offset through the ONE lib and speaks
+  // the sliders' own door (OBLIQUE_CLIP_EVENT), throttled with a trailing
+  // word on release; the pick yields once (the grab owns that click). The
+  // sliders and the 3D cut follow through the loop's ACK half (t661) —
+  // one writer, one truth, no desync.
   /** last nonce adopted — render-phase guard against replaying the same event */
   const [prevNonce, setPrevNonce] = useState(follow?.nonce ?? 0);
 
@@ -677,11 +686,123 @@ function OrthoTile({
    *  the image's own frame — hAxis left→right, vAxis top→bottom). The
    *  panel resolves which sibling planes move (hAxis/vAxis of THIS tile). */
   const pickFocus = (e: React.MouseEvent<HTMLDivElement>) => {
+    // t1099 — the grab owns the click that ends its own drag: the pick
+    // yields once, then the flag clears (a plain click never sees it)
+    if (traceDrag.current?.moved) {
+      traceDrag.current = null;
+      return;
+    }
     const r = e.currentTarget.getBoundingClientRect();
     if (r.width <= 0 || r.height <= 0) return;
     const fx = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
     const fy = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
     onPick?.(fx, fy);
+  };
+
+  // t1099 — the trace's HAND, the handlers: the grab (pointerdown within
+  // the lib's pixel radius of the line), the slide (the lib's offset
+  // solve at the pointer, throttled to ~120ms with a trailing word on
+  // release — the embed's plane rebuild deserves a breath), the release
+  // (the final word rides NOW; the pick's suppression flag stays for the
+  // click that follows), and the cursor's vocabulary (grab when the line
+  // is under the hand, grabbing while it rides). The θ/φ endpoint turn
+  // is the NEXT seat — this window's increment is the one-DOF slide.
+  const traceDrag = useRef<{ active: boolean; moved: boolean } | null>(null);
+  const traceDragTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const traceLastSent = useRef(0);
+  const [traceHover, setTraceHover] = useState(false);
+  const [traceRiding, setTraceRiding] = useState(false);
+
+  const traceSlideTo = (e: React.PointerEvent<HTMLDivElement>, force = false) => {
+    const cut = obliqueCut;
+    if (!cut || !dims) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0) return;
+    const offset = obliqueTraceDragOffset(
+      spec,
+      dims,
+      pos,
+      cut,
+      { h: (e.clientX - r.left) / r.width, v: (e.clientY - r.top) / r.height }
+    );
+    if (offset === null) return;
+    if (traceDrag.current) traceDrag.current.moved = true;
+    const speak = () => {
+      traceLastSent.current = Date.now();
+      window.dispatchEvent(
+        new CustomEvent(OBLIQUE_CLIP_EVENT, {
+          detail: { on: true, theta: cut.theta, phi: cut.phi, offset },
+        })
+      );
+    };
+    if (force || Date.now() - traceLastSent.current >= 120) {
+      if (traceDragTimer.current) {
+        clearTimeout(traceDragTimer.current);
+        traceDragTimer.current = null;
+      }
+      speak();
+    } else if (!traceDragTimer.current) {
+      traceDragTimer.current = setTimeout(speak, 120);
+    }
+  };
+
+  const tracePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!obliqueCut || !obliqueTrace || e.button !== 0) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    if (
+      !obliqueTraceHit(obliqueTrace, { w: r.width, h: r.height }, {
+        x: e.clientX - r.left,
+        y: e.clientY - r.top,
+      })
+    )
+      return;
+    e.preventDefault();
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      /* a lost capture never kills the gesture — the move handlers re-arm */
+    }
+    traceDrag.current = { active: true, moved: false };
+    setTraceRiding(true);
+    traceSlideTo(e, true);
+  };
+
+  const tracePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (traceDrag.current?.active) {
+      traceSlideTo(e);
+      return;
+    }
+    if (!obliqueTrace) {
+      if (traceHover) setTraceHover(false);
+      return;
+    }
+    const r = e.currentTarget.getBoundingClientRect();
+    const hit = obliqueTraceHit(
+      obliqueTrace,
+      { w: r.width, h: r.height },
+      { x: e.clientX - r.left, y: e.clientY - r.top }
+    );
+    if (hit !== traceHover) setTraceHover(hit);
+  };
+
+  const tracePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!traceDrag.current?.active) return;
+    if (traceDragTimer.current) {
+      clearTimeout(traceDragTimer.current);
+      traceDragTimer.current = null;
+    }
+    traceSlideTo(e, true); // the trailing word: the final offset rides NOW
+    traceDrag.current = { active: false, moved: traceDrag.current.moved };
+    setTraceRiding(false);
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      /* the capture may already be gone — the release is the point */
+    }
+  };
+
+  const tracePointerLeave = () => {
+    if (traceHover) setTraceHover(false);
   };
 
   // t906 — the readout rides the lib's ONE formula (the embed's commit
@@ -744,11 +865,20 @@ function OrthoTile({
         </button>
       </div>
       <div
-        className="relative aspect-square cursor-crosshair"
+        className={cn(
+          "relative aspect-square cursor-crosshair",
+          traceRiding ? "cursor-grabbing" : traceHover && "cursor-grab"
+        )}
         onClick={pickFocus}
         onMouseMove={moveProbe}
-        onMouseLeave={leaveProbe}
-        title="Hover reads the density at the cursor · click to move the focus point — the sibling planes follow"
+        onMouseLeave={() => {
+          tracePointerLeave();
+          leaveProbe();
+        }}
+        onPointerDown={tracePointerDown}
+        onPointerMove={tracePointerMove}
+        onPointerUp={tracePointerUp}
+        title="Hover reads the density at the cursor · click to move the focus point — the sibling planes follow · drag the violet cut line to slide the cut"
       >
         <MrcImage
           src={src}
@@ -1519,13 +1649,10 @@ function obliqueFrame(
   offsetFrac: number
 ) {
   const [nx, ny, nz] = dims;
-  const t = thetaDeg * OBLIQUE_DEG;
-  const p = phiDeg * OBLIQUE_DEG;
-  const normal: [number, number, number] = [
-    Math.sin(t) * Math.cos(p),
-    Math.sin(t) * Math.sin(p),
-    Math.cos(t),
-  ];
+  // t1099 — the direction rides the ONE father (voxel-voice's
+  // obliqueNormal): the builder, the support and the trace drag share the
+  // seat, so a cut and its shadow can never disagree about the way out.
+  const normal = obliqueNormal(thetaDeg, phiDeg);
   let u: [number, number, number];
   if (Math.abs(normal[2]) > 0.999) {
     u = [1, 0, 0];
