@@ -119,3 +119,47 @@ export function orthoPlateTileUrl(
     path
   )}&format=png&axis=${axis}&pos=${p.toFixed(3)}`;
 }
+
+/* ------------------------------------------------------------------ */
+/* t1104 — the walk's SECOND PAGE: the oblique walk's paper edition.   */
+/* The screen's walk button answers the cut through the box along its  */
+/* own normal; the plate's second page answers it on paper — six       */
+/* frames face to face, the cut's annotation voice introducing them.   */
+/* The page rides the SAME laws the first page rides: the words are    */
+/* the ONE seats' own bytes (the cut line is page 1's planned cutLine, */
+/* never a re-statement; the captions are the t907 voices' own pct     */
+/* and depth words, the honest silence included), and the geometry     */
+/* rides the walk's own lib (planObliqueFilmstrip + obliqueFilmstrip   */
+/*Urls — the panel composes them; this lib only composes WORDS).      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The walk page's meta line — page 1's own cut line (the annotation
+ * voice's bytes, passed through — never recomputed) joined with the
+ * walk's own extent ("6 frames, face to face" — the ladder's own law
+ * phrase). A null cut line still names the extent: the frames carry
+ * their own position voices, the page honestly says nothing about a
+ * cut it cannot see.
+ */
+export function orthoPlateWalkMetaLine(
+  cutLine: string | null,
+  frames: number
+): string {
+  const extent = `${frames} frames, face to face`;
+  return cutLine ? `${cutLine} · ${extent}` : extent;
+}
+
+/**
+ * A walk frame's caption — the pct voice joined with the depth voice
+ * when the grid can claim voxels ("+20% · +2.9 vox"); an unusable grid
+ * walks on the pct alone (the honest silence is the voice's own, never
+ * re-invented here).
+ */
+export function orthoWalkFrameCaption(frame: {
+  pctLabel: string;
+  depthLabel: string | null;
+}): string {
+  return frame.depthLabel
+    ? `${frame.pctLabel} · ${frame.depthLabel}`
+    : frame.pctLabel;
+}

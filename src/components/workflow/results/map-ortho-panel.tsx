@@ -72,7 +72,7 @@ import { downloadBlob } from "@/lib/download"; // t646 — one blob sink (this d
 import { obliqueDepthVox, obliqueDepthVoice, obliqueNormal, obliqueOffsetPctVoice, obliqueSupportVox, voxelReadout } from "@/lib/voxel-voice"; // t906/t907 — the tile's and the oblique block's voices ride the ONE lib (the embed's commit site reads the same seats); t1099 — the cut's direction rides the ONE father too
 import { FILMSTRIP_FRAMES, obliqueFilmstripFilename, obliqueFilmstripUrls, planObliqueFilmstrip } from "@/lib/oblique-filmstrip"; // t1096 — the walk's geometry rides the ONE lib: the plan, the URLs and the name are decided before a fetch flies
 import { ORTHO_FILMSTRIP_FRAMES, orthoFilmstripFilename, orthoFilmstripUrls, planOrthoFilmstrip } from "@/lib/ortho-filmstrip"; // t1098 — the axis walks ride the ONE lib: the plan, the URLs and the name are decided before a fetch flies
-import { orthoPlateMetaLine, orthoPlateTileUrl, planOrthoPlate } from "@/lib/ortho-plate"; // t1103 — the plate's words ride the ONE plan lib (the voices' own bytes, decided before any print)
+import { orthoPlateMetaLine, orthoPlateTileUrl, orthoPlateWalkMetaLine, orthoWalkFrameCaption, planOrthoPlate } from "@/lib/ortho-plate"; // t1103/t1104 — the plate's words ride the ONE plan lib (the voices' own bytes, decided before any print; the walk page's words ride the same family)
 import { usePrintedDate } from "@/lib/use-now"; // t1103 — the plate's paper clock (the t232 law: paper clocks do not hydrate)
 import {
   obliqueTraceDragOffset,
@@ -1216,6 +1216,17 @@ export function MapOrthoPanel({
   const plateMeta = orthoPlateMetaLine(platePlan);
   const plateBase = path.split("/").pop() || path;
 
+  // t1104 — the walk page's geometry, decided before any print: the SAME
+  // walk lib the screen's strip button rides (plan + URLs — no second
+  // request dialect), planned from the plate's own cut echo so the paper
+  // never prints a stale cut (the t1103 echo law, second page). No live
+  // cut → no walk page: the screen's own law (the strip button is
+  // disabled while the clip is off), stated on paper too.
+  const walkPlan = plateOblique
+    ? planObliqueFilmstrip(plateOblique.theta, plateOblique.phi, dims)
+    : null;
+  const walkUrls = walkPlan ? obliqueFilmstripUrls(jobId, path, walkPlan) : null;
+
   // t1103 — the plate's print verb: set the body flag (the print CSS's
   // only key), print, and ALWAYS clean the flag up — afterprint owns the
   // happy path, the timeout is the headless failsafe. No printout inherits
@@ -1854,6 +1865,56 @@ export function MapOrthoPanel({
             {path}
             {printed ? ` · printed ${printed}` : ""}
           </footer>
+          {/* t1104 — the walk's SECOND PAGE: the oblique walk's paper
+              edition. Six frames face to face along the cut's own normal,
+              planned by the SAME walk lib the screen's strip button rides
+              (planObliqueFilmstrip + obliqueFilmstripUrls — no second
+              request dialect), introduced by page 1's own cut line (the
+              annotation voice's bytes, passed through — never restated),
+              each frame signed with its pct and depth voices (the t907
+              seats — the honest silence included). No live cut → the page
+              honestly stays home (the screen's own disabled-button law).
+              break-before-page starts it on a fresh sheet: page 1 is the
+              three sections at the focus point, page 2 is the cut's walk
+              through the box. */}
+          {walkPlan && walkUrls && (
+            <div data-ortho-plate-walk className="break-before-page pt-2">
+              <header className="flex items-baseline justify-between gap-2">
+                <span className="text-[11px] font-semibold">Oblique walk</span>
+                <span className="truncate font-mono text-[9px] text-muted-foreground">
+                  {plateBase}
+                  {plateBase && printed ? " · " : ""}
+                  {printed}
+                </span>
+              </header>
+              <p className="font-mono text-[9px] leading-4 text-muted-foreground">
+                {orthoPlateWalkMetaLine(
+                  platePlan.cutLine,
+                  walkPlan.frames.length
+                ) || "—"}
+              </p>
+              <div className="mt-1 grid grid-cols-3 gap-2">
+                {walkPlan.frames.map((f, i) => (
+                  <figure key={f.frac} className="min-w-0">
+                    <div className="relative aspect-square w-full overflow-hidden rounded-sm border border-foreground/15 bg-white">
+                      <img
+                        src={walkUrls[i]}
+                        alt=""
+                        className="absolute inset-0 h-full w-full object-contain"
+                      />
+                    </div>
+                    <figcaption className="pt-0.5 font-mono text-[8px] leading-3 text-muted-foreground">
+                      {orthoWalkFrameCaption(f)}
+                    </figcaption>
+                  </figure>
+                ))}
+              </div>
+              <footer className="pt-1 font-mono text-[8px] leading-3 text-muted-foreground">
+                {path}
+                {printed ? ` · printed ${printed}` : ""}
+              </footer>
+            </div>
+          )}
         </section>
       )}
     </section>
