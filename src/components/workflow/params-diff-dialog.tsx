@@ -80,6 +80,7 @@ import { baselineFor, rememberBaseline } from "@/lib/pair-baseline";
 import { FscParamsDiff } from "./results/fsc-params-diff";
 import type { JobDTO } from "@/lib/types";
 import { jobType, pourKindsOf, PORT_COLORS } from "@/lib/workflow"; // t766 — the kind vocabulary's TWENTY-SIXTH reader joins the diff dialog
+import { usePrintedDate } from "@/lib/use-now"; // t1093 — the paper's clock (the t232 law: paper clocks do not hydrate)
 
 /** the two column colors, in column order (left first) */
 const COLUMN_COLORS = ["#0d9488", "#d97706"];
@@ -129,6 +130,11 @@ export function ParamsDiffDialog({
   const select = useWorkflowStore((s) => s.select);
   const inspect = useWorkflowStore((s) => s.inspect);
   const activeWorkspaceId = useWorkflowStore((s) => s.activeWorkspaceId);
+  // t1093 — the print face's paper clock (the t232 law: paper clocks do
+  // NOT hydrate — useSyncExternalStore with an empty server snapshot).
+  // Lives with the other hooks, ABOVE the early return (the rules-of-hooks
+  // law the closed renders run too).
+  const printed = usePrintedDate();
   const jumpTo = (j: (typeof jobs)[number]) => {
     onOpenChange(false);
     if (j.workspaceId && j.workspaceId !== activeWorkspaceId) {
@@ -155,8 +161,24 @@ export function ParamsDiffDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
+      {/* t1093 — the print face (globals.css's :has() block, the Task 114
+          doctrine's FOURTH seat): data-params-diff-dialog opts this dialog
+          out of the generic step-aside — a launch-params comparison IS a
+          document (the diff brain's row taxonomy: changed / partial /
+          same, the pair's actual values). The survey rode the step-aside
+          paper first and convicted it: with this dialog open, Ctrl+P
+          printed the inspector's job report and the comparison was
+          unreachable on the sheet. The verbs (the column swap, the
+          Task 90 open row) and the footnote offer stay chrome (the JSX
+          marks them .no-print — a verb that prints is a verb that lies,
+          the t945 law), and the provenance line carries the pair and
+          the paper's clock. The standalone-translate kill rides the
+          className (the t945 dialect: Lightning CSS folds a same-block
+          translate:none into an identity transform, so the kill must be
+          its own rule). */}
       <DialogContent
-        className="sm:max-w-lg gap-3"
+        data-params-diff-dialog=""
+        className="sm:max-w-lg gap-3 print:[translate:none] print:[scale:none] print:[rotate:none]"
         data-canvas-ui="params-diff-dialog"
         data-testid="params-diff-dialog"
       >
@@ -169,6 +191,11 @@ export function ParamsDiffDialog({
               size="sm"
               className={cn(
                 "ml-1 h-6 w-6 gap-0 rounded-md p-0 text-muted-foreground hover:bg-muted hover:text-foreground",
+                // t1093 — chrome on paper: the swap is a verb (a verb
+                // that prints is a verb that lies, the t945 law); the
+                // printed column order is the frozen order and the
+                // provenance line speaks which job is which
+                "no-print",
                 // t1087 — the pressed state gets a face: aria-pressed was
                 // already spoken, but only to ears; a swapped pair now
                 // shows a muted wash + full-ink icon at a glance, so the
@@ -224,6 +251,19 @@ export function ParamsDiffDialog({
             side — left column:{" "}
             <span className="font-medium text-foreground">{ordered[0].name}</span>.
           </DialogDescription>
+          {/* t1093 — the paper's provenance line: the swap verb and the
+              open row are chrome (no-print below) and die on paper; the
+              table headers carry the names too (their own unroll — the
+              fsc-params-diff half of this window), but the line speaks
+              the pair AND the paper's clock in one breath, the t945
+              dialect verbatim. Screen-hidden (the description and the
+              headers speak the pair live). */}
+          <p
+            data-params-print-doc
+            className="hidden print:mt-2 print:block text-[11px] text-muted-foreground"
+          >
+            {`Run A: ${ordered[0]?.name ?? "—"} · Run B: ${ordered[1]?.name ?? "—"} · printed ${printed}`}
+          </p>
         </DialogHeader>
 
         <FscParamsDiff
@@ -238,9 +278,13 @@ export function ParamsDiffDialog({
            orphans (pre-workspace-era jobs) have no canvas to land on and
            are disabled with guidance instead of silently navigating. */}
         <div
-          className="flex items-center gap-1.5"
+          className="flex items-center gap-1.5 no-print"
           data-testid="params-diff-openrow"
         >
+          {/* t1093 — the whole row is chrome on paper: a jump button on a
+              sheet closes nothing and lands nowhere (the t946 law — the
+              funnel's copy row died whole). Its WHY (the footnote below)
+              dies with it: the offer it explains is screen-only. */}
           <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             Open
           </span>
@@ -274,11 +318,16 @@ export function ParamsDiffDialog({
         </div>
 
         <p
-          className="flex items-start gap-1.5 text-[10px] leading-snug text-muted-foreground"
+          className="flex items-start gap-1.5 text-[10px] leading-snug text-muted-foreground no-print"
           data-testid="params-diff-footnote"
         >
           <Info className="mt-px size-3 shrink-0" aria-hidden="true" />
           <span>
+            {/* t1093 — the offer dies on paper (the t1092 law: the paper
+                keeps what the job DID, drops what the screen OFFERS —
+                "open either job from the canvas to tweak" is an
+                instruction no sheet can follow; the diff's facts are the
+                table above) */}
             Idle copies can still be edited — open either job from the canvas
             to tweak the parameter that differs, then re-run it.
           </span>

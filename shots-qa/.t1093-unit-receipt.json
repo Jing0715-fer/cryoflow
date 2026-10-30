@@ -1,0 +1,110 @@
+{
+  "unit": "t1093-params-paper-unit",
+  "window": "t1093",
+  "date": "2026-10-30T14:44:18.068Z",
+  "pins": 20,
+  "failed": 0,
+  "verdict": "GREEN",
+  "results": [
+    {
+      "id": "A1",
+      "ok": true,
+      "why": "the DialogContent carries data-params-diff-dialog (the seat's opt-in)"
+    },
+    {
+      "id": "A2",
+      "ok": true,
+      "why": "the className carries the standalone translate/scale/rotate kill"
+    },
+    {
+      "id": "A3",
+      "ok": true,
+      "why": "the diff's overlay re-lays into plain flow (block/static/no scrim)"
+    },
+    {
+      "id": "A4",
+      "ok": true,
+      "why": "the content re-lays as a COLUMN document (the seat's own line)"
+    },
+    {
+      "id": "A5",
+      "ok": true,
+      "why": "the seat hides the app page itself (the canvas-entry law)"
+    },
+    {
+      "id": "A6",
+      "ok": true,
+      "why": "the inspector's report steps aside when the diff rides its stack"
+    },
+    {
+      "id": "A7",
+      "ok": true,
+      "why": "the diff's close X dies on the paper"
+    },
+    {
+      "id": "B1",
+      "ok": true,
+      "why": "the swap button carries no-print"
+    },
+    {
+      "id": "B2",
+      "ok": true,
+      "why": "the open row hides whole on paper"
+    },
+    {
+      "id": "B3",
+      "ok": true,
+      "why": "the footnote offer carries no-print"
+    },
+    {
+      "id": "B4",
+      "ok": true,
+      "why": "the differences-only toggle carries no-print"
+    },
+    {
+      "id": "C1",
+      "ok": true,
+      "why": "the provenance line speaks the pair + the clock, screen-hidden"
+    },
+    {
+      "id": "C2",
+      "ok": true,
+      "why": "usePrintedDate is imported and called above the early return"
+    },
+    {
+      "id": "C3",
+      "ok": true,
+      "why": "the value cell keeps the rhythm on screen and speaks raw on paper"
+    },
+    {
+      "id": "C4",
+      "ok": true,
+      "why": "the diff table's scroll region unrolls on paper"
+    },
+    {
+      "id": "C5",
+      "ok": true,
+      "why": "the header names and the key cell unroll on paper"
+    },
+    {
+      "id": "D1",
+      "ok": true,
+      "why": "the generic Task 70 step-aside block stands untouched"
+    },
+    {
+      "id": "D2",
+      "ok": true,
+      "why": "the t945 compare block byte-intact (4 anchor rules, want 4)"
+    },
+    {
+      "id": "D3",
+      "ok": true,
+      "why": "the t946 family block byte-intact (4 anchor rules, want 4)"
+    },
+    {
+      "id": "D4",
+      "ok": true,
+      "why": "one hook per seat — five css anchors (the seat's own [data-view] is the fifth)"
+    }
+  ]
+}

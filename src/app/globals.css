@@ -2674,6 +2674,88 @@
     > [data-slot="dialog-close"] {
     display: none !important;
   }
+  /* ------------------------------------------------------------------
+   * The params diff's print face (t1093) — the Task 114 doctrine's
+   * FOURTH seat. The diff brain's standalone face (canvas multi-select
+   * Compare, the inspector's sibling picker, the roster's hover icon)
+   * IS a document: the changed / partial / same row taxonomy and the
+   * pair's actual launch values — the same brain the t945 compare
+   * paper already prints as its provenance table (FscParamsDiff), so
+   * the standalone face could hardly be chrome while its embedded twin
+   * is a document. The survey convicted the step-aside on camera: with
+   * the diff open, Ctrl+P printed the inspector's job report and the
+   * comparison was unreachable. The verbs (column swap, the Task 90
+   * open row, the collapse toggle) and the footnote offer stay chrome
+   * (the JSX marks them .no-print — a verb that prints is a verb that
+   * lies, the t945 law); the provenance line (data-params-print-doc)
+   * rides JSX's hidden print:block with the paper's clock (the t945
+   * law verbatim: the revival rides CSS, the provenance rides JSX).
+   * The close X dies here too — a button on paper is a promise the
+   * paper cannot keep (the t946 law, the doctrine's fourth carrier).
+   * The [data-view] hide is THIS seat's own rule, not the stack's:
+   * the diff's canvas entry (Task 87) opens with NO inspector behind
+   * it, and the user reading a comparison asked Ctrl+P for THE
+   * COMPARISON — the paper is what the user is reading (the
+   * inspector's own law, reached by the seat's rule instead of the
+   * stack's; the compare/family seats ride the inspector stack and
+   * inherited the hide from it).
+   * ------------------------------------------------------------------ */
+  html:has([data-params-diff-dialog][data-state="open"]) [data-view] {
+    display: none !important;
+  }
+  html:has([data-params-diff-dialog][data-state="open"])
+    [data-slot="dialog-overlay"] {
+    /* the fixed dimmed backdrop becomes plain flow — no stamp, no scrim */
+    display: block !important;
+    position: static !important;
+    inset: auto !important;
+    background: none !important;
+    z-index: auto !important;
+  }
+  /* the diff rides INSIDE the inspector's dialog stack when opened from
+     the sibling picker (one Escape peels one layer) — the inspector's
+     own revival would print BOTH documents. The paper carries the
+     comparison the user asked for: the inspector's report steps aside
+     while the diff face owns the sheet (the hide outranks the revival
+     on specificity — (0,4,1) over (0,3,1), the t945 doctrine verbatim). */
+  html:has([data-params-diff-dialog][data-state="open"])
+    [data-inspector-dialog][data-slot="dialog-content"] {
+    display: none !important;
+  }
+  html:has([data-params-diff-dialog][data-state="open"])
+    [data-slot="dialog-content"] {
+    /* modal → document, the inspector's own re-layout grammar. flex-direction
+       is COLUMN here and it is THIS seat's own line: the t945/t946 faces
+       carry flex-col in their own classNames so display:flex alone kept the
+       column, but this dialog's screen layout is the ui/dialog grid — a bare
+       display:flex re-lays the header and the table as a flex ROW (the
+       first after-paper caught it: the title squeezed into a ~90px column
+       beside the diff chip). */
+    display: flex !important;
+    flex-direction: column !important;
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border-radius: 0 !important;
+    border-width: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    padding-bottom: 10mm !important;
+  }
+  /* the close X is chrome on paper — the diff face owns the sheet, and
+     a close button on a sheet closes nothing. Scoped to the diff face's
+     own content (the inspector's is already display:none above). */
+  html:has([data-params-diff-dialog][data-state="open"])
+    [data-params-diff-dialog]
+    > [data-slot="dialog-close"] {
+    display: none !important;
+  }
 }
 
 /* ===================== Task 124 — reveal arrivals ===================== */
