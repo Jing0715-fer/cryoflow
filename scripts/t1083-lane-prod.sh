@@ -53,7 +53,7 @@ log "SSR 200 — the prod lane answers"
 
 # The API face (the roster gate requires the Origin header — the bare 403 is
 # its honest refusal, t1082's note).
-JOBS="$(curl -s -H 'Origin: http://localhost:3000' --max-time 8 http://localhost:3000/api/jobs | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{try{const j=JSON.parse(d);const n=Array.isArray(j)?j.length:(j.jobs?j.jobs.length:-1);console.log(n)}catch(e){console.log("parse-fail")}}')"
+JOBS="$(curl -s -H 'Origin: http://localhost:3000' --max-time 8 http://localhost:3000/api/jobs | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{try{const j=JSON.parse(d);const n=Array.isArray(j)?j.length:(j.jobs?j.jobs.length:-1);console.log(n)}catch(e){console.log("parse-fail")}})')"
 SYS="$(curl -s --max-time 8 http://localhost:3000/api/system | head -c 200)"
 log "GET /api/jobs (with Origin) -> $JOBS jobs"
 log "GET /api/system -> $SYS"
