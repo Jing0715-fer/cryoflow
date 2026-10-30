@@ -1363,6 +1363,24 @@ function StageChip({
     if (running) trackEtaBaseline(job.id, job.startedAt, job.progress);
   }, [running, job.id, job.startedAt, job.progress]);
 
+  // t1089 — the chip's two voices: the SCREEN voice keeps the 26-char
+  // rhythm (the title tooltip tells the tail); PAPER has no tooltip, so
+  // the sheet prints the FULL receipt and lets it wrap. Running and idle
+  // speak the same words on both faces.
+  const receipt = compactStayReceipt(job.result ?? "", job.remoteRemaining?.remaining);
+  const chipStatusScreen =
+    job.status === "running"
+      ? `${Math.round(job.progress)}%${eta != null ? ` · ${formatEta(eta)}` : ""}`
+      : job.status === "completed"
+        ? receipt.slice(0, 26) || "done"
+        : job.status;
+  const chipStatusPaper =
+    job.status === "running"
+      ? chipStatusScreen
+      : job.status === "completed"
+        ? receipt || "done"
+        : job.status;
+
   return (
     <button
       type="button"
@@ -1375,7 +1393,7 @@ function StageChip({
           : ({ "--sd": arrivalDelay } as React.CSSProperties)
       }
       className={cn(
-        "group/stage flex shrink-0 items-center gap-2 rounded-lg border bg-card px-2.5 py-2 text-left transition-all hover:shadow-sm",
+        "group/stage flex shrink-0 items-center gap-2 rounded-lg border bg-card px-2.5 py-2 text-left transition-all hover:shadow-sm print:max-w-full",
         job.status === "running"
           ? "border-running-500/50 ring-1 ring-running/25"
           : job.status === "completed"
@@ -1404,13 +1422,10 @@ function StageChip({
         <TypeIcon name={spec?.icon ?? "Boxes"} className={cn("size-3.5", spec?.color.text)} />
       </span>
       <span className="min-w-0 leading-tight">
-        <span className="block max-w-36 truncate text-[11px] font-semibold">{job.name}</span>
+        <span className="block max-w-36 truncate print:max-w-none print:whitespace-normal print:overflow-visible text-[11px] font-semibold">{job.name}</span>
         <span className="block text-[10px] text-muted-foreground">
-          {job.status === "running"
-            ? `${Math.round(job.progress)}%${eta != null ? ` · ${formatEta(eta)}` : ""}`
-            : job.status === "completed"
-              ? compactStayReceipt(job.result ?? "", job.remoteRemaining?.remaining).slice(0, 26) || "done"
-              : job.status}
+          <span className="print:hidden">{chipStatusScreen}</span>
+          <span className="hidden print:inline">{chipStatusPaper}</span>
         </span>
       </span>
     </button>
@@ -1644,7 +1659,7 @@ function JobRow({
               </span>
             </span>
           ) : (
-            <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
+            <span className="mt-0.5 block truncate print:whitespace-normal print:overflow-visible text-[11px] text-muted-foreground">
               {job.result
                 ? compactStayReceipt(job.result, job.remoteRemaining?.remaining)
                 : job.status === "idle"
@@ -2083,7 +2098,10 @@ function FailedJobsStrip() {
           {failed.length} failed
         </span>
         <span className="text-xs text-muted-foreground">
-          failed jobs across all projects — click one to jump to its canvas
+          failed jobs across all projects
+          {/* the t1089 paper honesty: "click one to jump" is an act paper
+              cannot take — the names print, the instruction stays on screen */}
+          <span className="no-print"> — click one to jump to its canvas</span>
         </span>
       </div>
       <div className="flex flex-wrap items-center gap-1.5">
@@ -2496,7 +2514,7 @@ function ActiveProjectSpotlight({
             No jobs yet — open the workflow and add the first job.
           </p>
         ) : (
-          <div className="flex items-stretch gap-1 overflow-x-auto pb-1 nice-scroll">
+          <div className="flex items-stretch gap-1 overflow-x-auto pb-1 nice-scroll print:flex-wrap">
             {sorted.map((j, i) => (
               <React.Fragment key={j.id}>
                 {i > 0 && (
@@ -2762,7 +2780,7 @@ function ActiveProjectSpotlight({
           {hiddenBelow > 0 ? (
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute inset-x-0 bottom-0 h-10 rounded-b-lg bg-gradient-to-t from-card via-card/85 to-transparent"
+              className="no-print pointer-events-none absolute inset-x-0 bottom-0 h-10 rounded-b-lg bg-gradient-to-t from-card via-card/85 to-transparent"
             >
               <span className="absolute inset-x-0 bottom-1 mx-auto w-fit rounded-full border border-dashed border-border bg-card/95 px-2.5 py-0.5 text-[10px] tabular-nums text-muted-foreground shadow-sm">
                 +{hiddenBelow} more below
@@ -3091,7 +3109,7 @@ export function ProjectDashboard() {
               health. Open any project to build on its workflow canvas.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="no-print flex items-center gap-2">
             <div className="relative">
               <Search
                 className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
@@ -3546,11 +3564,13 @@ export function ProjectDashboard() {
           )}
         </div>
 
-        {/* footnote — the cascade's last rung */}
+        {/* footnote — the cascade's last rung; t1089 paper honesty: the
+            assurance speaks to a screen act (switching tabs) in browser
+            terms — paper takes neither act, so the note stays on screen */}
         <p
           data-dash-enter
           style={{ "--dash-d": "500ms" } as React.CSSProperties}
-          className="mt-8 text-center text-[10px] text-muted-foreground/60"
+          className="no-print mt-8 text-center text-[10px] text-muted-foreground/60"
         >
           Project dashboards persist per browser session — switching here never interrupts
           running jobs.

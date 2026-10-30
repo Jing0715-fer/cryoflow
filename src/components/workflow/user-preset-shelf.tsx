@@ -199,7 +199,11 @@ export function UserPresetShelf() {
     <section
       aria-label="Your parameter presets across all job types"
       data-testid="preset-shelf"
-      className="card-lift rounded-xl border bg-card px-4 py-3.5 sm:px-5"
+      /* the t1089 paper honesty: an EMPTY shelf is a door to a browser act —
+         on paper the door is noise (zero snapshots is the header's whole
+         story); a populated shelf keeps printing, the operator's presets
+         are real content */
+      className={"card-lift rounded-xl border bg-card px-4 py-3.5 sm:px-5" + (isEmpty ? " no-print" : "")}
     >
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <SlidersHorizontal className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
