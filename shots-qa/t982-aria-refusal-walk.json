@@ -1,6 +1,6 @@
 {
   "walk": "t982-aria-refusal-walk",
-  "at": "2026-10-30T23:08:11.401Z",
+  "at": "2026-10-30T23:36:15.082Z",
   "pass": 17,
   "fail": 0,
   "phaseTrace": [],
@@ -21,7 +21,7 @@
       "nextDisabled": true
     },
     "zoomClamp": {
-      "clicks": 1,
+      "clicks": 4,
       "outLabel": "Zoom out (already at minimum zoom)",
       "inLabel": "Zoom in"
     },
