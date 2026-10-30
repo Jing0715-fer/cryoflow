@@ -1,9 +1,9 @@
 {
   "unit": "t1023-watchdog-guard-unit",
   "verdict": "GREEN",
-  "pass": 21,
+  "pass": 24,
   "fail": 0,
-  "at": "2026-10-30T06:05:10.377Z",
+  "at": "2026-10-30T08:07:02.488Z",
   "bands": [
     "F the guard at source",
     "L the decision arithmetic live"

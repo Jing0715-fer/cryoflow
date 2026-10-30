@@ -196,6 +196,14 @@ def main() -> None:
     clean = "--clean" in sys.argv or TAKE_HOME
     jobs = api("/api/jobs")
     jobs = jobs["jobs"] if isinstance(jobs, dict) else jobs
+    # t1080 — the WORLD-SCOPED LOOKUP: the name search used to ride the
+    # unfiltered jobs list, so a stale QA job in ANY world (witnessed: five
+    # QA jobs minted into the t380 exam's project while its pointer held the
+    # session) matched "existing" and the seed seeded the WRONG world's row
+    # while PROJECT (projects[0]) named another. The lookup and the minting
+    # now live in the same world as PROJECT — a foreign same-name job is
+    # invisible here, and the seed mints fresh into its own world.
+    jobs = [j for j in jobs if j.get("projectId") == PROJECT]
     created_files = []
 
     for name, jtype, target, f1, n, x, y in SPECS:
@@ -288,6 +296,7 @@ def main() -> None:
         # never linger on the canvas between QA rounds
         jobs = api("/api/jobs")
         jobs = jobs["jobs"] if isinstance(jobs, dict) else jobs
+        jobs = [j for j in jobs if j.get("projectId") == PROJECT]
         live = next((j for j in jobs if j.get("name") == LIVE[0]), None)
         if live is not None:
             # full-fidelity cleanup: the job row AND its on-disk traces

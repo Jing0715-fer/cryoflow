@@ -35,6 +35,17 @@
  *      the BASH_SOURCE verdict), and the v2 machinery untouched (the
  *      zombie arm, the dirty-cache quarantine, the single-keeper, the
  *      prewarm).
+ *   F5b (t1080) — the v3.2 cure at source: the storm law covers the FAT
+ *      arm too (the recycle-storm witness: generations murdered
+ *      mid-compile at poll cadence because the fat arm was
+ *      cooldown-free while the tree's compile burst outgrew the line).
+ *
+ * t1080 — THE STORM-LAW EXTENSION (v3.2): the fat arm now honors the
+ * same boot-clock dwell as the thin-host arm, and the fat line was
+ * re-seated 2600000 -> 2650000 (above the measured steady state
+ * 2613212KB, below the kernel's host-starved kill zone 2722164 /
+ * 2734924 witnessed). L3b rides the new skip; L2 rides the new
+ * constant; L3's fire case moved OUTSIDE the dwell explicitly.
  *   L  LIVE rides: bash -n clean, the constants hand over, the decision
  *      truth table (fat arm / thin-host / healthy hold / below-soft hold /
  *      cooldown skip / inclusive boundaries), the real-world probes
@@ -137,6 +148,11 @@ ok("F9 the v2 machinery untouched (the zombie arm, the dirty-cache quarantine, t
   sh.includes("lock held through 15s of retries") &&
   sh.includes("prewarm: / answers (attempt $i)"));
 
+ok("F5b (t1080) the storm law covers the FAT arm (the v3.2 cure: a burst above the fat line inside the dwell is growth in flight, never killed mid-compile) + the line re-seated above the measured steady state",
+  sh.includes('echo "skip cooldown fat rss=${rss}KB avail=${avail}KB since_boot=${since_boot}s"') &&
+  sh.includes('RSS_RECYCLE_KB="${WATCHDOG_RECYCLE_KB:-2650000}"') &&
+  sh.includes("THE STORM LAW COVERS THE FAT ARM"));
+
 /* ---------- L band — the decision live ---------- */
 console.log("L band — the decision arithmetic live (WATCHDOG_UNIT_MODE=1):");
 
@@ -156,9 +172,9 @@ try {
   execFileSync("bash", ["-n", path.join(ROOT, "scripts/dev-server-watchdog.sh")], { timeout: 15000 });
   ok("L1 bash -n clean on the live script", true);
   const out = bashRun(harness('echo "constants: RECYCLE=$RSS_RECYCLE_KB SOFT=$RSS_SOFT_KB FLOOR=$HOST_FLOOR_KB COOLDOWN=$RECYCLE_COOLDOWN_S"'));
-  ok("L2 the constants hand over (defaults + the env seats)",
+  ok("L2 the constants hand over (defaults + the env seats — the t1080 re-seated fat line)",
     out.includes("SENTINEL 0") &&
-    out.includes("RECYCLE=2600000 SOFT=1900000 FLOOR=786432 COOLDOWN=300"));
+    out.includes("RECYCLE=2650000 SOFT=1900000 FLOOR=786432 COOLDOWN=300"));
 } catch (e) {
   ok("L1 bash -n clean on the live script", false, String(e).slice(0, 120));
   ok("L2 the constants hand over", false, String(e).slice(0, 120));
@@ -170,8 +186,13 @@ const decide = (rss, avail, since) => {
   return m ? m[1].trim() : "(silent)";
 };
 
-ok("L3 the fat arm fires on RSS alone (v2's law, unchanged — host health irrelevant)",
+ok("L3 the fat arm fires past the dwell (v2's law, host health irrelevant — but the t1080 dwell applies)",
   decide(2700000, 3000000, 99999).startsWith("fire fat"));
+ok("L3b (t1080) the fat arm skips inside the dwell (a burst above the fat line at 60s of age is a compile in flight, not steady fat)",
+  decide(2700000, 3000000, 60).startsWith("skip cooldown fat"));
+ok("L3c (t1080) the re-seated boundary holds: the measured steady state 2613212KB holds past the dwell (no idle churn), a hair above it (2660000) fires",
+  decide(2613212, 3000000, 99999).startsWith("hold") &&
+  decide(2660000, 3000000, 99999).startsWith("fire fat"));
 ok("L4 the thin-host conjunction fires (the t1022 kill shape: 2.25GB server, 730MB host)",
   decide(2254512, 747520, 99999).startsWith("fire thin-host"));
 ok("L5 the healthy world holds (fat server, roomy host — no recycle)",
@@ -211,7 +232,7 @@ for (let i = 0; i < 10 && !worldAfter; i++) {
 ok("the world as-left (16 jobs — the t1075 replant re-key; the window's controlled recycle swept clean)",
   worldAfter?.length === 16, `got ${worldAfter?.length}`);
 const dbBytes = statSync(path.join(ROOT, "db/cryoflow.db")).size;
-ok("the DB byte size held (the high-water — the t1075 replant re-key)", dbBytes === 135168, `${dbBytes}`);
+ok("the DB byte size held (the high-water — the t1080 re-key: the qa60 FSC fixtures' create/delete cycle grew the file; the WORLD stands 16)", dbBytes === 147456, `${dbBytes}`);
 
 /* ---------- the receipt ---------- */
 const verdict = fail === 0 ? "GREEN" : "RED";

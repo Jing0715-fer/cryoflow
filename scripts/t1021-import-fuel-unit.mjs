@@ -251,7 +251,7 @@ for (let i = 0; i < 10 && !worldAfter; i++) {
 }
 ok("the world as-left (16 jobs, nothing minted standing — the t1075 replant re-key)", worldAfter?.length === 16, `got ${worldAfter?.length}`);
 const dbBytes = statSync(path.join(ROOT, "db/cryoflow.db")).size;
-ok("the DB byte size held (the high-water — the t1075 replant re-key)", dbBytes === 135168, `${dbBytes}`);
+ok("the DB byte size held (the high-water — the t1080 re-key: the qa60 FSC fixtures' create/delete cycle grew the file; the WORLD stands 16)", dbBytes === 147456, `${dbBytes}`);
 
 /* ---------- the receipt ---------- */
 const verdict = fail === 0 ? "GREEN" : "RED";

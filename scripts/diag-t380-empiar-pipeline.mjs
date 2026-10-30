@@ -4,10 +4,13 @@
  * verdict (the user's 「用empiar-10017数据模拟在cluster上运行，看一下各种任务
  * 生成的mrcs或mrc是否正常」 + 「2D 分类颗粒是黑色的」).
  *
- * Chain (12 jobs, cluster lane, CPU): Import(mics, zero-upload) → MotionCorr
- * → Ctffind → AutoPick(LoG, REAL dark-blob detection) → Extract(REAL crops,
+ * Chain (11 jobs, cluster lane, CPU): Import(mics, zero-upload) → Ctffind
+ * → AutoPick(LoG, REAL dark-blob detection) → Extract(REAL crops,
  * --norm) → Class2D(REAL particle averages) → InitialModel → Class3D →
- * Refine3D → MaskCreate → PostProcess.
+ * Refine3D → MaskCreate → PostProcess. (t1080: MotionCorr left the chain
+ * — the engine's honest refusal law correctly refuses a
+ * data_micrographs star, and the deposited set is already
+ * motion-corrected.)
  *
  * POLARITY assertions (the point of t380):
  *   P1 raw micrograph — all-positive ice: renders WITHOUT flip → the β-gal
@@ -270,7 +273,7 @@ const stage = async (label, type, params, edges, asserts = {}) => {
   if (!job?.id) return null;
   for (const [from, fp, tp] of edges) await mkEdge(from.id, job.id, fp, tp);
   const run = await runRemote(job.id);
-  if (!must(run.status === 200, `${label}: dispatch accepted`, JSON.stringify(run.body).slice(0, 200))) return job;
+  if (!must(run.status === 200 && !run.body?.error, `${label}: dispatch accepted`, JSON.stringify(run.body).slice(0, 220))) return job;
   const res = await waitTerminal(job.id, { timeoutMs: asserts.timeoutMs ?? 240_000 });
   must(
     res.job?.status === "completed",
@@ -401,6 +404,17 @@ try {
   });
   must(proj.status >= 200 && proj.status < 300, `the remote project creates (${proj.status})`);
   const projectId = proj.body?.project?.id;
+  // t1080 — THE POINTER RESTORE LAW: the exam switches the ACTIVE project
+  // to its own world (the render doors need it) and — this window's
+  // witness — USED TO LEAVE IT THERE. Every later world-resolving suite
+  // then reads the wrong world: qa60's seed resolves PROJECT = projects[0]
+  // (Main) while its workspace resolution rides the ACTIVE pointer (the
+  // t380 project) — five QA jobs minted into the exam's world, the index
+  // verification read Main, rc=1 with the seed's own work half-done. The
+  // exam now captures the entry-active project and hands the pointer BACK
+  // at wrap (the project row itself stays for UI QA — the LIST is not the
+  // POINTER).
+  const entryActive = (await api("/api/projects", { headers: SH })).body?.projects?.find?.((p) => p.active)?.id ?? null;
   const sw = await api("/api/projects/switch", { method: "POST", headers: SHJ, body: JSON.stringify({ id: projectId }) });
   must(sw.status >= 200 && sw.status < 300, "the project activates");
   console.log(`    projectId: ${projectId}`);
@@ -498,9 +512,22 @@ try {
     }
   }
 
-  section("PHASE 3 — MotionCorr → Ctffind → AutoPick (LoG, CPU)");
-  const mc = await stage("MotionCorr", "motioncorr", { patchX: 5, patchY: 5, bfactor: 150, dosePerFrame: 1.28 }, [[imp, "micrographs", "movies"]]);
-  const ctf = mc && (await stage("Ctffind", "ctffind", { box: 512, resMin: 30, resMax: 5, dFMin: 5000, dFMax: 50000 }, [[mc, "micrographs", "micrographs"]]));
+  section("PHASE 3 — Ctffind → AutoPick (LoG, CPU)");
+  // t1080 — MotionCorr LEFT THE CHAIN, by the engine's own honest refusal:
+  // the live dispatch answered 200 + {error: "MotionCorr reads only MOVIES
+  // stars — the wired input micrographs.star is a data_micrographs star (no
+  // rlnMicrographMovieName column; motioncorr_runner.cpp:261 refuses it)…
+  // single-frame micrographs are already motion-corrected — feed CTF
+  // directly."} The exam's chain dates from the era when the engine faked a
+  // motioncorr pass on single-frame mics; the newer refusal law is CORRECT
+  // physics (EMPIAR-10017's Falcon-II set is deposited ALREADY
+  // motion-corrected — there are no frame stacks to correct), and the
+  // exam's old weak assert (run.status === 200) swallowed the refusal: two
+  // rides burned on a stage that should never have been wired. The chain is
+  // now Import → Ctffind (the refusal's own words: feed CTF directly), and
+  // the dispatch assert below checks the error field — a 200 with {error}
+  // is a REFUSAL, not a dispatch.
+  const ctf = await stage("Ctffind", "ctffind", { box: 512, resMin: 30, resMax: 5, dFMin: 5000, dFMax: 50000 }, [[imp, "micrographs", "micrographs"]]);
   const pick = ctf && (await stage("AutoPick LoG", "autopick", { pickingMethod: "Laplacian of Gaussian", logDiamMin: 120, logDiamMax: 180, logAdjustThreshold: 0, threshold: 0.4 }, [[ctf, "micrographs", "micrographs"]]));
   if (pick) {
     const rW = remoteWorkdir(projectId, pick);
@@ -670,10 +697,17 @@ try {
   }
 
   section("WRAP");
+  // t1080 — the pointer restore (see PHASE 1): hand the ACTIVE pointer back
+  // to whatever world owned it at entry; the exam's own project row stays
+  // in the list for the UI QA pair.
+  if (entryActive && entryActive !== projectId) {
+    const back = await api("/api/projects/switch", { method: "POST", headers: SHJ, body: JSON.stringify({ id: entryActive }) });
+    must(back.status >= 200 && back.status < 300, `the pointer returns home (${entryActive})`);
+  }
   const { body } = await api("/api/jobs", { headers: SH });
   const chain = (body?.jobs ?? []).filter((j) => j.projectId === projectId);
   const completed = chain.filter((j) => j.status === "completed").length;
-  must(completed >= 11, `the project shows ≥11 completed jobs (import + 10 stages) — got ${completed}`);
+  must(completed >= 10, `the project shows ≥10 completed jobs (import + 9 stages — MotionCorr retired by the t1080 refusal law) — got ${completed}`);
   console.log(`\nTotal wall: ${((Date.now() - t0) / 1000).toFixed(0)}s — project ${projectId} LEFT FOR UI QA`);
 } catch (e) {
   console.error("diag-t380 aborted:", e);

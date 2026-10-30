@@ -1,6 +1,7 @@
 #!/bin/bash
 # dev-server-watchdog.sh — the t404 promotion of the t403 band-aid, v2 (t405),
-# cache hygiene v2.1 (t406), the thin-host recycle v3 (t1023).
+# cache hygiene v2.1 (t406), the thin-host recycle v3 (t1023), the storm law
+# extended to the fat arm v3.2 (t1080).
 #
 # /tmp/revive.sh (Task 403) kept the DEV server alive through the sandbox
 # patrol's reaping sprees, but it lived in /tmp with a 90-minute window
@@ -71,7 +72,7 @@
 # own honest figure — reclaimable cache already subtracted) and recycles
 # when EITHER arm fires:
 #
-#   the FAT arm (v2's law, unchanged):  rss >= RSS_RECYCLE_KB
+#   the FAT arm (v2's law):             rss >= RSS_RECYCLE_KB
 #   the THIN-HOST arm (new):            rss >= RSS_SOFT_KB  AND
 #                                       avail <= HOST_FLOOR_KB
 #
@@ -102,6 +103,35 @@
 #   the unit rides the REAL arithmetic without ever approaching the kill
 #   paths (a sourced unit must not fight the live keeper's flock — the
 #   single-keeper law would execute it after 15s).
+#
+# v3.2 (t1080) — THE STORM LAW COVERS THE FAT ARM. The t1080 window
+# witnessed the recycle storm the v2 tuning words had already named but
+# the v3 code had only half-coded:
+#
+#   the t1080 morning: server generations dying at 30-60s of age
+#   (PIDs 12336 -> 12669 -> 12849 -> 14001 within minutes), every one
+#   mid-compile ("Compiling /api/jobs ..." its last words), zero kernel
+#   record — and the watchdog's own fire line confessing: a generation
+#   watched at rss=2737152KB, FIVE SECONDS old. The tree's compile burst
+#   had grown past the fat line (2.6GB): the burst itself now crosses the
+#   threshold, and the fat arm — cooldown-free since v2 — murdered every
+#   cold compile mid-flight, booted the next one, murdered it again.
+#   The dirty-cache cure could never fire (prewarm / answers warm; the
+#   disease moved to the API route), the storm law never applied (it
+#   guarded only the thin-host arm), the loop recycled at poll cadence —
+#   the exact "recycle growth, not bursts" violation the t405 retune
+#   (2.35 -> 2.6) was written to prevent, reborn one era later.
+#
+#   The cure is ONE guard, the storm law applied where it always
+#   belonged: the fat arm now honors the same boot-clock dwell as the
+#   thin-host arm. A boot younger than RECYCLE_COOLDOWN_S whose RSS
+#   crosses the fat line is a BURST IN FLIGHT — skipped (logged once per
+#   episode, the same once-per-episode honesty), never killed mid-compile.
+#   If the RSS is still at or above the fat line when the dwell expires,
+#   it is STEADY fat — the controlled recycle happens then, on our
+#   schedule, at the storm-law cadence (never at poll cadence). The
+#   threshold itself does not move: the fat line keeps its meaning
+#   (the absolute growth line), only the cadence gets the guard.
 #
 # THE RENAME LAW (t1023, the t894 lesson applied to this file itself):
 # this script is RUNNING somewhere, always. bash reads a script
@@ -139,7 +169,16 @@ SILENT_ZOMBIE_S="${WATCHDOG_ZOMBIE_S:-240}"       # silent + process present => 
 # 2.6GB lost ONE race to a compile burst while chrome held 600MB (the 2.84GB
 # kill); retuned 2.35 -> 2.6: the compile BURST itself spikes to ~2.2GB+
 # within 33s and a 2.35 threshold murders every cold compile mid-flight — recycle growth, not bursts.
-RSS_RECYCLE_KB="${WATCHDOG_RECYCLE_KB:-2600000}"
+# t1080 — the burst outgrew the line (witnessed 2737152KB at 5s of age) and
+# the line also sat BELOW the tree's measured steady state (2613212KB after
+# a completed walk — every idle generation would have been recycled at dwell
+# expiry). v3.2's answer is twofold: the cooldown guard (bursts inside the
+# dwell are growth in flight, never killed mid-compile) AND the line
+# re-seated at 2650000KB — just above the measured steady state, still
+# below the kernel's host-starved kill zone (2722164 / 2734924 witnessed).
+# The host-starved case stays the THIN-HOST arm's business (soft 1.9GB +
+# floor 768MB), which keeps its own cooldown.
+RSS_RECYCLE_KB="${WATCHDOG_RECYCLE_KB:-2650000}"
 # t1023 — the thin-host arm's two thresholds and the storm dwell (see the
 # v3 header for the witnesses and the arithmetic).
 RSS_SOFT_KB="${WATCHDOG_RECYCLE_SOFT_KB:-1900000}"
@@ -234,11 +273,21 @@ host_avail_kb() {
 
 recycle_decision() {
   # t1023 — the pure decision: (rss_kb, avail_kb, seconds_since_boot) ->
-  # one line: "fire fat ..." | "fire thin-host ..." | "skip cooldown ..."
-  # | "hold ...". No probes, no side effects — the unit rides this
-  # directly (WATCHDOG_UNIT_MODE=1), the loop rides it every poll.
+  # one line: "fire fat ..." | "skip cooldown fat ..." | "fire thin-host ..."
+  # | "skip cooldown ..." | "hold ...". No probes, no side effects — the
+  # unit rides this directly (WATCHDOG_UNIT_MODE=1), the loop rides it
+  # every poll.
+  # v3.2 — the storm law covers the fat arm: a boot inside the dwell whose
+  # RSS crosses the fat line is a compile burst in flight (the t1080
+  # witness: 2737152KB at 5s of age, every generation murdered mid-compile
+  # at poll cadence) — skipped, never killed mid-compile; at dwell expiry
+  # it is steady fat and the controlled recycle happens then.
   local rss="$1" avail="$2" since_boot="$3"
   if [ "$rss" -ge "$RSS_RECYCLE_KB" ]; then
+    if [ "$since_boot" -lt "$RECYCLE_COOLDOWN_S" ]; then
+      echo "skip cooldown fat rss=${rss}KB avail=${avail}KB since_boot=${since_boot}s"
+      return 1
+    fi
     echo "fire fat rss=${rss}KB avail=${avail}KB"
     return 0
   fi

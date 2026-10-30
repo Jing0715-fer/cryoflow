@@ -99,8 +99,22 @@ const realClick = async (findExpr) => {
  *  Coordinates are never trusted; Ctrl+F → name → Enter = focusJob
  *  centered + legibility zoom, Esc leaves the view there. */
 const reachViaFind = async (name) => {
-  sh(`${AB} press Control+f`);
-  await sleep(500);
+  // t1080 — THE HYDRATION GUARD: the pre-hydration SSR canvas SHOWS the
+  // cards (bootCanvas's probe is satisfied) but the Ctrl+F listener
+  // attaches at effect mount — a press inside that window lands on NOBODY.
+  // Witnessed live: bootCanvas returned CARD, the first press was deaf,
+  // and the type step died on the absent input, twice in a row on a cold
+  // browser. The cure rides the bar itself as the receipt: press, probe,
+  // retry — the input's appearance IS the listener's proof of life (the
+  // t578 hydration-guard doctrine, at this suite's own scale).
+  for (let i = 0; i < 8; i++) {
+    sh(`${AB} press Control+f`);
+    await sleep(800);
+    const barOpen = unq(evalJs(`(() => !!document.querySelector('[data-testid=canvas-find-input]'))() + ''`));
+    if (barOpen === "true") break;
+    sh(`${AB} press Escape`);
+    await sleep(400);
+  }
   sh(`${AB} type '[data-testid="canvas-find-input"]' '${name}'`);
   await sleep(700);
   sh(`${AB} press Enter`);
@@ -330,9 +344,26 @@ async function phaseA() {
   for (const name of ["QA Post 300", "QA Post 385", "QA Refine 410"]) {
     must((await toggleRow(ids[name], "true")) === "verified", `ticked ${name}`);
   }
+  let rebuilt = false;
   must((await waitFor(async () => {
     const d = await dialogProbe(Object.values(ids).filter(Boolean));
-    return d && d.lines >= 4;
+    if (d && d.lines >= 4) return true;
+    // t1080 — the REBUILD arm: a thin-host recycle mid-tick (witnessed:
+    // the watchdog's controlled recycle at avail 710MB) takes the page's
+    // backend, the transport ladder lands a FRESH page — no inspector, no
+    // dialog, no ticks — and polling a ghost only exhausts the budget.
+    // Once per waitFor: rebuild the whole interaction (the reachViaFind
+    // hydration guard rides inside openInspector; toggleRow converges to
+    // the wanted state whatever the fresh page restored from localStorage).
+    if (!d && !rebuilt) {
+      rebuilt = true;
+      if (!(await openInspector())) return false;
+      await openCompare();
+      for (const name of ["QA Post 300", "QA Post 385", "QA Refine 410"]) {
+        await toggleRow(ids[name], "true");
+      }
+    }
+    return false;
   }, "4 curves")), "overlay draws 4 curves");
 
   p = await dialogProbe(Object.values(ids).filter(Boolean));
@@ -397,7 +428,14 @@ async function phaseC() {
   const errs = errCount();
   must(errs === "0", `0 page errors (got ${errs})`);
   step("cleanup: seed --clean");
-  try { sh(SEED_CLEAN); } catch (e) { step(`cleanup warn: ${String(e).slice(0, 120)}`); }
+  // t1080 — the cleanup takes the four SPECS hosts HOME (--take-home), not
+  // just the live card (--clean). Task 102's standing-fixture doctrine
+  // dates from the 22-job era; the standing world is the 16-job one (the
+  // t1075 replant census FATALs on anything else) — a qa60 ride that leaves
+  // +4 jobs breaks every later census. The qa6x family's Task 86 doctrine
+  // (self-seeding, no dependence on who ran before) covers the other
+  // suites: they re-seed their own fixtures when they ride.
+  try { sh(SEED_TAKE_HOME); } catch (e) { step(`cleanup warn: ${String(e).slice(0, 120)}`); }
 }
 
 // ============================================================ main
