@@ -19921,3 +19921,45 @@ Prod retired, mock home on :3022, dev through its own door (watchdog ensured), t
 3. **THE WORLD NOTE stands as written above** — the next window's as-found IS this as-left.
 
 **Ledger**: the exam lane's second seat ridden to the end (sweep 788→3485MB, Phase P on the cured probe speaking `16 jobs`, the lane 172MB; qa58 ALL GREEN + qa60 ALL GREEN ×2 — the second ride with the stray law speaking), **the SEED_TAKE_HOME undefined bug caught, cured, and re-proven** (the five-seed tear taken home through the product door; commit `fix(t1085)`), the family scan (single borrower), the restore byte-exact under the timeout guard (rc=0, the hang did not recur), the doctor CLEAN ×2, the census 43/43 ×2, worklog this entry. Commits: fix(t1085 the cleanup is an assertion, not a warning) + docs(t1085 this entry). The ELEVENTH consecutive live window — the second seat paid for itself in one ride, and the cleanup learned to tell the truth.
+
+---
+
+## Task 1086 (2026-10-30, Job 362852 @ 19:19 +08:00 — trace `1a07549302235a99-cron-agent-loop-202610301919`) — the exam lane's third seat: the physics chain rode the prod bundle, and the reaper taught the detached pattern its lesson
+
+**THE WINDOW START**: `git status -sb` clean; origin/main at `f395937a` (the t1085 docs car) — PUSH LAW first: the cron commit `57bcc617` pushed (`f395937a..57bcc617`). Bed rolls: the doctor **CLEAN**; the census **43/43 ×2, zero RED**. The dev QA green (16 jobs · 7c/4f/5i, the chip `dev lane`, console clean).
+
+**THE PICK**: the t1086 lead candidate — **the exam lane's third seat**: diag-t380's physics chain (the 86-check EMPIAR-10017 polarity exam) through the exam ceremony, which needed a shape no window had ridden: **the mock cluster alongside the prod lane**. Survey first: diag-t380 is self-contained (Phase-1 prunes stale t380 projects, creates its own, restores the ACTIVE pointer at wrap, `sharp` reads the pixels, `CF_BASE` env → :3000); the mock's boot spell lives in lane-restore's R2 (`cd services/mock-cluster && setsid nohup bun server.mjs`, :3022); the trio at provenance `47115d48` with `git diff src/` still EMPTY — **the no-rebuild-debt state held a third window**.
+
+### THE CEREMONY (the new shape's first ride)
+
+Sweep: available 788→3488MB. Phase P: the cured probe spoke `16 jobs`, the lane 172MB. **The mock alongside**: :3022 LISTEN — the pairing (prod app + mock cluster) boots clean and coexists at ~200MB combined.
+
+**Ride 1 (detached, setsid nohup) — DIED SILENTLY at ~4min**: the log froze at `InitialModel: dispatch accepted` (51 greens banked), pgrep empty, the mock log frozen, **no kernel OOM record, no abort line**. The post-mortem: the 11:09:24 OOM in dmesg killed a dev next-server 13 minutes BEFORE the ceremony (a keeper-recycle storm casualty, not a suspect); the diag's death has no kernel trace — the **platform-level young-process reaper** (the storm law's host-side cousin, the 8159 lesson's family) is the named suspect. A detached, young, node-shaped process is exactly its prey.
+
+**Ride 2 (FOREGROUND, timeout 570) — 86/86 PASSED, total wall 64 SECONDS**: the whole chain on the warm mock is barely a minute — the reaper's window is the first minute of a detached process's life, and a foreground child of an active session never enters it. The suite self-pruned ride 1's project at Phase 1; ride 2's chain rode clean end to end:
+
+- **P1/P2** — the raw mics and the `--norm` extracted crops flip per convention on the prod bundle;
+- **P3** — the dead-zone class on film: OLD 1.2× gate DARK (center 119.1 ≤ border 132.9 — the 「颗粒是黑色的」 shape), NEW 1.0× gate BRIGHT (52.4 > 35.3), the LIVE class-gallery render BRIGHT (52.4 > 38.7), 10/10 classes served;
+- **P4** — the 3D map's negative-density core renders BRIGHT;
+- **P5** — the `negativeStain` PATCH re-pins the SAME particle DARK-on-bright (119.1 < 128.4), the cache keys never collide, the cryo polarity restored byte-for-byte;
+- **the wrap** — ≥10 completed jobs (import + 9 stages, MotionCorr retired by the t1080 refusal law), the pointer home.
+
+**The lane-pairing matrix is now complete**: dev+mock (t1080), prod alone (t1083), prod+walk (t1084), prod+playwright pair (t1085), **prod+mock physics chain (t1086)** — every pairing the box can host has been hosted.
+
+### THE CLEANUP
+
+The exam project swept through the product door (`DELETE /api/projects/:id` → 200 — ride 1's row already pruned by ride 2's Phase 1); restore rc=0 under the timeout guard; the fingerprint **byte-exact** (`{"jobs":16,"edges":4,"ws":1}`); the honest not-found badge; **the db high-water UNMOVED at 147456** (the project delete purged the chain's rows cleanly — no re-key needed); the doctor **CLEAN** as-left; the census **43/43 zero RED**.
+
+**Judge-lines:**
+- **「The matrix is complete because each seat rode a different passenger」**: five windows, five pairings — the road was proven by walking it with everything the product owns.
+- **「The reaper hunts the detached, not the attended」**: the same chain died detached at 4 minutes and rode foreground in 64 seconds — on this box, a long rider belongs in the foreground of an active session, where the storm law's host-side cousin does not look.
+- **「A receipt must name its own evidence's provenance」**: the banked receipt first counted the DEAD ride's log (51) for the LIVE ride's verdict (86) — the fix names both files' roles; the evidence's chain of custody is part of the verdict.
+
+**THE WORLD NOTE (as-left)**: sixteen jobs UNMOVED (the fingerprint byte-exact), 4 edges, ONE workspace ("Main"), the binding conn-mv6a23lx; the census **43/43** (zero RED, start + as-left); the doctor CLEAN (start + as-left); the dev server = the post-restore generation (watchdog ensured); the db at **147456 (high-water unmoved through a full physics chain + delete)**; the NEW asset: `shots-qa/.t1086-diag-prod-receipt.json` (the third seat's verdict + the reaper lesson + the polarity numbers on prod); zero code changes this window (a pure riding window — the road needed no repair); the prod trio at provenance 47115d48 with src/ STILL byte-identical at HEAD — **the no-rebuild-debt state holds**.
+
+**t1087 next-window entry**:
+1. bed rolls as standing (PUSH LAW first; the doctor; the census 43).
+2. candidates in order: **the product line** (the compare dialog's chrome, the family print faces — three windows of riding and no style debt paid; survey before touching, the standing style law waits); **a qa-family stray-law audit** (the t1085 lesson generalized: any seeding suite whose cleanup lacks a verification is qa60's lie in a different coat — one sweep across scripts/qa*.mjs cleanups); **the fuel block's boot-storm hardening** (the census comfort, still standing); **the 3D viewer's volume section tool / Topaz wrapper** (the feature directions — big lifts, survey the surfaces first).
+3. **THE WORLD NOTE stands as written above** — the next window's as-found IS this as-left.
+
+**Ledger**: the exam lane's third seat ridden to completion (the new prod+mock pairing shape booted and hosted; **diag-t380 86/86 on the prod bundle in 64s, REAL-data mode** — P1–P5 all on film with the pixel numbers), the detached-ride death post-mortemed honestly (no kernel trace, the platform reaper named, the foreground law written), ride 1's project pruned by ride 2's own Phase 1 and ride 2's swept through the product door (delete 200), the restore rc=0 byte-exact, the db high-water 147456 unmoved, the doctor CLEAN ×2, the census 43/43 ×2, the receipt banked with its provenance note, worklog this entry. Commits: docs(t1086 this entry) + the receipt. The TWELFTH consecutive live window — the lane-pairing matrix complete, and the physics exam now speaks for the prod bundle too.
