@@ -16,6 +16,7 @@
 
 import { useWorkflowStore } from "@/lib/store";
 import { usePrintedDate } from "@/lib/use-now";
+import { FIND_STATUSES } from "./canvas-find-bar"; // t1087 — the census borrows the canonical order (the footer's own precedent, no private taxonomy)
 
 export function PrintDocHeader() {
   const project = useWorkflowStore((s) => s.project);
@@ -32,6 +33,19 @@ export function PrintDocHeader() {
   // annotations on paper: the count tells an archive reader that human
   // judgment is present on this sheet (the per-card excerpt lines carry it)
   const noted = jobs.filter((j) => (j.note ?? "").length > 0).length;
+
+  // t1087 — the paper census: the screen footer's health story reaches the
+  // masthead. The same FIND_STATUSES order the footer's clickable census
+  // speaks, nonzero voices only, lowercase — paper has no click and no
+  // chips, so the honest subset is the words themselves ("7 completed ·
+  // 4 failed · 5 idle"): the archive reader learns the pipeline's shape
+  // from the masthead before reading a single card. Derived from the
+  // store's jobs (never the clock), so the t232 no-hydration law holds
+  // untouched.
+  const census = FIND_STATUSES.map(({ value, label }) => ({
+    label,
+    count: jobs.filter((j) => j.status === value).length,
+  })).filter((c) => c.count > 0);
 
   const title = isDashboard
     ? (project?.name ?? "Project dashboard")
@@ -81,6 +95,15 @@ export function PrintDocHeader() {
           {noted > 0 ? (
             <span data-print-notes-count>
               {" "}· {noted} annotated
+            </span>
+          ) : null}
+          {census.length > 0 ? (
+            // t1087 — the census line, under the identity line: the same
+            // words the screen footer speaks, minus the click. Nonzero
+            // voices only — a status with no jobs keeps the paper silent
+            // about it (the honest subset, the footer's own doctrine).
+            <span data-print-census className="print:mt-1 block">
+              {census.map((c) => `${c.count} ${c.label.toLowerCase()}`).join(" · ")}
             </span>
           ) : null}
         </p>

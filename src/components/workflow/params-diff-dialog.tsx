@@ -74,6 +74,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils"; // t1087 — the pressed face joins the conditional-class law
 import { useWorkflowStore } from "@/lib/store";
 import { baselineFor, rememberBaseline } from "@/lib/pair-baseline";
 import { FscParamsDiff } from "./results/fsc-params-diff";
@@ -166,7 +167,15 @@ export function ParamsDiffDialog({
             <Button
               variant="ghost"
               size="sm"
-              className="ml-1 h-6 w-6 gap-0 rounded-md p-0 text-muted-foreground hover:bg-muted hover:text-foreground"
+              className={cn(
+                "ml-1 h-6 w-6 gap-0 rounded-md p-0 text-muted-foreground hover:bg-muted hover:text-foreground",
+                // t1087 — the pressed state gets a face: aria-pressed was
+                // already spoken, but only to ears; a swapped pair now
+                // shows a muted wash + full-ink icon at a glance, so the
+                // state survives a screenshot (the memory law's visible
+                // half — the t904 store remembers, the face confirms)
+                swapped && "bg-muted text-foreground"
+              )}
               onClick={() => {
                 const next = !swapped;
                 setSwapped(next);

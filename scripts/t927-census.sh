@@ -1,9 +1,9 @@
 #!/bin/bash
-# t927 census runner — the 43 node instruments at their standing values (t1082 added the resume-receipt unit; t1083 grew it 23→29 and added the lane-chip unit, the 43rd seat; t1084 grew the pointer-wall-echo unit 22→30 — the ride-side band, the walk's receipt pinned).
+# t927 census runner — the 44 node instruments at their standing values (t1082 added the resume-receipt unit; t1083 grew it 23→29 and added the lane-chip unit, the 43rd seat; t1084 grew the pointer-wall-echo unit 22→30 — the ride-side band, the walk's receipt pinned; t1087 added the paper-census unit, the 44th seat — the masthead's census, the raw tooltip and the swap's face pinned).
 # Law: unset DATABASE_URL per invocation; lib-import units via unit-runner (bare node dies on @/lib).
 cd /home/z/my-project
 export DATABASE_URL=""
-EXPECTED=(22 23 25 38 33 28 28 25 20 20 16 17 11 8 14 28 13 23 10 17 33 16 22 32 91 23 63 33 18 45 28 30 14 13 11 48 9 19 19 24 17 29 7)
+EXPECTED=(22 23 25 38 33 28 28 25 20 20 16 17 11 8 14 28 13 23 10 17 33 16 22 32 91 23 63 33 18 45 28 30 14 13 11 48 9 19 19 24 17 29 7 16)
 # the bash-word law: NO trailing commas inside this array — in bash,
 # "x", is ONE word (x,) — the comma joins the element and the runner
 # hunts a file that does not exist
@@ -51,8 +51,9 @@ declare -a NAMES=(
   "t1024-dialog-fuel-unit"
   "t1082-resumed-from-unit"
   "t1083-lane-chip-unit"
+  "t1087-paper-census-unit"
 )
-declare -a RUNNERS=(1 0 1 1 1 1 2 2 0 0 0 0 1 0 0 0 0 1 0 1 1 1 1 0 1 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0)
+declare -a RUNNERS=(1 0 1 1 1 1 2 2 0 0 0 0 1 0 0 0 0 1 0 1 1 1 1 0 1 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0)
 i=0
 for name in "${NAMES[@]}"; do
   unset DATABASE_URL

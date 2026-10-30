@@ -132,6 +132,22 @@ function formatParam(v: unknown): string {
   return s.length > 18 ? `${s.slice(0, 17)}…` : s;
 }
 
+/* t1087 — the tooltip's voice is the RAW value. formatParam's 24-char
+ * slice is the CELL's rhythm (mono columns that stay tell-apart-able at
+ * a glance), but the title tooltip's whole job is to reveal what the
+ * cell hides — re-formatting through formatParam truncated the
+ * truncation, so a 60-char path's tooltip showed the same 24 chars the
+ * cell already showed and the tail was unreachable everywhere. The raw
+ * voice answers the same five shapes, uncut; the cell keeps its slice
+ * (one value, two faces: the rhythm on paper-cell, the truth on
+ * hover). The "cell hides, tooltip tells" law completed. */
+function rawParam(v: unknown): string {
+  if (v === undefined || v === null) return "—";
+  if (typeof v === "boolean") return v ? "true" : "false";
+  if (typeof v === "number") return String(v);
+  if (typeof v === "string") return v;
+  return JSON.stringify(v) ?? String(v);
+}
 
 export function FscParamsDiff({
   jobs,
@@ -284,6 +300,10 @@ export function FscParamsDiff({
                         key={jobs[i].jobId}
                         className={cn(
                           "px-1.5 py-1 text-right font-mono tabular-nums",
+                          // t1087 — the title tells, so the cursor asks:
+                          // every populated cell carries the raw value's
+                          // tooltip, the help cursor marks where it hides
+                          !absent && "cursor-help",
                           absent && "text-muted-foreground/40",
                           hot
                             ? "font-semibold text-warning-700 dark:text-warning-400"
@@ -294,7 +314,11 @@ export function FscParamsDiff({
                         title={
                           absent
                             ? `${jobs[i].name} does not set ${row.key}`
-                            : `${jobs[i].name}: ${row.key} = ${formatParam(v)}`
+                            : // t1087 — the RAW value (rawParam, uncut): the
+                              // tooltip reveals what the cell's 24-char
+                              // rhythm slice hides — it never re-truncates
+                              // the truncation
+                              `${jobs[i].name}: ${row.key} = ${rawParam(v)}`
                         }
                       >
                         {absent ? "—" : formatParam(v)}
