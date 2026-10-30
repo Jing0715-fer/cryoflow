@@ -80,8 +80,39 @@ for (let i = 0; i < 40 && !world; i++) {
   } catch { /* the warmup */ }
 }
 if (!world) { console.error("FATAL: the server never answered 200"); process.exit(2); }
+/* the fuel-family orphan law (the t1088 hardening): t1021's twin can
+   stand when its ride dies mid-flight (the reaper's shape) — the
+   family's readers sweep the KNOWN twin through the product door
+   (patiently — the t1023 law) instead of FATALing on a count that
+   hides the name; any OTHER stranger FATALs with the full roster —
+   a gate that only counts lies by omission. */
+if (world.some((j) => j.name === "Import Fuel Gate Ride")) {
+  const twins = world.filter((j) => j.name === "Import Fuel Gate Ride");
+  console.log(`fuel-family orphan sweep — t1021's twin stands (${twins.map((j) => `${j.id} ${j.status}`).join(", ")})`);
+  for (const twin of twins) {
+    for (let a = 0; a < 4; a++) {
+      if (a > 0) await sleep(2500);
+      try {
+        const r = await api("DELETE", `/api/jobs/${twin.id}`);
+        if (r.status === 200 || r.status === 404) break;
+      } catch { /* the storm — the t1023 patience law */ }
+    }
+    rmSync(path.join(ROOT, "data/relion", twin.projectId ?? world[0]?.projectId ?? "", `import_${twin.id.slice(-8)}`), { force: true, recursive: true });
+  }
+  await sleep(1200);
+  world = null;
+  for (let i = 0; i < 10 && !world; i++) {
+    if (i > 0) await sleep(1000);
+    try {
+      const r = await api("GET", "/api/jobs");
+      if (r.status === 200) world = jobsArr(r.json);
+    } catch { /* the warmup */ }
+  }
+  if (!world) { console.error("FATAL: the server never answered 200 (post-family-sweep)"); process.exit(2); }
+}
 if (world.length !== 16) {
   console.error(`FATAL: world gate — jobs ${world.length} (want 16 — the t1075 replant census; the t1003 22-world's db died in the epoch rollback)`);
+  for (const j of world) console.error(`    · ${j.name} — ${j.status} (${j.id})`);
   process.exit(1);
 }
 console.log(`world: 16 jobs as-found (project ${world[0]?.projectId ?? null})`);

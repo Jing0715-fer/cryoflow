@@ -528,9 +528,21 @@ const phaseC = async () => {
     // the gap world is disposable on EVERY path — a failure must still
     // delete it or the active pointer strands the next window's readers on
     // an empty project (observed live: /api/jobs answered 0 jobs)
-    sh(`curl -s -X DELETE ${B}/api/projects/${gapProjectId} -H "Origin: http://localhost:3000" -H "Sec-Fetch-Site: same-origin"`).trim();
+    const delCode = sh(`curl -s -o /dev/null -w "%{http_code}" -X DELETE ${B}/api/projects/${gapProjectId} -H "Origin: http://localhost:3000" -H "Sec-Fetch-Site: same-origin"`);
     sh(`${AB} open ${B} >/dev/null 2>&1`);
     await sleep(2000);
+    // the stray law (the t1085 lesson, found by the t1088 audit): the delete
+    // is VERIFIED — a cleanup that cannot fail aloud is qa60's lie in
+    // another coat. DELETE must answer 200 and the world must carry no gap
+    // project (the [id] route has no GET — the list is the world's voice;
+    // a follow-up GET answers 405, a shape the live probe caught this
+    // window). Anything else means the gap world stood and the pointer's
+    // next reader is stranded.
+    const world = JSON.parse(sh(`curl -s ${B}/api/projects -H "Origin: http://localhost:3000"`));
+    const stood = (world?.projects ?? []).filter((p) => p.id === gapProjectId);
+    if (delCode !== "200" || stood.length > 0)
+      throw new Error(`gap world survived its cleanup — DELETE=${delCode}, project still listed ×${stood.length} (project ${gapProjectId})`);
+    step(`  cleanup verified (DELETE=${delCode}, world carries no QA t55 Honest Gap — the gap world taken home)`);
   }
   const errs = sh(`${AB} errors`) || "(none)";
   step(`  console errors: ${errs}`);

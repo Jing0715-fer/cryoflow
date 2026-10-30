@@ -95,11 +95,19 @@ if (!world) { console.error("FATAL: the server never answered 200"); process.exi
  * "Import Fuel Gate Ride" leaked when the reap ate the server
  * mid-unit). The unit now sweeps its OWN leftover twin through the
  * product's DELETE door before the gate reads the world; any OTHER
- * drift still FATALs honestly. */
-const orphan = world.find((j) => j.name === "Import Fuel Gate Ride");
-if (orphan) {
+ * drift still FATALs honestly.
+ *
+ * THE t1088 HARDENING: the sweep's delete rode a BARE fetch — a storm
+ * (the census's own pressure, or a dev boot tide) swallows it with a
+ * 5xx and the twin stood anyway, so the NEXT run's gate FATALed on a
+ * count that hid the name. The delete is patient now (the t1023 law),
+ * the sweep re-reads and RE-SWEEPS up to three rounds, and the FATAL
+ * names what stands — a gate that only counts lies by omission. */
+for (let round = 0; round < 3; round++) {
+  const orphan = world.find((j) => j.name === "Import Fuel Gate Ride");
+  if (!orphan) break;
   console.log(`orphan sweep — the leftover twin from a dead run: ${orphan.id} (${orphan.status})`);
-  try { await api("DELETE", `/api/jobs/${orphan.id}`); } catch { /* the failure is not sticky */ }
+  await apiRetry("DELETE", `/api/jobs/${orphan.id}`, undefined, 4);
   rmSync(path.join(ROOT, "data/relion", orphan.projectId ?? world[0]?.projectId ?? "", `import_${orphan.id.slice(-8)}`), { force: true, recursive: true });
   await sleep(1200);
   world = null;
@@ -112,8 +120,14 @@ if (orphan) {
   }
   if (!world) { console.error("FATAL: the server never answered 200 (post-orphan-sweep)"); process.exit(2); }
 }
+if (world.some((j) => j.name === "Import Fuel Gate Ride")) {
+  const stander = world.find((j) => j.name === "Import Fuel Gate Ride");
+  console.error(`FATAL: the orphan's delete never landed — "Import Fuel Gate Ride" (${stander.id}, ${stander.status}) still stands after 3 patient rounds`);
+  process.exit(1);
+}
 if (world.length !== 16) {
   console.error(`FATAL: world gate — jobs ${world.length} (want 16 — the t1075 replant census; the t1003 22-world's db died in the epoch rollback)`);
+  for (const j of world) console.error(`    · ${j.name} — ${j.status} (${j.id})`);
   process.exit(1);
 }
 const project = world[0]?.projectId ?? null;
@@ -170,8 +184,10 @@ ok("the template stands (Import Movies 1)", !!template);
 // first (runImportRemoteLeg's connId gate — "imported from Cluster").
 // The fuel gate guards the NATIVE lane, so the ride unbinds through the
 // t300 door (null unbinds), rides, and rebinds bit-for-bit after the row.
-const bind0 = (await api("GET", "/api/project"))?.json?.project?.remote?.connectionId ?? null;
-if (bind0) await api("PATCH", `/api/projects/${project}`, { remoteConnectionId: null });
+// the t1023 patience — a storm answers 5xx here and the bare fetch would
+// die uncaught (exit 1 with no verdict line — the run-2b shape)
+const bind0 = (await apiRetry("GET", "/api/project", undefined, 4))?.json?.project?.remote?.connectionId ?? null;
+if (bind0) await apiRetry("PATCH", `/api/projects/${project}`, { remoteConnectionId: null }, 4);
 let twin = null;
 if (template) {
   const params = { ...(template.params ?? {}), micrographsPath: FIX };
@@ -205,7 +221,7 @@ if (twin) {
   ok("the row's words name the way out (split the folder into smaller batches)",
     !!row && /Split the folder into smaller batches/.test(row?.result ?? ""));
   // the server SURVIVES — the gate's whole point
-  const alive = await api("GET", "/api/jobs");
+  const alive = await apiRetry("GET", "/api/jobs", undefined, 4);
   ok("THE SERVER SURVIVES the refusal (the kernel never speaks)", alive.status === 200 && Array.isArray(jobsArr(alive.json)));
   // no outputs claimed — the record closed before any copy
   const rec = (() => {
@@ -229,8 +245,8 @@ ok("the fixture swept", !existsSync(FIX));
 // the replant world's mics stay on the cluster (the t979 feed, zero upload),
 // so the ride's link residue is SWEPT, not restored, and the binding comes
 // back bit-for-bit through the t300 door instead.
-if (bind0) await api("PATCH", `/api/projects/${project}`, { remoteConnectionId: bind0 });
-const rebound = (await api("GET", "/api/project"))?.json?.project?.remote?.connectionId ?? null;
+if (bind0) await apiRetry("PATCH", `/api/projects/${project}`, { remoteConnectionId: bind0 }, 4);
+const rebound = (await apiRetry("GET", "/api/project", undefined, 4))?.json?.project?.remote?.connectionId ?? null;
 ok("the binding restored bit-for-bit after the native-lane ride (the t1075 re-key — the t300 door)",
   rebound === bind0, `${rebound ?? "unbound"} vs ${bind0 ?? "unbound"}`);
 const MIC_LINK = path.join(ROOT, "data/relion", twin?.projectId ?? project, "micrographs");
