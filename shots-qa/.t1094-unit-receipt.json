@@ -1,0 +1,110 @@
+{
+  "unit": "t1094-fsc-paper-unit",
+  "window": "t1094",
+  "date": "2026-10-30T15:52:39.804Z",
+  "pins": 20,
+  "failed": 0,
+  "verdict": "GREEN",
+  "results": [
+    {
+      "id": "A1",
+      "ok": true,
+      "why": "the DialogContent carries data-fsc-compare-dialog (the seat's opt-in)"
+    },
+    {
+      "id": "A2",
+      "ok": true,
+      "why": "the className carries the standalone translate/scale/rotate kill"
+    },
+    {
+      "id": "A3",
+      "ok": true,
+      "why": "the compare's overlay re-lays into plain flow (block/static/no scrim)"
+    },
+    {
+      "id": "A4",
+      "ok": true,
+      "why": "the content re-lays as an unrolled flex column document"
+    },
+    {
+      "id": "A5",
+      "ok": true,
+      "why": "the inspector steps aside ((0,4,1), standing after the fourth seat's hide)"
+    },
+    {
+      "id": "A6",
+      "ok": true,
+      "why": "the compare's close X dies on paper"
+    },
+    {
+      "id": "B1",
+      "ok": true,
+      "why": "the Scan button is chrome (.no-print)"
+    },
+    {
+      "id": "B2",
+      "ok": true,
+      "why": "jump buttons die; the plain name rides the print span"
+    },
+    {
+      "id": "B3",
+      "ok": true,
+      "why": "the selection checkboxes are chrome (.no-print)"
+    },
+    {
+      "id": "B4",
+      "ok": true,
+      "why": "the legend chips carry [data-print-keep] (the killer's hatch)"
+    },
+    {
+      "id": "C1",
+      "ok": true,
+      "why": "the provenance line exists, print-only (census + clock)"
+    },
+    {
+      "id": "C2",
+      "ok": true,
+      "why": "usePrintedDate is called above the component's return (the hook-order law)"
+    },
+    {
+      "id": "C3",
+      "ok": true,
+      "why": "the host name's truncate dies on paper"
+    },
+    {
+      "id": "C4",
+      "ok": true,
+      "why": "the jump row's name prints via the rescue span (job.name)"
+    },
+    {
+      "id": "C5",
+      "ok": true,
+      "why": "chart, params diff and caption ride unmarked (facts, not chrome)"
+    },
+    {
+      "id": "D1",
+      "ok": true,
+      "why": "the fourth seat's rules stand byte-intact"
+    },
+    {
+      "id": "D2",
+      "ok": true,
+      "why": "the family seat's revival stands"
+    },
+    {
+      "id": "D3",
+      "ok": true,
+      "why": "the generic killer + its escape hatch stand"
+    },
+    {
+      "id": "D4",
+      "ok": true,
+      "why": "the seat carries exactly 4 css anchors, no [data-view] rule (re-derived)"
+    },
+    {
+      "id": "D5",
+      "ok": true,
+      "why": "the deep mint's root/guard/patience amendments stand"
+    }
+  ]
+}

@@ -8,7 +8,12 @@
  * The t915/t916 law applies: the world lacks the variable — MINT it
  * through the REAL doors, nothing hand-planted:
  *
- *   import (already in the world, completed, the seed's real mrcs)
+ *   motioncorr (t1094 amendment — the chain's root moved from the import
+ *     to a completed MOTIONCORR: the t955-reborn world's import writes a
+ *     data_movies star (_rlnMicrographMovieName) while the mock autopick
+ *     reads _rlnMicrographName — the first ride answered "0 micrograph(s)"
+ *     and the extract starved. The science agrees: RELION picks on
+ *     CORRECTED micrographs, so the root is Motion Correction 1)
  *     → autopick  (POST /api/jobs {type:"autopick"} + edge, remote run)
  *     → extract   (POST /api/jobs {type:"extract"} + 2 edges, remote run)
  *     → class2d   (EM dialect, K=4, 2 iterations — the (p*7+it)%K+1 law)
@@ -86,19 +91,39 @@ const binding = () => {
 
 async function pollUntil(jobId, timeoutMs = 300_000) {
   const t0 = Date.now();
+  // the t1094 amendment — the t1021 patience law: a job that the LIST
+  // cannot see is a suspect VERDICT, not a fact. The first ride watched a
+  // healthy running class2d be declared VANISHED because six API retries
+  // all landed inside the dev server's busy window (a heavy class2d run on
+  // the same process). VANISHED now demands FOUR consecutive blind rounds
+  // with sleeps between — a genuinely deleted job still terminates.
+  let blind = 0;
   while (Date.now() - t0 < timeoutMs) {
     const j = jobs().find((x) => x.id === jobId);
-    if (!j) return { status: "VANISHED" };
+    if (!j) {
+      blind++;
+      if (blind >= 4) return { status: "VANISHED" };
+      await sleep(5000);
+      continue;
+    }
+    blind = 0;
     if (["completed", "failed", "cancelled"].includes(j.status)) return j;
     await sleep(2500);
   }
   return { status: "TIMEOUT" };
 }
 
-/** the t921 law: the Mock Cluster resolves BY NAME, never by a hard id */
+/** the t921 law amended (t1094): the connection resolves by the ACTIVE
+ *  BINDING first (the world's standing shape — one connection, the
+ *  registry's own pointer), then by the historical name; creation is the
+ *  LAST resort, never the first — the first ride created a duplicate
+ *  "Mock Cluster" beside the standing "Cluster" because the name literal
+ *  predated the t955 rebirth. */
 function mockClusterConn() {
   const conns = api("GET", "/api/remote/connections").connections ?? [];
-  let conn = conns.find((c) => c.name === "Mock Cluster");
+  const bindId = binding();
+  let conn = (bindId ? conns.find((c) => c.id === bindId) : null)
+    ?? conns.find((c) => c.name === "Mock Cluster");
   if (conn) return { conn, created: false };
   const mk = api("POST", "/api/remote/connections", {
     name: "Mock Cluster",
@@ -146,14 +171,18 @@ function guards() {
   ok("guard: no stale t951 mints", stale.length === 0,
     stale.length ? `${stale.length} stale — run remove first` : "");
   if (stale.length) { console.log("FATAL: singular-world guard — remove first"); process.exit(2); }
-  const imports = findType("import").filter((j) => j.status === "completed");
-  ok("guard: a completed import exists (the chain's root)", imports.length >= 1);
+  // t1094 amendment: the root is a completed MOTIONCORR (the corrected
+  // micrographs carrier — see the header). "Motion Correction 1" first
+  // for determinism; any completed motioncorr falls back.
+  const mcorr = findType("motioncorr").filter((j) => j.status === "completed");
+  const root0 = mcorr.find((j) => j.name === "Motion Correction 1") ?? mcorr[0];
+  ok("guard: a completed motioncorr exists (the chain's root)", !!root0, root0?.name);
   const { conn, created } = mockClusterConn();
-  ok("guard: Mock Cluster connection present", !!conn?.id, `${created ? "created" : "reused"} ${conn?.id?.slice(0, 14) ?? "NONE"}`);
-  if (!conn?.id) { console.log("FATAL: no Mock Cluster connection — cannot ride"); process.exit(2); }
+  ok("guard: cluster connection present (binding-first)", !!conn?.id, `${created ? "created" : "reused"} ${conn?.id?.slice(0, 14) ?? "NONE"} "${conn?.name ?? ""}"`);
+  if (!conn?.id) { console.log("FATAL: no cluster connection — cannot ride"); process.exit(2); }
   REMOTE_BODY = { remote: { connectionId: conn.id, module: "relion/5.0.1", mode: "slurm" } };
   if (fail > 0) { console.log("FATAL: guards failed — the mint refuses to ride"); process.exit(2); }
-  return imports[0];
+  return root0;
 }
 
 // ---- mint ------------------------------------------------------------------
@@ -161,12 +190,12 @@ async function mint() {
   console.log("== t951 FSC deep mint — mint ==");
   const root = guards();
   const before = jobs().length;
-  console.log(`  pre-state: ${before} jobs; chain root: import ${root.id.slice(-8)} "${root.name}"`);
+  console.log(`  pre-state: ${before} jobs; chain root: motioncorr ${root.id.slice(-8)} "${root.name}"`);
 
   // 1-2. autopick → extract (the t916 shape verbatim)
-  const pick = await step("autopick", "autopick", "t951 pick witness", null, [[root.id, "import→autopick"]]);
+  const pick = await step("autopick", "autopick", "t951 pick witness", null, [[root.id, "motioncorr→autopick"]]);
   const ex = await step("extract", "extract", "t951 extract witness", null, [
-    [pick.id, "autopick→extract"], [root.id, "import→extract"],
+    [pick.id, "autopick→extract"], [root.id, "motioncorr→extract"],
   ]);
   const exOuts = outsOf(ex.id);
   ok("extract outputs listing ok", exOuts.status === "ok", exOuts.workdir ?? "no workdir");

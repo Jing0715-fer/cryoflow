@@ -2756,6 +2756,102 @@
     > [data-slot="dialog-close"] {
     display: none !important;
   }
+  /* ------------------------------------------------------------------
+   * The FSC compare's print face (t1094) — the Task 114 doctrine's
+   * FIFTH seat. The project-wide FSC overlay (the compare chip on the
+   * FSC chart) IS a document: the overlaid criterion curves ARE the
+   * science — the founding question the dialog's own header asks
+   * ("postprocess vs the refine it came from"). The world never carried
+   * an FSC-bearing job, so the face was unreachable and its paper never
+   * surveyed; the t951 deep mint (re-run t1094, the motioncorr-root
+   * amendment) grew the pair and the conviction rode ON CAMERA: with
+   * the overlay open, Ctrl+P printed the inspector's job report WITH
+   * THE DIALOG'S GUTS FRAGMENTING THROUGH IT — the candidate rows as
+   * naked broken tables across three pages, the description sentence
+   * an orphan. A double disease: no paper seat of its own, and its
+   * leaks polluted the host report. The grammar re-derived per the
+   * doctrine's questions:
+   *   - this dialog speaks flex-col in its OWN className (the t945
+   *     dialect), so the seat carries display:flex + its OWN
+   *     flex-direction: column line for self-containment;
+   *   - the [data-view] line is NOT this seat's: the overlay's ONLY
+   *     trigger is the FSC chart inside the inspector's Results tab —
+   *     the stack is always present, no canvas entry exists (the
+   *     params seat needed its own line; this one re-derives to
+   *     inherited) — the inspector's whole dialog hides below, which
+   *     takes every [data-view] with it;
+   *   - the verbs die whole: the Scan button (a verb that prints is a
+   *     verb that lies), the per-row jump buttons (a jump lands
+   *     nowhere on a sheet — the t946 funnel law) with the row's NAME
+   *     rescued onto a print span (the t1087 dual-face law — the name
+   *     is a fact, the affordance is not), the selection checkboxes
+   *     (the plotted set is what the sheet SHOWS; a checkbox on paper
+   *     is an offer — the t1092 law), the close X (the t946 law, the
+   *     doctrine's fifth carrier).
+   *   - the facts print whole: the provenance line (data-fsc-print-doc,
+   *     the t945 law verbatim — revival rides CSS, provenance rides
+   *     JSX), the index census, the candidate rows with their
+   *     source/type/resolution cells, the chart (the h-60 box prints
+   *     at the size the user saw), the legend chips (the color→curve
+   *     KEY — buttons on screen, but a key that dies takes the
+   *     science's vocabulary with it), the params diff table (the
+   *     fourth seat's own face, printing here as it does in the t945
+   *     paper), the science caption.
+   * ------------------------------------------------------------------ */
+  html:has([data-fsc-compare-dialog][data-state="open"])
+    [data-inspector-dialog][data-slot="dialog-content"] {
+    /* the inspector's report steps aside while the comparison owns the
+       sheet ((0,4,1) over (0,3,1), the t945 doctrine verbatim — this
+       block stands AFTER the fourth seat's, so the tie breaks honest) */
+    display: none !important;
+  }
+  html:has([data-fsc-compare-dialog][data-state="open"])
+    [data-slot="dialog-overlay"] {
+    /* the fixed dimmed backdrop becomes plain flow — no stamp, no scrim */
+    display: block !important;
+    position: static !important;
+    inset: auto !important;
+    background: none !important;
+    z-index: auto !important;
+  }
+  html:has([data-fsc-compare-dialog][data-state="open"])
+    [data-slot="dialog-content"] {
+    /* modal → document. flex-direction is COLUMN and it is THIS seat's
+       own line (self-containment: the screen class carries flex-col,
+       but a seat's grammar must survive its className being edited —
+       the t1093 lesson travels as questions, not answers). */
+    display: flex !important;
+    flex-direction: column !important;
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+    /* Tailwind v4's translate-x/y utilities set the STANDALONE `translate`
+       property — but Lightning CSS folds a same-block `translate: none`
+       into an identity transform (the t1092 probe: the built css showed
+       "transform:translate(0)rotate(0)scale(1)", the rect still x=-800).
+       The kill therefore rides the className's print:[translate:none]
+       utilities (own rule block → survives), the t1092 law verbatim —
+       this block's job is only the geometry around it. */
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border-radius: 0 !important;
+    border-width: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    padding-bottom: 10mm !important;
+  }
+  /* the close X is chrome on paper — the comparison owns the sheet, and
+     a close button on a sheet closes nothing. Scoped to the compare
+     face's own content (the inspector's is already display:none above). */
+  html:has([data-fsc-compare-dialog][data-state="open"])
+    [data-fsc-compare-dialog]
+    > [data-slot="dialog-close"] {
+    display: none !important;
+  }
 }
 
 /* ===================== Task 124 — reveal arrivals ===================== */

@@ -87,6 +87,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Chip } from "@/components/ui/chip";
 import { fetchJsonRetry } from "@/lib/retry-fetch";
 import { cn } from "@/lib/utils";
+import { usePrintedDate } from "@/lib/use-now"; // t1094 — the paper's clock (the t1093 hook-order law: the hook lives with the hooks, above every return)
 import { jobType, pourKindsOf, PORT_COLORS } from "@/lib/workflow"; // t771 — the kind vocabulary's TWENTY-NINTH reader joins the FSC compare overlay
 import {
   collectRestoreEdits,
@@ -187,6 +188,7 @@ export function FscCompareDialog({
 }) {
   const [index, setIndex] = useState<FscIndexEntry[] | null>(null);
   const [indexError, setIndexError] = useState(false);
+  const printed = usePrintedDate(); // t1094 — the provenance line's clock
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [curves, setCurves] = useState<Map<string, FscResponse | null>>(new Map());
   const [hidden, setHidden] = useState<Set<string>>(new Set());
@@ -498,7 +500,8 @@ export function FscCompareDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
-        className="flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-2xl flex-col gap-4 overflow-y-auto sm:max-w-2xl"
+        data-fsc-compare-dialog
+        className="flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-2xl flex-col gap-4 overflow-y-auto sm:max-w-2xl print:[translate:none] print:[scale:none] print:[rotate:none]"
         // overflow-y-auto, NOT overflow-hidden: the Task 64 params table
         // pushed the dialog past its 85vh budget on 4-pick comparisons, and
         // the hidden overflow SILENTLY CLIPPED the legend chips + footnote —
@@ -549,6 +552,18 @@ export function FscCompareDialog({
               {restoreEditSummary(restoreEdits)}
             </p>
           )}
+          {/* t1094 — the provenance line (the t945 law verbatim: the revival
+              rides CSS, the provenance rides JSX). The sheet must name what
+              it plots and when it was printed — the screen title's picked/
+              cap chip is a live count, the archival sheet carries the
+              census and the clock. Screen-hidden, print-only. */}
+          <p
+            data-fsc-print-doc
+            className="hidden font-mono text-[10px] tracking-wide text-muted-foreground print:block"
+          >
+            {pickedCount} curve{pickedCount === 1 ? "" : "s"} plotted ·{" "}
+            {index?.length ?? "…"} indexed · printed {printed}
+          </p>
         </DialogHeader>
 
         {/* ---------- freshness strip: live status + re-scan, one unit ----------
@@ -605,7 +620,7 @@ export function FscCompareDialog({
             data-testid="fsc-compare-rescan"
             aria-label={scanning ? "Scanning the project for FSC curves…" : "Re-scan the project for FSC curves"}
             title="Re-scan the project for FSC curves — running refinements land a new model checkpoint every few minutes, so an index read from a minute ago is already stale"
-            className="inline-flex h-6 shrink-0 items-center gap-1 rounded-md border border-border/70 bg-background/60 px-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-border hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:pointer-events-none disabled:opacity-60"
+            className="inline-flex h-6 shrink-0 items-center gap-1 rounded-md border border-border/70 bg-background/60 px-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-border hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:pointer-events-none disabled:opacity-60 no-print"
           >
             <RefreshCw
               className={cn("h-3 w-3", scanning && "animate-spin motion-reduce:animate-none")}
@@ -681,6 +696,7 @@ export function FscCompareDialog({
                   disabled={atCap}
                   onCheckedChange={() => toggle(job.jobId)}
                   aria-label={`Compare ${job.name}`}
+                  className="no-print"
                 />
                 {isRunning ? (
                   <span
@@ -699,37 +715,47 @@ export function FscCompareDialog({
                   />
                 )}
                 {isHost ? (
-                  <span className="min-w-0 flex-1 truncate text-xs font-medium">
+                  <span className="min-w-0 flex-1 truncate text-xs font-medium print:whitespace-normal print:break-all">
                     {job.name}
                     <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">
                       (this job)
                     </span>
                   </span>
                 ) : (
-                  <button
-                    type="button"
-                    data-testid={`fsc-compare-jump-${job.jobId}`}
-                    title={`Open ${job.name} in the inspector — its card, curves and outputs replace this one`}
-                    onClick={(e) => {
-                      // the row is a <label> for the checkbox — a click on
-                      // the name button must NOT forward to the checkbox
-                      // (preventDefault for the browsers that would, plus
-                      // this is a navigation, not a selection change);
-                      // handleOpenChange also wipes the curve cache before
-                      // the whole subtree swaps to the jumped-to job
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handleOpenChange(false);
-                      inspect(job.jobId);
-                    }}
-                    className="flex min-w-0 flex-1 items-center gap-0.5 rounded-sm text-left text-xs font-medium underline-offset-2 decoration-dotted hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-                  >
-                    <span className="truncate">{job.name}</span>
-                    <ArrowUpRight
-                      className="h-3 w-3 shrink-0 text-muted-foreground/50"
-                      aria-hidden="true"
-                    />
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      data-testid={`fsc-compare-jump-${job.jobId}`}
+                      title={`Open ${job.name} in the inspector — its card, curves and outputs replace this one`}
+                      onClick={(e) => {
+                        // the row is a <label> for the checkbox — a click on
+                        // the name button must NOT forward to the checkbox
+                        // (preventDefault for the browsers that would, plus
+                        // this is a navigation, not a selection change);
+                        // handleOpenChange also wipes the curve cache before
+                        // the whole subtree swaps to the jumped-to job
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleOpenChange(false);
+                        inspect(job.jobId);
+                      }}
+                      className="flex min-w-0 flex-1 items-center gap-0.5 rounded-sm text-left text-xs font-medium underline-offset-2 decoration-dotted hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 no-print"
+                    >
+                      <span className="truncate">{job.name}</span>
+                      <ArrowUpRight
+                        className="h-3 w-3 shrink-0 text-muted-foreground/50"
+                        aria-hidden="true"
+                      />
+                    </button>
+                    {/* t1094 — the name's paper face (the t1087 dual-face
+                        law): the jump button is chrome (a jump lands
+                        nowhere on a sheet — the t946 funnel law), but the
+                        ROW'S IDENTITY is a fact, so the plain name rides
+                        the print span beside the dead button. */}
+                    <span className="hidden min-w-0 flex-1 text-xs font-medium print:block print:whitespace-normal print:break-all">
+                      {job.name}
+                    </span>
+                  </>
                 )}
                 <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">
                   {job.type}
@@ -937,6 +963,14 @@ export function FscCompareDialog({
                     <button
                       type="button"
                       data-testid={`fsc-compare-legend-${id}`}
+                      /* t1094 — the legend is the paper's color→curve KEY:
+                         the Task 114 generic control-killer (scoped to the
+                         open inspector stack, which this overlay always
+                         rides) would eat these buttons wholesale; the
+                         house's [data-print-keep] hook opts the chips back
+                         onto the sheet — a key that dies takes the
+                         science's vocabulary with it. */
+                      data-print-keep=""
                       aria-pressed={!isHidden}
                       onClick={() =>
                         setHidden((prev) => {
