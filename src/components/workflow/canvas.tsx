@@ -77,6 +77,7 @@ import { EdgesLayer } from "./edges-layer";
 import { PipelineKpi } from "./pipeline-kpi";
 import { CanvasMinimap } from "./canvas-minimap";
 import { JobCard } from "./job-card";
+import { PrintReceiptLedger } from "./print-receipt-ledger"; // t1091 — the paper ledger: the full sentences the map's cards truncate
 import { STATUS_FLOOR, type StatusWord } from "@/lib/status-style"; // t647 — the floor map lives with the word law
 import { TypeIcon } from "./icons";
 import { ParamsDiffDialog } from "./params-diff-dialog";
@@ -3572,6 +3573,17 @@ export function WorkflowCanvas() {
       {dropActive && <DropImportOverlay count={dropFileCount} folder={dropFolder} />}
         </section>
       </ContextMenuTrigger>
+
+      {/* t1091 — the paper RECEIPT LEDGER: the fit-to-paper map keeps its
+          one-page contract (the scaled world box is untouched), but its
+          cards truncate their receipts at layout width and paper cannot
+          hover — the OOM/SLURM stories were unreachable on the very sheet
+          a scientist archives. The ledger is the truth's own document-
+          flow voice below the map: one line per job, FULL type label +
+          FULL receipt, pages naturally (a torn tail is worse than a
+          second sheet). Hidden on screen; empty world prints nothing;
+          the Task 114 inspector step-aside kills it with the page. */}
+      <PrintReceiptLedger jobs={jobs} />
 
       {/* background menu — right-click empty canvas (cards open their own) */}
       <ContextMenuContent className="w-56">
