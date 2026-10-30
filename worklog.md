@@ -19880,3 +19880,44 @@ Prod retired (bun's SIGTERM law honored), mock home on :3022, dev through its ow
 3. **THE WORLD NOTE stands as written above** — the next window's as-found IS this as-left.
 
 **Ledger**: the t999 unit's ride-side band shipped (22→30, R1–R8, GREEN 30/30 first ride; commit `6e2fed5c`), the census re-keyed (seat 31: 22→30) and ridden clean ×4 warm + the boot-storm transient named (solo ×4 green, two warm re-rides zero RED), the exam lane's first real ride completed (sweep 788→3485MB, FRESH=1 grind green in 66s at provenance 47115d48, the lane 173MB, **the t999 walk 30/30 on prod**), the Phase-P probe's missing paren cured (silent since t1083, one paren, the probe counts; commit `fix(t1084)`), the restore byte-exact (chip back to dev lane, doctor CLEAN as-left), worklog this entry. Commits: feat(t1084 the ruler follows the ride) + fix(t1084 the lane probe speaks its count) + docs(t1084 this entry). The TENTH consecutive live window — the carried 23+-window candidate closed, the exam lane earned its keep, and its own probe learned to count.
+
+---
+
+## Task 1085 (2026-10-30, Job 362852 @ 19:04 +08:00 — trace `1a07549302235a99-cron-agent-loop-202610301907`) — the exam lane's second seat caught the cleanup that warned instead of asserting
+
+**THE WINDOW START**: `git status -sb` clean; origin/main at `792e0bd3` (the t1084 docs car) — PUSH LAW first: the cron commit `1129e1fc` (unit-receipt bumps) pushed (`792e0bd3..1129e1fc`). Bed rolls: the doctor **CLEAN**; the census **43/43 ×2, zero RED**. The dev-lane QA green (16 jobs · 7c/4f/5i, the chip `dev lane`, console clean — the first "extraneous console line" suspicion convicted as a DevTools info variant on re-read).
+
+**THE SURVEY**: the t1085 lead candidate — the exam lane's second seat — surveyed before riding. The passengers chosen: **qa58 + qa60** (the gallery/fidelity playwright pair, ALL GREEN at t1080 on dev). The fixtures on disk: the EMPIAR-10017 real bytes (641M, `/home/z/empiar-10017/micrographs/` 10 mics + 10 coords; the mock mirror 8+8 — the coords a SIBLING dir, the first ls's `micrographs/coords` path was the reader's own error) — the t527 EBI re-probe's network dependency NOT needed for this ride. The trio's provenance `47115d48` vs HEAD `1129e1fc`: `git diff --stat 47115d48..HEAD -- src/` EMPTY — four commits of scripts/shots-qa/worklog only, **the bundle IS the current bundle**, riding without a rebuild recorded as honest reasoning (the rebuild debt t1084 left is still zero).
+
+### THE CEREMONY (the road's second ride, no grind needed)
+
+Sweep: available **788MB → 3485MB**. Phase P on the CURED probe: **`GET /api/jobs (with Origin) -> 16 jobs`** — the count SPEAKS now (t1084's one-paren cure verified live on its own road); the lane 172MB, available 3371MB. Then the two rides:
+
+- **qa58 on prod — ALL GREEN, exit 0**: the gallery face's full sweep (the zoom roving/toggle keys, the help popover's shortcut coverage, console PRODUCT errors = 0, the take-home verified "world carries no qa58 seeds").
+- **qa60 on prod — ALL GREEN, exit 0... and a tear**: the fidelity face's sweep passed (the 4-curve compare overlay, the localStorage persistence across remount, the Esc laws, count chip 4/6) — but the cleanup line printed `cleanup warn: ReferenceError: SEED_TAKE_HOME is not defined` and the world answered **21 jobs** where 16 belong. The five seeds (QA Post 300/320/385, QA Refine 410, QA Refine Live) stayed.
+
+### THE BUG (the second seat's own pothole, the ride's real product)
+
+**qa60's take-home was borrowed without being defined**: the t1080 edit introduced the `SEED_TAKE_HOME` call (qa58's law carried over) but never the const — the ReferenceError landed in a `try { } catch { step(warn) }`, and the suite exited ALL GREEN while its seeds stayed. Two defects in one line: the missing definition, and **the cleanup failure could not turn the ride red** (a warn is not a `must()`).
+
+**The cure (commit `fix(t1085)`)**: qa58's own law carried over verbatim — the `SEED_TAKE_HOME` const defined (`qa60-seed-fsc.py --take-home`, the seeder's full-specimen lifecycle verified in source), the warn-swallow replaced by a bare `sh()` + **the stray `must()` over the five seed names** (the qa58 stray law's fifth-name form). The family scan (`uses SEED_TAKE_HOME` without `const SEED_TAKE_HOME`) — qa60 was the only borrower: no other suite carries the same class.
+
+**The proof**: the orphaned five taken home FIRST via the seeder's own product door (the radius + workdir sweeps riding along — 16 jobs restored), then **qa60 re-ridden on prod: ALL GREEN with the stray law speaking `world carries no qa60 seeds after take-home (got none)`** — the cleanup is an assertion now; the tear can never again hide behind a green exit.
+
+### THE RESTORE
+
+Prod retired, mock home on :3022, dev through its own door (watchdog ensured), the fingerprint **byte-exact** (`{"jobs":16,"edges":4,"ws":1}`), the honest not-found badge, the chip back to `dev lane`, the doctor **CLEAN** as-left, the census **43/43 zero RED**. The restore rode under a `timeout 150` guard this window and completed IN full (rc=0) — t1084's tail-hang did not recur; the guard is the better way to drive this script and is noted for the next rider.
+
+**Judge-lines:**
+- **「A cleanup that warns is a cleanup that lies」**: qa60's ALL GREEN was true of the assertions and false of the world — the five rows outlived the exit code. The stray `must()` makes the take-home's success part of the ride's truth, not its footnote.
+- **「The second seat found its own pothole, as the first did」**: t1084's ride caught the mute probe; t1085's caught the mute cleanup — riding the road twice is how its honest defects surface one by one.
+- **「The reader's error is not the world's」**: the mock coords dir was "empty" until the second ls read the RIGHT path — siblings, not children. The poison law's file-system cousin.
+
+**THE WORLD NOTE (as-left)**: sixteen jobs UNMOVED (the fingerprint byte-exact), 4 edges, ONE workspace ("Main"), the binding conn-mv6a23lx; the census **43/43** (zero RED, start + as-left); the doctor CLEAN (start + as-left); the dev server = the post-restore generation (watchdog ensured); the db at 147456; the NEW asset: qa60's cleanup is an assertion (the const + the stray law, five names); the prod trio at provenance 47115d48 — src/ STILL unchanged (this window touched scripts only), **the no-rebuild-debt state holds**; zero residue (the seeds taken home through the product door, the workdirs swept, the fingerprint byte-exact).
+
+**t1086 next-window entry**:
+1. bed rolls as standing (PUSH LAW first; the doctor; the census 43).
+2. candidates in order: **the exam lane's third seat** (diag-t380's physics chain through the ceremony — it needs the MOCK alongside prod, a ceremony shape not yet ridden: sweep → prod boot → mock boot → diag-t380 → restore; the polarity assertions P1–P4 on the prod bundle would close the last untested lane pairing); **the product line** (the compare dialog's chrome, the family print faces — both surfaces mature, survey before touching); **the fuel block's boot-storm hardening** (the census comfort, still standing); **a qa58/qa60-style stray-law audit** of the OTHER seeding suites' cleanups (the family scan cleared the borrow-class only — a suite whose cleanup lacks ANY verification is the same lie in a different coat).
+3. **THE WORLD NOTE stands as written above** — the next window's as-found IS this as-left.
+
+**Ledger**: the exam lane's second seat ridden to the end (sweep 788→3485MB, Phase P on the cured probe speaking `16 jobs`, the lane 172MB; qa58 ALL GREEN + qa60 ALL GREEN ×2 — the second ride with the stray law speaking), **the SEED_TAKE_HOME undefined bug caught, cured, and re-proven** (the five-seed tear taken home through the product door; commit `fix(t1085)`), the family scan (single borrower), the restore byte-exact under the timeout guard (rc=0, the hang did not recur), the doctor CLEAN ×2, the census 43/43 ×2, worklog this entry. Commits: fix(t1085 the cleanup is an assertion, not a warning) + docs(t1085 this entry). The ELEVENTH consecutive live window — the second seat paid for itself in one ride, and the cleanup learned to tell the truth.
