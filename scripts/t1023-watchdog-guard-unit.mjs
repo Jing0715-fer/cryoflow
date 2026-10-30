@@ -263,7 +263,7 @@ for (let i = 0; i < 10 && !worldAfter; i++) {
 ok("the world as-left (16 jobs — the t1075 replant re-key; the window's controlled recycle swept clean)",
   worldAfter?.length === 16, `got ${worldAfter?.length}`);
 const dbBytes = statSync(path.join(ROOT, "db/cryoflow.db")).size;
-ok("the DB byte size held (the high-water — the t1080 re-key: the qa60 FSC fixtures' create/delete cycle grew the file; the WORLD stands 16)", dbBytes === 147456, `${dbBytes}`);
+ok("the DB byte size held (the high-water — the t1097 re-key: the fresh t979 replant world's page-quantized size — the t1075 re-key's own precedent (155648→135168); the t1080 147456 died with the epoch; the WORLD stands 16)", dbBytes === 135168, `${dbBytes}`);
 
 /* ---------- the receipt ---------- */
 const verdict = fail === 0 ? "GREEN" : "RED";
