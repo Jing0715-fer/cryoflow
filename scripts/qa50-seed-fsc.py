@@ -23,9 +23,19 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from qa_lib import resolve_project, resolve_refine_host
 
 _PROJECT = resolve_project()
-_REFINE_JOB, WORKDIR = resolve_refine_host(_PROJECT)
+# t1090 — the resolution is LAZY: the --clean path removes THIS seeder's
+# one file from the host's workdir — on a world without the host there is
+# nothing to clean BY DEFINITION (the seed path re-resolves on demand and
+# still fails loudly).
+def _resolve_host():
+    return resolve_refine_host(_PROJECT)
+
+try:
+    _REFINE_JOB, WORKDIR = _resolve_host()
+except SystemExit:
+    _REFINE_JOB, WORKDIR = None, None
 PROJECT = _PROJECT
-TARGET = os.path.join(WORKDIR, "postprocess.star")
+TARGET = os.path.join(WORKDIR, "postprocess.star") if WORKDIR else None
 
 F0, F1, N = 0.01, 0.35, 40
 NYQ = 1 / F1
@@ -73,12 +83,17 @@ def build() -> str:
 if __name__ == "__main__":
     clean = "--clean" in sys.argv
     if clean:
+        if not WORKDIR:
+            print("qa50 clean: the old world is absent — nothing to clean (verified by the host's own absence)")
+            sys.exit(0)
         if os.path.exists(TARGET):
             os.remove(TARGET)
             print(f"removed {TARGET}")
         else:
             print("nothing to clean")
         sys.exit(0)
+    _REFINE_JOB, WORKDIR = _resolve_host()
+    TARGET = os.path.join(WORKDIR, "postprocess.star")
     os.makedirs(WORKDIR, exist_ok=True)
     with open(TARGET, "w") as fh:
         fh.write(build())

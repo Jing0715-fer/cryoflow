@@ -44,7 +44,12 @@ const SEED = "python3 /home/z/my-project/scripts/qa53-seed-topaz.py";
 const SEED_CLEAN = "python3 /home/z/my-project/scripts/qa53-seed-topaz.py --clean";
 // t705 — the name is the world's own spelling, never a pin (qa-refine-host.mjs:
 // the JS twin of qa_lib.resolve_refine_host — manifest contract + type fallback)
-const JOB = resolveRefineHost().name;
+// t1090 — the resolution is LAZY: phase C (the honest-gap face) never names
+// the refine host, so it must not pay for it at module load — the t531 old
+// world is phases A/B's fixture, not C's. A/B resolve on first use and still
+// fail loudly (the seeder's name rides the error) when the world lacks it.
+let JOB = null;
+const refineJobName = () => (JOB ??= resolveRefineHost().name);
 const B = "http://localhost:3000";
 
 const openDashboard = async () => {
@@ -61,7 +66,7 @@ const openJobResults = async () => {
   for (let i = 0; i < 15 && !node.includes("clicked@"); i++) {
     node = await (async () => {
       const coords = evalJs(
-        `(() => { const el = [...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('${JOB}') && (x.textContent||'').includes('completed')); if (!el) return null; const r = el.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; })()`,
+        `(() => { const el = [...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('${refineJobName()}') && (x.textContent||'').includes('completed')); if (!el) return null; const r = el.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; })()`,
       );
       if (!coords || coords === "null") return "NO-ELEMENT";
       const c = JSON.parse(coords);
@@ -247,26 +252,26 @@ const phaseA = async () => {
     ["## Resolution progress", "progress section"],
     ["| 2 | 28.50 |", "progress first row"],
     ["| 30 | 3.18 |", "progress last row"],
-    ["![Resolution progress — 3.18 Å at iteration 30 for " + JOB + "]", "progress png alt"],
+    ["![Resolution progress — 3.18 Å at iteration 30 for " + refineJobName() + "]", "progress png alt"],
     ["## FSC curve", "fsc section"],
     ["![FSC curve — 3.12 Å", "fsc png alt"],
     ["## Guinier plot", "guinier section"],
     ["Applied B-factor: **-52.4 Å²**", "bfactor line"],
-    ["![Guinier plot for " + JOB + "]", "guinier png alt"],
+    ["![Guinier plot for " + refineJobName() + "]", "guinier png alt"],
     ["## CTF fit quality", "ctf section"],
     ["48 micrographs — mean defocus **", "ctf summary line"],
     ["| Micrograph | Defocus (µm) | Astig (µm) | FOM | Fit (Å) |", "ctf table header"],
-    ["![CTF defocus scatter for " + JOB + "]", "ctf png alt"],
+    ["![CTF defocus scatter for " + refineJobName() + "]", "ctf png alt"],
     ["## Angular distribution", "angdist section"],
     ["anisotropic (preferred-orientation risk)", "angdist verdict"],
-    ["![Orientation distribution heatmap for " + JOB + "]", "angdist png alt"],
+    ["![Orientation distribution heatmap for " + refineJobName() + "]", "angdist png alt"],
     ["## Topaz training", "topaz section"],
     ["Source: `topaz_training.txt`", "topaz source line"],
     ["30 epochs — final train loss **0.309**, test loss **0.896**", "topaz summary line"],
     ["| Epoch | Train loss | Test loss | Precision | Recall |", "topaz table header (5 cols earn place)"],
     ["| 1 | 2.713 | 2.721 | 0.409 | 0.393 |", "topaz first row"],
     ["| 30 | 0.309 | 0.896 | 0.871 | 0.832 |", "topaz last row (sampled table keeps it)"],
-    ["![Topaz training loss curves for " + JOB + "]", "topaz png alt"],
+    ["![Topaz training loss curves for " + refineJobName() + "]", "topaz png alt"],
     ["## Outputs on disk", "outputs intact"],
   ];
   for (const [needle, label] of asserts) {

@@ -23,9 +23,20 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from qa_lib import resolve_project, resolve_refine_host
 
 _PROJECT = resolve_project()
-_REFINE_JOB, WORKDIR = resolve_refine_host(_PROJECT)
+# t1090 — the resolution is LAZY: the --clean path is the OLD world's file
+# hygiene, and the topaz log lives in the host's workdir — on a world
+# without the host there is no log to clean BY DEFINITION (the seed path
+# re-resolves on demand and still fails loudly). The healed postprocess
+# FSC sweep is project-relative and runs regardless.
+def _resolve_host():
+    return resolve_refine_host(_PROJECT)
+
+try:
+    _REFINE_JOB, WORKDIR = _resolve_host()
+except SystemExit:
+    _REFINE_JOB, WORKDIR = None, None
 PROJECT = _PROJECT
-TOPAZ = os.path.join(WORKDIR, "topaz_training.txt")
+TOPAZ = os.path.join(WORKDIR, "topaz_training.txt") if WORKDIR else None
 EPOCHS = 30
 
 
@@ -52,13 +63,17 @@ def build_topaz() -> str:
 if __name__ == "__main__":
     if "--clean" in sys.argv:
         removed = 0
-        if os.path.exists(TOPAZ):
-            os.remove(TOPAZ)
-            removed += 1
+        if WORKDIR:
+            if os.path.exists(TOPAZ):
+                os.remove(TOPAZ)
+                removed += 1
+        else:
+            print("qa53 clean: the old world is absent — no topaz log to clean (verified by the host's own absence)")
         # t313 — the healed demo carries REAL postprocess FSC data; the
         # honest-gap world (a demo without FSC artifacts) needs those gone
         # too, or the session report grows FSC sections and qa55's plain-
         # variant premise dies. The healer restores them on demand.
+        # (t1090: project-relative — swept even when the host is absent.)
         pp = os.path.join("/home/z/my-project/data/relion", _PROJECT,
                           "postprocess_97pzlq90")
         for name in ("postprocess.star", "postprocess.mrc", "postprocess_mask.mrc"):
@@ -69,6 +84,8 @@ if __name__ == "__main__":
         print(f"qa53 removed {removed} artifact(s) (topaz log + healed postprocess FSC data)")
         os.system("python3 /home/z/my-project/scripts/qa52-seed-report.py --clean")
         sys.exit(0)
+    _REFINE_JOB, WORKDIR = _resolve_host()
+    TOPAZ = os.path.join(WORKDIR, "topaz_training.txt")
     os.system("python3 /home/z/my-project/scripts/qa52-seed-report.py")
     os.makedirs(WORKDIR, exist_ok=True)
     with open(TOPAZ, "w") as fh:

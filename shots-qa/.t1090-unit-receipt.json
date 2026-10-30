@@ -1,0 +1,12 @@
+{
+  "unit": "t1090-lazy-host-unit",
+  "verdict": "GREEN",
+  "pass": 10,
+  "fail": 0,
+  "at": "2026-10-30T13:04:50.961Z",
+  "bands": [
+    "A qa55's laziness",
+    "B the seeders' lazy clean",
+    "C the loud failures preserved"
+  ]
+}
