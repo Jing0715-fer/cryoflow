@@ -110,6 +110,21 @@ const findAndCenter = async (needle) => {
   return `centered:${needle}`;
 };
 
+/* the Escape-tail settle (the t1077 N10 lesson): a closing dialog's
+ * overlay can outlive the Escape keypress and swallow the NEXT leg's
+ * find-click (the red rode as "NO-MATCH"/swallowed center on the
+ * cold-server rides). The walk now WAITS for the dialog to actually
+ * be gone — a poll on the visible layer, not a blind sleep — before
+ * the next find/click grammar starts. */
+const settleDialogGone = async () => {
+  const gone = await poll(
+    `(() => { const d = [...document.querySelectorAll('[data-inspector-dialog]')].find(x => x.getBoundingClientRect().width > 0); return JSON.stringify({ gone: !d }); })()`,
+    (v) => v.gone === true, 8, 500,
+  );
+  await sleep(400);
+  return gone?.gone === true;
+};
+
 const openInspectorHard = async (name, tries = 6) => {
   for (let i = 0; i < tries; i++) {
     const clicked = await realClick(`[...document.querySelectorAll('[data-job]')].find(c => (c.textContent || '').includes('${name}'))?.querySelector('[role="button"][tabindex]')`);
@@ -147,7 +162,14 @@ const selTabExpr = (name) => `(() => { const d = [...document.querySelectorAll('
  * verify the dialog is HERE (re-open when a flicker took it), click
  * Overview, POLL the visible panel for the card, and only then trust
  * the read. */
-const openOverviewRead = async (name, rounds = 4) => {
+/* `ready` (the t1077 D1 lesson): the Overview card renders BEFORE the
+ * async log diagnosis lands — a card-shaped read can still carry
+ * chips=[] and fail the chip pins spuriously on a cold server. The
+ * chip legs pass a settle predicate (chips actually on the card); the
+ * poll returns the LAST read when the deadline exhausts, so a genuinely
+ * chipless face still asserts honestly — the patience never invents
+ * a chip, it only refuses to read half-painted ones. */
+const openOverviewRead = async (name, rounds = 4, ready = null) => {
   for (let i = 0; i < rounds; i++) {
     const here = evalJson(`(() => { const d = [...document.querySelectorAll('[data-inspector-dialog]')].find(x => (x.textContent || '').includes('${name}')); return JSON.stringify({ here: !!d }); })()`);
     if (!here?.here) {
@@ -157,7 +179,7 @@ const openOverviewRead = async (name, rounds = 4) => {
     }
     const clicked = await clickTab(name, "Overview", 2);
     if (String(clicked).startsWith("clicked@")) {
-      const read = await pollTraced(walkExpr(name), (v) => v && !v.err && !!v.card, 10, 600, `ovr${i}`);
+      const read = await pollTraced(walkExpr(name), (v) => v && !v.err && !!v.card && (!ready || ready(v)), 10, 600, `ovr${i}`);
       if (read && !read.err && read.card) return read;
     }
     await sleep(600);
@@ -374,7 +396,7 @@ shot("t994-cancelled-flip-strip.png");
 sh(`${AB} set viewport 1280 800`);
 await sleep(1200);
 try { sh(`${AB} press Escape`); } catch {}
-await sleep(800);
+await settleDialogGone();
 console.log("-- segment B: the discriminators (no double-match on the walltime face; the t970 contrast) --");
 
 const centeredB = await findAndCenter("Negative Diagnosis");
@@ -394,7 +416,9 @@ if (String(await openInspectorHard(WALL_NAME)).startsWith("open@try")) {
    * red-3 caught the sampler answering [] to a single read and red-7
    * caught the Overview click losing its settle race — both walk-side
    * lessons; the discriminator's intent never moved. */
-  const wallRead = await openOverviewRead(WALL_NAME);
+  /* the settle predicate rides here (the t1077 D1 lesson): the walltime
+   * chips are the async log diagnosis's face — wait for them to land */
+  const wallRead = await openOverviewRead(WALL_NAME, 4, (v) => (v?.card?.chips?.length ?? 0) > 0);
   ok("D1 the walltime face STILL speaks EXACTLY ONE chip (the t994 row did not double-match it)", wallRead?.card?.chips?.length === 1 && wallRead.card.chips[0].id === "walltime-limit", JSON.stringify(wallRead?.card?.chips ?? []));
   ok("D2 the walltime face carries no scheduler-cancelled chip (the closing-*** discriminator's browser face)", !(wallRead?.card?.chips ?? []).some((c) => c.id === "scheduler-cancelled"));
 } else {
@@ -404,7 +428,7 @@ if (String(await openInspectorHard(WALL_NAME)).startsWith("open@try")) {
 }
 
 try { sh(`${AB} press Escape`); } catch {}
-await sleep(800);
+await settleDialogGone();
 const centeredC = await findAndCenter("Failed Diagnosis");
 console.log(`  find-bar(contrast): ${centeredC}`);
 if (String(await openInspectorHard(POS_NAME)).startsWith("open@try")) {
@@ -412,7 +436,9 @@ if (String(await openInspectorHard(POS_NAME)).startsWith("open@try")) {
   /* the same settle-race-safe read — the visibility-honest probe (the
    * inactive panels unmount, so a found card IS the Overview panel
    * showing) */
-  const posRead = await openOverviewRead(POS_NAME);
+  /* the same settle patience (the t1077 N10 lesson): the positive
+   * teaser's two chips land with the same async diagnosis */
+  const posRead = await openOverviewRead(POS_NAME, 4, (v) => (v?.card?.chipCount ?? 0) > 0);
   ok("N10 the contrast leg: the t970 face still speaks the POSITIVE teaser (2 chips, not negative)", !!posRead && posRead.card?.chipCount === 2 && posRead.card?.neg === false, JSON.stringify(posRead ? { neg: posRead.card?.neg, chips: posRead.card?.chipCount } : {}));
 } else {
   ok("N10 the contrast leg: the t970 face still speaks the POSITIVE teaser (2 chips, not negative)", false, "the t970 inspector never opened");

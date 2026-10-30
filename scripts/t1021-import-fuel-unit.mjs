@@ -87,6 +87,31 @@ for (let i = 0; i < 10 && !world; i++) {
   } catch { /* the warmup */ }
 }
 if (!world) { console.error("FATAL: the server never answered 200"); process.exit(2); }
+/* ---------- the orphan-first sweep (the t1078 lesson) ---------- */
+/* the reap can kill the server BETWEEN the ride's mint and the
+ * sweep's delete — the twin then stands in the world and every later
+ * run FATALs its own gate with no cure but manual surgery (the
+ * t1078 window spent its cure on exactly this: the fuel fixture
+ * "Import Fuel Gate Ride" leaked when the reap ate the server
+ * mid-unit). The unit now sweeps its OWN leftover twin through the
+ * product's DELETE door before the gate reads the world; any OTHER
+ * drift still FATALs honestly. */
+const orphan = world.find((j) => j.name === "Import Fuel Gate Ride");
+if (orphan) {
+  console.log(`orphan sweep — the leftover twin from a dead run: ${orphan.id} (${orphan.status})`);
+  try { await api("DELETE", `/api/jobs/${orphan.id}`); } catch { /* the failure is not sticky */ }
+  rmSync(path.join(ROOT, "data/relion", orphan.projectId ?? world[0]?.projectId ?? "", `import_${orphan.id.slice(-8)}`), { force: true, recursive: true });
+  await sleep(1200);
+  world = null;
+  for (let i = 0; i < 10 && !world; i++) {
+    if (i > 0) await sleep(1000);
+    try {
+      const r = await api("GET", "/api/jobs");
+      if (r.status === 200) world = jobsArr(r.json);
+    } catch { /* the beat */ }
+  }
+  if (!world) { console.error("FATAL: the server never answered 200 (post-orphan-sweep)"); process.exit(2); }
+}
 if (world.length !== 16) {
   console.error(`FATAL: world gate — jobs ${world.length} (want 16 — the t1075 replant census; the t1003 22-world's db died in the epoch rollback)`);
   process.exit(1);
