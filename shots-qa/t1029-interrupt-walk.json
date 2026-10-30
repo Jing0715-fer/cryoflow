@@ -1,0 +1,11 @@
+{
+  "walk": "t1029-interrupt-walk",
+  "at": "2026-10-30T06:32:45.071Z",
+  "pass": 9,
+  "fail": 0,
+  "phaseTrace": [
+    "W3 i0: {\"open\":true}",
+    "W4r0 i0: {\"hasStaleWords\":true,\"hasJobFailed\":true,\"hasResetEdit\":true,\"hasRerunVerb\":true}"
+  ],
+  "results": []
+}
