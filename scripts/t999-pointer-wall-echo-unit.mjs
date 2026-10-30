@@ -34,6 +34,24 @@
  * story slots): the grips carry no disabled prop and the echo region
  * is not an interactive tag — the no-shift ruling, live.
  *
+ * THE RIDE-SIDE BAND (R1–R8, the t1084 growth — the 23+-window carried
+ * candidate): the Q-band's 16 needles pin the SOURCE; the walk's receipt
+ * is the RIDE's own evidence, and until t1084 nothing pinned it — a stale
+ * or red walk could hide behind a green unit. The R-band reads
+ * shots-qa/t999-pointer-wall-echo-walk.json (the walk's own receipt, a
+ * tracked artifact) and pins the RIDE: the identity (instrument + born),
+ * the zero-red full leg set (fail === 0, pass >= 30 — the walk's current
+ * leg grammar), the FULL axis set present (viewport, both width walls,
+ * both height walls, the mid park, the se join), each wall's echo
+ * AGREEING with the builders' own words (the width/height floors pinned
+ * at the GEO_MIN constants, the ceilings derived from the receipt's OWN
+ * viewport — no second arithmetic), the SE JOIN's combined face in the
+ * source's word order (width，height), the mid park's no-word law, and
+ * the leave-no-trace pair (the stored geometry restored, the world
+ * fingerprint unmoved) — the walk's honest bookkeeping, pinned where the
+ * unit can see it. A red or shrunken walk now turns the unit RED: the
+ * ruler follows the ride.
+ *
  *   node scripts/t999-pointer-wall-echo-unit.mjs
  */
 import { execFileSync } from "node:child_process";
@@ -137,6 +155,52 @@ ok("Q15 onMove's resize arithmetic is untouched (the walls did not move)",
 ok("Q16 the grips' valuemax formulas stand (the t997 plane's other half, unmoved)",
   eGrip.includes("aria-valuemax={geo ? Math.max(window.innerWidth - 16, GEO_MIN_W) : undefined}") &&
   sGrip.includes("aria-valuemax={geo ? Math.max(window.innerHeight - 16, GEO_MIN_H) : undefined}"));
+
+/* R1–R8 — the ride-side band (the t1084 growth): the WALK's receipt is
+ * evidence now. The walk rode 30/0 twice at t1003 and again this window;
+ * nothing pinned it. A red, shrunken, or structurally-degraded ride turns
+ * the unit RED — the ruler follows the ride. */
+const WALK_RECEIPT = "shots-qa/t999-pointer-wall-echo-walk.json";
+const ride = (() => {
+  try { return JSON.parse(readFileSync(path.join(ROOT, WALK_RECEIPT), "utf8")); }
+  catch { return null; }
+})();
+const GEO_MIN_W_PIN = 360; // the walk's own constants (the panel's GEO_MIN_W/H)
+const GEO_MIN_H_PIN = 420;
+const legs = ride?.legs ?? {};
+const vw = legs.viewport?.vw ?? null;
+const vh = legs.viewport?.vh ?? null;
+ok("R1 the walk's receipt exists and names the instrument (the ride's identity, tracked)",
+  ride?.walk === "t999-pointer-wall-echo-walk" && ride?.born === "2026-10-15",
+  ride ? `at=${ride.at}` : "receipt missing/unparseable");
+ok("R2 the last ride is zero-red at the full leg set (fail === 0, pass >= 30)",
+  ride?.fail === 0 && ride?.pass >= 30,
+  `pass=${ride?.pass} fail=${ride?.fail}`);
+ok("R3 the legs carry the FULL axis set (viewport · both width walls · both height walls · the mid park · the se join)",
+  legs.viewport != null && legs.floor != null && legs.ceiling != null &&
+  legs.midPark != null && legs.sFloor != null && legs.sCeiling != null && legs.seJoin != null,
+  `vw=${vw} vh=${vh}`);
+ok("R4 the width walls' echoes agree with the builders' words on film (floor pinned at GEO_MIN_W, ceiling from the receipt's own viewport)",
+  legs.floor?.echo === `已到最小宽度（${GEO_MIN_W_PIN} 像素）` &&
+  legs.ceiling?.echo === `已到最大宽度（${vw - 16} 像素）` &&
+  legs.floor?.agreed === true && legs.ceiling?.agreed === true,
+  `floor="${legs.floor?.echo}" ceiling="${legs.ceiling?.echo}"`);
+ok("R5 the height walls' echoes agree too (the second axis on film, same one mouth)",
+  legs.sFloor?.echo === `已到最小高度（${GEO_MIN_H_PIN} 像素）` &&
+  legs.sCeiling?.echo === `已到最大高度（${vh - 16} 像素）` &&
+  legs.sFloor?.agreed === true && legs.sCeiling?.agreed === true,
+  `sFloor="${legs.sFloor?.echo}" sCeiling="${legs.sCeiling?.echo}"`);
+ok("R6 the SE JOIN speaks both walls in one breath, the source's word order (width，height)",
+  legs.seJoin?.joined === true &&
+  legs.seJoin?.echo === `${legs.floor?.echo}，${legs.sFloor?.echo}` &&
+  legs.seJoin?.w === GEO_MIN_W_PIN && legs.seJoin?.h === GEO_MIN_H_PIN,
+  `join="${legs.seJoin?.echo}"`);
+ok("R7 the mid park added no word (only the refusal is news — the echo held the ceiling's face)",
+  legs.midPark?.echoUnchanged === true && legs.midPark?.text != null,
+  `text="${legs.midPark?.text}"`);
+ok("R8 the leave-no-trace law held on film (the stored geometry restored, the world fingerprint unmoved)",
+  legs.storedEcho?.restored === true && legs.worldRestored === true,
+  `restored=${legs.storedEcho?.restored} world=${legs.worldRestored}`);
 
 console.log(`VERDICT: ${fail === 0 ? `GREEN ${pass}/${pass + fail}` : `RED ${pass}/${pass + fail}`}`);
 console.log(`${pass}/${pass + fail} green`);
