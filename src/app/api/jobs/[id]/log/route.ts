@@ -84,6 +84,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
         // (never as console content that blanks the log mid-refresh)
         pending: remote.pending ?? false,
         note: remote.note,
+        // t1083 — the receipt's sibling: the cluster lane's record carries
+        // the same resumedFrom the local record has held since t1082
+        // (parsed from the final argv at the spawn faces by
+        // parseResumeIteration — the "Continue from here:" picker's
+        // self-round and any pipeliner-dialect continue both speak). The
+        // chip reads this branch with zero UI change.
+        resumedFrom: rec?.resumedFrom ?? null,
       });
     }
 

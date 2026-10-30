@@ -1877,6 +1877,32 @@ export function selfContinueInArgv(
   return false;
 }
 
+/**
+ * t1083 — the remote resume's receipt. A cluster run whose argv carries
+ * `--continue <…run_itNNN_optimiser.star>` IS a resume (the "Continue from
+ * here:" picker's self-round — t394's carve-out — or the pipeliner
+ * dialect's own continue target). The record carries the checkpoint
+ * iteration so the inspector's Log toolbar chip speaks for the cluster
+ * lane exactly as it has spoken for the local lane since t1082: written
+ * ONCE at spawn, every later finalize spread carries it for free.
+ *
+ * Parsed from the FINAL argv (post-relativize t537, post-MPI-wrap): the
+ * grammar is RELION's own output name — run_it<NNN>_optimiser.star — and
+ * the iteration is the <NNN>. A user-typed continue aimed at a non-run
+ * optimiser name (a multi-body job's run_itNNN_it0NN_optimiser.star, say)
+ * intentionally does NOT match the receipt grammar: the chip names the
+ * refine-family checkpoint contract, and a half-guessed receipt is a
+ * lie the toolbar should never say.
+ */
+export function parseResumeIteration(argv: readonly string[]): number | null {
+  for (let i = 0; i + 1 < argv.length; i++) {
+    if (argv[i] !== "--continue") continue;
+    const m = /run_it(\d+)_optimiser\.star$/.exec(argv[i + 1] ?? "");
+    if (m) return parseInt(m[1], 10);
+  }
+  return null;
+}
+
 /* ------------------------------------------------------------------ */
 /* Wrapper script (module load + detached spawn + exit capture)         */
 /* ------------------------------------------------------------------ */
@@ -5678,6 +5704,14 @@ export async function startRemoteJob(args: {
       } else {
         command = argv.map(shQuoteOrVar).join(" ");
       }
+      // t1083 — the resume's receipt (parseResumeIteration's doc): the FINAL
+      // argv is the witness — the continue target survived the relativize
+      // (t537) and the MPI wrap — and the record carries its iteration at
+      // the spawn faces below so the Log toolbar chip speaks for the
+      // cluster lane. argv is stable from here (no later mutation touches
+      // it: only reads), so one parse serves both the slurm and the
+      // direct-mode record write.
+      const resumeIter = parseResumeIteration(argv);
       // t382 — the cluster-side extraction pre-flight's star: the --i value
       // the final argv carries (the array lane's $SHARD maps back to
       // arrayPlan.inputStar — the same file; argv itself is never mutated on
@@ -6391,6 +6425,9 @@ export async function startRemoteJob(args: {
             ? {
                 ...rec,
                 cmd: command,
+                // t1083 — the resume's receipt rides the record from the
+                // slurm spawn face too (the finalize spreads carry it home).
+                ...(resumeIter != null ? { resumedFrom: resumeIter } : {}),
                 remote: {
                   ...rec.remote,
                   slurmId,
@@ -6503,6 +6540,9 @@ export async function startRemoteJob(args: {
                 ...rec,
                 pid,
                 cmd: command,
+                // t1083 — the resume's receipt at the direct-mode spawn face
+                // (the slurm twin above carries the same conditional).
+                ...(resumeIter != null ? { resumedFrom: resumeIter } : {}),
                 remote: {
                   ...rec.remote,
                   pid,

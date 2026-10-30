@@ -29,6 +29,20 @@
  *      resumedFrom") still reads exactly this field — the walk's next ride
  *      (this window) turns that check green with NO walk edit.
  *
+ * t1083 GROWTH — the receipt's SIBLING: the CLUSTER lane speaks too. The
+ * remote record now carries the same resumedFrom (parseResumeIteration
+ * reads it off the FINAL argv — post-relativize t537, post-MPI-wrap —
+ * so the "Continue from here:" picker's self-round and any
+ * pipeliner-dialect continue both speak), BOTH remote spawn faces
+ * (slurm + direct) write it conditionally, the remote finalize spread
+ * carries it into the completed row, and the log route's remote branch
+ * exposes it — the chip reads it with ZERO UI change. The growth also
+ * cures the unit's own t1082-era defect: W2b's remoteBlock slice bounds
+ * produced an EMPTY slice (the remote branch's own raw-format if
+ * precedes the 'remote: true,' anchor), so the old negation was
+ * vacuously green — a verify that could not fail. The bounds are fixed
+ * and the negation becomes the assertion it always should have been.
+ *
  * PROTOCOL: node-only, read-only toward the tree (no server, no db, no
  * spawn) — pure source assertions, exit honest.
  */
@@ -49,6 +63,7 @@ const engine = read("src/lib/relion/engine.ts");
 const logRoute = read("src/app/api/jobs/[id]/log/route.ts");
 const inspector = read("src/components/workflow/job-inspector.tsx");
 const walk = read("scripts/t1081-interrupt-door-walk.mjs");
+const remoteRun = read("src/lib/remote/remote-run.ts");
 
 /* ---------- F — the engine fix at source ---------- */
 
@@ -119,22 +134,36 @@ ok(
   "W1: the log route's local branch exposes resumedFrom (null for fresh runs)",
   logRoute.includes("resumedFrom: rec?.resumedFrom ?? null,")
 );
-// W2: the field line appears exactly once and the REMOTE response block
-// stays untouched (remote records carry RemoteRunState, not the local
-// receipt). The field line itself spells resumedFrom twice
+// W2: the field line's count and the remote response block's face.
+// t1082: the line appeared once, local branch only (remote records carried
+// RemoteRunState, not the receipt). t1083's growth: the line appears
+// exactly twice — the local branch AND the remote branch — and the remote
+// block ASSERTS the field (the old vacuous negation, below, is the flip's
+// story). The field line itself spells resumedFrom twice
 // (`resumedFrom: rec?.resumedFrom ?? null`) — the assertion pins the LINE,
 // not the token count.
 const fieldLine = "resumedFrom: rec?.resumedFrom ?? null,";
 const fieldLineCount = (logRoute.match(new RegExp(fieldLine.replace(/[?]/g, "\\$&"), "g")) || []).length;
+// t1083 — the bounds cure: the FIRST 'format === raw' if in this file sits
+// INSIDE the remote branch (its own raw download), before the
+// 'remote: true,' anchor — the old slice was empty and W2b's negation was
+// vacuously green. Anchor the block at 'remote: true,' and end it at the
+// NEXT raw-if AFTER that anchor (the local branch's), so the block is the
+// remote branch's actual JSON response.
+const remoteStart = logRoute.indexOf('remote: true,');
 const remoteBlock = logRoute.slice(
-  logRoute.indexOf('remote: true,'),
-  logRoute.indexOf("if (url.searchParams.get(\"format\") === \"raw\")")
+  remoteStart,
+  logRoute.indexOf('if (url.searchParams.get("format") === "raw")', remoteStart)
 );
-ok("W2: the route's field line appears exactly once", fieldLineCount === 1, `count=${fieldLineCount}`);
 ok(
-  "W2b: the remote response block carries no receipt field",
-  !remoteBlock.includes("resumedFrom:"),
-  remoteBlock.slice(0, 120)
+  "W2: the route's field line appears exactly twice (local + remote branches)",
+  fieldLineCount === 2,
+  `count=${fieldLineCount}`
+);
+ok(
+  "W2b: the remote response block exposes the receipt too (the t1083 flip)",
+  remoteBlock.includes("resumedFrom:"),
+  remoteBlock.slice(0, 160)
 );
 // W3: the route's comment names the t1082 law.
 ok("W3: the route's receipt comment names t1082", logRoute.includes("t1082"));
@@ -186,6 +215,50 @@ const census = read("scripts/t927-census.sh");
 ok(
   "R2: the census ledger seats t1082-resumed-from-unit",
   census.includes("t1082-resumed-from-unit")
+);
+
+/* ---------- RM — the receipt's sibling (t1083, the cluster lane) ---------- */
+
+// RM1: the parser is exported from the remote module.
+const parserIdx = remoteRun.indexOf("export function parseResumeIteration(");
+ok("RM1: parseResumeIteration is exported from remote-run.ts", parserIdx > 0);
+// RM2: the parser's grammar is RELION's own checkpoint name, and it scans
+// for the --continue flag before the target.
+const parserBody = remoteRun.slice(parserIdx, parserIdx + 900);
+ok(
+  "RM2: the parser reads --continue then run_itNNN_optimiser.star (RELION's own name)",
+  parserBody.includes('argv[i] !== "--continue"') &&
+    parserBody.includes("run_it(\\d+)_optimiser\\.star$")
+);
+// RM3: the dispatch parses the receipt from the FINAL argv (the const sits
+// after the command build — post-relativize t537, post-MPI-wrap).
+ok(
+  "RM3: startRemoteJob parses the receipt from the final argv",
+  remoteRun.includes("const resumeIter = parseResumeIteration(argv);")
+);
+// RM4: BOTH remote spawn faces write the receipt (slurm + direct).
+const spread = "...(resumeIter != null ? { resumedFrom: resumeIter } : {}),";
+const spreadCount = remoteRun.split(spread).length - 1;
+ok("RM4: both remote spawn faces write the receipt (slurm + direct)", spreadCount === 2, `count=${spreadCount}`);
+// RM5: the faces are ordered slurm-then-direct, with the slurm write's own
+// PENDING state between them (the receipts ride the two real write sites,
+// not a copy-paste into a comment).
+const sp1 = remoteRun.indexOf(spread);
+const sp2 = remoteRun.indexOf(spread, sp1 + 1);
+const slurmStateIdx = remoteRun.indexOf('slurmState: "PENDING"');
+ok(
+  "RM5: the receipts ride the real write sites (slurm first, PENDING between, direct after)",
+  sp1 > 0 && sp2 > sp1 && slurmStateIdx > sp1 && slurmStateIdx < sp2,
+  `sp1=${sp1} slurm=${slurmStateIdx} sp2=${sp2}`
+);
+// RM6: the remote finalize spreads ...cur (the receipt survives into the
+// completed row — the same carrier mechanism the local exit handler uses).
+const finIdx = remoteRun.indexOf("exitCode: stampKept ? cur.exitCode : exitCode,");
+const finBlock = remoteRun.slice(Math.max(0, finIdx - 200), finIdx + 200);
+ok(
+  "RM6: the remote finalize spreads the record (the receipt survives into the completed row)",
+  finIdx > 0 && finBlock.includes("...cur,"),
+  finBlock.slice(0, 160)
 );
 
 console.log(`\n===== t1082 resumed-from unit: ${pass}/${pass + fail} green =====`);
