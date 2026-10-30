@@ -323,7 +323,13 @@ if (process.argv[2] === "mint") {
   guards();
 
   // 1. NINTH — the class2d face
-  const madeA = api("POST", "/api/jobs", { type: "class2d", name: NAME_A, x: 1960, y: 1600 });
+  // (the t1077 lesson: (1960,1600) is the t995 custom-error face's own
+  // seat — the birth-world's rider stacked on a standing face and the
+  // later-DOM rider ATE the face's clicks (the walks' realClick hit the
+  // rider's inspector). The rider seats at (1960,1440): the free slot
+  // between the t976 cancelled face (1320) and the t995 face (1600) —
+  // same column, no collision, the rider grid intact.)
+  const madeA = api("POST", "/api/jobs", { type: "class2d", name: NAME_A, x: 1960, y: 1440 });
   ok("NINTH (class2d) created", !!madeA.job?.id, madeA.job?.id?.slice(-8));
   if (!madeA.job?.id) process.exit(2);
   const a = madeA.job;
