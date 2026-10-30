@@ -71,6 +71,7 @@ import { cn } from "@/lib/utils";
 import { downloadBlob } from "@/lib/download"; // t646 — one blob sink (this dance skipped the attach-before-click law)
 import { obliqueDepthVox, obliqueDepthVoice, obliqueOffsetPctVoice, obliqueSupportVox, voxelReadout } from "@/lib/voxel-voice"; // t906/t907 — the tile's and the oblique block's voices ride the ONE lib (the embed's commit site reads the same seats)
 import { FILMSTRIP_FRAMES, obliqueFilmstripFilename, obliqueFilmstripUrls, planObliqueFilmstrip } from "@/lib/oblique-filmstrip"; // t1096 — the walk's geometry rides the ONE lib: the plan, the URLs and the name are decided before a fetch flies
+import { ORTHO_FILMSTRIP_FRAMES, orthoFilmstripFilename, orthoFilmstripUrls, planOrthoFilmstrip } from "@/lib/ortho-filmstrip"; // t1098 — the axis walks ride the ONE lib: the plan, the URLs and the name are decided before a fetch flies
 
 /** event names for the two-way 3D↔2D linkage — see molstar-embed.tsx */
 export const ORTHO_SLICE_EVENT = "cryoflow:ortho-slice";
@@ -272,6 +273,7 @@ const EXPORT_TEXT = "#94a3b8";
 /** t556 — the fourth panel's accent: the oblique block's own violet
  *  (text-violet-600), solid for label text on the dark strip */
 const EXPORT_OBLIQUE_ACCENT = "#7c3aed";
+
 /** solid (non-alpha) versions of the accents for label text on the dark strip */
 const AXIS_LABEL: Record<"x" | "y" | "z", string> = {
   x: "#f59e0b",
@@ -727,6 +729,10 @@ function OrthoTile({
         >
           <ChevronRight className="size-3" aria-hidden="true" />
         </button>
+        {/* t1098 — the axis's own walk: the whole box swept face to face
+            along this axis, one document; revealed with the sync button's
+            own hover vocabulary (the tile's feature tier) */}
+        <OrthoFilmstripButton jobId={jobId} path={path} spec={spec} dim={dim} />
         <button
           type="button"
           onClick={syncTo3d}
@@ -1820,6 +1826,155 @@ function ObliqueFilmstripButton({
         <TriangleAlert className="h-3 w-3" aria-hidden="true" />
       ) : (
         <Film className="h-3 w-3" aria-hidden="true" />
+      )}
+    </button>
+  );
+}
+
+/**
+ * t1098 — the walk's SIBLINGS: one ortho axis swept face to face through
+ * the box, composed into ONE PNG document. The strip rides the same
+ * publishing-grid language as the oblique walk (t1096), but speaks the
+ * TILE's own accent (the axis's color everywhere the oblique speaks
+ * violet) and the TILE's own voice (the t906 plane voice — "z 33/64" /
+ * "z 50%", the readout the tile already wears) — one father per family,
+ * no face drifts. The frames are the tile's own src shape at the plan's
+ * positions (axis + pos toFixed(3)), so a frame and the screen can never
+ * disagree. The walk is the axis's own tour: it owns the whole support
+ * face to face, independent of where the tile's slider currently sits.
+ */
+function OrthoFilmstripButton({
+  jobId,
+  path,
+  spec,
+  dim,
+}: {
+  jobId: string;
+  path: string;
+  spec: TileSpec;
+  /** voxels along the walked axis (from the outputs listing) — the
+   * span's voice and the frames' addresses; absent → the honest % */
+  dim?: number;
+}) {
+  const [state, setState] = useState<"idle" | "busy" | "ok" | "err">("idle");
+  useEffect(() => {
+    if (state !== "ok" && state !== "err") return;
+    const t = setTimeout(() => setState("idle"), 1600);
+    return () => clearTimeout(t);
+  }, [state]);
+
+  const walk = async () => {
+    if (state === "busy") return;
+    setState("busy");
+    try {
+      const plan = planOrthoFilmstrip(spec.axis, dim ?? null);
+      const urls = orthoFilmstripUrls(jobId, path, plan);
+      const bitmaps = await Promise.all(
+        urls.map(async (u) => {
+          const r = await fetch(u, { cache: "no-store" });
+          if (!r.ok) throw new Error(`frame render failed (${r.status})`);
+          return createImageBitmap(await r.blob());
+        })
+      );
+      // the publishing grid: the oblique walk's own measures — fixed
+      // tiles, a label strip per frame, a header naming the axis and a
+      // footer naming the map + the moment
+      const TILE = 220;
+      const LABEL_H = 26;
+      const HEAD_H = 30;
+      const FOOT_H = 46;
+      const GAP = 12;
+      const n = bitmaps.length;
+      const W = GAP * (n + 1) + TILE * n;
+      const H = GAP + HEAD_H + GAP + LABEL_H + TILE + GAP + FOOT_H;
+      const cv = document.createElement("canvas");
+      cv.width = W;
+      cv.height = H;
+      const ctx = cv.getContext("2d");
+      if (!ctx) throw new Error("no 2d context");
+      ctx.fillStyle = EXPORT_BG;
+      ctx.fillRect(0, 0, W, H);
+      // header: the axis walk's name in the tile's own accent, the axis's
+      // span face to face (honest silence when the grid is unknown) and
+      // the frame count right
+      ctx.textBaseline = "middle";
+      ctx.textAlign = "left";
+      ctx.font = "600 13px ui-sans-serif, system-ui, sans-serif";
+      ctx.fillStyle = AXIS_LABEL[spec.axis];
+      ctx.fillText(`${spec.axisLabel} walk`, GAP, GAP + HEAD_H / 2);
+      ctx.font = "11px ui-monospace, SFMono-Regular, Menlo, monospace";
+      ctx.fillStyle = EXPORT_TEXT;
+      ctx.textAlign = "right";
+      const span = plan.dim != null ? `${plan.dim} vox face to face \u00b7 ` : "";
+      ctx.fillText(`${span}${n} frames`, W - GAP, GAP + HEAD_H / 2);
+      ctx.textAlign = "left";
+      // the frames: the tile's own plane voice in the tile's own accent —
+      // the one honest label a cite needs; the plane beneath
+      const rowTop = GAP + HEAD_H + GAP;
+      plan.frames.forEach((f, i) => {
+        const x0 = GAP + i * (TILE + GAP);
+        ctx.font = "600 11px ui-monospace, SFMono-Regular, Menlo, monospace";
+        ctx.fillStyle = AXIS_LABEL[spec.axis];
+        ctx.textBaseline = "middle";
+        ctx.fillText(f.planeLabel, x0, rowTop + LABEL_H / 2);
+        ctx.drawImage(bitmaps[i], x0, rowTop + LABEL_H, TILE, TILE);
+        ctx.strokeStyle = EXPORT_TILE_BORDER;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x0 + 0.5, rowTop + LABEL_H + 0.5, TILE - 1, TILE - 1);
+      });
+      // footer: the map's name left, the moment right — the document
+      // provenance the oblique walk already speaks
+      const footTop = H - GAP - FOOT_H;
+      const footY = footTop + FOOT_H / 2;
+      const base = path.split("/").pop() || path;
+      ctx.font = "600 13px ui-sans-serif, system-ui, sans-serif";
+      ctx.fillStyle = "#e2e8f0";
+      ctx.fillText(base, GAP, footY);
+      ctx.font = "12px ui-monospace, SFMono-Regular, Menlo, monospace";
+      ctx.fillStyle = EXPORT_TEXT;
+      ctx.textAlign = "right";
+      ctx.fillText(
+        `${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC`,
+        W - GAP,
+        footY
+      );
+      ctx.textAlign = "left";
+      const blob = await new Promise<Blob | null>((res) => cv.toBlob(res, "image/png"));
+      if (!blob) throw new Error("encode failed");
+      const stamp = new Date().toISOString().slice(11, 19).replace(/:/g, "");
+      downloadBlob(blob, orthoFilmstripFilename(path, spec.axis, stamp));
+      setState("ok");
+    } catch {
+      setState("err");
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={walk}
+      disabled={state === "busy"}
+      data-canvas-ui={`ortho-filmstrip-${spec.axis}`}
+      aria-label={
+        state === "busy"
+          ? "Exporting the walk\u2026"
+          : `Export the ${spec.plane}'s walk \u2014 ${ORTHO_FILMSTRIP_FRAMES} frames from face to face along ${spec.axisLabel}`
+      }
+      title={`The walk: the whole ${spec.plane} swept face to face along ${spec.axisLabel}, one document \u2014 each frame signed with its plane address`}
+      className={cn(
+        "shrink-0 rounded p-0.5 opacity-0 transition-all duration-150 hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none group-hover/tile:opacity-100 group-focus-within/tile:opacity-100 hover-none:opacity-100",
+        spec.text,
+        state === "busy" && "cursor-not-allowed opacity-50"
+      )}
+    >
+      {state === "busy" ? (
+        <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+      ) : state === "ok" ? (
+        <Check className="size-3" aria-hidden="true" />
+      ) : state === "err" ? (
+        <TriangleAlert className="size-3" aria-hidden="true" />
+      ) : (
+        <Film className="size-3" aria-hidden="true" />
       )}
     </button>
   );

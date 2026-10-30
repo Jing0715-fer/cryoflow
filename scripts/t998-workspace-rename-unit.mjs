@@ -75,10 +75,10 @@ try { unlinkSync(TMP); } catch {}
 
 ok("B21 the census's population gate stands (the disabled-refusal law the no-re-key ruling reads)",
   (() => { try { return readFileSync(path.join(ROOT, CENSUS_SRC), "utf8").includes("if (!/\\bdisabled=\\{/.test(text)) continue;"); } catch { return false; } })());
-ok("B22 population = 172 (the cured faces were never in it — the no-re-key ruling, live; +1 the t1096 filmstrip walk name)",
-  receipt?.population === 172, `got ${receipt?.population}`);
-ok("B23 stateful = 150 (the delete door stays stateful through its cure; +30 from the t1005 refusal-name arm, +3 from the t1008 dynamic names, +1 from the t1096 filmstrip walk name)",
-  receipt?.tally?.stateful === 150, `got ${receipt?.tally?.stateful}`);
+ok("B22 population = 173 (the cured faces were never in it — the no-re-key ruling, live; +1 the t1096 filmstrip walk name, +1 the t1098 ortho walk name)",
+  receipt?.population === 173, `got ${receipt?.population}`);
+ok("B23 stateful = 151 (the delete door stays stateful through its cure; +30 from the t1005 refusal-name arm, +3 from the t1008 dynamic names, +1 from the t1096 filmstrip walk name, +1 from the t1098 ortho walk name)",
+  receipt?.tally?.stateful === 151, `got ${receipt?.tally?.stateful}`);
 ok("B24 silent-static = 0 (the rename input was never counted — no disabled prop; the t1005 arm emptied the bucket)",
   receipt?.tally?.["silent-static"] === 0, `got ${receipt?.tally?.["silent-static"]}`);
 ok("B25 silences = 22 (the flip bucket only — the t1005 arm retired the static half, the t1008 arm spoke three honest names)",
