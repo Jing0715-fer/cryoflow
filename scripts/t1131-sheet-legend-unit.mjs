@@ -41,7 +41,7 @@
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { sheetLegendOf } from "@/lib/voxel-voice";
+import { sheetLegendOf, sheetLegendText } from "@/lib/voxel-voice";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 let pass = 0;
@@ -182,6 +182,54 @@ ok((embed.match(/applyObliqueClipIntent\(\{ on: true/g) || []).length === 0,
   "E4 no DIRECT intent call survives inside the [] listener (the stale 'loading' closure is unreachable)");
 ok(embed.includes("the slice/clip listeners' own law") || embed.includes("THE STALE-LISTENER CURE"),
   "E5 the cure confesses its story at the scene (the Fast-Refresh false-positive named)");
+
+/* ===== F. the copy chip — the key as text (t1132, this window) ===== */
+
+ok(typeof sheetLegendText === "function", "F1 the lib mints the copy word (sheetLegendText — one father with the strip)");
+ok(sheetLegendText(null) === "" && sheetLegendText(undefined) === "",
+  "F2 no key → the honest empty string (the button stays idle, never copies a lie)");
+ok(sheetLegendText({ ...lg, swatches: ["#101010"] }) === "",
+  "F3 one swatch is no key (the strip's own refusal shape) yields the empty string");
+ok(sheetLegendText({ ...lg, labels: ["only"] }) === "",
+  "F4 labels shorter than swatches yields the empty string (the key would mis-speak a band in text too)");
+ok(sheetLegendText({ ...lg, kept: NaN }) === "" && sheetLegendText({ ...lg, lattice: Infinity }) === "",
+  "F5 a non-finite harvest refuses (numbers the chip could not confess)");
+if (lg) {
+  const text = sheetLegendText(lg);
+  const lines = text.split("\n");
+  ok(lines.length === 3 && lines[0] === lg.aria,
+    "F6 the copy's first line IS the aria word (the role=img sentence, verbatim — never a second ramp)");
+  ok(lines[1] === `kept ${lg.kept}/${lg.lattice} lattice quads · ${lg.dropped} dropped outside the grid`,
+    "F7 the copy's second line confesses the harvest (the chip's own numbers)");
+  ok(lines[2].startsWith("bands (dark → light): ") && lines[2].includes(lg.labels.join(" · ")),
+    "F8 the copy's third line carries the band words (dark → light, the swatches' own sequence)");
+}
+ok(panel.includes("sheetLegendText") && panel.includes("from \"@/lib/voxel-voice\""),
+  "F9 the panel's cargo rides the lib (the panel never composes the text itself)");
+ok(panel.includes("copyTextToClipboard"),
+  "F10 the house clipboard word (a PERMISSION, not a right — refusals collapse into one honest false)");
+ok(panel.includes('data-canvas-ui="ortho-oblique-sheet-legend-copy"') && panel.includes('type="button"'),
+  "F11 the copy chip exists with its own canvas-ui name (a real button, never a click-div)");
+ok(panel.indexOf("ortho-oblique-sheet-legend-copy") > panel.indexOf('data-canvas-ui="ortho-oblique-sheet-legend"') &&
+   panel.indexOf("ortho-oblique-sheet-legend-copy") < panel.indexOf("</button>", panel.indexOf("ortho-oblique-sheet-legend-copy")) &&
+   panel.includes('data-canvas-ui="ortho-oblique-sheet-legend-row"'),
+  "F12 the a11y sibling law: the button rides the row BESIDE the role=img strip, never inside it (interactive content in a role=img region is unexposed)");
+ok(panel.includes('"The face\'s key copied to the clipboard"') &&
+   panel.includes('"The clipboard refused the face\'s key"') &&
+   panel.includes('"Copy the face\'s key as text"'),
+  "F13 the flip speaks all three states (idle / copied / refused — aria-label AND title)");
+ok(panel.includes("1600"),
+  "F14 the 1600ms breath (the job-card idiom's own family — the flip self-resets)");
+ok(panel.includes("if (legendCopyTimer.current !== null) clearTimeout(legendCopyTimer.current);"),
+  "F15 the timer is cleaned up twice: the next click and the unmount (a dying strip fires no setter into the void)");
+ok(panel.includes("if (!sheetLegend || legendCopied !== null) return;"),
+  "F16 the handler's guard: no key, or a flip in flight, refuses (no double-copy storm)");
+ok(panel.includes("if (legendCopied !== null) setLegendCopied(null);"),
+  "F17 the flip retires with the face (the render-phase block — the prevNonce precedent's third rider)");
+ok(panel.includes("<Check className=\"h-3.5 w-3.5\"") && panel.includes("<TriangleAlert className=\"h-3.5 w-3.5\"") && panel.includes("<Copy className=\"h-3.5 w-3.5\""),
+  "F18 the three faces are lucide icons at the house size (Check / TriangleAlert / Copy — no glyph tofu risk)");
+ok(panel.includes("motion-reduce:transition-none") && panel.includes("focus-visible:ring-1"),
+  "F19 the chip obeys the motion law and carries a visible focus ring (keyboard-reachable copy)");
 
 console.log(`\n${fail === 0 ? "ALL GREEN" : "RED"} — t1131 sheet-legend unit: ${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);

@@ -1,0 +1,152 @@
+{
+  "components/ai/assistant-panel.tsx :: resize :: onResize": [
+    {
+      "hash": "a44cd3f72cae",
+      "why": "setState functional updater + file-scope pure clampGeo/defaultGeo"
+    }
+  ],
+  "components/workflow/app-shell.tsx :: visibilitychange :: onVis": [
+    {
+      "hash": "368e1ea32abc",
+      "why": "useState setter + useWorkflowStore.getState().pollTick()"
+    }
+  ],
+  "components/workflow/app-shell.tsx :: keydown :: onKeyDown": [
+    {
+      "hash": "9e605bcca0f7",
+      "why": "Escape ladder — store getState() actions + DOM queries only"
+    },
+    {
+      "hash": "f873b0dab89e",
+      "why": "Shift+D view flip — store getState() actions + DOM queries only"
+    }
+  ],
+  "components/workflow/app-shell.tsx :: BULK_DELETE_EVENT :: onBulkDeleteRequest": [
+    {
+      "hash": "87e29568fbbb",
+      "why": "store getState() + useState setter"
+    }
+  ],
+  "components/workflow/canvas-find-bar.tsx :: keydown :: onKey": [
+    {
+      "hash": "3799252c9454",
+      "why": "store getState().openFind()"
+    }
+  ],
+  "components/workflow/command-palette.tsx :: USER_PARAM_PRESETS_EVENT :: onPresetsChanged": [
+    {
+      "hash": "c0e612861fda",
+      "why": "useState setter + module-scope loadUserParamPresets()"
+    }
+  ],
+  "components/workflow/command-palette.tsx :: SAVED_VIEWS_CHANGED_EVENT :: onSavedViewsChanged": [
+    {
+      "hash": "ec22b27374bb",
+      "why": "file-scope function refreshSavedViewsCache()"
+    }
+  ],
+  "components/workflow/command-palette.tsx :: keydown :: onKeyDown": [
+    {
+      "hash": "c81cc31fa05a",
+      "why": "setOpen((v) => !v) — useState setter"
+    }
+  ],
+  "components/workflow/command-palette.tsx :: OPEN_EVENT :: onOpenRequest": [
+    {
+      "hash": "f6049413b7c7",
+      "why": "setOpen(true) — useState setter"
+    }
+  ],
+  "components/workflow/drop-import.tsx :: dragover :: swallow": [
+    {
+      "hash": "da19a0022bcf",
+      "why": "e.preventDefault() only (the t92 navigation guard)"
+    }
+  ],
+  "components/workflow/drop-import.tsx :: drop :: swallow": [
+    {
+      "hash": "da19a0022bcf",
+      "why": "e.preventDefault() only (the t92 navigation guard)"
+    }
+  ],
+  "components/workflow/header.tsx :: SESSION_REPORT_EVENT :: open": [
+    {
+      "hash": "6bf26f536b5a",
+      "why": "setReportOpen(true) — useState setter"
+    }
+  ],
+  "components/workflow/header.tsx :: STORAGE_OPEN_EVENT :: open": [
+    {
+      "hash": "59137e8ea981",
+      "why": "setStorageOpen(true) — useState setter"
+    }
+  ],
+  "components/workflow/header.tsx :: SYSTEM_DIAGNOSTICS_EVENT :: open": [
+    {
+      "hash": "818f79655f98",
+      "why": "setDiagOpen(true) — useState setter"
+    }
+  ],
+  "components/workflow/remote-cluster-dialog.tsx :: REMOTE_CLUSTERS_OPEN_EVENT :: openit": [
+    {
+      "hash": "58ca348908d0",
+      "why": "setOpen(true) — useState setter"
+    }
+  ],
+  "components/workflow/results/map-ortho-panel.tsx :: OBLIQUE_CLIP_EVENT :: onClip": [
+    {
+      "hash": "643b0c0edbbe",
+      "why": "panel-side adopt() — setState setters only (setObliqueCut)"
+    },
+    {
+      "hash": "643b0c0edbbe",
+      "why": "plate-side adopt() — setState setters only (setPlateOblique)"
+    }
+  ],
+  "components/workflow/results/map-ortho-panel.tsx :: OBLIQUE_CLIP_STATE_EVENT :: onAck": [
+    {
+      "hash": "84f2c6919bfc",
+      "why": "panel-side adopt() — setState setters only"
+    },
+    {
+      "hash": "84f2c6919bfc",
+      "why": "plate-side adopt() — setState setters only"
+    }
+  ],
+  "components/workflow/results/map-ortho-panel.tsx :: ORTHO_SIGMA_STATE_EVENT :: onSigmaState": [
+    {
+      "hash": "3277af0e78d1",
+      "why": "setIsoSigma — useState setter"
+    }
+  ],
+  "components/workflow/results/map-ortho-panel.tsx :: ORTHO_CAMERA_STATE_EVENT :: onCameraState": [
+    {
+      "hash": "036ff3c495b4",
+      "why": "setters + file-scope pure cameraDirToAngles"
+    }
+  ],
+  "components/workflow/results/molstar-embed.tsx :: OBLIQUE_VIEW_EVENT :: onObliqueView": [
+    {
+      "hash": "02b57b9a8c66",
+      "why": "applyViewPreset reads ONLY pluginRef.current — de-facto ref-safe"
+    }
+  ],
+  "components/workflow/user-preset-shelf.tsx :: USER_PARAM_PRESETS_EVENT :: refresh": [
+    {
+      "hash": "bfbb5343b307",
+      "why": "useState setter + module-scope load/reconcile fns"
+    }
+  ],
+  "lib/use-finish-knock.ts :: visibilitychange :: onVis": [
+    {
+      "hash": "574c66e860b3",
+      "why": "clearKnocks — module store function (the module-observable family)"
+    }
+  ],
+  "lib/use-tab-census.ts :: visibilitychange :: onVis": [
+    {
+      "hash": "8d9636da7cd2",
+      "why": "setHidden — useState setter"
+    }
+  ]
+}
