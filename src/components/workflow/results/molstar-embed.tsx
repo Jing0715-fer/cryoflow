@@ -4694,10 +4694,24 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
   // preference AND the cut's liveness — so a scrub during a commit lands
   // the newest truth), and one retirement law: no cut, no face.
   const deleteSheet = async () => {
-    if (!sheetRef.current) return;
-    const b = pluginRef.current?.build();
-    if (!b) return;
-    b.delete(sheetRef.current.transform.ref);
+    // t1130 — delete by the TREE's own witness, not the cached builder node:
+    // the live ride's face-off threw "Cannot read properties of undefined
+    // (reading 'ref')" off the cached To while the tree still held the cell
+    // (pressed=false but cellExists=true — the state split). The tree is the
+    // one truth: find the sheet cell by its transformer id and delete THAT
+    // ref (the offline repro's working shape), then clear the cache either way.
+    const plugin = pluginRef.current;
+    if (!plugin) { sheetRef.current = null; return; }
+    let ref: string | null = null;
+    for (const cell of plugin.state.data.cells.values()) {
+      if (String(cell?.transform?.transformer?.id || "").includes("oblique-density-sheet")) {
+        ref = cell.transform.ref;
+        break;
+      }
+    }
+    if (!ref) { sheetRef.current = null; return; }
+    const b = plugin.build();
+    b.delete(ref);
     await b.commit();
     sheetRef.current = null;
   };
