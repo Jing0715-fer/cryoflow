@@ -187,14 +187,18 @@ const lib = readFileSync(
   "utf8"
 );
 
-// W1 — the ONE imports (words from the plate lib, geometry from the walk lib)
+// W1 — the ONE imports (words from the plate lib, geometry from the walk
+// lib). The walk-lib line's exact bytes re-keyed at t1111: the import
+// family grew the direction dial's two names (obliqueDirectionWalkCur-
+// rentIndex + planObliqueDirectionWalk — the dial's own seats; the
+// t1106/t1107/t1108 family-growth re-key precedent, reason named).
 ok(
-  "W1 the panel imports the walk page's words from the ONE plate lib (the t1107/t1108 legends join the family) and the geometry from the ONE walk lib (the t1108 frac seat joins)",
+  "W1 the panel imports the walk page's words from the ONE plate lib (the t1107/t1108 legends join the family) and the geometry from the ONE walk lib (the t1108 frac seat joins; the t1111 direction seats joined the line — the family-growth re-key)",
   panel.includes(
     'import { orthoAxisWalkHeading, orthoPlateMetaLine, orthoPlateObliqueCurrentLegend, orthoPlateTileUrl, orthoPlateWalkCurrentLegend, orthoPlateWalkMetaLine, orthoWalkFrameCaption, planOrthoPlate, planPlateHistogram, PLATE_HIST_INKS, type PlateHistPayload } from "@/lib/ortho-plate"'
   ) &&
     panel.includes(
-      'import { FILMSTRIP_FRAMES, obliqueFilmstripFilename, obliqueFilmstripUrls, obliqueWalkCurrentIndex, planObliqueFilmstrip } from "@/lib/oblique-filmstrip"'
+      'import { FILMSTRIP_FRAMES, obliqueDirectionWalkCurrentIndex, obliqueFilmstripFilename, obliqueFilmstripUrls, obliqueWalkCurrentIndex, planObliqueDirectionWalk, planObliqueFilmstrip } from "@/lib/oblique-filmstrip"'
     )
 );
 
