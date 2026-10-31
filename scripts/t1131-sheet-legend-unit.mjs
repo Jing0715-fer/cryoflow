@@ -231,5 +231,28 @@ ok(panel.includes("<Check className=\"h-3.5 w-3.5\"") && panel.includes("<Triang
 ok(panel.includes("motion-reduce:transition-none") && panel.includes("focus-visible:ring-1"),
   "F19 the chip obeys the motion law and carries a visible focus ring (keyboard-reachable copy)");
 
+/* ------------------------------------------------------------------ */
+/* G — the HOVER wire (t1134): the key's second voice — hovering a      */
+/* swatch on the 2D strip lights the matching gray band IN THE 3D       */
+/* SCENE. The ⧉ chip's cross-end linkage, the next inch: the key no     */
+/* longer just describes the face, it POINTS at it.                     */
+/* ------------------------------------------------------------------ */
+ok(panel.includes('export const OBLIQUE_SHEET_LEGEND_HOVER_EVENT = "cryoflow:oblique-sheet-legend-hover"'),
+  "G1 the hover wire is its OWN line (cryoflow:oblique-sheet-legend-hover — the cut speaks geometry, the sheet speaks existence, the legend speaks what the face wears, the HOVER speaks where the reader is looking)");
+ok(embed.includes('OBLIQUE_SHEET_LEGEND_HOVER_EVENT, ') && embed.includes("addEventListener(OBLIQUE_SHEET_LEGEND_HOVER_EVENT"),
+  "G2 the embed imports the wire and listens on it (the panel's mouth, the embed's ear)");
+ok(panel.includes("onPointerEnter={() => hoverSheetBand(i)}") && panel.includes("onPointerLeave={() => hoverSheetBand(null)}"),
+  "G3 each swatch speaks its band index on enter; leaving the ROW (not a swatch — sliding across swatch gaps must not flicker the 3D highlight) speaks the honest null");
+ok(embed.includes("obliqueSheetLegendHoverRef.current(typeof d?.band === \"number\" ? d.band : null)") && embed.includes("obliqueSheetLegendHoverRef.current = applyObliqueSheetLegendHover"),
+  "G4 the embed's listener rides the ref law (the t1131 cure's own shape — E's law, third carrier)");
+ok(embed.includes("if (band === null || !Number.isFinite(band) || band < 0)") && embed.includes("lm.clearHighlights()") && embed.includes("if (!shape || band >= shape.groupCount) return"),
+  "G5 the refusal family — null/negative clears, a stale key (no node, or a band past groupCount) paints NOTHING rather than the wrong band");
+ok(embed.includes("kit.ShapeGroup.Loci(shape, [{ ids: int.OrderedSet.ofSortedArray([band]), instance: 0 }])") && embed.includes("plugin?.managers?.interaction?.lociHighlights"),
+  "G6 the highlight rides the mol* 5.11 verbs — ShapeGroup.Loci (the group-loci address the canvas's own picking speaks) into lociHighlights.highlight, the manager's existence guarded");
+ok(panel.includes("A pointer instrument") && panel.includes("no focus, no tabIndex"),
+  "G7 the hover is a pointer instrument (the minimap's precedent, named in the strip's own comment — the keyboard mirror is a named later knife, not an accident of absence)");
+ok(embed.includes("ShapeGroup: shape.ShapeGroup") && embed.includes('import("molstar/lib/mol-data/int")'),
+  "G8 the kit carries the address word (ShapeGroup) and the OrderedSet rides its own lazy import (the embed's dynamic-import doctrine)");
+
 console.log(`\n${fail === 0 ? "ALL GREEN" : "RED"} — t1131 sheet-legend unit: ${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);

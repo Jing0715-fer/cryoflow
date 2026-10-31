@@ -278,12 +278,12 @@ console.log("== t1132 stale-listener unit — the law repo-wide ==");
 
 const hits = collect();
 console.log(`  swept ${hits.length} listener registrations in []-deps effects`);
-ok(hits.length === 37, `A1 the sweep finds the standing 37 registrations (found ${hits.length})`);
+ok(hits.length === 38, `A1 the sweep finds the standing 38 registrations (found ${hits.length})`);
 
 const classified = hits.map((h) => ({ ...h, ...classify(h) }));
 const refs = classified.filter((h) => h.cls === "OK-REF");
 
-ok(refs.length === 11, `B1 11 OK-REF carriers (found ${refs.length})`);
+ok(refs.length === 12, `B1 12 OK-REF carriers (found ${refs.length})`);
 const byEvent = (file, ev) =>
   classified.filter((h) => h.file === file && h.eventName === ev);
 const mol = "components/workflow/results/molstar-embed.tsx";
@@ -293,6 +293,8 @@ ok(byEvent(mol, "ORTHO_SLICE_EVENT").every((h) => h.cls === "OK-REF"),
   "B3 ORTHO_SLICE_EVENT rides the ref (the family's law-giver)");
 ok(byEvent(mol, "OBLIQUE_SHEET_EVENT").every((h) => h.cls === "OK-REF"),
   "B4 OBLIQUE_SHEET_EVENT rides the ref");
+ok(byEvent(mol, "OBLIQUE_SHEET_LEGEND_HOVER_EVENT").every((h) => h.cls === "OK-REF"),
+  "B5 OBLIQUE_SHEET_LEGEND_HOVER_EVENT rides the ref (the t1134 hover wire — the family's law reaches its newest carrier)");
 
 // C — every non-ref listener is enrolled in the receipt (bootstrap then assert).
 // The receipt shots-qa/t1132-stale-listener-hashes.json is the standing
