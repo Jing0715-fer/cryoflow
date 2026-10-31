@@ -191,7 +191,7 @@ const lib = readFileSync(
 ok(
   "W1 the panel imports the walk page's words from the ONE plate lib and the geometry from the ONE walk lib",
   panel.includes(
-    'import { orthoPlateMetaLine, orthoPlateTileUrl, orthoPlateWalkMetaLine, orthoWalkFrameCaption, planOrthoPlate } from "@/lib/ortho-plate"'
+    'import { orthoPlateMetaLine, orthoPlateTileUrl, orthoPlateWalkMetaLine, orthoWalkFrameCaption, planOrthoPlate, planPlateHistogram, PLATE_HIST_INKS, type PlateHistPayload } from "@/lib/ortho-plate"'
   ) &&
     panel.includes(
       'import { FILMSTRIP_FRAMES, obliqueFilmstripFilename, obliqueFilmstripUrls, planObliqueFilmstrip } from "@/lib/oblique-filmstrip"'

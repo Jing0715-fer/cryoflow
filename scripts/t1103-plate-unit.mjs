@@ -237,11 +237,13 @@ ok(
   );
 }
 
-// W5 — the print verb's button speaks its sentence
+// W5 — the print verb's button speaks its sentence (the t1105 busy flip
+//      added the second voice: idle and busy both named — the flip law)
 ok(
-  "W5 the plate's print button is a header-row sibling with its own data-canvas-ui and sentence",
+  "W5 the plate's print button is a header-row sibling with its own data-canvas-ui and sentence (the t1105 busy flip speaks BOTH states)",
   /data-canvas-ui="ortho-plate-print"/.test(panel) &&
-    /aria-label="Print the three sections as a paper plate"/.test(panel) &&
+    /"Print the three sections as a paper plate"/.test(panel) &&
+    /"Preparing the paper plate — fetching the density distribution"/.test(panel) &&
     panel.indexOf('data-canvas-ui="ortho-plate-print"') > panel.indexOf('data-canvas-ui="ortho-export"') &&
     panel.indexOf('data-canvas-ui="ortho-plate-print"') < panel.indexOf('data-canvas-ui="ortho-hist-toggle"')
 );

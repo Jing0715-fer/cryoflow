@@ -72,7 +72,7 @@ import { downloadBlob } from "@/lib/download"; // t646 — one blob sink (this d
 import { obliqueDepthVox, obliqueDepthVoice, obliqueNormal, obliqueOffsetPctVoice, obliqueSupportVox, voxelReadout } from "@/lib/voxel-voice"; // t906/t907 — the tile's and the oblique block's voices ride the ONE lib (the embed's commit site reads the same seats); t1099 — the cut's direction rides the ONE father too
 import { FILMSTRIP_FRAMES, obliqueFilmstripFilename, obliqueFilmstripUrls, planObliqueFilmstrip } from "@/lib/oblique-filmstrip"; // t1096 — the walk's geometry rides the ONE lib: the plan, the URLs and the name are decided before a fetch flies
 import { ORTHO_FILMSTRIP_FRAMES, orthoFilmstripFilename, orthoFilmstripUrls, planOrthoFilmstrip } from "@/lib/ortho-filmstrip"; // t1098 — the axis walks ride the ONE lib: the plan, the URLs and the name are decided before a fetch flies
-import { orthoPlateMetaLine, orthoPlateTileUrl, orthoPlateWalkMetaLine, orthoWalkFrameCaption, planOrthoPlate } from "@/lib/ortho-plate"; // t1103/t1104 — the plate's words ride the ONE plan lib (the voices' own bytes, decided before any print; the walk page's words ride the same family)
+import { orthoPlateMetaLine, orthoPlateTileUrl, orthoPlateWalkMetaLine, orthoWalkFrameCaption, planOrthoPlate, planPlateHistogram, PLATE_HIST_INKS, type PlateHistPayload } from "@/lib/ortho-plate"; // t1103/t1104/t1105 — the plate's words and its distribution band ride the ONE plan lib (the voices' own bytes, decided before any print; the walk page's words and the σ leg's geometry ride the same family)
 import { usePrintedDate } from "@/lib/use-now"; // t1103 — the plate's paper clock (the t232 law: paper clocks do not hydrate)
 import {
   obliqueTraceDragOffset,
@@ -1033,6 +1033,18 @@ export function MapOrthoPanel({
     phi: number;
     offset: number;
   } | null>(null);
+  /** t1105 — the plate's distribution: fetched at PRINT time by the t291
+   *  law (the paper asks, the server's per-map cache answers), held as
+   *  state so the band is IN the DOM before the flag arms. Null = the
+   *  honest absence (fetch failed / degenerate payload): the plate
+   *  prints without the band, never with a guessed distribution. */
+  const [plateHist, setPlateHist] = useState<PlateHistPayload | null>(null);
+  /** t1105 — the print verb's busy door: the fetch (≤8s honest) now
+   *  precedes the dialog, so the button speaks the export button's own
+   *  spinner language while the paper prepares (the walk family's
+   *  idle/busy law, one state smaller — no ok/err window: the print
+   *  dialog itself is the answer). */
+  const [platePrintBusy, setPlatePrintBusy] = useState(false);
   /** t556 — the oblique block's export-facing state, kept in a ref (the
    *  triptych export reads it at click time; scrubbing never re-renders
    *  the panel). Null until the block mounts; .on gates the 4th panel. */
@@ -1227,22 +1239,43 @@ export function MapOrthoPanel({
     : null;
   const walkUrls = walkPlan ? obliqueFilmstripUrls(jobId, path, walkPlan) : null;
 
+  // t1105 — the distribution band's geometry, decided before any print:
+  // the ONE plan seat (the t291 drawing law in pure, node-pinnable form).
+  // A null payload plans null → the leg honestly stays home.
+  const plateHistPlan = planPlateHistogram(plateHist, isoSigma);
+
   // t1103 — the plate's print verb: set the body flag (the print CSS's
   // only key), print, and ALWAYS clean the flag up — afterprint owns the
   // happy path, the timeout is the headless failsafe. No printout inherits
   // a flag it did not ask for (the session report's cleanup law,
   // verb-scoped edition: the flag lives for THIS print, not the mount).
-  const printPlate = () => {
-    const body = document.body;
-    body.setAttribute("data-plate-print", "");
-    const clear = () => body.removeAttribute("data-plate-print");
-    window.addEventListener("afterprint", clear, { once: true });
+  const printPlate = async () => {
+    if (platePrintBusy) return;
+    setPlatePrintBusy(true);
     try {
-      window.print(); // headless probes: no dialog — the flag rides for the pdf instrument
-    } catch {
-      /* the flag stays for the instrument; the failsafe clears it below */
+      // t1105 — the paper asks for the distribution BEFORE the verb (the
+      // t291 fetch law: 8s honest timeout, server-cached per map); the
+      // band must be committed before the flag arms, so a rAF pair lets
+      // the state paint, then the flag law below runs UNCHANGED (set →
+      // print → afterprint once + the 8s failsafe — the t1103 bytes).
+      const hist = await fetchHistForPaper();
+      setPlateHist(hist);
+      await new Promise<void>((res) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => res()))
+      );
+      const body = document.body;
+      body.setAttribute("data-plate-print", "");
+      const clear = () => body.removeAttribute("data-plate-print");
+      window.addEventListener("afterprint", clear, { once: true });
+      try {
+        window.print(); // headless probes: no dialog — the flag rides for the pdf instrument
+      } catch {
+        /* the flag stays for the instrument; the failsafe clears it below */
+      }
+      window.setTimeout(clear, 8000);
+    } finally {
+      setPlatePrintBusy(false);
     }
-    window.setTimeout(clear, 8000);
   };
 
   /** t278 — a tile clicked its image: move the TWO sibling planes to the
@@ -1261,13 +1294,16 @@ export function MapOrthoPanel({
     }));
   };
 
-  /** t291 — the footer's distribution: the same `format=histogram` payload
-   *  the live strip consumes (server-cached per map, so a panel that had
-   *  the strip on pays nothing). Honest absence on ANY failure — a fetch
-   *  that errs, times out (8s: the first look walks the volume, the
-   *  export must not hang on it) or comes back malformed keeps the
-   *  one-line footer instead of drawing a guessed distribution. */
-  const fetchHistForExport = async (): Promise<{
+  /** t291/t1105 — the PAPER editions' distribution: the same
+   *  `format=histogram` payload the live strip consumes (server-cached
+   *  per map, so a panel that had the strip on pays nothing). ONE fetch
+   *  form serving both paper faces — the export triptych's footer (t291)
+   *  and the plate's σ leg (t1105) — honest absence on ANY failure: a
+   *  fetch that errs, times out (8s: the first look walks the volume,
+   *  the paper must not hang on it) or comes back malformed keeps the
+   *  paper honest (the footer stays one line, the leg stays home)
+   *  instead of drawing a guessed distribution. */
+  const fetchHistForPaper = async (): Promise<{
     bins: number[];
     mean: number;
     std: number;
@@ -1323,6 +1359,8 @@ export function MapOrthoPanel({
       const ob = obliqueInfoRef.current;
       const withOblique = !!(ob?.on);
       const [planeBitmaps, hist, obliqueBitmap] = await Promise.all([
+        // t1105 — the export's hist leg rides the SAME fetch fn (renamed
+        // fetchHistForPaper: it now serves both paper editions)
         Promise.all(
           TILES.map(async (t) => {
             const url = `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(path)}&format=png&axis=${t.axis}&pos=${positions[t.axis].toFixed(3)}`;
@@ -1331,7 +1369,7 @@ export function MapOrthoPanel({
             return createImageBitmap(await r.blob());
           })
         ),
-        fetchHistForExport(),
+        fetchHistForPaper(),
         withOblique
           ? fetch(
               `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(path)}&format=png&plane=oblique&theta=${ob.live.theta.toFixed(1)}&phi=${ob.live.phi.toFixed(1)}&offset=${(ob.live.offset / 100).toFixed(3)}`,
@@ -1636,12 +1674,22 @@ export function MapOrthoPanel({
         <button
           type="button"
           onClick={printPlate}
+          disabled={platePrintBusy}
           data-canvas-ui="ortho-plate-print"
-          aria-label="Print the three sections as a paper plate"
-          title="Print the tri-panar plate — the three sections at the focus point, their voxel readouts and the σ contour, as one paper figure"
-          className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          data-ortho-print-state={platePrintBusy ? "busy" : "idle"}
+          aria-label={
+            platePrintBusy
+              ? "Preparing the paper plate — fetching the density distribution"
+              : "Print the three sections as a paper plate"
+          }
+          title="Print the tri-panar plate — the three sections at the focus point, their voxel readouts, the σ contour and the density distribution, as one paper figure"
+          className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
         >
-          <Printer className="h-3.5 w-3.5" aria-hidden="true" />
+          {platePrintBusy ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+          ) : (
+            <Printer className="h-3.5 w-3.5" aria-hidden="true" />
+          )}
         </button>
         {/* t283 — the density histogram toggle. Sibling of the export
             button (never nested); the strip is the σ PICKER — click a
@@ -1861,6 +1909,59 @@ export function MapOrthoPanel({
               );
             })}
           </div>
+          {/* t1105 — the σ LEG: the map's density distribution joins page 1
+              (the t291 export's own figure, its second paper edition). The
+              data rides the t291 fetch law (asked at print time, the per-map
+              server cache answering); the geometry is the ONE plan seat's
+              (the t291 bytes, lib-pinned, zero inline math here); the inks
+              are the strip's own light edition (paper is always light).
+              No payload → the leg honestly stays home (the export's own
+              absence law), the plate prints without the band. */}
+          {plateHistPlan && (
+            <div data-ortho-plate-hist className="pt-1.5">
+              <svg
+                viewBox={`0 0 ${plateHistPlan.w} ${plateHistPlan.h}`}
+                className="h-auto w-full"
+                aria-hidden="true"
+              >
+                {plateHistPlan.bars.map((b, i) => (
+                  <rect
+                    key={`b${i}`}
+                    x={b.x}
+                    y={b.y}
+                    width={b.w}
+                    height={b.h}
+                    fill={PLATE_HIST_INKS.bar}
+                  />
+                ))}
+                {plateHistPlan.ticks.map((t, i) => (
+                  <line
+                    key={`t${i}`}
+                    x1={t.x}
+                    y1={6}
+                    x2={t.x}
+                    y2={plateHistPlan.h - 6}
+                    stroke={t.strong ? PLATE_HIST_INKS.mean : PLATE_HIST_INKS.tick}
+                    strokeWidth={1}
+                  />
+                ))}
+                {plateHistPlan.cut && (
+                  <line
+                    x1={plateHistPlan.cut.x}
+                    y1={4}
+                    x2={plateHistPlan.cut.x}
+                    y2={plateHistPlan.h - 6}
+                    stroke={PLATE_HIST_INKS.cut}
+                    strokeWidth={1.5}
+                    opacity={plateHistPlan.cut.onScale ? 1 : 0.35}
+                  />
+                )}
+              </svg>
+              <p className="font-mono text-[8px] leading-3 text-muted-foreground">
+                density (log) · ticks: μ ±1σ ±2σ · cyan line: the current contour
+              </p>
+            </div>
+          )}
           <footer className="pt-1 font-mono text-[8px] leading-3 text-muted-foreground">
             {path}
             {printed ? ` · printed ${printed}` : ""}

@@ -163,3 +163,129 @@ export function orthoWalkFrameCaption(frame: {
     ? `${frame.pctLabel} · ${frame.depthLabel}`
     : frame.pctLabel;
 }
+
+/* ------------------------------------------------------------------ */
+/* t1105 — the plate's σ LEG: the map's density distribution joins     */
+/* page 1. The t291 export already speaks this figure (the PNG foot-   */
+/* er's log-bar miniature with the σ ruler and the cyan cut) — the     */
+/* plate is the second paper edition of the same truth, so the DRAWING */
+/* law moves here as one pure seat: the bars are log10(1+c) scaled     */
+/* (the t291 bytes, restated verbatim and pinned by the unit), the σ   */
+/* ruler keeps μ strongest and ±1σ ±2σ quiet, and the cut line rides   */
+/* the contour with the same off-scale honesty (clamped to the band,   */
+/* faded — never invented past the edge). The inks are the strip's     */
+/* own LIGHT edition (t284's HIST_* light constants): paper is always  */
+/* light, so the paper leg and the screen strip can never disagree     */
+/* about whose distribution this is. The data rides the t291 fetch law */
+/* (format=histogram, 8s honest timeout, server-cached per map); a     */
+/* null or degenerate payload returns null — the leg honestly stays    */
+/* home, the plate prints without the band.                           */
+/* ------------------------------------------------------------------ */
+
+/** The paper inks — the strip's light edition restated (the unit pins
+ *  the bytes; the strip stays the father, this is the paper's copy). */
+export const PLATE_HIST_INKS = {
+  bar: "rgba(8,145,178,0.62)",
+  tick: "rgba(0,0,0,0.30)",
+  mean: "rgba(0,0,0,0.55)",
+  cut: "#0891b2",
+  text: "rgba(0,0,0,0.45)",
+} as const;
+
+/** The histogram payload the paper leg draws — the t291 fetch's own
+ *  shape (bins + moments + the render window), verbatim. */
+export interface PlateHistPayload {
+  bins: number[];
+  mean: number;
+  std: number;
+  lo: number;
+  hi: number;
+}
+
+/** The planned band geometry, in the SVG's own viewBox units. */
+export interface PlateHistPlan {
+  bars: { x: number; y: number; w: number; h: number }[];
+  /** the σ ruler: μ strongest, ±1σ ±2σ quiet — only in-range ticks */
+  ticks: { x: number; strong: boolean }[];
+  /** the contour line: clamped into the band, `onScale: false` = the
+   *  honest fade (the value lives outside the render window) */
+  cut: { x: number; onScale: boolean } | null;
+  /** the caption's numbers: the window the bars cover */
+  lo: number;
+  hi: number;
+  w: number;
+  h: number;
+}
+
+/**
+ * Plan the plate's distribution band. Pure — nothing is mutated, every
+ * coordinate is decided before a pixel prints. Returns null for a null
+ * payload or any degenerate one (no bins, no spread, non-positive σ):
+ * the honest absence is the leg's own law, not an error.
+ */
+export function planPlateHistogram(
+  hist: PlateHistPayload | null,
+  cut: { sign: 1 | -1; sigma: number } | null,
+  w = 600,
+  h = 72
+): PlateHistPlan | null {
+  if (!hist) return null;
+  const { bins, mean, std, lo, hi } = hist;
+  if (!Array.isArray(bins) || bins.length === 0) return null;
+  if (!(std > 0) || !(hi > lo)) return null;
+  if (!Number.isFinite(mean)) return null;
+
+  const padL = 8;
+  const padR = 8;
+  const padT = 6;
+  const padB = 6;
+  const px0 = padL;
+  const px1 = w - padR;
+  const py0 = padT;
+  const py1 = h - padB;
+  const span = hi - lo;
+  const xOf = (v: number) => px0 + ((v - lo) / span) * (px1 - px0);
+
+  // the σ ruler — the t291 law: μ strongest, ±1σ ±2σ quiet, out-of-band
+  // ticks silently skipped (the ruler never invents a tick past the edge)
+  const ticks: { x: number; strong: boolean }[] = [];
+  for (const s of [-2, -1, 0, 1, 2]) {
+    const gx = xOf(mean + s * std);
+    if (gx < px0 || gx > px1) continue;
+    ticks.push({ x: gx, strong: s === 0 });
+  }
+
+  // log-scaled bars — the t291 bytes: log10(1+c) over log10(1+max),
+  // the zero-count bins skipped, the all-zero guard clamps to 1
+  let maxC = 0;
+  for (const c of bins) if (c > maxC) maxC = c;
+  if (maxC <= 0) maxC = 1;
+  const logMax = Math.log10(1 + maxC);
+  const n = bins.length;
+  const bw = (px1 - px0) / n;
+  const bars: { x: number; y: number; w: number; h: number }[] = [];
+  for (let i = 0; i < n; i++) {
+    const c = bins[i];
+    if (c <= 0) continue;
+    const bh = ((py1 - py0) * Math.log10(1 + c)) / logMax;
+    bars.push({
+      x: px0 + i * bw,
+      y: py1 - bh,
+      w: Math.max(0.5, bw - 1),
+      h: bh,
+    });
+  }
+
+  // the contour — clamped into the band, the off-scale case fades
+  // (the same honesty the live strip and the t291 export draw)
+  let cutPlan: { x: number; onScale: boolean } | null = null;
+  if (cut && Number.isFinite(cut.sigma)) {
+    const v = mean + cut.sign * cut.sigma * std;
+    cutPlan = {
+      x: Math.min(px1, Math.max(px0, xOf(v))),
+      onScale: v >= lo && v <= hi,
+    };
+  }
+
+  return { bars, ticks, cut: cutPlan, lo, hi, w, h };
+}
