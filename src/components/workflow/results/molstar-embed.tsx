@@ -4779,11 +4779,16 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       sheetRef.current = provider as unknown as { transform: { ref: string } };
     } else {
       // same-node update — the rev bump tells the transform the geometry
-      // changed; Recreate re-applies from the new params in one transaction
+      // changed; Recreate re-applies from the new params in one transaction.
+      // t1130 — ONE-ARG shape: the builder's update(paramsOrTransformer,
+      // provider) treats a second arg as an immer-style RECIPE over the old
+      // params (the offline repro: a two-arg call with a VALUE object drove
+      // the cell to its DEFAULTS — rev 0, no geometry, "no sheet geometry").
+      // The values ride alone; the transform argument was always cosmetic.
       await plugin
         .build()
         .to(sheetRef.current)
-        .update(SheetTransform, params as never)
+        .update(params)
         .commit();
     }
   };
