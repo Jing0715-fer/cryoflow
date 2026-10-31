@@ -101,11 +101,8 @@ function mrcBuffer() {
   const buf = Buffer.alloc(1024 + W * H * 4);
   buf.writeInt32LE(W, 0); buf.writeInt32LE(H, 4); buf.writeInt32LE(1, 8);
   buf.writeInt32LE(2, 12); // mode 2 = float32
-  buf.writeInt32LE(W, 28); buf.writeInt32LE(H, 32); buf.writeInt32LE(1, 36);
-  buf.writeFloatLE(1.77 * W, 40); buf.writeFloatLE(1.77 * H, 44); buf.writeFloatLE(1.77, 48);
-  buf.write("MAP ", 208, "ascii");
-  buf.writeUInt8(0x44, 212); buf.writeUInt8(0x44, 213); buf.writeUInt8(0x47, 214); buf.writeUInt8(0x47, 215);
-  for (let i = 0; i < W * H; i++) buf.writeFloatLE(Math.sin(i / 7) * 0.1, 1024 + i * 4);
+  buf.writeInt32LE(1, 64); buf.writeInt32LE(2, 68); buf.writeInt32LE(3, 72); // MAPC/MAPR/MAPS — the MRC2014 default (t1113: zero made Mol* throw "bad axis order")
+  buf.writeFloatLE(90, 52); buf.writeFloatLE(90, 56); buf.writeFloatLE(90, 60); // cell angles — the MRC2014 default (t1113: zero angles made Mol*'s cell basis non-invertible)
   return buf;
 }
 

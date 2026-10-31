@@ -79,6 +79,8 @@ function mrcBuffer(nx, ny, nz) {
   const buf = Buffer.alloc(1024 + nx * ny * nz * bpp);
   buf.writeInt32LE(nx, 0); buf.writeInt32LE(ny, 4); buf.writeInt32LE(nz, 8);
   buf.writeInt32LE(2, 12); // mode 2 = float32
+  buf.writeInt32LE(1, 64); buf.writeInt32LE(2, 68); buf.writeInt32LE(3, 72); // MAPC/MAPR/MAPS — the MRC2014 default (t1113: zero made Mol* throw "bad axis order")
+  buf.writeFloatLE(90, 52); buf.writeFloatLE(90, 56); buf.writeFloatLE(90, 60); // cell angles — the MRC2014 default (t1113: zero angles made Mol*'s cell basis non-invertible)
   buf.writeFloatLE(4.0 * nx, 40); buf.writeFloatLE(4.0 * ny, 44); buf.writeFloatLE(4.0 * nz, 48);
   buf.writeFloatLE(-1, 76); buf.writeFloatLE(1, 80); buf.writeFloatLE(0, 84);
   buf.writeFloatLE(0.5, 216);

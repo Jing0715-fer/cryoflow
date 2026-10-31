@@ -252,6 +252,52 @@ if (ghosts.length > 0) {
 }
 
 /* ---------------------------------------------------------------------- */
+/* Probe 2.5 — the BINDING WITNESS (born t1113)                             */
+/*                                                                          */
+/* A window once opened on the world's project binding NULLED               */
+/* (data/projects.json's active project held remote:null while the          */
+/* connection registry still held the Cluster) — the FILE registry is       */
+/* untracked, so no git law guards it, and whatever stomps it between       */
+/* windows (a snapshot restore, a boot-time ensure) leaves no trace.        */
+/* The witness: the active project must be bound to the Cluster connection  */
+/* (the t979 replant's own bind — the t419 FILE-registry shape). Null or    */
+/* dangling → heal through the honest door (PATCH /api/projects/:id, the    */
+/* t979 bind law's own verb — the app validates and writes its own pen).    */
+/* ---------------------------------------------------------------------- */
+
+const CLUSTER_CONN = "conn-mv6a23lx"; // the world's one Cluster (host 127.0.0.1:3022)
+const CONN_REGISTRY = `${ROOT}/data/remote-connections.json`;
+
+const connRegistry = existsSync(CONN_REGISTRY) ? JSON.parse(readFileSync(CONN_REGISTRY, "utf8")) : [];
+const connList = Array.isArray(connRegistry) ? connRegistry : (connRegistry.connections ?? []);
+const clusterKnown = connList.some((c) => c && c.id === CLUSTER_CONN);
+
+const activeBinding = registry.projects?.[active]?.remote?.connectionId ?? null;
+if (activeBinding === CLUSTER_CONN) {
+  receipt(`BINDING: "${active}" → ${CLUSTER_CONN} (sound)`);
+} else if (!clusterKnown) {
+  finding(`BINDING: the Cluster connection ${CLUSTER_CONN} is itself missing from the connections registry — the world's remote lane has no anchor; re-plant before riding remote`);
+} else {
+  finding(
+    `BINDING STOMPED: active project "${active}" holds remote=${JSON.stringify(activeBinding)} (want ${CLUSTER_CONN}) — the untracked FILE registry was rewritten behind the world's back`
+  );
+  if (!REPORT_ONLY && !NO_ALIGN) {
+    const res = await fetch(`${ORIGIN}/api/projects/${active}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Origin: ORIGIN },
+      body: JSON.stringify({ remoteConnectionId: CLUSTER_CONN }),
+    });
+    const body = await res.json().catch(() => null);
+    const healed = JSON.parse(readFileSync(REGISTRY, "utf8")).projects?.[active]?.remote?.connectionId;
+    if (res.status === 200 && healed === CLUSTER_CONN) {
+      receipt(`BINDING HEALED: PATCH -> ${res.status}, registry re-read holds ${healed} — VERIFIED by re-read`);
+    } else {
+      finding(`BINDING HEAL FAILED: PATCH -> ${res.status} ${JSON.stringify(body)?.slice(0, 120)}; registry re-read holds ${JSON.stringify(healed)} — re-bind by hand before riding remote`);
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------- */
 /* Probe 3 — the phantom-switch door                                       */
 /* ---------------------------------------------------------------------- */
 

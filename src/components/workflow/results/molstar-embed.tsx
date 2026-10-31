@@ -31,6 +31,7 @@ import { ORTHO_SLICE_EVENT, ORTHO_SLICE_STATE_EVENT, ORTHO_CLIP_STATE_EVENT, ORT
 import { useWorkflowStore } from "@/lib/store";
 import { fmtBytes } from "@/lib/canvas-export";
 import { encodeGifFrames } from "@/lib/gif-export";
+import { sanitizeMrcHeader } from "@/lib/mrc-axis";
 import { canCopyImageToClipboard, copyViewerPng, drawFigureFooter, exportViewerPng, figureFooterHeightPx, figureTitleMeta, viewerFileSlug, viewerFileTimestamp } from "@/lib/viewer-export";
 import { downloadBlob } from "@/lib/download";
 import { keptIntervalOf, normalizeInterval } from "@/lib/clip-interval"; // t905 — the slab seat: both clip languages answer to one interval editor
@@ -761,8 +762,16 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
             `map download failed (${lastErr instanceof Error ? lastErr.message : "network"})`
           );
         }
-        const buf = await res.arrayBuffer();
-        console.debug("[molstar] map fetched", buf.byteLength);
+        const fetched = new Uint8Array(await res.arrayBuffer());
+        console.debug("[molstar] map fetched", fetched.byteLength);
+        // t1113 — the header sanitizer: zero-filled MAPC/MAPR/MAPS threw
+        // "bad axis order" inside Mol*'s volume builder, and the zero-filled
+        // cell angles poisoned the grid transform (non-invertible matrix →
+        // RangeError in the isosurface geometry) — the isosurface never
+        // rendered (the survey's whole story). The sanitizer rewrites the
+        // MRC2014 defaults on a copy.
+        const { bytes: buf, corrected, cured } = sanitizeMrcHeader(fetched);
+        if (corrected) console.debug(`[molstar] header sanitized (${cured.join(" · ")})`, name);
 
         const [{ RawData, ParseCcp4 }, { VolumeFromCcp4 }, { VolumeRepresentation3D }, { Volume }, { Grid }] =
           await Promise.all([
@@ -785,11 +794,18 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
 
         setStage("scene");
         const b = plugin.build();
-        const data = b.toRoot().apply(RawData, { data: new Uint8Array(buf), label: name });
+        const data = b.toRoot().apply(RawData, { data: buf, label: name }); // buf = the sanitized bytes (t1113)
         const parsed = data.apply(ParseCcp4, {});
         const vol = parsed.apply(VolumeFromCcp4, { entryId: "map" });
         const repr = vol.apply(VolumeRepresentation3D, {
-          type: { name: "isosurface", params: {} },
+          type: {
+            name: "isosurface",
+            // t1113 — an EXPLICIT inside-the-data creation isoValue (half a
+            // σ above the mean — inside ANY map with σ > 0), never the
+            // library's at-peak relative-2 default; the contour pump then
+            // applies the user's real σ through the empty-surface clamp.
+            params: { isoValue: IsoValueRef.current.relative(0.5) },
+          },
           colorTheme: { name: "uniform", params: { value: 0xffae42 } },
           sizeTheme: { name: "uniform", params: {} },
         });
@@ -813,6 +829,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                 sigma: Number(s.sigma),
               };
               setStats(full);
+              statsRef.current = full;
               // inverted map: flip the contour to the negative side once,
               // automatically — otherwise a positive σ surface shows only
               // solvent noise and the map looks "empty"
@@ -930,6 +947,9 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
   const sigmaRef = useRef(sigma);
   const signRef = useRef(sign);
   const updatePending = useRef(false);
+  // t1113 — the stats mirror the contour clamp reads (the pump runs async;
+  // React state would lag one render behind the commit it gates)
+  const statsRef = useRef<GridStats | null>(null);
   useEffect(() => {
     sigmaRef.current = sigma;
     signRef.current = sign;
@@ -1019,6 +1039,24 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     try {
       let s = sigmaRef.current;
       let d = signRef.current;
+      // t1113 — the EMPTY-SURFACE clamp: a contour at-or-beyond the map's own
+      // peak marches zero voxels, and Mol*'s isosurface hands its spatial
+      // grid the degenerate bounding box (RangeError: new Uint32Array(-Infinity))
+      // — the viewport stays empty forever. A noise-grade map (σ ≈ half its
+      // range) puts the 2σ default right AT the peak. The clamp pulls the
+      // contour to 0.9 × the peak side's range (in σ units) — a real map
+      // (peaks ≫ 2σ) never feels it, and the UI chip speaks the clamped truth.
+      const st = statsRef.current;
+      if (st && Number.isFinite(st.sigma) && st.sigma > 0 && Number.isFinite(st.max) && Number.isFinite(st.min)) {
+        const abs = st.mean + d * s * st.sigma;
+        const over = d === 1 ? abs >= st.max : abs <= st.min;
+        if (over) {
+          const peak = d === 1 ? st.max - st.mean : st.mean - st.min;
+          s = Math.max(0.05, Math.round(((peak * 0.9) / st.sigma) * 100) / 100);
+          sigmaRef.current = s;
+          setSigma(s); // the chip and slider speak the clamped truth
+        }
+      }
       for (;;) {
         await commitContour(s, d);
         if (s === sigmaRef.current && d === signRef.current) break; // nothing newer arrived
@@ -1074,7 +1112,11 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
           `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(filePath)}&format=raw`
         );
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return new Uint8Array(await r.arrayBuffer());
+        // t1113 — same sanitizer as the main map path: overlays ride the
+        // same ParseCcp4 door and die on the same zero-filled headers
+        const fetched = sanitizeMrcHeader(new Uint8Array(await r.arrayBuffer()));
+        if (fetched.corrected) console.debug(`[molstar] header sanitized (overlay: ${fetched.cured.join(" · ")})`, filePath);
+        return fetched.bytes;
       } catch (err) {
         lastErr = err;
       }

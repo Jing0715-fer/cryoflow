@@ -180,6 +180,8 @@ function repairWorld(extractJob) {
     const h = Buffer.alloc(1024);
     h.writeInt32LE(BX, 0); h.writeInt32LE(BX, 4); h.writeInt32LE(nz, 8);
     h.writeInt32LE(2, 12);
+    h.writeInt32LE(1, 64); h.writeInt32LE(2, 68); h.writeInt32LE(3, 72); // MAPC/MAPR/MAPS — the MRC2014 default (t1113: zero made Mol* throw "bad axis order")
+    h.writeFloatLE(90, 52); h.writeFloatLE(90, 56); h.writeFloatLE(90, 60); // cell angles — the MRC2014 default (t1113: zero angles made Mol*'s cell basis non-invertible)
     h.writeInt32LE(0, 92);
     h.writeInt32LE(20140, 200);
     h.write("MAP ", 208);

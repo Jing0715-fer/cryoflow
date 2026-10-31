@@ -186,6 +186,8 @@ function mrcFile(nx, ny, nz) {
   buf.writeInt32LE(ny, 4);
   buf.writeInt32LE(nz, 8);
   buf.writeInt32LE(2, 12); // mode float32
+  buf.writeInt32LE(1, 64); buf.writeInt32LE(2, 68); buf.writeInt32LE(3, 72); // MAPC/MAPR/MAPS — the MRC2014 default (t1113: zero made Mol* throw "bad axis order")
+  buf.writeFloatLE(90, 52); buf.writeFloatLE(90, 56); buf.writeFloatLE(90, 60); // cell angles — the MRC2014 default (t1113: zero angles made Mol*'s cell basis non-invertible)
   buf.writeInt32LE(0, 16); buf.writeInt32LE(0, 20); buf.writeInt32LE(0, 24); // start
   buf.writeFloatLE(64.0, 40); buf.writeFloatLE(64.0, 44); buf.writeFloatLE(64.0, 48); // cella
   buf.writeFloatLE(-1.0, 76); buf.writeFloatLE(1.0, 80); buf.writeFloatLE(0.0, 84);
