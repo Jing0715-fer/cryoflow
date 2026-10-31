@@ -165,8 +165,8 @@ ok("W5 the strip adds NO second src shape — the file's axis+pos templates stay
   (panelSrc.match(/&axis=\$\{(spec|t)\.axis\}&pos=/g) || []).length === 3 &&
   /walk = async[\s\S]{0,400}orthoFilmstripUrls\(jobId, path, plan\)/.test(panelSrc));
 
-ok("W6 the publishing palette rides the house's own father (AXIS_LABEL — header and frames)",
-  (panelSrc.match(/AXIS_LABEL\[spec\.axis\]/g) || []).length === 2 &&
+ok("W6 the publishing palette rides the house's own father (AXIS_LABEL — header, frames, and the t1106 plate's accent border: three speakers, one father)",
+  (panelSrc.match(/AXIS_LABEL\[spec\.axis\]/g) || []).length === 3 &&
   !panelSrc.includes("AXIS_ACCENT"));
 
 ok("W7 the download rides the one blob sink and the lib's name (the t646 law)",
