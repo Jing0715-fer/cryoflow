@@ -902,7 +902,7 @@ function OrthoTile({
           onClick={syncTo3d}
           aria-label={`Show the ${spec.plane} at ${readout} in 3D`}
           title="Move the 3D cross-section to this plane"
-          className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-all duration-150 hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none group-hover/tile:opacity-100 group-focus-within/tile:opacity-100 hover-none:opacity-100"
+          className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-all duration-150 hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring group-hover/tile:opacity-100 group-focus-within/tile:opacity-100 hover-none:opacity-100"
         >
           <Crosshair className="size-3.5" aria-hidden="true" />
         </button>
@@ -1646,7 +1646,7 @@ export function MapOrthoPanel({
           type="button"
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
-          className="flex flex-1 items-center gap-2 text-left"
+          className="flex flex-1 items-center gap-2 rounded text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <ScanLine className="h-3.5 w-3.5 shrink-0 text-cyan-600" aria-hidden="true" />
           <span className="text-xs font-semibold text-foreground/85">Orthogonal slices</span>
@@ -2920,7 +2920,7 @@ function OrthoFilmstripButton({
       }
       title={`The walk: the whole ${spec.plane} swept face to face along ${spec.axisLabel}, one document \u2014 each frame signed with its plane address`}
       className={cn(
-        "shrink-0 rounded p-0.5 opacity-0 transition-all duration-150 hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none group-hover/tile:opacity-100 group-focus-within/tile:opacity-100 hover-none:opacity-100",
+        "shrink-0 rounded p-0.5 opacity-0 transition-all duration-150 hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring group-hover/tile:opacity-100 group-focus-within/tile:opacity-100 hover-none:opacity-100",
         spec.text,
         state === "busy" && "cursor-not-allowed opacity-50"
       )}
@@ -3151,7 +3151,7 @@ function ObliqueSectionBlock({
           type="button"
           onClick={() => setOn((o) => !o)}
           aria-expanded={on}
-          className="flex flex-1 items-center gap-2 text-left"
+          className="flex flex-1 items-center gap-2 rounded text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <Slice className="h-3.5 w-3.5 shrink-0 text-violet-600" aria-hidden="true" />
           <span className="text-xs font-semibold text-foreground/85">Oblique section</span>
@@ -3267,7 +3267,7 @@ function ObliqueSectionBlock({
                       title={`Walk the cut to ${s.label}`}
                       data-direction-stop={s.label}
                       className={cn(
-                        "rounded-sm border px-1.5 py-0.5 font-mono text-[10px] tabular-nums transition-colors duration-150",
+                        "rounded-sm border px-1.5 py-0.5 font-mono text-[10px] tabular-nums transition-colors duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                         current
                           ? "border-2 border-violet-600 bg-violet-600/10 font-semibold text-violet-700 dark:text-violet-300"
                           : "border-border/70 text-muted-foreground hover:border-violet-600/40 hover:bg-violet-600/5 hover:text-foreground"
@@ -3334,7 +3334,7 @@ function ObliqueSectionBlock({
                       title={`Walk the cut to ${f.pctLabel}${f.depthLabel ? ` · ${f.depthLabel}` : ""}`}
                       data-walk-stop={f.pctLabel}
                       className={cn(
-                        "rounded-sm border px-1.5 py-0.5 font-mono text-[10px] tabular-nums transition-colors duration-150",
+                        "rounded-sm border px-1.5 py-0.5 font-mono text-[10px] tabular-nums transition-colors duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                         current
                           ? "border-2 border-violet-600 bg-violet-600/10 font-semibold text-violet-700 dark:text-violet-300"
                           : "border-border/70 text-muted-foreground hover:border-violet-600/40 hover:bg-violet-600/5 hover:text-foreground"
@@ -3356,7 +3356,7 @@ function ObliqueSectionBlock({
               <button
                 type="button"
                 onClick={() => { setTheta(0); setPhi(0); setOffset(0); setProvenance(null); }}
-                className="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 title="Back to the axis-aligned center plane (θ 0°, φ 0°, centered)"
               >
                 reset
