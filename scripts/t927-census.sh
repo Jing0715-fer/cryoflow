@@ -3,7 +3,7 @@
 # Law: unset DATABASE_URL per invocation; lib-import units via unit-runner (bare node dies on @/lib).
 cd /home/z/my-project
 export DATABASE_URL=""
-EXPECTED=(22 23 25 38 33 28 28 25 20 20 16 17 11 8 14 28 13 23 10 17 33 16 22 32 91 23 63 33 18 45 28 30 14 13 11 48 9 19 19 24 17 29 7 16 16 11 10 16 15 20 20 16 20 20 17 19 17 9 22 21 22 26 22 22 19) # +seat 57 = t1101-particles-decode-unit (17 pins); +seat 58 = t1102-paper-unit (9 pins, the arc's full walk + the roster's orphan cure); +seat 59 = t1103-plate-unit (22 pins, the walk's printer); +seat 60 = t1104-oblique-plate-unit (21 pins, the walk's second page); +seat 61 = t1105-plate-hist-unit (22 pins, the plate's σ leg); +seat 62 = t1106-axis-plate-unit (26 pins, the walk's third page — the axis strips on paper); +seat 63 = t1107-walk-current-unit (22 pins, the walk's "you are here" — the current mark's seat, ring and legend); +seat 64 = t1108-oblique-current-unit (22 pins, the cut walk's "you are here" — the frac seat, the violet ring, the page-2 legend); +seat 65 = t1109-walk-dial-unit (19 pins, the walk dial — the ring's live screen face + the two-scales cure's autopsy)
+EXPECTED=(22 23 25 38 33 28 28 25 20 20 16 17 11 8 14 28 13 23 10 17 33 16 22 32 91 23 63 33 18 45 28 30 14 13 11 48 9 19 19 24 17 29 7 16 16 11 10 16 15 20 20 16 20 20 17 19 17 9 22 21 22 26 22 22 19 29) # +seat 57 = t1101-particles-decode-unit (17 pins); +seat 58 = t1102-paper-unit (9 pins, the arc's full walk + the roster's orphan cure); +seat 59 = t1103-plate-unit (22 pins, the walk's printer); +seat 60 = t1104-oblique-plate-unit (21 pins, the walk's second page); +seat 61 = t1105-plate-hist-unit (22 pins, the plate's σ leg); +seat 62 = t1106-axis-plate-unit (26 pins, the walk's third page — the axis strips on paper); +seat 63 = t1107-walk-current-unit (22 pins, the walk's "you are here" — the current mark's seat, ring and legend); +seat 64 = t1108-oblique-current-unit (22 pins, the cut walk's "you are here" — the frac seat, the violet ring, the page-2 legend); +seat 65 = t1109-walk-dial-unit (19 pins, the walk dial — the ring's live screen face + the two-scales cure's autopsy); +seat 66 = t1111-direction-dial-unit (29 pins, the direction dial — the cut's azimuth ladder + the angular mark's wrap law)
 # the bash-word law: NO trailing commas inside this array — in bash,
 # "x", is ONE word (x,) — the comma joins the element and the runner
 # hunts a file that does not exist
@@ -73,8 +73,9 @@ declare -a NAMES=(
   "t1107-walk-current-unit"
   "t1108-oblique-current-unit"
   "t1109-walk-dial-unit"
+  "t1111-direction-dial-unit"
 )
-declare -a RUNNERS=(1 0 1 1 1 1 2 2 0 0 0 0 1 0 0 0 0 1 0 1 1 1 1 0 1 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 2 2 2 2 2 0 2 2 2 2 2 2 2)
+declare -a RUNNERS=(1 0 1 1 1 1 2 2 0 0 0 0 1 0 0 0 0 1 0 1 1 1 1 0 1 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 2 2 2 2 2 0 2 2 2 2 2 2 2 2)
 i=0
 for name in "${NAMES[@]}"; do
   unset DATABASE_URL

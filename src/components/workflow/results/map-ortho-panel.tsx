@@ -70,7 +70,7 @@ import { DensityHistogramStrip } from "./density-histogram";
 import { cn } from "@/lib/utils";
 import { downloadBlob } from "@/lib/download"; // t646 — one blob sink (this dance skipped the attach-before-click law)
 import { obliqueDepthVox, obliqueDepthVoice, obliqueNormal, obliqueOffsetPctVoice, obliqueSupportVox, voxelReadout } from "@/lib/voxel-voice"; // t906/t907 — the tile's and the oblique block's voices ride the ONE lib (the embed's commit site reads the same seats); t1099 — the cut's direction rides the ONE father too
-import { FILMSTRIP_FRAMES, obliqueFilmstripFilename, obliqueFilmstripUrls, obliqueWalkCurrentIndex, planObliqueFilmstrip } from "@/lib/oblique-filmstrip"; // t1096 — the walk's geometry rides the ONE lib: the plan, the URLs and the name are decided before a fetch flies; t1108 — the cut's "you are here" rides the same lib's frac seat; t1109 — the walk dial rides the same two seats on the live screen
+import { FILMSTRIP_FRAMES, obliqueDirectionWalkCurrentIndex, obliqueFilmstripFilename, obliqueFilmstripUrls, obliqueWalkCurrentIndex, planObliqueDirectionWalk, planObliqueFilmstrip } from "@/lib/oblique-filmstrip"; // t1096 — the walk's geometry rides the ONE lib: the plan, the URLs and the name are decided before a fetch flies; t1108 — the cut's "you are here" rides the same lib's frac seat; t1109 — the walk dial rides the same two seats on the live screen; t1111 — the direction dial rides the lib's azimuth ladder (the stations carry the voice's own label) and its angular mark
 import { ORTHO_FILMSTRIP_FRAMES, orthoFilmstripFilename, orthoFilmstripUrls, orthoWalkCurrentIndex, planOrthoFilmstrip } from "@/lib/ortho-filmstrip"; // t1098 — the axis walks ride the ONE lib: the plan, the URLs and the name are decided before a fetch flies; t1107 — the walk's "you are here" rides the same seat
 import { orthoAxisWalkHeading, orthoPlateMetaLine, orthoPlateObliqueCurrentLegend, orthoPlateTileUrl, orthoPlateWalkCurrentLegend, orthoPlateWalkMetaLine, orthoWalkFrameCaption, planOrthoPlate, planPlateHistogram, PLATE_HIST_INKS, type PlateHistPayload } from "@/lib/ortho-plate"; // t1103/t1104/t1105/t1106 — the plate's words and its distribution band ride the ONE plan lib (the voices' own bytes, decided before any print; the walk page's words and the σ leg's geometry ride the same family)
 import { usePrintedDate } from "@/lib/use-now"; // t1103 — the plate's paper clock (the t232 law: paper clocks do not hydrate)
@@ -2722,6 +2722,15 @@ function ObliqueSectionBlock({
   // the tie band; the dial is born speaking the boundary's law).
   const dialPlan = planObliqueFilmstrip(live.theta, live.phi, dims);
   const dialCurrent = obliqueWalkCurrentIndex(dialPlan.frames, offset / 100);
+
+  // t1111 — the direction DIAL's seats: the azimuth ladder rides the ONE
+  // direction plan (six stations around the box, φ=360 honestly absent —
+  // it is φ=0), and the mark rides the HAND's phi through the ONE
+  // angular seat — the circle's own law (350° stands nearer 0° than
+  // 300°; the straight difference would lie). No unit translation: the
+  // slider and the stations speak the same degrees.
+  const directionStops = planObliqueDirectionWalk();
+  const directionCurrent = obliqueDirectionWalkCurrentIndex(directionStops, phi);
   const src = on
     ? `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(path)}&format=png&plane=oblique&theta=${live.theta.toFixed(1)}&phi=${live.phi.toFixed(1)}&offset=${(live.offset / 100).toFixed(3)}`
     : null;
@@ -2959,6 +2968,51 @@ function ObliqueSectionBlock({
                 onValueChange={(v) => scrubPhi(v[0] ?? 0)}
                 aria-label="Azimuth angle of the plane normal"
               />
+              {/* t1111 — the direction DIAL: the offset dial's azimuth
+                  sibling — six stations around the box join the φ
+                  slider's own neighborhood. A click walks the cut to
+                  that direction through scrubPhi (the slider's own
+                  door — no second channel, no new request dialect; the
+                  dial IS a hand, so the t559 law reads it the slider's
+                  way: the provenance revokes). The current stop wears
+                  the block's violet (the mark family's father — zero
+                  new ink), 2px ring against the stops' 1px; the mark
+                  is ANGULAR (the wrap seat's own law — 350° rings φ
+                  0°). The stops speak: each names its azimuth; the
+                  current one says so (aria-pressed). */}
+              <div
+                role="group"
+                data-canvas-ui="ortho-oblique-direction-dial"
+                aria-label="The cut's direction stops — six azimuths around the box; the ringed stop is the cut's own direction"
+                title="The direction stops — six azimuths around the box at the cut's own depth. Click a stop to walk the cut there."
+                className="mt-1.5 flex flex-wrap items-center gap-1"
+              >
+                {directionStops.map((s, i) => {
+                  const current = i === directionCurrent;
+                  return (
+                    <button
+                      key={s.phi}
+                      type="button"
+                      onClick={() => scrubPhi(s.phi)}
+                      aria-pressed={current}
+                      aria-label={
+                        (current ? "The cut's own direction — " : "") +
+                        `Walk the cut to ${s.label} of the azimuth circle`
+                      }
+                      title={`Walk the cut to ${s.label}`}
+                      data-direction-stop={s.label}
+                      className={cn(
+                        "rounded-sm border px-1.5 py-0.5 font-mono text-[10px] tabular-nums transition-colors duration-150",
+                        current
+                          ? "border-2 border-violet-600 bg-violet-600/10 font-semibold text-violet-700 dark:text-violet-300"
+                          : "border-border/70 text-muted-foreground hover:border-violet-600/40 hover:bg-violet-600/5 hover:text-foreground"
+                      )}
+                    >
+                      {s.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
             <div>
               <div className="mb-1 flex items-baseline justify-between gap-2">

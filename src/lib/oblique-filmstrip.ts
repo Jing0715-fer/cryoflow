@@ -154,3 +154,97 @@ export function obliqueFilmstripFilename(path: string, stamp: string): string {
   const base = path.split("/").pop() || path;
   return `oblique-filmstrip-${base.replace(/\.(mrc|mrcs)$/i, "")}-${stamp}.png`;
 }
+
+/* ------------------------------------------------------------------ */
+/* t1111 — the direction DIAL: the cut's azimuth ladder. The offset    */
+/* walk sweeps the box along the normal (the seats above); the         */
+/* direction dial sweeps AROUND the box — six azimuth stations at      */
+/* even 60° steps, the cut's second degree of freedom gaining its own  */
+/* invitation face. The laws mirror the family (the sibling walks      */
+/* mirror their laws, never share code — the t1098 precedent): the     */
+/* ladder is even and ascending, φ=360 is honestly absent (it IS       */
+/* φ=0 — the circle's own wrap, the ladder excludes the duplicate),    */
+/* and the mark's distance is ANGULAR (min(|a−b|, 360−|a−b|)) — 350°   */
+/* stands nearer 0° than 300°, a straight difference would lie. Pure   */
+/* and node-runnable: the stations and the mark are decided before a   */
+/* single click flies.                                                 */
+/* ------------------------------------------------------------------ */
+
+/** The dial's station count — six azimuths around the box (0…300 at
+ *  60° steps). Fewer reads like a shrug, more like a protractor; six
+ *  fits the slider's neighborhood at chip size. */
+export const DIRECTION_STATIONS = 6;
+
+export interface ObliqueDirectionStop {
+  /** the station's azimuth in whole degrees, 0…300 ascending. */
+  phi: number;
+  /** the station's voice ("φ 60°") — the chip's own bytes, the one
+   * father for every face that names a station. */
+  label: string;
+}
+
+/**
+ * A station's voice — "φ 60°". The φ prefix is the voice's own
+ * disambiguation: the θ slider next door speaks degrees too, and a
+ * bare "60°" chip would read as either. Pure — one string.
+ */
+export function obliqueAzimuthVoice(phiDeg: number): string {
+  const phi =
+    typeof phiDeg === "number" && Number.isFinite(phiDeg)
+      ? Math.round(phiDeg)
+      : 0;
+  return `φ ${phi}°`;
+}
+
+/**
+ * Plan the direction dial: the azimuth ladder for `stops` stations
+ * (≥ 2, non-integers and < 2 fall back to the six-station default),
+ * evenly spaced over the full circle with the wrap law applied — the
+ * end station is the start (φ=360 ≡ φ=0), so the last stop is a full
+ * step BEFORE 360 and the ladder never names the same plane twice.
+ * Pure — the output owns no reference to any input.
+ */
+export function planObliqueDirectionWalk(
+  stops: number = DIRECTION_STATIONS
+): ObliqueDirectionStop[] {
+  const n =
+    Number.isInteger(stops) && stops >= 2 ? stops : DIRECTION_STATIONS;
+  const step = 360 / n;
+  const out: ObliqueDirectionStop[] = [];
+  for (let k = 0; k < n; k++) {
+    const phi = Math.round(k * step);
+    out.push({ phi, label: obliqueAzimuthVoice(phi) });
+  }
+  return out;
+}
+
+/**
+ * The direction dial's "you are here" (t1111) — the t1108 seat's
+ * ANGULAR edition: the stop whose azimuth stands nearest the cut's
+ * own, measured around the circle (min(|a−b|, 360−|a−b|)) — the wrap
+ * law the straight difference cannot speak. The family's tie law
+ * rides unchanged: the FIRST stop at the minimal distance wins, so a
+ * hand exactly between two stations reads the lower index (the
+ * circle's reading direction — 30° sits between φ 0° and φ 60° and
+ * rings φ 0°). A null/undefined or non-finite azimuth and an empty
+ * stop list return null — no mark, no invented direction. Out-of-
+ * range values are not policed: the wrap distance answers them the
+ * circle's own way (361° ≡ 1°), the sliders clamp upstream. Pure.
+ */
+export function obliqueDirectionWalkCurrentIndex(
+  stops: ReadonlyArray<{ phi: number }>,
+  phi: number | null | undefined
+): number | null {
+  if (typeof phi !== "number" || !Number.isFinite(phi)) return null;
+  let best: number | null = null;
+  let bestD = Infinity;
+  for (let i = 0; i < stops.length; i++) {
+    const raw = Math.abs(stops[i].phi - phi) % 360;
+    const d = Math.min(raw, 360 - raw);
+    if (d < bestD) {
+      bestD = d;
+      best = i;
+    }
+  }
+  return best;
+}
