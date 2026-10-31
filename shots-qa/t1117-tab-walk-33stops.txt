@@ -1,0 +1,66 @@
+"Step the XY plane one voxel along Z (toward  || ring=lab(56.6252 -37.2685 -4.48842) 0px 0px 0px 1px, rgba(0, 0, 0 || op=1 || out=none"
+
+"Step the XY plane one voxel along Z (toward  || ring=lab(56.6252 -37.2685 -4.48842) 0px 0px 0px 1px, rgba(0, 0, 0 || op=1 || out=none"
+
+"Export the XY plane's walk — 6 frames from f || ring=lab(56.6252 -37.2685 -4.48842) 0px 0px 0px 1px, rgba(0, 0, 0 || op=1 || out=none"
+
+"Show the XY plane at z 17/32 in 3D || ring=lab(56.6252 -37.2685 -4.48842) 0px 0px 0px 1px, rgba(0, 0, 0 || op=1 || out=none"
+
+"XY plane position along Z || ring=lab(0.614996 -0.107407 -0.0112758 / 0.5) 0px 0px 0px 4px, rg || op=1 || out=none"
+
+"Step the XZ plane one voxel along Y (toward  || ring=lab(56.6252 -37.2685 -4.48842) 0px 0px 0px 1px, rgba(0, 0, 0 || op=1 || out=none"
+
+"Step the XZ plane one voxel along Y (toward  || ring=lab(56.6252 -37.2685 -4.48842) 0px 0px 0px 1px, rgba(0, 0, 0 || op=1 || out=none"
+
+"Export the XZ plane's walk — 6 frames from f || ring=lab(56.6252 -37.2685 -4.48842) 0px 0px 0px 1px, rgba(0, 0, 0 || op=1 || out=none"
+
+"Show the XZ plane at y 17/32 in 3D || ring=lab(56.6252 -37.2685 -4.48842) 0px 0px 0px 1px, rgba(0, 0, 0 || op=1 || out=none"
+
+"XZ plane position along Y || ring=lab(0.614996 -0.107407 -0.0112758 / 0.5) 0px 0px 0px 4px, rg || op=1 || out=none"
+
+"Step the YZ plane one voxel along X (toward  || ring=lab(56.6252 -37.2685 -4.48842) 0px 0px 0px 1px, rgba(0, 0, 0 || op=1 || out=none"
+
+"Step the YZ plane one voxel along X (toward  || ring=lab(56.6252 -37.2685 -4.48842) 0px 0px 0px 1px, rgba(0, 0, 0 || op=1 || out=none"
+
+"Export the YZ plane's walk — 6 frames from f || ring=lab(56.6252 -37.2685 -4.48842) 0px 0px 0px 1px, rgba(0, 0, 0 || op=1 || out=none"
+
+"Show the YZ plane at x 17/32 in 3D || ring=lab(56.6252 -37.2685 -4.48842) 0px 0px 0px 1px, rgba(0, 0, 0 || op=1 || out=none"
+
+"YZ plane position along X || ring=lab(0.614996 -0.107407 -0.0112758 / 0.5) 0px 0px 0px 4px, rg || op=1 || out=none"
+
+"Oblique sectionθ polar · φ azimuth — the cut || ring=lab(56.6252 -37.2685 -4.48842) 0px 0px 0px 1px, rgba(0, 0, 0 || op=1 || out=none"
+
+"Polar angle of the plane normal || ring=lab(0.614996 -0.107407 -0.0112758 / 0.5) 0px 0px 0px 4px, rg || op=1 || out=none"
+
+"Azimuth angle of the plane normal || ring=lab(0.614996 -0.107407 -0.0112758 / 0.5) 0px 0px 0px 4px, rg || op=1 || out=none"
+
+"The cut's own direction — Walk the cut to φ  || ring=lab(56.6252 -37.2685 -4.48842) 0px 0px 0px 1px, rgba(0, 0, 0 || op=1 || out=none"
+
+"Walk the cut to φ 60° of the azimuth circle || ring=lab(56.6252 -37.2685 -4.48842) 0px 0px 0px 1px, rgba(0, 0, 0 || op=1 || out=none"
+
+"Walk the cut to φ 120° of the azimuth circle || ring=lab(56.6252 -37.2685 -4.48842) 0px 0px 0px 1px, rgba(0, 0, 0 || op=1 || out=none"
+
+"Walk the cut to φ 180° of the azimuth circle || ring=lab(56.6252 -37.2685 -4.48842) 0px 0px 0px 1px, rgba(0, 0, 0 || op=1 || out=none"
+
+"Walk the cut to φ 240° of the azimuth circle || ring=lab(56.6252 -37.2685 -4.48842) 0px 0px 0px 1px, rgba(0, 0, 0 || op=1 || out=none"
+
+"Walk the cut to φ 300° of the azimuth circle || ring=lab(56.6252 -37.2685 -4.48842) 0px 0px 0px 1px, rgba(0, 0, 0 || op=1 || out=none"
+
+"Signed offset of the plane along its normal || ring=lab(0.614996 -0.107407 -0.0112758 / 0.5) 0px 0px 0px 4px, rg || op=1 || out=none"
+
+"Walk the cut to -100% of the face-to-face sp || ring=lab(56.6252 -37.2685 -4.48842) 0px 0px 0px 1px, rgba(0, 0, 0 || op=1 || out=none"
+
+"Walk the cut to -60% of the face-to-face spa || ring=lab(56.6252 -37.2685 -4.48842) 0px 0px 0px 1px, rgba(0, 0, 0 || op=1 || out=none"
+
+"The cut's own plane — Walk the cut to -20% o || ring=lab(56.6252 -37.2685 -4.48842) 0px 0px 0px 1px, rgba(0, 0, 0 || op=1 || out=none"
+
+"Walk the cut to +20% of the face-to-face spa || ring=lab(56.6252 -37.2685 -4.48842) 0px 0px 0px 1px, rgba(0, 0, 0 || op=1 || out=none"
+
+"Walk the cut to +60% of the face-to-face spa || ring=lab(56.6252 -37.2685 -4.48842) 0px 0px 0px 1px, rgba(0, 0, 0 || op=1 || out=none"
+
+"Walk the cut to +100% of the face-to-face sp || ring=lab(56.6252 -37.2685 -4.48842) 0px 0px 0px 1px, rgba(0, 0, 0 || op=1 || out=none"
+
+"reset || ring=lab(56.6252 -37.2685 -4.48842) 0px 0px 0px 1px, rgba(0, 0, 0 || op=1 || out=none"
+
+"Swing the 3D camera to look straight down th || ring=lab(56.6252 -37.2685 -4.48842) 0px 0px 0px 1px, rgba(0, 0, 0 || op=1 || out=none"
+
