@@ -69,7 +69,7 @@ import { MrcImage } from "./mrc-image";
 import { DensityHistogramStrip } from "./density-histogram";
 import { cn } from "@/lib/utils";
 import { downloadBlob } from "@/lib/download"; // t646 — one blob sink (this dance skipped the attach-before-click law)
-import { OBLIQUE_SHEET_FACE_TITLE, obliqueDepthVox, obliqueDepthVoice, obliqueNormal, obliqueOffsetPctVoice, obliqueSupportVox, patchBoxRect, patchClampVoice, voxelReadout } from "@/lib/voxel-voice"; // t906/t907 — the tile's and the oblique block's voices ride the ONE lib (the embed's commit site reads the same seats); t1099 — the cut's direction rides the ONE father too; t1122 — the patch's footprint rides the same lib (the box and the crosshair can never disagree about where a voxel lives); t1126 — the clamp's own voice rides the same mint (the chip's shortfall is the lib's word, not the panel's); t1130 — the face's title rides the lib (the mesh edition's division: the σ slider cuts the surface, the face keeps the field)
+import { OBLIQUE_SHEET_FACE_TITLE, obliqueDepthVox, obliqueDepthVoice, obliqueNormal, obliqueOffsetPctVoice, obliqueSupportVox, patchBoxRect, patchClampVoice, voxelReadout, type SheetLegend } from "@/lib/voxel-voice"; // t906/t907 — the tile's and the oblique block's voices ride the ONE lib (the embed's commit site reads the same seats); t1099 — the cut's direction rides the ONE father too; t1122 — the patch's footprint rides the same lib (the box and the crosshair can never disagree about where a voxel lives); t1126 — the clamp's own voice rides the same mint (the chip's shortfall is the lib's word, not the panel's); t1130 — the face's title rides the lib (the mesh edition's division: the σ slider cuts the surface, the face keeps the field); t1131 — the legend's type rides the same lib (the strip renders the embed's own key, never its own ramp)
 import { DIRECTION_STATIONS, FILMSTRIP_FRAMES, obliqueDirectionWalkCurrentIndex, obliqueDirectionWalkFilename, obliqueDirectionWalkUrls, obliqueFilmstripFilename, obliqueFilmstripUrls, obliqueWalkCurrentIndex, planObliqueDirectionWalk, planObliqueFilmstrip } from "@/lib/oblique-filmstrip"; // t1096 — the walk's geometry rides the ONE lib: the plan, the URLs and the name are decided before a fetch flies; t1108 — the cut's "you are here" rides the same lib's frac seat; t1109 — the walk dial rides the same two seats on the live screen; t1111 — the direction dial rides the lib's azimuth ladder (the stations carry the voice's own label) and its angular mark; t1112 — the direction page's pixels ride the lib's azimuth URL edition; t1115 — the direction export's name rides the lib's filename edition
 import { ORTHO_FILMSTRIP_FRAMES, orthoFilmstripFilename, orthoFilmstripUrls, orthoWalkCurrentIndex, planOrthoFilmstrip } from "@/lib/ortho-filmstrip"; // t1098 — the axis walks ride the ONE lib: the plan, the URLs and the name are decided before a fetch flies; t1107 — the walk's "you are here" rides the same seat
 import { orthoAxisWalkHeading, orthoPlateDirectionCurrentLegend, orthoPlateDirectionWalkExtentWord, orthoPlateDirectionWalkMetaLine, orthoPlateMetaLine, orthoPlateObliqueCurrentLegend, orthoPlateTileUrl, orthoPlateWalkCurrentLegend, orthoPlateWalkMetaLine, orthoWalkFrameCaption, planOrthoPlate, planPlateHistogram, PLATE_HIST_INKS, type PlateHistPayload } from "@/lib/ortho-plate"; // t1103/t1104/t1105/t1106 — the plate's words and its distribution band ride the ONE plan lib (the voices' own bytes, decided before any print; the walk page's words and the σ leg's geometry ride the same family); t1112 — the direction page's extent and legend ride the same words lib; t1115 — the export button's aria and header ride the extent word seat and the legend's own sentence
@@ -171,6 +171,18 @@ export interface ObliqueVerbDetail {
  *  block's ▣ is pressed exactly when a face is actually showing, and a
  *  cut retired elsewhere takes the face down with it. */
 export const OBLIQUE_SHEET_EVENT = "cryoflow:oblique-sheet";
+/** 3D → 2D (t1131): the face's LEGEND — the gray mosaic's own color key,
+ *  derived from the mesh arrays the scene wears (the lib's sheetLegendOf:
+ *  the legend is MADE of the face, never a second ramp). One dispatch per
+ *  settled pump (the embed announces AFTER the commit loop breaks — the
+ *  newest truth, once), detail = { legend: SheetLegend | null } — null is
+ *  the honest no-face announcement (the pump's lattice kept nothing, the
+ *  face retired with its cut). Its own wire, the sheet's own law: the
+ *  cut's event speaks geometry, the sheet's event speaks existence, the
+ *  legend speaks what the face WEARS — none of them grows a second
+ *  meaning. The block renders the strip only when the face's ACK says a
+ *  face is showing (sheet3d && cut3d) AND a legend has arrived. */
+export const OBLIQUE_SHEET_LEGEND_EVENT = "cryoflow:oblique-sheet-legend";
 export interface ObliqueViewDetail {
   /** unit plane normal in grid coords */
   normal: [number, number, number];
@@ -3219,6 +3231,46 @@ function ObliqueSectionBlock({
   // the intent over OBLIQUE_SHEET_EVENT and the ACK corrects it — the
   // same optimistic-then-confirmed voice the ✂ rides
   const [sheet3d, setSheet3d] = useState(false);
+  // t1131 — the face's LEGEND (3D → 2D): the strip reads the embed's own
+  // key over OBLIQUE_SHEET_LEGEND_EVENT — one dispatch per settled pump,
+  // null = the honest no-face. legendSettled separates "the key hasn't
+  // arrived yet" (the reading placeholder) from "the pump answered: no
+  // face here" (silence) — a placeholder that never clears would lie
+  // about a plane the lattice honestly kept nothing of.
+  const [sheetLegend, setSheetLegend] = useState<SheetLegend | null>(null);
+  const [legendSettled, setLegendSettled] = useState(false);
+  useEffect(() => {
+    const onLegend = (e: Event) => {
+      const d = (e as CustomEvent<{ legend?: unknown }>).detail;
+      if (!d || typeof d !== "object" || !("legend" in d)) return;
+      const lg = d.legend;
+      if (lg === null) {
+        setSheetLegend(null);
+        setLegendSettled(true);
+        return;
+      }
+      if (typeof lg !== "object") return;
+      const o = lg as SheetLegend;
+      // a foreign key is not a key: the strip renders only a shape it
+      // understands (≥2 swatches — the lib's own minimum)
+      if (!Array.isArray(o.swatches) || o.swatches.length < 2) return;
+      setSheetLegend(o);
+      setLegendSettled(true);
+    };
+    window.addEventListener(OBLIQUE_SHEET_LEGEND_EVENT, onLegend);
+    return () => window.removeEventListener(OBLIQUE_SHEET_LEGEND_EVENT, onLegend);
+  }, []);
+  // a fresh activation reads its own key — the previous face's strip never
+  // survives the toggle. The retirement rides the RENDER phase (the
+  // prevNonce precedent above: "adjust state when a prop changes") — an
+  // effect setState here would trip the cascading-render lint and split
+  // one logical ACK into two render passes.
+  if (!sheet3d || !cut3d) {
+    if (sheetLegend !== null || legendSettled) {
+      setSheetLegend(null);
+      setLegendSettled(false);
+    }
+  }
   const sentOnRef = useRef(false);
   useEffect(() => {
     const live3d = on && cut3d;
@@ -3638,6 +3690,69 @@ function ObliqueSectionBlock({
                 live={live}
               />
             </div>
+            {/* t1131 — the face's LEGEND strip: the gray mosaic's own color
+                key, MADE of the mesh arrays (the lib's sheetLegendOf — the
+                strip cannot disagree with the face because it IS what the
+                face wears). Rendered only when the ACK says a face is
+                showing AND the key has arrived; the ends speak the stretch
+                (the tiles' own 2–98 percentiles), each swatch confesses its
+                band-center density on hover, the chip names the count and
+                the lattice's harvest. Until the key lands: the reading
+                placeholder (honest — the pump is still sampling); after a
+                null answer: silence (a plane whose lattice kept nothing
+                keeps no key). */}
+            {sheet3d && cut3d && !legendSettled && (
+              <div
+                data-canvas-ui="ortho-oblique-sheet-legend-pending"
+                className="mt-1.5 flex items-center gap-2 rounded border border-violet-600/20 bg-violet-600/5 px-2 py-1.5"
+              >
+                <span
+                  className="animate-pulse font-mono text-[10px] tabular-nums text-violet-700/80 dark:text-violet-300/80"
+                  title="The embed is sampling the plane — the lattice mosaic's key arrives with the face"
+                >
+                  reading the face…
+                </span>
+              </div>
+            )}
+            {sheet3d && cut3d && sheetLegend && (
+              <div
+                data-canvas-ui="ortho-oblique-sheet-legend"
+                role="img"
+                aria-label={sheetLegend.aria}
+                title="The face's gray key — the tiles' own 2–98 stretch quantized to gray bands; hover a band for its density."
+                className="mt-1.5 flex items-center gap-2 rounded border border-violet-600/20 bg-violet-600/5 px-2 py-1.5 transition-colors duration-300"
+              >
+                <span
+                  className="shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground"
+                  title={`The stretch's dark end — ${sheetLegend.loLabel} density`}
+                >
+                  {sheetLegend.loLabel}
+                </span>
+                <span className="flex h-2.5 min-w-0 flex-1 overflow-hidden rounded-sm ring-1 ring-black/10 dark:ring-white/15">
+                  {sheetLegend.swatches.map((sw, i) => (
+                    <span
+                      key={i}
+                      title={sheetLegend.labels[i]}
+                      style={{ backgroundColor: sw }}
+                      className="h-full min-w-0 flex-1 transition-[filter] duration-150 hover:brightness-110"
+                    />
+                  ))}
+                </span>
+                <span
+                  className="shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground"
+                  title={`The stretch's light end — ${sheetLegend.hiLabel} density`}
+                >
+                  {sheetLegend.hiLabel}
+                </span>
+                <span
+                  data-canvas-ui="ortho-oblique-sheet-legend-chip"
+                  className="shrink-0 rounded-full border border-violet-600/30 bg-background px-1.5 py-0.5 font-mono text-[9px] tabular-nums text-violet-700 dark:text-violet-300"
+                  title={`The mosaic's harvest — ${sheetLegend.kept} quads kept of ${sheetLegend.lattice} lattice cells (${sheetLegend.dropped} dropped outside the grid)`}
+                >
+                  {sheetLegend.bands} bands
+                </span>
+              </div>
+            )}
           </div>
         </div>
       )}

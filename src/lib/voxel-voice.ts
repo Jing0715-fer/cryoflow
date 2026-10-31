@@ -572,3 +572,62 @@ export function buildObliqueSheetMesh(input: SheetMeshInput): SheetMeshArrays | 
     stats: { kept, dropped, lattice: N * N },
   };
 }
+
+/** t1131 — the face's LEGEND: the gray mosaic's own color key, derived
+ *  FROM the mesh arrays the scene actually wears (buildObliqueSheetMesh's
+ *  bandColors/bandLabels — the legend cannot disagree with the face
+ *  because it is MADE of it; a second ramp computed from the raw window
+ *  would be a second father, and two fathers disagree the first time one
+ *  of them changes). One swatch per band, dark → light, each carrying the
+ *  band-center density word the mesh already speaks; the window's own
+ *  ends ride the same 3-significant-digit voice. Serializable by design —
+ *  the object crosses the event wire (OBLIQUE_SHEET_LEGEND_EVENT) to the
+ *  panel's strip. Returns null when the truth is not drawable: no arrays,
+ *  fewer than two bands (a one-color key explains nothing), or an invalid
+ *  window — the honest no-legend beats a guessed key. Pure. */
+export interface SheetLegend {
+  /** band count (the swatches' length) */
+  bands: number;
+  /** the stretch's own ends, 3-significant-digit words */
+  loLabel: string;
+  hiLabel: string;
+  /** css hex per band, dark → light (index = band) */
+  swatches: string[];
+  /** the band-center density word per swatch (index = band) */
+  labels: string[];
+  /** the lattice's own harvest, for the strip's confession chip */
+  kept: number;
+  dropped: number;
+  lattice: number;
+  /** the strip's aria word (role="img" speaks this) */
+  aria: string;
+}
+
+export function sheetLegendOf(
+  arrays: SheetMeshArrays | null | undefined,
+  grayLo: number,
+  grayHi: number
+): SheetLegend | null {
+  if (!arrays || !Array.isArray(arrays.bandColors) || arrays.bandColors.length < 2) return null;
+  if (!Array.isArray(arrays.bandLabels) || arrays.bandLabels.length !== arrays.bandColors.length) {
+    return null;
+  }
+  if (!Number.isFinite(grayLo) || !Number.isFinite(grayHi) || grayHi <= grayLo) return null;
+  const K = arrays.bandColors.length;
+  const fmt = (v: number) => Number(v.toPrecision(3)).toString();
+  const loLabel = fmt(grayLo);
+  const hiLabel = fmt(grayHi);
+  return {
+    bands: K,
+    loLabel,
+    hiLabel,
+    swatches: arrays.bandColors.map((c) => `#${Number(c).toString(16).padStart(6, "0")}`),
+    labels: arrays.bandLabels.map(String),
+    kept: arrays.stats?.kept ?? 0,
+    dropped: arrays.stats?.dropped ?? 0,
+    lattice: arrays.stats?.lattice ?? 0,
+    aria:
+      `The face's gray key — ${K} bands from ${loLabel} to ${hiLabel} density` +
+      ` (the tiles' own stretch), ${arrays.stats?.kept ?? 0} quads on the plane`,
+  };
+}

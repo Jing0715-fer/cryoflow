@@ -27,7 +27,7 @@ import { Kbd } from "@/components/ui/kbd"; // t830 — the door's keymap speaks 
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { PENDING_SHARE_KEY, PENDING_VIEW_KEY, SAVED_VIEWS_CHANGED_EVENT, SHARE_PAYLOAD_MAX, SharePayload, decodeSharePayload, encodeSharePayload } from "@/lib/view-link";
-import { ORTHO_SLICE_EVENT, ORTHO_SLICE_STATE_EVENT, ORTHO_CLIP_STATE_EVENT, ORTHO_FOCUS_EVENT, ORTHO_FOCUS_RESTORE_EVENT, ORTHO_SIGMA_STATE_EVENT, ORTHO_SIGMA_REQUEST_EVENT, ORTHO_SIGMA_SET_EVENT, OBLIQUE_VIEW_EVENT, OBLIQUE_CLIP_EVENT, OBLIQUE_CLIP_STATE_EVENT, OBLIQUE_SHEET_EVENT, OBLIQUE_VERB_EVENT, ORTHO_CAMERA_REQUEST_EVENT, ORTHO_CAMERA_STATE_EVENT, OrthoCameraStateDetail, ObliqueVerbDetail } from "./map-ortho-panel";
+import { ORTHO_SLICE_EVENT, ORTHO_SLICE_STATE_EVENT, ORTHO_CLIP_STATE_EVENT, ORTHO_FOCUS_EVENT, ORTHO_FOCUS_RESTORE_EVENT, ORTHO_SIGMA_STATE_EVENT, ORTHO_SIGMA_REQUEST_EVENT, ORTHO_SIGMA_SET_EVENT, OBLIQUE_VIEW_EVENT, OBLIQUE_CLIP_EVENT, OBLIQUE_CLIP_STATE_EVENT, OBLIQUE_SHEET_EVENT, OBLIQUE_SHEET_LEGEND_EVENT, OBLIQUE_VERB_EVENT, ORTHO_CAMERA_REQUEST_EVENT, ORTHO_CAMERA_STATE_EVENT, OrthoCameraStateDetail, ObliqueVerbDetail } from "./map-ortho-panel";
 import { useWorkflowStore } from "@/lib/store";
 import { fmtBytes } from "@/lib/canvas-export";
 import { encodeGifFrames } from "@/lib/gif-export";
@@ -35,7 +35,7 @@ import { sanitizeMrcHeader } from "@/lib/mrc-axis";
 import { canCopyImageToClipboard, copyViewerPng, drawFigureFooter, exportViewerPng, figureFooterHeightPx, figureTitleMeta, viewerFileSlug, viewerFileTimestamp } from "@/lib/viewer-export";
 import { downloadBlob } from "@/lib/download";
 import { keptIntervalOf, normalizeInterval } from "@/lib/clip-interval"; // t905 — the slab seat: both clip languages answer to one interval editor
-import { OBLIQUE_SHEET_ANNOTATION, axisIndex, buildObliqueSheetMesh, densityWindow, dimAlong, obliqueAnchorVox, obliqueCutAnnotation, obliqueDepthVox, obliqueDepthVoice, obliqueNormal, obliqueOffsetPctVoice, obliqueSupportVox, voxelAriaText, voxelAnnotation, voxelIndexOf, voxelIntervalReadout, voxelPlaneVoice, voxelSliderVoice, type SheetMeshArrays } from "@/lib/voxel-voice"; // t906/t907 — one honest voice: the slice family speaks the voxel address the ortho tiles speak, the oblique cut speaks its depth along its own normal; t1129 — the cut's face rides the lib's anchor word; t1130 — the face's geometry words (densityWindow, buildObliqueSheetMesh) ride the lib too (the t1122 patchBoxRect precedent: geometry the family shares lives where node can ride it)
+import { OBLIQUE_SHEET_ANNOTATION, axisIndex, buildObliqueSheetMesh, densityWindow, dimAlong, obliqueAnchorVox, obliqueCutAnnotation, obliqueDepthVox, obliqueDepthVoice, obliqueNormal, obliqueOffsetPctVoice, obliqueSupportVox, sheetLegendOf, voxelAriaText, voxelAnnotation, voxelIndexOf, voxelIntervalReadout, voxelPlaneVoice, voxelSliderVoice, type SheetLegend, type SheetMeshArrays } from "@/lib/voxel-voice"; // t906/t907 — one honest voice: the slice family speaks the voxel address the ortho tiles speak, the oblique cut speaks its depth along its own normal; t1129 — the cut's face rides the lib's anchor word; t1130 — the face's geometry words (densityWindow, buildObliqueSheetMesh) ride the lib too (the t1122 patchBoxRect precedent: geometry the family shares lives where node can ride it); t1131 — the face's legend is MADE of the mesh arrays (sheetLegendOf), never a second ramp
 import { downloadText } from "@/lib/download";
 // t197: the profile QC report family moved to @/lib/qc-report — the session
 // QC report is its second consumer, and the lib is the one honest home
@@ -3694,6 +3694,29 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
   // decide Unchanged vs Recreate (the params carry the geometry — the rev
   // is their fingerprint)
   const sheetRevRef = useRef(0);
+  // t1131 — the face's LEGEND: the last commit's own key (sheetLegendOf on
+  // the arrays the scene wears, null when the face retired or the lattice
+  // kept nothing). pumpSheet announces it ONCE per settled pump over
+  // OBLIQUE_SHEET_LEGEND_EVENT — the panel's strip can never disagree with
+  // the face because it only ever reads what the face last WORE.
+  const sheetLegendRef = useRef<SheetLegend | null>(null);
+  // t1131 — the scrub debounce: a drag (the trace's 120ms words, the walk
+  // dial's stops) storms the pump with plane moves; each is a full lattice
+  // rebuild (56×56 trilinear samples + a state commit). The 2D tiles' own
+  // law (PROBE_REFETCH_MS, the img chases the SETTLED pos) rides here as
+  // the face's breath: a numbers-only scrub schedules the rebuild on a
+  // trailing 180ms debounce — the newest plane wins, the build fires once
+  // after the hand rests; toggles (the cut's or the face's own) stay
+  // IMMEDIATE (a click must feel instant, the retirement law never waits).
+  const SHEET_SCRUB_DEBOUNCE_MS = 180; // the PROBE_REFETCH_MS law's own breath
+  const sheetDebounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      // unmount — never let a dying embed build a face for no one
+      if (sheetDebounceTimer.current) clearTimeout(sheetDebounceTimer.current);
+    },
+    []
+  );
   // t906 — the dim along the ACTIVE axis (null until the grid is mirrored):
   // every slice voice reads this one derivation, so the slider's address,
   // the aria text and the landscape's plane label can never disagree
@@ -4636,10 +4659,23 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     clipStateRef.current = { ...clipStateRef.current, rev: clipStateRef.current.rev + 1 };
     void pumpClip();
     // t1129 — the face follows the plane it is the face OF: every cut
-    // intent (scrub, flip, retire) re-pumps the sheet, so the density
-    // image and the surface opening can never disagree about where the
-    // plane sits
-    void pumpSheet();
+    // intent keeps the density image and the surface opening agreed on
+    // where the plane sits. t1131 — HOW the face chooses to follow depends
+    // on the word: an existence word (the cut's or the sheet's own toggle,
+    // a retirement) walks in IMMEDIATELY — a click must feel instant and
+    // the retirement law never waits; a numbers-only scrub rides the
+    // trailing debounce (one lattice build after the hand rests); and an
+    // invert-only flip calls NO rebuild at all — the mesh reads the plane,
+    // never the kept half, so the face cannot move (the pumpSheet seen-set
+    // has ignored invert since t1130; now the pump isn't even scheduled).
+    const numberWords =
+      patch.theta !== undefined || patch.phi !== undefined || patch.offset !== undefined;
+    if (patch.on !== undefined) {
+      requestSheetPump(true); // existence word — instant (mount and retire)
+    } else if (numberWords) {
+      requestSheetPump(false); // the plane moved — the debounced chase
+    }
+    // else: invert-only (or an empty patch) — the face cannot move; no build
     // 3D → 2D ACK (t661): the block's ✂ follows the scene — chip clear and
     // bookmark restores retire/revive the cut outside its sliders, and the
     // toggle must not lie about which of those states is live. t1129 — the
@@ -4655,6 +4691,22 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     );
   };
 
+  // t1131 — THE STALE-LISTENER CURE (a real bug, live-caught this window):
+  // the t661 clip listener called applyObliqueClipIntent DIRECTLY inside a
+  // []-deps effect — the closure froze on the FIRST render, whose `phase`
+  // is still "loading", so the stale pumpClip/pumpSheet early-returned
+  // FOREVER on the event wire: the panel's ✂ updated the state mirrors
+  // (stable refs + the stable setter — the chip and the ACK kept lying
+  // convincingly) but the SCENE's surface clip and the face's rebuilds
+  // never ran on this path. The rides that showed the cut working were
+  // Fast-Refresh re-subscriptions (each hot edit re-runs the [] effect with
+  // the then-current closure — phase already "ready"); a fresh dialog was
+  // silently dead. THE FAMILY'S OWN LAW (the slice listener's comment says
+  // it: "the intent applier is read through a ref so the listener never
+  // goes stale" — sliceIntentRef, sheetIntentRef): read the applier through
+  // a ref. The off-heartbeat branch rides the same ref.
+  const obliqueClipIntentRef = useRef(applyObliqueClipIntent);
+  obliqueClipIntentRef.current = applyObliqueClipIntent;
   useEffect(() => {
     const onObliqueClip = (e: Event) => {
       const d = (e as CustomEvent<{ on?: unknown; theta?: unknown; phi?: unknown; offset?: unknown }>)
@@ -4663,7 +4715,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       if (d.on !== true) {
         // the block's off-heartbeats retire the plane only when one is
         // actually out (a fresh embed never pumps for a cut it never had)
-        if (obliqueClipRef.current.on) applyObliqueClipIntent({ on: false });
+        if (obliqueClipRef.current.on) obliqueClipIntentRef.current({ on: false });
         return;
       }
       const theta =
@@ -4679,7 +4731,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
           ? Math.min(1, Math.max(-1, d.offset))
           : null;
       if (theta === null || phi === null || offset === null) return;
-      applyObliqueClipIntent({ on: true, theta, phi, offset });
+      obliqueClipIntentRef.current({ on: true, theta, phi, offset });
     };
     window.addEventListener(OBLIQUE_CLIP_EVENT, onObliqueClip);
     return () => window.removeEventListener(OBLIQUE_CLIP_EVENT, onObliqueClip);
@@ -4720,6 +4772,12 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     const plugin = pluginRef.current;
     if (!plugin || !volRef.current || !GridRef.current) throw new Error("not ready");
     const ob = obliqueClipRef.current;
+    // t1131 — the legend is CLEARED at the gate and minted only after a
+    // commit actually lands: the ref holds a key only when a face is
+    // really wearing it, so the pump's one announcement per settle can
+    // never describe a face the scene no longer keeps (an error path —
+    // the throw below — announces the honest null too)
+    sheetLegendRef.current = null;
     // the retirement law: the preference may sleep, the cut may be off —
     // either way the face comes down (the scene never keeps a sheet whose
     // plane is gone)
@@ -4776,7 +4834,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     try {
       kit = await ensureSheetKit();
     } catch (err) {
-      console.debug("olstar] sheet kit unavailable — no face", err);
+      console.debug("molstar] sheet kit unavailable — no face", err);
       await deleteSheet();
       return;
     }
@@ -4808,6 +4866,10 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
         .update(params)
         .commit();
     }
+    // t1131 — the commit landed: the legend is MADE of the arrays the
+    // scene now wears (the lib's sheetLegendOf — never a second ramp);
+    // the pump announces it once the settle loop breaks
+    sheetLegendRef.current = sheetLegendOf(arrays, window_[0], window_[1]);
   };
 
   const pumpSheet = async () => {
@@ -4832,11 +4894,45 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
         ) break; // nothing newer arrived while committing
       }
     } catch (err) {
-      console.debug("olstar] sheet update skipped", err);
+      console.debug("molstar] sheet update skipped", err);
     } finally {
       sheetPending.current = false;
+      // t1131 — ONE announcement per settled pump: the last commit's own
+      // key (or the honest null — the gates cleared it). The panel's strip
+      // is MADE of what the face last wore, so it can never lead the scene.
+      if (announcedSheetLegendRef.current !== sheetLegendRef.current) {
+        announcedSheetLegendRef.current = sheetLegendRef.current;
+        window.dispatchEvent(
+          new CustomEvent(OBLIQUE_SHEET_LEGEND_EVENT, { detail: { legend: sheetLegendRef.current } })
+        );
+      }
     }
   };
+
+  // t1131 — the pump's DOOR: toggles walk straight in (a click must feel
+  // instant, the retirement law never waits), a numbers-only scrub rides
+  // the trailing 180ms debounce (the newest plane wins, one lattice build
+  // after the hand rests — the 2D tiles' PROBE_REFETCH_MS law). The timer
+  // resets on every new word: a continuous drag holds the build until the
+  // breath arrives, exactly when the 2D tiles' img refetches.
+  const requestSheetPump = (immediate: boolean) => {
+    if (sheetDebounceTimer.current) {
+      clearTimeout(sheetDebounceTimer.current);
+      sheetDebounceTimer.current = null;
+    }
+    if (immediate) {
+      void pumpSheet();
+      return;
+    }
+    sheetDebounceTimer.current = setTimeout(() => {
+      sheetDebounceTimer.current = null;
+      void pumpSheet();
+    }, SHEET_SCRUB_DEBOUNCE_MS);
+  };
+  // the announcement's dedup seat: CustomEvents are cheap but a pump that
+  // rebuilt nothing (the settle loop's own honesty) must not re-speak an
+  // unchanged key — the panel keeps its state, the wire stays quiet
+  const announcedSheetLegendRef = useRef<SheetLegend | null>(null);
 
   const applySheetIntent = (patch: Partial<{ on: boolean }>) => {
     sheetStateRef.current = { ...sheetStateRef.current, ...patch };
