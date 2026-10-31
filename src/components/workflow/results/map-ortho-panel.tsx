@@ -62,14 +62,15 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { BarChart3, Check, ChevronDown, ChevronLeft, ChevronRight, Crosshair, Download, Film, Focus, Layers, Loader2, Printer, ScanEye, ScanLine, Scissors, Slice, TriangleAlert } from "lucide-react";
+import { BarChart3, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, Crosshair, Download, Film, Focus, Layers, Loader2, Printer, ScanEye, ScanLine, Scissors, Slice, TriangleAlert } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Kbd } from "@/components/ui/kbd"; // t830 — the keymap row speaks the one kbd vocabulary (t642)
 import { MrcImage } from "./mrc-image";
 import { DensityHistogramStrip } from "./density-histogram";
 import { cn } from "@/lib/utils";
 import { downloadBlob } from "@/lib/download"; // t646 — one blob sink (this dance skipped the attach-before-click law)
-import { OBLIQUE_SHEET_FACE_TITLE, obliqueDepthVox, obliqueDepthVoice, obliqueNormal, obliqueOffsetPctVoice, obliqueSupportVox, patchBoxRect, patchClampVoice, voxelReadout, type SheetLegend } from "@/lib/voxel-voice"; // t906/t907 — the tile's and the oblique block's voices ride the ONE lib (the embed's commit site reads the same seats); t1099 — the cut's direction rides the ONE father too; t1122 — the patch's footprint rides the same lib (the box and the crosshair can never disagree about where a voxel lives); t1126 — the clamp's own voice rides the same mint (the chip's shortfall is the lib's word, not the panel's); t1130 — the face's title rides the lib (the mesh edition's division: the σ slider cuts the surface, the face keeps the field); t1131 — the legend's type rides the same lib (the strip renders the embed's own key, never its own ramp)
+import { copyTextToClipboard } from "@/lib/chart-export"; // t1132 — the house clipboard word (a PERMISSION, not a right — all refusals collapse into one honest false)
+import { OBLIQUE_SHEET_FACE_TITLE, obliqueDepthVox, obliqueDepthVoice, obliqueNormal, obliqueOffsetPctVoice, obliqueSupportVox, patchBoxRect, patchClampVoice, voxelReadout, sheetLegendText, type SheetLegend } from "@/lib/voxel-voice"; // t906/t907 — the tile's and the oblique block's voices ride the ONE lib (the embed's commit site reads the same seats); t1099 — the cut's direction rides the ONE father too; t1122 — the patch's footprint rides the same lib (the box and the crosshair can never disagree about where a voxel lives); t1126 — the clamp's own voice rides the same mint (the chip's shortfall is the lib's word, not the panel's); t1130 — the face's title rides the lib (the mesh edition's division: the σ slider cuts the surface, the face keeps the field); t1131 — the legend's type rides the same lib (the strip renders the embed's own key, never its own ramp); t1132 — the copy chip's cargo rides the same father (the key as text is the strip's own words)
 import { DIRECTION_STATIONS, FILMSTRIP_FRAMES, obliqueDirectionWalkCurrentIndex, obliqueDirectionWalkFilename, obliqueDirectionWalkUrls, obliqueFilmstripFilename, obliqueFilmstripUrls, obliqueWalkCurrentIndex, planObliqueDirectionWalk, planObliqueFilmstrip } from "@/lib/oblique-filmstrip"; // t1096 — the walk's geometry rides the ONE lib: the plan, the URLs and the name are decided before a fetch flies; t1108 — the cut's "you are here" rides the same lib's frac seat; t1109 — the walk dial rides the same two seats on the live screen; t1111 — the direction dial rides the lib's azimuth ladder (the stations carry the voice's own label) and its angular mark; t1112 — the direction page's pixels ride the lib's azimuth URL edition; t1115 — the direction export's name rides the lib's filename edition
 import { ORTHO_FILMSTRIP_FRAMES, orthoFilmstripFilename, orthoFilmstripUrls, orthoWalkCurrentIndex, planOrthoFilmstrip } from "@/lib/ortho-filmstrip"; // t1098 — the axis walks ride the ONE lib: the plan, the URLs and the name are decided before a fetch flies; t1107 — the walk's "you are here" rides the same seat
 import { orthoAxisWalkHeading, orthoPlateDirectionCurrentLegend, orthoPlateDirectionWalkExtentWord, orthoPlateDirectionWalkMetaLine, orthoPlateMetaLine, orthoPlateObliqueCurrentLegend, orthoPlateTileUrl, orthoPlateWalkCurrentLegend, orthoPlateWalkMetaLine, orthoWalkFrameCaption, planOrthoPlate, planPlateHistogram, PLATE_HIST_INKS, type PlateHistPayload } from "@/lib/ortho-plate"; // t1103/t1104/t1105/t1106 — the plate's words and its distribution band ride the ONE plan lib (the voices' own bytes, decided before any print; the walk page's words and the σ leg's geometry ride the same family); t1112 — the direction page's extent and legend ride the same words lib; t1115 — the export button's aria and header ride the extent word seat and the legend's own sentence
@@ -3239,6 +3240,28 @@ function ObliqueSectionBlock({
   // about a plane the lattice honestly kept nothing of.
   const [sheetLegend, setSheetLegend] = useState<SheetLegend | null>(null);
   const [legendSettled, setLegendSettled] = useState(false);
+  // t1132 — the copy chip's flip (⧉ → ✓ / ✗): idle, copied, refused. The
+  // flip self-resets on the 1600ms breath (the job-card's 1400ms idiom,
+  // one notch longer so the words are readable) and the timer is cleaned
+  // up on unmount — a dying strip never fires a state setter into the
+  // void. The retirement rides the render-phase block below (the face
+  // leaves, the flip leaves with it).
+  const [legendCopied, setLegendCopied] = useState<null | "ok" | "refused">(null);
+  const legendCopyTimer = useRef<number | null>(null);
+  useEffect(() => {
+    return () => {
+      if (legendCopyTimer.current !== null) clearTimeout(legendCopyTimer.current);
+    };
+  }, []);
+  const copySheetLegend = async () => {
+    if (!sheetLegend || legendCopied !== null) return;
+    const text = sheetLegendText(sheetLegend);
+    if (!text) return; // the lib refused the shape — the button stays honest-idle
+    const copied = await copyTextToClipboard(text);
+    setLegendCopied(copied ? "ok" : "refused");
+    if (legendCopyTimer.current !== null) clearTimeout(legendCopyTimer.current);
+    legendCopyTimer.current = window.setTimeout(() => setLegendCopied(null), 1600);
+  };
   useEffect(() => {
     const onLegend = (e: Event) => {
       const d = (e as CustomEvent<{ legend?: unknown }>).detail;
@@ -3270,6 +3293,7 @@ function ObliqueSectionBlock({
       setSheetLegend(null);
       setLegendSettled(false);
     }
+    if (legendCopied !== null) setLegendCopied(null); // the flip retires with the face
   }
   const sentOnRef = useRef(false);
   useEffect(() => {
@@ -3716,11 +3740,15 @@ function ObliqueSectionBlock({
             )}
             {sheet3d && cut3d && sheetLegend && (
               <div
+                data-canvas-ui="ortho-oblique-sheet-legend-row"
+                className="mt-1.5 flex items-stretch gap-1.5"
+              >
+              <div
                 data-canvas-ui="ortho-oblique-sheet-legend"
                 role="img"
                 aria-label={sheetLegend.aria}
                 title="The face's gray key — the tiles' own 2–98 stretch quantized to gray bands; hover a band for its density."
-                className="mt-1.5 flex items-center gap-2 rounded border border-violet-600/20 bg-violet-600/5 px-2 py-1.5 transition-colors duration-300"
+                className="flex min-w-0 flex-1 items-center gap-2 rounded border border-violet-600/20 bg-violet-600/5 px-2 py-1.5 transition-colors duration-300"
               >
                 <span
                   className="shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground"
@@ -3751,6 +3779,48 @@ function ObliqueSectionBlock({
                 >
                   {sheetLegend.bands} bands
                 </span>
+              </div>
+              {/* t1132 — the ⧉ copy chip: the key as text, a SIBLING of the
+                  role="img" strip (interactive content inside a role=img
+                  region is unexposed to the tree — the a11y law). The flip
+                  speaks all three states through aria-label + title; the
+                  width never reflows the strip (fixed w, self-stretch
+                  height, icons are the only content). */}
+              <button
+                type="button"
+                data-canvas-ui="ortho-oblique-sheet-legend-copy"
+                onClick={copySheetLegend}
+                aria-label={
+                  legendCopied === "ok"
+                    ? "The face's key copied to the clipboard"
+                    : legendCopied === "refused"
+                      ? "The clipboard refused the face's key"
+                      : "Copy the face's key as text"
+                }
+                title={
+                  legendCopied === "ok"
+                    ? "Copied — the aria word, the harvest, the band words"
+                    : legendCopied === "refused"
+                      ? "The clipboard refused — the key stays spoken by the strip and its aria"
+                      : "Copy the face's key as text — the aria word, the harvest, the band words"
+                }
+                className={cn(
+                  "inline-flex w-[26px] shrink-0 items-center justify-center rounded border transition-colors duration-150 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-violet-500/70",
+                  legendCopied === "ok"
+                    ? "border-emerald-600/40 bg-emerald-600/10 text-emerald-700 dark:text-emerald-300"
+                    : legendCopied === "refused"
+                      ? "border-amber-600/40 bg-amber-600/10 text-amber-700 dark:text-amber-300"
+                      : "border-violet-600/30 bg-background text-violet-700 hover:bg-violet-600/10 dark:text-violet-300"
+                )}
+              >
+                {legendCopied === "ok" ? (
+                  <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                ) : legendCopied === "refused" ? (
+                  <TriangleAlert className="h-3.5 w-3.5" aria-hidden="true" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                )}
+              </button>
               </div>
             )}
           </div>

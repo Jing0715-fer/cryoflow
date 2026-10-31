@@ -631,3 +631,25 @@ export function sheetLegendOf(
       ` (the tiles' own stretch), ${arrays.stats?.kept ?? 0} quads on the plane`,
   };
 }
+
+/**
+ * t1132 — the key as TEXT: the copy chip's cargo (⧉ beside the strip).
+ * Built ONLY from the SheetLegend the face announced — the copy cannot
+ * disagree with the strip because it IS the strip's own words (the
+ * one-father law: aria line verbatim, the harvest the chip confesses,
+ * the band words the swatches wear). Refuses the shapes the strip
+ * refuses (<2 swatches, labels ≠ swatches) with an honest empty string
+ * — the button then says so instead of copying a lie.
+ */
+export function sheetLegendText(lg: SheetLegend | null | undefined): string {
+  if (!lg || !Array.isArray(lg.swatches) || lg.swatches.length < 2) return "";
+  if (!Array.isArray(lg.labels) || lg.labels.length !== lg.swatches.length) return "";
+  if (!Number.isFinite(lg.kept) || !Number.isFinite(lg.lattice) || !Number.isFinite(lg.dropped)) {
+    return "";
+  }
+  return [
+    lg.aria,
+    `kept ${lg.kept}/${lg.lattice} lattice quads · ${lg.dropped} dropped outside the grid`,
+    `bands (dark → light): ${lg.labels.join(" · ")}`,
+  ].join("\n");
+}
