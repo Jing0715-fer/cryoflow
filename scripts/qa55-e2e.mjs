@@ -55,6 +55,14 @@ const B = "http://localhost:3000";
 const openDashboard = async () => {
   sh(`${AB} open ${B}`);
   await sleep(4500);
+  // t1130 — the t1128 inspect seed auto-opens the job inspector on a
+  // persistent-profile landing, and a dialog owns the keyboard (the app's
+  // own guard: `[role="dialog"][data-state="open"]` swallows keys 1-6).
+  // The suite's filter keys need a dialog-free dashboard. Radix only hears
+  // TRUSTED Escape — the live proof: a synthetic window-dispatched
+  // KeyboardEvent left the dialog open, the real `press Escape` closed it.
+  sh(`${AB} press Escape`);
+  await sleep(800);
   evalJs(`(() => { const b=[...document.querySelectorAll('a,button')].find(e=>e.textContent.trim()==='Dashboard'); b?b.click():0; return 'nav'; })()`);
   await sleep(2500);
 };

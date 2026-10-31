@@ -47,7 +47,7 @@ const B = "http://localhost:3000";
 // t705 — the host resolves through the manifest contract (qa-refine-host.mjs,
 // the JS twin of qa_lib.resolve_refine_host: manifest id + type fallback,
 // honest throw). The name is the world's own spelling, never a pin.
-const jobsRaw = sh(`curl -s --max-time 20 "${B}/api/jobs"`);
+const jobsRaw = sh(`curl -s --max-time 20 -H "Origin: ${B}" "${B}/api/jobs"`);
 const jobsArr = (() => { try { const d = JSON.parse(jobsRaw); return Array.isArray(d) ? d : d.jobs ?? []; } catch { return []; } })();
 const host = resolveRefineHost();
 const JOB = host.name;
@@ -102,7 +102,10 @@ const errCount = () => J(`((window.__qaErrs||[]).length) + ''`);
 
 const realClick = async (findExpr) => {
   const coords = evalJs(
-    `(() => { const el = (${findExpr}); if (!el) return null; const r = el.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; })()`,
+    // t1130 — the VIEWPORT law (t1127) enforced at the instrument: scroll the
+    // target into view BEFORE measuring, or below-the-fold rows (the t620
+    // roster viewport) measure a center that lands on the footer chip.
+    `(() => { const el = (${findExpr}); if (!el) return null; el.scrollIntoView({ block: 'center' }); const r = el.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; })()`,
   );
   if (!coords || coords === "null") return "NO-ELEMENT";
   const c = JSON.parse(coords);
@@ -191,8 +194,15 @@ const closeDialogEsc = async () => {
 };
 
 const sanityCheck = async () => {
-  const s = unq(evalJs(`(() => !!document.querySelectorAll('button').length)() + ''`));
-  if (s !== "true") throw new Error(`probe sanity failed: "${s}"`);
+  // t1130 — the probe can land inside a watchdog-recycle reload (HMR full
+  // reload empties the document for a beat); patience beats a false verdict
+  // (the t1128 recycle-reload law: rides live in ~3-5min windows).
+  for (let i = 0; i < 6; i++) {
+    const s = unq(evalJs(`(() => !!document.querySelectorAll('button').length)() + ''`));
+    if (s === "true") return;
+    await sleep(1500);
+  }
+  throw new Error(`probe sanity failed: page still empty after 9s (reload storm?)`);
 };
 
 const openViewer = async () => {
@@ -250,7 +260,13 @@ const openViewer = async () => {
   for (let i = 0; i < 8; i++) {
     const hasInspector = truthy(evalJs(`String([...document.querySelectorAll('[role=tab]')].some(t => t.textContent.trim() === 'Results'))`));
     if (!hasInspector) {
-      const dash = cliClick(`[title^="Project dashboard"]`);
+      // t1130 — the view choice persists (session-local): a blind toggle can
+      // walk AWAY from the dashboard when a prior phase (or ride) left it
+      // active — "Project dashboard" is a Shift+D TOGGLE, not a goto. Read
+      // the room first; click only when the dashboard is not mounted.
+      const dash = truthy(evalJs(`String(!!document.querySelector('[data-dash-band]'))`))
+        ? "already-on"
+        : cliClick(`[title^="Project dashboard"]`);
       // wait for the dashboard to actually mount — clicking the row before
       // the view switches logs a CLI "not found" that pollutes the error
       // buffer the suite asserts on later
@@ -260,6 +276,13 @@ const openViewer = async () => {
         onDash = truthy(evalJs(`String(!!document.querySelector('section[aria-label="Active project spotlight"]'))`));
       }
       const rowPresent = truthy(evalJs(`String(!!document.querySelector('[title^="Open ${JOB}"]'))`));
+      // t1130 — the roster is a max-h-80 viewport (~5 of 15 rows visible, the
+      // t620 honesty law): the refine row sits below the fold and its rect
+      // center lands on the spotlight's footer chip (the t1128
+      // elementFromPoint lesson). Bring the row into the viewport first.
+      if (rowPresent)
+        evalJs(`(() => { const el = document.querySelector('[title^="Open ${JOB}"]'); el.scrollIntoView({ block: 'center' }); return 'scrolled'; })()`);
+      await sleep(600);
       const row = rowPresent ? cliClick(`[title^="Open ${JOB}"]`) : "absent";
       step(`  entry ${i}: dash=${dash} row=${row}`);
       await sleep(3200);
@@ -320,6 +343,12 @@ const openViewer = async () => {
 const bootViewer = async (label) => {
   sh(`${AB} open ${B}`);
   await sleep(5000);
+  // t1130 — close any auto-opened inspector (the t1128 inspect seed restores
+  // it on a persistent-profile landing); the modal would eat the dashboard /
+  // card clicks downstream ("Project dashboard" not found). Radix only hears
+  // TRUSTED Escape (the synthetic KeyboardEvent left it open, live-proven).
+  sh(`${AB} press Escape`);
+  await sleep(800);
   // wipe persisted bookmark lists — a previous run's confirm leaves the
   // viewer's localStorage authoritative over the wiped server rows
   evalJs(`(() => {
@@ -562,6 +591,10 @@ const phaseC = async () => {
   console.log(sh(SEED));
   sh(`${AB} open ${B}`);
   await sleep(6000);
+  // t1130 — close any auto-opened inspector (the seed restores it after the
+  // A/B viewer rides) before the card click; Radix only hears TRUSTED Escape.
+  sh(`${AB} press Escape`);
+  await sleep(800);
   evalJs(errCollector);
   await sanityCheck();
   await openJobResults();
