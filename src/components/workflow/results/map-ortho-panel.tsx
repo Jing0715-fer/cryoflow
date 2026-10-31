@@ -184,6 +184,19 @@ export const OBLIQUE_SHEET_EVENT = "cryoflow:oblique-sheet";
  *  meaning. The block renders the strip only when the face's ACK says a
  *  face is showing (sheet3d && cut3d) AND a legend has arrived. */
 export const OBLIQUE_SHEET_LEGEND_EVENT = "cryoflow:oblique-sheet-legend";
+
+/** t1134 — the key's second voice: the HOVER wire. Hovering a swatch on
+ *  the 2D strip lights the matching gray band IN THE 3D SCENE (the
+ *  ⧉ chip's cross-end linkage, the next inch: the key no longer just
+ *  describes the face — it POINTS at it). Its own wire, the family's
+ *  one-line-one-meaning law: the cut speaks geometry, the sheet speaks
+ *  existence, the legend speaks what the face wears, and the HOVER
+ *  speaks WHERE THE READER IS LOOKING — none of them grows a second
+ *  meaning. Detail { band: number | null } — the swatch's band index,
+ *  null on leave; the embed refuses every other shape. A pointer
+ *  instrument by design (the canvas-minimap's own precedent: the map
+ *  answers the mouse only); the keyboard path is a named later knife. */
+export const OBLIQUE_SHEET_LEGEND_HOVER_EVENT = "cryoflow:oblique-sheet-legend-hover";
 export interface ObliqueViewDetail {
   /** unit plane normal in grid coords */
   normal: [number, number, number];
@@ -3262,6 +3275,15 @@ function ObliqueSectionBlock({
     if (legendCopyTimer.current !== null) clearTimeout(legendCopyTimer.current);
     legendCopyTimer.current = window.setTimeout(() => setLegendCopied(null), 1600);
   };
+  // t1134 — the hover's 2D mouth: the swatch's band index crosses the
+  // hover wire verbatim; leaving the ROW (not a swatch — sliding across
+  // gaps between swatches must not flicker the 3D highlight) speaks the
+  // honest null. A pointer instrument: no focus, no tabIndex (the
+  // role=img strip's contents stay unexposed — the a11y law that made
+  // the ⧉ chip a sibling). The minimap's precedent covers the mouse.
+  const hoverSheetBand = (band: number | null) => {
+    window.dispatchEvent(new CustomEvent(OBLIQUE_SHEET_LEGEND_HOVER_EVENT, { detail: { band } }));
+  };
   useEffect(() => {
     const onLegend = (e: Event) => {
       const d = (e as CustomEvent<{ legend?: unknown }>).detail;
@@ -3742,6 +3764,7 @@ function ObliqueSectionBlock({
               <div
                 data-canvas-ui="ortho-oblique-sheet-legend-row"
                 className="mt-1.5 flex items-stretch gap-1.5"
+                onPointerLeave={() => hoverSheetBand(null)}
               >
               <div
                 data-canvas-ui="ortho-oblique-sheet-legend"
@@ -3762,7 +3785,8 @@ function ObliqueSectionBlock({
                       key={i}
                       title={sheetLegend.labels[i]}
                       style={{ backgroundColor: sw }}
-                      className="h-full min-w-0 flex-1 transition-[filter] duration-150 hover:brightness-110"
+                      onPointerEnter={() => hoverSheetBand(i)}
+                      className="h-full min-w-0 flex-1 cursor-crosshair transition-[filter] duration-150 hover:brightness-125"
                     />
                   ))}
                 </span>

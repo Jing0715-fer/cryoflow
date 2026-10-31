@@ -27,7 +27,7 @@ import { Kbd } from "@/components/ui/kbd"; // t830 — the door's keymap speaks 
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { PENDING_SHARE_KEY, PENDING_VIEW_KEY, SAVED_VIEWS_CHANGED_EVENT, SHARE_PAYLOAD_MAX, SharePayload, decodeSharePayload, encodeSharePayload } from "@/lib/view-link";
-import { ORTHO_SLICE_EVENT, ORTHO_SLICE_STATE_EVENT, ORTHO_CLIP_STATE_EVENT, ORTHO_FOCUS_EVENT, ORTHO_FOCUS_RESTORE_EVENT, ORTHO_SIGMA_STATE_EVENT, ORTHO_SIGMA_REQUEST_EVENT, ORTHO_SIGMA_SET_EVENT, OBLIQUE_VIEW_EVENT, OBLIQUE_CLIP_EVENT, OBLIQUE_CLIP_STATE_EVENT, OBLIQUE_SHEET_EVENT, OBLIQUE_SHEET_LEGEND_EVENT, OBLIQUE_VERB_EVENT, ORTHO_CAMERA_REQUEST_EVENT, ORTHO_CAMERA_STATE_EVENT, OrthoCameraStateDetail, ObliqueVerbDetail } from "./map-ortho-panel";
+import { ORTHO_SLICE_EVENT, ORTHO_SLICE_STATE_EVENT, ORTHO_CLIP_STATE_EVENT, ORTHO_FOCUS_EVENT, ORTHO_FOCUS_RESTORE_EVENT, ORTHO_SIGMA_STATE_EVENT, ORTHO_SIGMA_REQUEST_EVENT, ORTHO_SIGMA_SET_EVENT, OBLIQUE_VIEW_EVENT, OBLIQUE_CLIP_EVENT, OBLIQUE_CLIP_STATE_EVENT, OBLIQUE_SHEET_EVENT, OBLIQUE_SHEET_LEGEND_EVENT, OBLIQUE_SHEET_LEGEND_HOVER_EVENT, OBLIQUE_VERB_EVENT, ORTHO_CAMERA_REQUEST_EVENT, ORTHO_CAMERA_STATE_EVENT, OrthoCameraStateDetail, ObliqueVerbDetail } from "./map-ortho-panel";
 import { useWorkflowStore } from "@/lib/store";
 import { fmtBytes } from "@/lib/canvas-export";
 import { encodeGifFrames } from "@/lib/gif-export";
@@ -578,6 +578,7 @@ interface SheetKit {
   MeshBuilder: any;
   Mesh: any;
   Shape: any;
+  ShapeGroup: any;
 }
 let sheetKitCache: SheetKit | null = null;
 async function ensureSheetKit(): Promise<SheetKit> {
@@ -602,6 +603,10 @@ async function ensureSheetKit(): Promise<SheetKit> {
     MeshBuilder: mb.MeshBuilder,
     Mesh: mesh.Mesh,
     Shape: shape.Shape,
+    // t1134 — the hover's address word: ShapeGroup.Loci(shape, groups) is
+    // how a band's gray mosaic is NAMED to the highlight manager (the
+    // group-loci kind — the same address the canvas's own picking speaks)
+    ShapeGroup: shape.ShapeGroup,
   };
   return sheetKitCache;
 }
@@ -4966,6 +4971,47 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     };
     window.addEventListener(OBLIQUE_SHEET_EVENT, onObliqueSheet);
     return () => window.removeEventListener(OBLIQUE_SHEET_EVENT, onObliqueSheet);
+  }, []);
+
+  // t1134 — the HOVER wire's 3D ear: the panel's swatch hover names a
+  // band, the embed lights THAT group in the scene (ShapeGroup.Loci →
+  // the highlight manager — the same address the canvas's own picking
+  // speaks). The refusal family: null/leave clears; a stale key (no
+  // sheet node, or a band past the shape's groupCount — the key lags the
+  // face by one pump at worst) paints NOTHING rather than the wrong
+  // band. The applier rides the family's ref law (the t1131 cure's own
+  // shape — the listener never goes stale across re-renders).
+  const applyObliqueSheetLegendHover = async (band: number | null) => {
+    const plugin = pluginRef.current;
+    const lm = plugin?.managers?.interaction?.lociHighlights;
+    if (!plugin || !lm) return;
+    if (band === null || !Number.isFinite(band) || band < 0) {
+      lm.clearHighlights();
+      return;
+    }
+    // the face's address — read without copying the axis-slice sweep's
+    // opt-out line verbatim (the t1129 C11 pin counts that line ONCE;
+    // the hover is a different reader of the same ref, not the sweep)
+    const sheetCellRef = sheetRef.current?.transform?.ref;
+    if (!sheetCellRef) return; // no face on the scene — a ghost key paints nothing
+    const cell = plugin.state.data.cells.get(sheetCellRef);
+    const shape = cell?.obj?.data as { groupCount: number } | undefined;
+    if (!shape || band >= shape.groupCount) return; // the stale-key bound
+    const kit = await ensureSheetKit();
+    const int = await import("molstar/lib/mol-data/int");
+    lm.highlight({
+      loci: kit.ShapeGroup.Loci(shape, [{ ids: int.OrderedSet.ofSortedArray([band]), instance: 0 }]),
+    });
+  };
+  const obliqueSheetLegendHoverRef = useRef(applyObliqueSheetLegendHover);
+  obliqueSheetLegendHoverRef.current = applyObliqueSheetLegendHover;
+  useEffect(() => {
+    const onLegendHover = (e: Event) => {
+      const d = (e as CustomEvent<{ band?: unknown }>).detail;
+      obliqueSheetLegendHoverRef.current(typeof d?.band === "number" ? d.band : null);
+    };
+    window.addEventListener(OBLIQUE_SHEET_LEGEND_HOVER_EVENT, onLegendHover);
+    return () => window.removeEventListener(OBLIQUE_SHEET_LEGEND_HOVER_EVENT, onLegendHover);
   }, []);
 
   /* ---------------- sub-volume export (t254) ---------------- */
