@@ -102,6 +102,7 @@ function mrcBuffer() {
   buf.writeInt32LE(W, 0); buf.writeInt32LE(H, 4); buf.writeInt32LE(1, 8);
   buf.writeInt32LE(2, 12); // mode 2 = float32
   buf.writeInt32LE(1, 64); buf.writeInt32LE(2, 68); buf.writeInt32LE(3, 72); // MAPC/MAPR/MAPS — the MRC2014 default (t1113: zero made Mol* throw "bad axis order")
+  buf.writeInt32LE(W, 28); buf.writeInt32LE(H, 32); buf.writeInt32LE(1, 36); // MX/MY/MZ cell sampling — MRC2014 unit-sampling default (t1114: zero made Mol* divide origin by [0,0,0] → NaN fractional box → "Uint32Array(-Infinity)")
   buf.writeFloatLE(90, 52); buf.writeFloatLE(90, 56); buf.writeFloatLE(90, 60); // cell angles — the MRC2014 default (t1113: zero angles made Mol*'s cell basis non-invertible)
   return buf;
 }

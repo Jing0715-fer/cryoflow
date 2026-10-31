@@ -181,7 +181,7 @@ try {
     buf.writeInt32LE(2, 12); // mode 2 = float32
     buf.writeInt32LE(1, 64); buf.writeInt32LE(2, 68); buf.writeInt32LE(3, 72); // MAPC/MAPR/MAPS — the MRC2014 default (t1113: zero made Mol* throw "bad axis order")
     buf.writeFloatLE(90, 52); buf.writeFloatLE(90, 56); buf.writeFloatLE(90, 60); // cell angles — the MRC2014 default (t1113: zero angles made Mol*'s cell basis non-invertible)
-    buf.writeInt32LE(W, 28); buf.writeInt32LE(H, 32); buf.writeInt32LE(N_FRAMES, 36);
+    buf.writeInt32LE(W, 28); buf.writeInt32LE(H, 32); buf.writeInt32LE(N_FRAMES, 36); // MX/MY/MZ cell sampling — the MRC2014 unit-sampling default (t1114)
     buf.writeFloatLE(1.77 * W, 40); buf.writeFloatLE(1.77 * H, 44); buf.writeFloatLE(1.77 * N_FRAMES, 48);
     buf.write("MAP ", 208, "ascii");
     buf.writeUInt8(0x44, 212); buf.writeUInt8(0x44, 213); buf.writeUInt8(0x47, 214); buf.writeUInt8(0x47, 215);

@@ -55,14 +55,18 @@ const libSrc = readFileSync(join(ROOT, "src/lib/mrc-axis.ts"), "utf8");
 // a 1030-byte synthetic MRC: 1024 header + 6 float32 voxels — header words
 // the producers write (nx/ny/nz/mode, cella, angles, MAP, MACHST) plus a
 // data plane. Zero-filled by default — the exact shape the nine producers
-// wrote before this window's cure.
-const mrcBytes = (mapc, mapr, maps, alpha = 0, beta = 0, gamma = 0) => {
+// wrote before this window's cure. mx/my/mz (the cell sampling, bytes
+// 28/32/36) default to ZERO — the third zero-filled layer (t1114).
+const mrcBytes = (mapc, mapr, maps, alpha = 0, beta = 0, gamma = 0, mx = 0, my = 0, mz = 0) => {
   const b = new Uint8Array(1024 + 24);
   const v = new DataView(b.buffer);
   v.setInt32(0, 2, true);
   v.setInt32(4, 2, true);
   v.setInt32(8, 2, true);
   v.setInt32(12, 2, true); // mode float32
+  v.setInt32(28, mx, true);
+  v.setInt32(32, my, true);
+  v.setInt32(36, mz, true); // cell sampling MX/MY/MZ
   v.setFloat32(40, 64, true);
   v.setFloat32(44, 64, true);
   v.setFloat32(48, 64, true); // cella
@@ -84,29 +88,39 @@ const angles = (b) => {
   const v = new DataView(b.buffer, b.byteOffset, b.byteLength);
   return [v.getFloat32(52, true), v.getFloat32(56, true), v.getFloat32(60, true)];
 };
+// t1114 — the third law's own reader: the cell sampling words (28/32/36)
+const sampling = (b) => {
+  const v = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  return [v.getInt32(28, true), v.getInt32(32, true), v.getInt32(36, true)];
+};
 
 /* ------------------------------------------------------------------ */
 /* P — the lib's law in numbers                                        */
 /* ------------------------------------------------------------------ */
 
-// P1 — the zero-filled header (the whole disease): BOTH cures, named
+// P1 — the zero-filled header (the whole disease): ALL THREE cures, named
 const zero = mrcBytes(0, 0, 0);
 const p1 = sanitizeMrcHeader(zero);
 ok(
-  "P1 zero-filled header corrected — 0/0/0 rides out as 1/2/3, angles as 90/90/90",
+  "P1 zero-filled header corrected — 0/0/0 rides out as 1/2/3, angles as 90/90/90, sampling as 2/2/2",
   p1.corrected === true &&
     words(p1.bytes).join("/") === "1/2/3" &&
-    angles(p1.bytes).map((a) => Math.round(a)).join("/") === "90/90/90"
+    angles(p1.bytes).map((a) => Math.round(a)).join("/") === "90/90/90" &&
+    sampling(p1.bytes).join("/") === "2/2/2"
 );
 ok(
-  "P1b the cured receipt names both words — axis order + cell angles",
-  p1.cured.length === 2 &&
+  // t1114 re-key — the third layer entered the law, the receipt grows the
+  // third name ("cell sampling = data dims")
+  "P1b the cured receipt names all three words — axis + angles + sampling",
+  p1.cured.length === 3 &&
     p1.cured[0] === "axis order 1/2/3" &&
-    p1.cured[1] === "cell angles 90/90/90"
+    p1.cured[1] === "cell angles 90/90/90" &&
+    p1.cured[2] === "cell sampling = data dims"
 );
 
 // P2 — the clean header passes UNTOUCHED: same reference, no copy, no cure
-const ident = mrcBytes(1, 2, 3, 90, 90, 90);
+// (t1114 re-key — clean now INCLUDES a sane sampling triple: 2/2/2 rides in)
+const ident = mrcBytes(1, 2, 3, 90, 90, 90, 2, 2, 2);
 const p2 = sanitizeMrcHeader(ident);
 ok(
   "P2 clean header passes untouched — corrected=false, same reference, cured=[]",
@@ -114,7 +128,8 @@ ok(
 );
 
 // P3 — a valid non-identity permutation passes too (Mol* canonicalizes it)
-const perm = mrcBytes(2, 3, 1, 90, 90, 90);
+// (t1114 re-key — the sampling triple rides clean with it)
+const perm = mrcBytes(2, 3, 1, 90, 90, 90, 2, 2, 2);
 const p3 = sanitizeMrcHeader(perm);
 ok(
   "P3 valid permutation 2/3/1 passes untouched — not ours to touch",
@@ -123,15 +138,18 @@ ok(
 
 // P4 — garbage axis triple with CLEAN angles: the minimal cure touches
 // only the axis words (the angles ride out exactly as they came)
+// (t1114 re-key — the sampling disease still rides along: 2 cures named)
 const junk = mrcBytes(7, -1, 0, 90, 90, 90);
 const p4 = sanitizeMrcHeader(junk);
 ok(
-  "P4 garbage axis 7/-1/0 corrected — clean angles untouched (the minimal cure)",
+  "P4 garbage axis 7/-1/0 corrected — clean angles untouched, sampling rides the copy",
   p4.corrected === true &&
     words(p4.bytes).join("/") === "1/2/3" &&
     angles(p4.bytes).join("/") === "90/90/90" &&
-    p4.cured.length === 1 &&
-    p4.cured[0] === "axis order 1/2/3"
+    sampling(p4.bytes).join("/") === "2/2/2" &&
+    p4.cured.length === 2 &&
+    p4.cured[0] === "axis order 1/2/3" &&
+    p4.cured[1] === "cell sampling = data dims"
 );
 
 // P5 — duplicates are not a permutation
@@ -144,14 +162,16 @@ ok(
 
 // P6 — the isolated angles disease: identity axis, zero angles — only the
 // angles are cured (this is the second layer: the non-invertible matrix)
+// (t1114 re-key — sampling still rides: 2 cures named)
 const flatBox = mrcBytes(1, 2, 3, 0, 0, 0);
 const p6 = sanitizeMrcHeader(flatBox);
 ok(
-  "P6 zero angles with clean axis — angles cured alone (the matrix disease)",
+  "P6 zero angles with clean axis — angles cured alone (the matrix disease), sampling rides",
   p6.corrected === true &&
     angles(p6.bytes).map((a) => Math.round(a)).join("/") === "90/90/90" &&
-    p6.cured.length === 1 &&
-    p6.cured[0] === "cell angles 90/90/90"
+    p6.cured.length === 2 &&
+    p6.cured[0] === "cell angles 90/90/90" &&
+    p6.cured[1] === "cell sampling = data dims"
 );
 
 // P7 — the input buffer is NEVER mutated in place: the fix lives in the copy
@@ -175,14 +195,15 @@ const p8Changed =
   p1.bytes[55] !== zero[55]; // 90.0f's high byte (0x42) — byte 52's low byte is zero either way
 let diffOutside = false;
 for (let i = 0; i < zero.length; i++) {
-  if (i >= 52 && i < 76) continue; // the cured words' own bytes
+  // t1114 re-key — the sampling words' own bytes (28..39) join the skip band
+  if ((i >= 52 && i < 76) || (i >= 28 && i < 40)) continue; // the cured words' own bytes
   if (p1.bytes[i] !== zero[i]) {
     diffOutside = true;
     break;
   }
 }
 ok(
-  "P8 copy byte-exact outside bytes 52..75 — header words, cella, MAP, data plane",
+  "P8 copy byte-exact outside bytes 28..39 + 52..75 — header words, cella, MAP, data plane",
   p8Same && p8Changed && !diffOutside
 );
 
@@ -198,6 +219,48 @@ ok(
 ok(
   "P10 lib purity — no node-only imports (fs/sharp) in mrc-axis.ts",
   !/\bfrom "(node:)?fs"|from "sharp"/.test(libSrc)
+);
+
+// P11 — the ISOLATED sampling disease (the third layer alone): identity
+// axis, right angles, sane cella — but MX/MY/MZ zero (exactly the t978
+// mint's own shape). ONLY the sampling is cured; axis words ride out as
+// they came (t1114 — caught red-handed: Mol* divides origin by [NX,NY,NZ])
+const onlyMx = mrcBytes(1, 2, 3, 90, 90, 90);
+const p11 = sanitizeMrcHeader(onlyMx);
+ok(
+  "P11 isolated sampling disease — MX/MY/MZ 0 rides out as 2/2/2, axis+angles untouched",
+  p11.corrected === true &&
+    sampling(p11.bytes).join("/") === "2/2/2" &&
+    words(p11.bytes).join("/") === "1/2/3" &&
+    angles(p11.bytes).join("/") === "90/90/90" &&
+    p11.cured.length === 1 &&
+    p11.cured[0] === "cell sampling = data dims"
+);
+
+// P12 — the incurable edge: sampling zero AND data dims zero — the header
+// lies about BOTH triples, no write happens, and the receipt says so
+// (honesty over silence — a cure that can't cure names itself)
+const doomed = mrcBytes(1, 2, 3, 90, 90, 90, 0, 0, 0);
+new DataView(doomed.buffer).setInt32(0, 0, true);
+new DataView(doomed.buffer).setInt32(4, 0, true);
+new DataView(doomed.buffer).setInt32(8, 0, true);
+const p12 = sanitizeMrcHeader(doomed);
+ok(
+  "P12 incurable sampling — data dims also lie: no write, INCURABLE named in the receipt",
+  p12.corrected === true &&
+    sampling(p12.bytes).join("/") === "0/0/0" &&
+    p12.cured.length === 1 &&
+    p12.cured[0] === "cell sampling INCURABLE (data dims also lie)"
+);
+
+// P13 — the negative/non-finite sampling triple counts as diseased too
+// (a float-typed word read as int32 can ride garbage — any non-positive
+// or non-finite triple takes the cure)
+const negMx = mrcBytes(1, 2, 3, 90, 90, 90, -4, 0, 2);
+const p13 = sanitizeMrcHeader(negMx);
+ok(
+  "P13 negative sampling triple is diseased — rides out as the data dims",
+  p13.corrected === true && sampling(p13.bytes).join("/") === "2/2/2"
 );
 
 /* ------------------------------------------------------------------ */
@@ -304,6 +367,19 @@ ok(
   "W3 nine producers, each exactly one receiver'd 90/90/90 angles line",
   w3Counts.every((c) => c === 1),
   w3Counts.join(",")
+);
+
+// W4 — the SAMPLING law (t1114): each of the nine producers writes the
+// MX/MY/MZ words exactly once (t391 was born clean — its line predates
+// the window)
+const w4Counts = PRODUCERS.map((f) => {
+  const src = readFileSync(join(ROOT, "scripts", f), "utf8");
+  return (src.match(/\.writeInt32LE\([^)]+, 36\)/g) ?? []).length;
+});
+ok(
+  "W4 nine producers, each exactly one MX/MY/MZ (byte 36) sampling line",
+  w4Counts.every((c) => c === 1),
+  w4Counts.join(",")
 );
 
 /* ------------------------------------------------------------------ */

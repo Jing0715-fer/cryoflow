@@ -24,8 +24,21 @@
  *     The MRC2014 default: 90/90/90 (an orthogonal box — what every
  *     producer here means).
  *
- * The law: a header whose axis triple is not a permutation of {1,2,3}, or
- * whose angles are not three positive finite degrees, is rewritten to the
+ *   • the cell sampling MX/MY/MZ (bytes 28/32/36) — the THIRD zero-filled
+ *     layer, caught red-handed in the t1114 window. Mol*'s mol-io parser
+ *     maps these words to header.NX/NY/NZ and `volumeFromCcp4` DIVIDES the
+ *     map origin by them (`origin_frac = origin / [NX,NY,NZ]`): a zero
+ *     triple makes that 0/0 = NaN, the fractionalBox turns NaN and the
+ *     grid-to-cartesian matrix goes all-NaN EVEN WITH cured angles and a
+ *     sane 64 Å cell — every bounding sphere becomes NaN and the instance
+ *     grid throws "Uint32Array(-Infinity)" (the t1113 fossil's true root,
+ *     reproduced headlessly in node: `getGridToCartesianTransform` printed
+ *     NaN ×16 on the sanitized bytes). The MRC2014 default for unit
+ *     sampling: MX/MY/MZ = NC/NR/NS (the data dims themselves).
+ *
+ * The law: a header whose axis triple is not a permutation of {1,2,3},
+ * whose angles are not three positive finite degrees, or whose cell
+ * sampling counts are not three positive finite ints, is rewritten to the
  * spec defaults on a COPY (never mutate the fetched buffer in place); a
  * clean header passes untouched — the SAME reference, no copy. The honest
  * receipt (`corrected`, `cured`) lets the caller speak WHEN and WHAT was
@@ -52,7 +65,22 @@ export function sanitizeMrcHeader(bytes: Uint8Array): {
     Number.isFinite(alpha) && alpha > 0 &&
     Number.isFinite(beta) && beta > 0 &&
     Number.isFinite(gamma) && gamma > 0;
-  if (permutation && anglesOk) return { bytes, corrected: false, cured: [] };
+  // t1114 — the cell sampling triple (MX/MY/MZ, bytes 28/32/36). Mol* reads
+  // them as header.NX/NY/NZ and divides the origin by them — a zero or
+  // non-finite triple poisons the fractional box with 0/0 = NaN and the
+  // grid-to-cartesian matrix follows (all-NaN), taking every bounding
+  // sphere down with it. The spec default: the data dims (unit sampling).
+  const nc = view.getInt32(0, true);
+  const nr = view.getInt32(4, true);
+  const ns = view.getInt32(8, true);
+  const mx = view.getInt32(28, true);
+  const my = view.getInt32(32, true);
+  const mz = view.getInt32(36, true);
+  const samplingOk =
+    Number.isFinite(mx) && mx > 0 &&
+    Number.isFinite(my) && my > 0 &&
+    Number.isFinite(mz) && mz > 0;
+  if (permutation && anglesOk && samplingOk) return { bytes, corrected: false, cured: [] };
   const out = bytes.slice();
   const o = new DataView(out.buffer, out.byteOffset, out.byteLength);
   const cured: string[] = [];
@@ -67,6 +95,19 @@ export function sanitizeMrcHeader(bytes: Uint8Array): {
     o.setFloat32(56, 90, true);
     o.setFloat32(60, 90, true);
     cured.push("cell angles 90/90/90");
+  }
+  if (!samplingOk) {
+    // unit sampling: the cell counts equal the data counts (only written
+    // when the data counts themselves are sane — a header that lies about
+    // BOTH triples is beyond this cure's reach, and the receipt says so)
+    if (nc > 0 && nr > 0 && ns > 0) {
+      o.setInt32(28, nc, true);
+      o.setInt32(32, nr, true);
+      o.setInt32(36, ns, true);
+      cured.push("cell sampling = data dims");
+    } else {
+      cured.push("cell sampling INCURABLE (data dims also lie)");
+    }
   }
   return { bytes: out, corrected: true, cured };
 }

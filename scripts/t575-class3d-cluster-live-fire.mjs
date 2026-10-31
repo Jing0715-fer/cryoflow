@@ -124,6 +124,7 @@ function repairWorld(extractJob) {
     h.writeInt32LE(BX, 0); h.writeInt32LE(BX, 4); h.writeInt32LE(nz, 8);
     h.writeInt32LE(2, 12);
     h.writeInt32LE(1, 64); h.writeInt32LE(2, 68); h.writeInt32LE(3, 72); // MAPC/MAPR/MAPS — the MRC2014 default (t1113: zero made Mol* throw "bad axis order")
+    h.writeInt32LE(BX, 28); h.writeInt32LE(BX, 32); h.writeInt32LE(nz, 36); // MX/MY/MZ cell sampling — MRC2014 unit-sampling default (t1114: zero made Mol* divide origin by [0,0,0] → NaN fractional box → "Uint32Array(-Infinity)")
     h.writeFloatLE(90, 52); h.writeFloatLE(90, 56); h.writeFloatLE(90, 60); // cell angles — the MRC2014 default (t1113: zero angles made Mol*'s cell basis non-invertible)
     h.writeInt32LE(0, 92);
     h.write("MAP ", 208);
