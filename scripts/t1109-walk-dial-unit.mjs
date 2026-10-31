@@ -300,5 +300,5 @@ ok(
   );
 }
 
-console.log(`\n${pass} pass, ${fail} fail`);
+console.log(`GREEN: ${pass}/${pass + fail} green`);
 process.exit(fail === 0 ? 0 : 1);
