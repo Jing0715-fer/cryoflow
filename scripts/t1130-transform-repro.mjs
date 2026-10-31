@@ -84,3 +84,19 @@ try {
 } catch (e) {
   console.log("2-arg update THREW:", e.message?.slice(0, 120));
 }
+
+// === the CURED call: .update(params) — one arg, the values ride alone ===
+const geometry3 = { ...geometry, stats: { kept: 3, dropped: 0, lattice: 3 } };
+const b3 = state.build().to(node.ref);
+try {
+  b3.update({ geometry: geometry3, rev: 9 });
+  await state.updateTree(b3.getTree()).runInContext(SyncRuntimeContext);
+  for (const cell of state.cells.values()) {
+    const id = String(cell?.transform?.transformer?.id || "");
+    if (id.includes("repro")) {
+      console.log("after 1-arg update:", { status: cell.status, rev: cell.transform?.params?.rev, hasGeometry: !!cell.transform?.params?.geometry, err: cell.status === "error" ? String(cell.errorText || "") : undefined });
+    }
+  }
+} catch (e) {
+  console.log("1-arg update THREW:", e.message?.slice(0, 120));
+}

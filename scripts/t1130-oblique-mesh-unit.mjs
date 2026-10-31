@@ -258,6 +258,8 @@ ok(embed.includes("sheetArraysToShape") && embed.includes('Shape.create(') && em
   "C7 the shape wrapper: one group per gray band via Shape.getColor");
 ok(embed.includes("UpdateResult.Recreate"),
   "C8 the update hook: rev bump → Recreate (the params carry the geometry)");
+ok(embed.includes(".update(params)") && !embed.includes(".update(SheetTransform, params"),
+  "C8b the update call is ONE-ARG (the offline repro t1130-transform-repro: a two-arg .update(transform, valueObject) rides the builder's second slot as an immer-style RECIPE over the old params and drove the cell to its DEFAULTS — rev 0, no geometry, 'no sheet geometry'; the values ride alone)");
 ok(embed.includes("!sheetStateRef.current.on || !ob.on"),
   "C9 the retirement law byte-identical (no cut → no face)");
 ok(embed.includes("(PD.Value as any)(null)"),
