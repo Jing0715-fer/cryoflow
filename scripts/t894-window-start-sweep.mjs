@@ -265,7 +265,7 @@ if (ghosts.length > 0) {
 /* t979 bind law's own verb — the app validates and writes its own pen).    */
 /* ---------------------------------------------------------------------- */
 
-const CLUSTER_CONN = "conn-mv6a23lx"; // the world's one Cluster (host 127.0.0.1:3022)
+const CLUSTER_CONN = "conn-mvwf4vla"; // the world's one Cluster (host 127.0.0.1:3022) — the conn-mvwf4vla replant epoch's re-key (t1125: conn-mv6a23lx died with the t1075 16-world's db in the epoch rollback)
 const CONN_REGISTRY = `${ROOT}/data/remote-connections.json`;
 
 const connRegistry = existsSync(CONN_REGISTRY) ? JSON.parse(readFileSync(CONN_REGISTRY, "utf8")) : [];

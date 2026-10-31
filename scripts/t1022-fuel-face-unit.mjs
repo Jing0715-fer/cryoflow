@@ -104,12 +104,12 @@ if (world.some((j) => j.name === "Import Fuel Gate Ride")) {
   }
   if (!world) { console.error("FATAL: the server never answered 200 (post-family-sweep)"); process.exit(2); }
 }
-if (world.length !== 16) {
-  console.error(`FATAL: world gate — jobs ${world.length} (want 16 — the t1075 replant census; the t1003 22-world's db died in the epoch rollback)`);
+if (world.length !== 15) {
+  console.error(`FATAL: world gate — jobs ${world.length} (want 15 — the conn-mvwf4vla replant epoch: the seeder chain's full-spine 15-world, FSC-verified; the t1075 16-world's db died in the epoch rollback)`);
   for (const j of world) console.error(`    · ${j.name} — ${j.status} (${j.id})`);
   process.exit(1);
 }
-console.log(`world: 16 jobs as-found (project ${world[0]?.projectId ?? null})`);
+console.log(`world: 15 jobs as-found (project ${world[0]?.projectId ?? null})`);
 
 /* ---------- F band — the face at source ---------- */
 console.log("F band — the fuel face at source:");
@@ -226,9 +226,9 @@ for (let i = 0; i < 10 && !worldAfter; i++) {
     if (r.status === 200) worldAfter = jobsArr(r.json);
   } catch { /* the beat */ }
 }
-ok("the world as-left (16 jobs, nothing minted standing — the t1075 replant re-key)", worldAfter?.length === 16, `got ${worldAfter?.length}`);
+ok("the world as-left (15 jobs, nothing minted standing — the conn-mvwf4vla replant re-key)", worldAfter?.length === 15, `got ${worldAfter?.length}`);
 const dbBytes = statSync(path.join(ROOT, "db/cryoflow.db")).size;
-ok("the DB byte size held (the high-water — the t1097 re-key: the fresh t979 replant world's page-quantized size — the t1075 re-key's own precedent (155648→135168); the t1080 147456 died with the epoch; the WORLD stands 16)", dbBytes === 135168, `${dbBytes}`);
+ok("the DB byte size held (the high-water — the t1097 re-key: the fresh t979 replant world's page-quantized size — the t1075 re-key's own precedent (155648→135168); the t1080 147456 died with the epoch; the WORLD stands 15 — the conn-mvwf4vla replant re-key; the page-quantized size held across the epoch)", dbBytes === 135168, `${dbBytes}`);
 
 /* ---------- the receipt ---------- */
 const verdict = fail === 0 ? "GREEN" : "RED";

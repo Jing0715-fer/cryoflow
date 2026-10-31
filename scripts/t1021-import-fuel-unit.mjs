@@ -32,7 +32,7 @@
  * (the t1015 law), warm the touched chain first, exit honest, receipt to
  * shots-qa/.t1021-unit-receipt.json.
  */
-import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync, statSync, symlinkSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync, statSync, symlinkSync, linkSync } from "node:fs";
 import os from "os";
 import path from "node:path";
 
@@ -125,13 +125,13 @@ if (world.some((j) => j.name === "Import Fuel Gate Ride")) {
   console.error(`FATAL: the orphan's delete never landed — "Import Fuel Gate Ride" (${stander.id}, ${stander.status}) still stands after 3 patient rounds`);
   process.exit(1);
 }
-if (world.length !== 16) {
-  console.error(`FATAL: world gate — jobs ${world.length} (want 16 — the t1075 replant census; the t1003 22-world's db died in the epoch rollback)`);
+if (world.length !== 15) {
+  console.error(`FATAL: world gate — jobs ${world.length} (want 15 — the conn-mvwf4vla replant epoch: the seeder chain's full-spine 15-world, FSC-verified; the t1075 16-world's db died in the epoch rollback)`);
   for (const j of world) console.error(`    · ${j.name} — ${j.status} (${j.id})`);
   process.exit(1);
 }
 const project = world[0]?.projectId ?? null;
-console.log(`world: 16 jobs as-found (project ${project})`);
+console.log(`world: 15 jobs as-found (project ${project})`);
 
 /* ---------- F band — the gate at source ---------- */
 console.log("F band — the fuel gate at source:");
@@ -159,18 +159,32 @@ ok("F6 the gate covers all three source shapes (one seat on the shared path — 
 
 /* ---------- the fixture: laid decisively over the host's own budget ---------- */
 console.log("fixture — the fuel decisively over this host's budget:");
-// the gate reads the server's own RSS at gate time (baseline + the listing)
-// — this host's dev server rides ≈2 GB, so the headroom is ≈1.5 GB and the
-// refusing count ≈250k. 400k fires the gate WITH margin on this box, and
-// the refusal lands BEFORE any copying — the kernel never gets a turn.
-const files = 400000;
+// the gate reads the server's own RSS at gate time (baseline + the listing),
+// so a FIXED count is lane-hostage (the t1125 lesson: 400k refused on the
+// ≈2 GB dev lane but PASSED on the ≈0.9 GB prod standalone — the gate was
+// right both times; the fixture was wrong). The fixture now obeys the
+// unit's own F4 law — it reads the HOST's own numbers: priced fuel =
+// (totalmem − the engine's 512 MB floor) × 1.1 exceeds the gate's BEST-case
+// headroom (rss → 0), so the refusal fires on ANY lane. The price is
+// per-FILE, not per-byte — and the INODE WALL (t1125's second lesson: this
+// rootfs caps at 655360 inodes; the 661k REAL-file fixture died ENOSPC at
+// 519852, the box's whole spare table) means real files are unaffordable —
+// so the fixture lays HARDLINKS to one 64-byte seed: full listing weight,
+// one inode, a ≈40 KB byte footprint.
+const files = Math.ceil(((os.totalmem() - 512 * 1024 * 1024) * 1.1) / (6 * 1024));
 const FIX = path.join(ROOT, "data/t1021-fixture");
 rmSync(FIX, { force: true, recursive: true });
 mkdirSync(FIX, { recursive: true });
-const buf = Buffer.alloc(1024);
+const buf = Buffer.alloc(64);
 const t0 = Date.now();
+writeFileSync(path.join(FIX, "seed_movie_0.mrc"), buf);
+// the per-inode hardlink cap is 65000 (EMLINK witnessed live at the 65000th
+// link) — one seed per 60000 links keeps headroom; ~12 seeds for 661k.
+const SEED_LINKS = 60000;
 for (let i = 0; i < files; i++) {
-  writeFileSync(path.join(FIX, `fake_movie_${String(i).padStart(6, "0")}.mrc`), buf);
+  const group = Math.floor(i / SEED_LINKS);
+  if (i % SEED_LINKS === 0 && group > 0) writeFileSync(path.join(FIX, `seed_movie_${group}.mrc`), buf);
+  linkSync(path.join(FIX, `seed_movie_${group}.mrc`), path.join(FIX, `fake_movie_${String(i).padStart(6, "0")}.mrc`));
 }
 ok("the fixture stands (the fuel just over the budget — the ride's window)", existsSync(path.join(FIX, `fake_movie_${String(files - 1).padStart(6, "0")}.mrc`)), `${files} files in ${Date.now() - t0}ms`);
 console.log(`  ${files} files laid (${((files * 6 * 1024) / 1024 ** 3).toFixed(1)} GB of estimated fuel — the gate's verdict decides)`);
@@ -265,9 +279,9 @@ for (let i = 0; i < 10 && !worldAfter; i++) {
     if (r.status === 200) worldAfter = jobsArr(r.json);
   } catch { /* the beat */ }
 }
-ok("the world as-left (16 jobs, nothing minted standing — the t1075 replant re-key)", worldAfter?.length === 16, `got ${worldAfter?.length}`);
+ok("the world as-left (15 jobs, nothing minted standing — the conn-mvwf4vla replant re-key)", worldAfter?.length === 15, `got ${worldAfter?.length}`);
 const dbBytes = statSync(path.join(ROOT, "db/cryoflow.db")).size;
-ok("the DB byte size held (the high-water — the t1097 re-key: the fresh t979 replant world's page-quantized size — the t1075 re-key's own precedent (155648→135168); the t1080 147456 died with the epoch; the WORLD stands 16)", dbBytes === 135168, `${dbBytes}`);
+ok("the DB byte size held (the high-water — the t1097 re-key: the fresh t979 replant world's page-quantized size — the t1075 re-key's own precedent (155648→135168); the t1080 147456 died with the epoch; the WORLD stands 15 — the conn-mvwf4vla replant re-key; the page-quantized size held across the epoch)", dbBytes === 135168, `${dbBytes}`);
 
 /* ---------- the receipt ---------- */
 const verdict = fail === 0 ? "GREEN" : "RED";
