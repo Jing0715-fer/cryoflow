@@ -611,7 +611,10 @@ async function ensureSheetKit(): Promise<SheetKit> {
  *  colors; no theme wiring). Pure CPU. Exported for the unit. */
 export function sheetArraysToShape(kit: SheetKit, arrays: SheetMeshArrays): unknown {
   const { MeshBuilder, Mesh, Shape, Vec3 } = kit;
-  const state = MeshBuilder.create(arrays.indices.length, Math.max(256, arrays.positions.length / 3));
+  // t1130 — the namespace's own verbs: createState (not `create` — the live
+  // ride's cell confessed "MeshBuilder.create is not a function", the node
+  // probe named the real verbs) + getMesh to finalize.
+  const state = MeshBuilder.createState(arrays.indices.length, Math.max(256, arrays.positions.length / 3));
   const triCount = arrays.indices.length / 3;
   let group = -1;
   for (let t = 0; t < triCount; t++) {
