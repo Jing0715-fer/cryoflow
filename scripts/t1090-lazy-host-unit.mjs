@@ -85,8 +85,14 @@ ok("B5 the postprocess FSC sweep is project-relative (it runs even when the host
 
 /* ---------- C band — the loud failures preserved ---------- */
 console.log("C band — the loud failures preserved:");
-ok("C1 qa_lib's resolver is UNTOUCHED (the SystemExit gate keeps the seeder's name)",
-  qaLib.includes("raise SystemExit(\n                f\"qa_lib: refine3d host '{name}' missing — run scripts/qa-t531-old-world-seed.mjs \""));
+// t1130 re-key: the resolver grew the t407/qa67 type tier (name → completed
+// refine3d → manifest → throw — the QA batch's five suites were dying on the
+// stale name pin), but the C1 intent HOLDS: the final gate is still a loud
+// SystemExit that names the seeder to run.
+ok("C1 qa_lib's resolver still exits LOUD and names the seeder (the SystemExit gate; t1130 re-key — the bytes grew the type tier, the intent stands)",
+  qaLib.includes("raise SystemExit(") &&
+  qaLib.includes("run scripts/qa-t531-old-world-seed.mjs") &&
+  qaLib.includes("expected refine3d"));
 ok("C2 every seed path re-resolves on demand (the loud _resolve_host() in all four)",
   ["qa50", "qa51", "qa52", "qa53"].every((n) =>
     ({ qa50, qa51, qa52, qa53 })[n].includes("    _REFINE_JOB, WORKDIR = _resolve_host()")));
