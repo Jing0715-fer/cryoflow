@@ -242,6 +242,33 @@ export function obliqueCutAnnotation(
   );
 }
 
+/** t1129 — the cut's anchor in VOXEL space: grid center + depth·n, the ONE
+ *  father of the plane's position. The embed's clip builder has carried
+ *  this arithmetic inline since t661 (its bytes are unit-pinned there);
+ *  the sheet builder (the cut's density face — same plane, now wearing
+ *  data) mints fresh through this word, so a cut and its face can never
+ *  disagree about where the plane sits. Returns null when the grid is
+ *  unusable (the support's own silence — an honest no-anchor). Pure. */
+export function obliqueAnchorVox(
+  ob: { theta: number; phi: number; offset: number },
+  dims: readonly number[] | null | undefined
+): [number, number, number] | null {
+  if (!Array.isArray(dims) || dims.length !== 3 || dims.some((d) => !(d >= 1))) return null;
+  const supportN = obliqueSupportVox(dims, ob.theta, ob.phi);
+  if (supportN === null) return null;
+  const depth = obliqueDepthVox(ob.offset, supportN);
+  const n = obliqueNormal(ob.theta, ob.phi);
+  const c: [number, number, number] = [(dims[0] - 1) / 2, (dims[1] - 1) / 2, (dims[2] - 1) / 2];
+  return [c[0] + depth * n[0], c[1] + depth * n[1], c[2] + depth * n[2]];
+}
+
+/** t1129 — the sheet's annotation word: the export footers and recorded
+ *  figures already speak the cut (obliqueCutAnnotation); when the face is
+ *  drawn ON that plane the figure gains this one phrase — same plane, one
+ *  new fact (the data now visible on it). No arithmetic: the address is
+ *  the cut's own, already spoken. */
+export const OBLIQUE_SHEET_ANNOTATION = "oblique face (density on the cut plane)";
+
 /** The clip interval's readout voice — the kept extent's voxel address:
  * "21–26/64" (1-based, inclusive — the tiles' convention), or null when
  * the grid is unknown (the call site keeps its bare percent: the

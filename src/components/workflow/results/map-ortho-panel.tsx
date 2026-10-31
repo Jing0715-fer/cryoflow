@@ -62,7 +62,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { BarChart3, Check, ChevronDown, ChevronLeft, ChevronRight, Crosshair, Download, Film, Focus, Loader2, Printer, ScanEye, ScanLine, Scissors, Slice, TriangleAlert } from "lucide-react";
+import { BarChart3, Check, ChevronDown, ChevronLeft, ChevronRight, Crosshair, Download, Film, Focus, Layers, Loader2, Printer, ScanEye, ScanLine, Scissors, Slice, TriangleAlert } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Kbd } from "@/components/ui/kbd"; // t830 — the keymap row speaks the one kbd vocabulary (t642)
 import { MrcImage } from "./mrc-image";
@@ -160,6 +160,17 @@ export interface ObliqueVerbDetail {
   /** shift = the coarser step (the < > law) */
   coarse?: boolean;
 }
+/** 2D → 3D (t1129): the cut's FACE — the density sheet ON the cut plane.
+ *  The cut (OBLIQUE_CLIP_EVENT) opens the surface along the plane; the
+ *  face wears the data the plane crosses (Mol* slice representation,
+ *  mode 'plane': point + normal — the cut's OWN geometry, one anchor
+ *  word in the lib). The sheet rides its own wire — the cut's event
+ *  speaks {on,theta,phi,offset} and must not grow a second meaning.
+ *  detail = { on: boolean }. The embed ACKs on OBLIQUE_CLIP_STATE_EVENT
+ *  (detail.sheet = the LIVE truth: preference AND cut both on), so the
+ *  block's ▣ is pressed exactly when a face is actually showing, and a
+ *  cut retired elsewhere takes the face down with it. */
+export const OBLIQUE_SHEET_EVENT = "cryoflow:oblique-sheet";
 export interface ObliqueViewDetail {
   /** unit plane normal in grid coords */
   normal: [number, number, number];
@@ -3202,6 +3213,12 @@ function ObliqueSectionBlock({
   // a bookmark can revive the cut while the block is collapsed, and the
   // block must not kill it with a mount heartbeat it never earned.
   const [cut3d, setCut3d] = useState(false);
+  // t1129 — the cut's face (the density sheet ON the plane): block-side
+  // state mirrors the embed's LIVE truth over the ACK (a face only ever
+  // exists with its cut, so ▣ disabled until ✂ is on); the click speaks
+  // the intent over OBLIQUE_SHEET_EVENT and the ACK corrects it — the
+  // same optimistic-then-confirmed voice the ✂ rides
+  const [sheet3d, setSheet3d] = useState(false);
   const sentOnRef = useRef(false);
   useEffect(() => {
     const live3d = on && cut3d;
@@ -3227,9 +3244,13 @@ function ObliqueSectionBlock({
   // expansion never jumps), and a scrub never resurrects a dismissed cut
   useEffect(() => {
     const onAck = (e: Event) => {
-      const d = (e as CustomEvent<{ on?: unknown; theta?: unknown; phi?: unknown; offset?: unknown }>).detail;
+      const d = (e as CustomEvent<{ on?: unknown; theta?: unknown; phi?: unknown; offset?: unknown; sheet?: unknown }>).detail;
       if (!d || typeof d.on !== "boolean") return;
       setCut3d(d.on);
+      // t1129 — the face's live truth rides the same ACK: preference AND
+      // cut both on, or it is not showing (an absent field reads off —
+      // old embeds never promised a face)
+      setSheet3d(d.sheet === true);
       if (d.on) {
         if (typeof d.theta === "number" && Number.isFinite(d.theta))
           setTheta(Math.min(180, Math.max(0, Math.round(d.theta))));
@@ -3575,6 +3596,32 @@ function ObliqueSectionBlock({
                 title="✂ cut in 3D — the isosurface opens along this exact oblique plane (which half is kept flips from the viewer's chip)"
               >
                 <Scissors className="h-3 w-3" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                disabled={!cut3d}
+                aria-pressed={sheet3d}
+                data-canvas-ui="ortho-oblique-sheet3d"
+                className={cn(
+                  "rounded p-0.5 text-violet-600 transition-colors hover:bg-violet-600/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-40 disabled:hover:bg-transparent",
+                  sheet3d && cut3d && "bg-violet-600/15"
+                )}
+                aria-label="Show the cut's face — a density sheet on this plane"
+                title={
+                  cut3d
+                    ? "▣ face — hang the density ON the cut plane (the same plane the surface opens along; the image shares the contour σ)"
+                    : "▣ face — the density sheet needs the cut: press ✂ first"
+                }
+                onClick={() => {
+                  if (!cut3d) return;
+                  const next = !sheet3d;
+                  setSheet3d(next);
+                  window.dispatchEvent(
+                    new CustomEvent(OBLIQUE_SHEET_EVENT, { detail: { on: next } })
+                  );
+                }}
+              >
+                <Layers className="h-3 w-3" aria-hidden="true" />
               </button>
               <ObliqueFilmstripButton
                 jobId={jobId}

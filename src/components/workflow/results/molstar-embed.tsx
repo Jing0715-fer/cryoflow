@@ -27,7 +27,7 @@ import { Kbd } from "@/components/ui/kbd"; // t830 — the door's keymap speaks 
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { PENDING_SHARE_KEY, PENDING_VIEW_KEY, SAVED_VIEWS_CHANGED_EVENT, SHARE_PAYLOAD_MAX, SharePayload, decodeSharePayload, encodeSharePayload } from "@/lib/view-link";
-import { ORTHO_SLICE_EVENT, ORTHO_SLICE_STATE_EVENT, ORTHO_CLIP_STATE_EVENT, ORTHO_FOCUS_EVENT, ORTHO_FOCUS_RESTORE_EVENT, ORTHO_SIGMA_STATE_EVENT, ORTHO_SIGMA_REQUEST_EVENT, ORTHO_SIGMA_SET_EVENT, OBLIQUE_VIEW_EVENT, OBLIQUE_CLIP_EVENT, OBLIQUE_CLIP_STATE_EVENT, OBLIQUE_VERB_EVENT, ORTHO_CAMERA_REQUEST_EVENT, ORTHO_CAMERA_STATE_EVENT, OrthoCameraStateDetail, ObliqueVerbDetail } from "./map-ortho-panel";
+import { ORTHO_SLICE_EVENT, ORTHO_SLICE_STATE_EVENT, ORTHO_CLIP_STATE_EVENT, ORTHO_FOCUS_EVENT, ORTHO_FOCUS_RESTORE_EVENT, ORTHO_SIGMA_STATE_EVENT, ORTHO_SIGMA_REQUEST_EVENT, ORTHO_SIGMA_SET_EVENT, OBLIQUE_VIEW_EVENT, OBLIQUE_CLIP_EVENT, OBLIQUE_CLIP_STATE_EVENT, OBLIQUE_SHEET_EVENT, OBLIQUE_VERB_EVENT, ORTHO_CAMERA_REQUEST_EVENT, ORTHO_CAMERA_STATE_EVENT, OrthoCameraStateDetail, ObliqueVerbDetail } from "./map-ortho-panel";
 import { useWorkflowStore } from "@/lib/store";
 import { fmtBytes } from "@/lib/canvas-export";
 import { encodeGifFrames } from "@/lib/gif-export";
@@ -35,7 +35,7 @@ import { sanitizeMrcHeader } from "@/lib/mrc-axis";
 import { canCopyImageToClipboard, copyViewerPng, drawFigureFooter, exportViewerPng, figureFooterHeightPx, figureTitleMeta, viewerFileSlug, viewerFileTimestamp } from "@/lib/viewer-export";
 import { downloadBlob } from "@/lib/download";
 import { keptIntervalOf, normalizeInterval } from "@/lib/clip-interval"; // t905 — the slab seat: both clip languages answer to one interval editor
-import { axisIndex, dimAlong, obliqueCutAnnotation, obliqueDepthVox, obliqueDepthVoice, obliqueOffsetPctVoice, obliqueSupportVox, voxelAriaText, voxelAnnotation, voxelIndexOf, voxelIntervalReadout, voxelPlaneVoice, voxelSliderVoice } from "@/lib/voxel-voice"; // t906/t907 — one honest voice: the slice family speaks the voxel address the ortho tiles speak, the oblique cut speaks its depth along its own normal
+import { OBLIQUE_SHEET_ANNOTATION, axisIndex, dimAlong, obliqueAnchorVox, obliqueCutAnnotation, obliqueDepthVox, obliqueDepthVoice, obliqueNormal, obliqueOffsetPctVoice, obliqueSupportVox, voxelAriaText, voxelAnnotation, voxelIndexOf, voxelIntervalReadout, voxelPlaneVoice, voxelSliderVoice } from "@/lib/voxel-voice"; // t906/t907 — one honest voice: the slice family speaks the voxel address the ortho tiles speak, the oblique cut speaks its depth along its own normal; t1129 — the cut's face rides the lib's anchor word
 import { downloadText } from "@/lib/download";
 // t197: the profile QC report family moved to @/lib/qc-report — the session
 // QC report is its second consumer, and the lib is the one honest home
@@ -362,6 +362,35 @@ export function buildObliqueClipPlane(
     scale: [1, 1, 1],
     transform: CLIP_PLANE_IDENTITY_16,
   };
+}
+
+/** The cut's face (t1129) — the oblique plane as a DENSITY IMAGE, not just
+ *  a cutter: Mol*'s slice representation takes an arbitrary plane (mode
+ *  'plane', point + normal in the mesh's cartesian space), so the cut can
+ *  wear the data it crosses — the face the surface opens to reveal. The
+ *  point IS the cut's anchor (the same center + depth·n arithmetic, now
+ *  minted through the lib's obliqueAnchorVox so a cut and its face obey
+ *  ONE number), converted through the clip builder's own origin +
+ *  vox·(extents/dims) walk; the normal is the cut's own voxel normal
+ *  (obliqueNormal — the t556 isotropic law the clip builder speaks).
+ *  `invert` is deliberately ABSENT: the flip chooses which HALF-SPACE the
+ *  surface keeps, but the boundary plane itself does not move — the face
+ *  is identical from both sides. Returns null when the geometry is
+ *  unusable — the honest no-face beats a guessed sheet. Pure. */
+export function buildObliqueSheetPlane(
+  ob: { theta: number; phi: number; offset: number },
+  geo: ObliqueClipGeometry
+): { point: [number, number, number]; normal: [number, number, number] } | null {
+  const dims = geo.dims;
+  if (!Array.isArray(dims) || dims.length !== 3 || dims.some((d) => !(d >= 1))) return null;
+  const anchorVox = obliqueAnchorVox(ob, dims);
+  if (!anchorVox) return null;
+  const point: [number, number, number] = [
+    geo.origin[0] + anchorVox[0] * (geo.extents[0] / dims[0]),
+    geo.origin[1] + anchorVox[1] * (geo.extents[1] / dims[1]),
+    geo.origin[2] + anchorVox[2] * (geo.extents[2] / dims[2]),
+  ];
+  return { point, normal: obliqueNormal(ob.theta, ob.phi) };
 }
 
 /** The cut's 3D guide (t662) — WHERE the oblique plane crosses the volume.
@@ -1716,8 +1745,11 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     /** t661 — the oblique 3D cut (the ortho block's ✂ mirror); present
      *  only when the cut was ON at save time. Absent restores the live
      *  cut untouched — a view saved before the cut existed never promised
-     *  one, and switching nothing is the honest fly-back for it */
-    oblique?: { on: boolean; theta: number; phi: number; offset: number; invert: boolean };
+     *  one, and switching nothing is the honest fly-back for it.
+     *  t1129 — `sheet` rides INSIDE the cut (the face only ever exists
+     *  with its plane): an explicit true revives the density sheet, every
+     *  other shape restores off (legacy views never promised a face). */
+    oblique?: { on: boolean; theta: number; phi: number; offset: number; invert: boolean; sheet?: boolean };
   };
   type CamBookmark = { id: string; name: string; ts: number; thumb?: string; snapshot: Record<string, unknown>; view?: BookmarkView };
   // t279 — the ortho browser's tri-planar focus point, as last reported
@@ -2172,7 +2204,9 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     // planes where the inspection was happening
     ...(orthoFocusRef.current ? { focus: { ...orthoFocusRef.current } } : {}),
     // t661 — the oblique 3D cut rides along when it was on: the saved
-    // picture IS the cut surface, so fly-back means the plane too
+    // picture IS the cut surface, so fly-back means the plane too. t1129 —
+    // the face rides inside the same detail (it only ever exists WITH the
+    // cut, so the gate is the cut's own)
     ...(obliqueClipRef.current.on
       ? {
           oblique: {
@@ -2181,6 +2215,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
             phi: obliqueClipRef.current.phi,
             offset: obliqueClipRef.current.offset,
             invert: obliqueClipRef.current.invert,
+            sheet: sheetStateRef.current.on,
           },
         }
       : {}),
@@ -2506,6 +2541,11 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
           offset: v.oblique.offset,
           invert: v.oblique.invert,
         });
+        // t1129 — the face flies back INSIDE the cut's own branch: an
+        // explicit true revives it, every other shape restores off (legacy
+        // views never promised a face — the same honesty the cut's absent
+        // field rides on)
+        applySheetIntent({ on: v.oblique.sheet === true });
       }
     }
   };
@@ -3033,6 +3073,9 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
         // dims+angles, the depth is the address) — the same annotation
         // voice the 2D block's provenance chip family speaks
         if (ob.on) annotations.push(obliqueCutAnnotation(ob, obliqueSupportVox(gridDimsRef.current, ob.theta, ob.phi)));
+        // t1129 — a face ON the cut plane is one new fact the figure must
+        // confess (the address is the cut's own, already spoken)
+        if (ob.on && sheetStateRef.current.on) annotations.push(OBLIQUE_SHEET_ANNOTATION);
         if (overlays.length) {
           annotations.push(`${overlays.length} overlay map${overlays.length > 1 ? "s" : ""}`);
         }
@@ -3258,6 +3301,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
         if (axes.length) annotations.push(`clip ${axes.join(" ")}${cp.invert ? " · flip" : ""}`);
       }
       if (ob.on) annotations.push(obliqueCutAnnotation(ob, obliqueSupportVox(gridDimsRef.current, ob.theta, ob.phi)));
+      if (ob.on && sheetStateRef.current.on) annotations.push(OBLIQUE_SHEET_ANNOTATION); // t1129 — the recorded figure confesses the face too
       if (overlays.length) {
         annotations.push(`${overlays.length} overlay map${overlays.length > 1 ? "s" : ""}`);
       }
@@ -3494,6 +3538,18 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
   const [slicePos, setSlicePos] = useState(0.5);
   const sliceStateRef = useRef({ on: false, axis: "Z" as SliceAxis, pos: 0.5, sigma: 2, sign: 1 as 1 | -1 });
   const slicePending = useRef(false);
+  // t1129 — the oblique cut's FACE (the density sheet ON the cut plane).
+  // Declared with the slice family because the sheet IS a slice node (the
+  // 'plane' mode of the same representation) and deleteAllSlices must know
+  // its ref; the commit/pump live with the oblique block below (they speak
+  // the cut's geometry). `sheetOn` is the PREFERENCE — it survives cut
+  // cycles (re-cutting the same plane re-hangs the face); the NODE only
+  // mounts while the cut is on, so the scene never shows a faceless plane
+  // nor a planeless face.
+  const [sheetOn, setSheetOn] = useState(false);
+  const sheetStateRef = useRef({ on: false });
+  const sheetRef = useRef<{ transform: { ref: string } } | null>(null);
+  const sheetPending = useRef(false);
   // t906 — the dim along the ACTIVE axis (null until the grid is mirrored):
   // every slice voice reads this one derivation, so the slider's address,
   // the aria text and the landscape's plane label can never disagree
@@ -3813,7 +3869,11 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     };
 
     const deleteAllSlices = async () => {
-      const cells = sliceCells();
+      // t1129 — the oblique sheet is ALSO a "Slice" cell (same provider
+      // label); the sweep must not eat the face: its own ref opts it out
+      // and its own commit path retires it
+      const sheetCellRef = sheetRef.current?.transform?.ref ?? null;
+      const cells = sliceCells().filter((c) => c.transform.ref !== sheetCellRef);
       if (cells.length === 0) return;
       const b = plugin.build();
       for (const c of cells) b.delete(c.transform.ref);
@@ -4074,6 +4134,15 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     sliceStateRef.current.sigma = sigma;
     sliceStateRef.current.sign = sign;
     void pumpSlice();
+  }, [sigma, sign]);
+
+  // t1129 — the sheet shares the threshold as well (its isoValue rides the
+  // SAME contour the isosurface and the axis slice speak): every σ/sign
+  // change re-pumps the face, so the image and the surface never disagree
+  // about where "signal" starts
+  useEffect(() => {
+    if (!sheetStateRef.current.on) return;
+    void pumpSheet();
   }, [sigma, sign]);
 
   /* ---------------- box clipping (crop the isosurface) ---------------- */
@@ -4424,12 +4493,22 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     setObliqueClip({ ...obliqueClipRef.current });
     clipStateRef.current = { ...clipStateRef.current, rev: clipStateRef.current.rev + 1 };
     void pumpClip();
+    // t1129 — the face follows the plane it is the face OF: every cut
+    // intent (scrub, flip, retire) re-pumps the sheet, so the density
+    // image and the surface opening can never disagree about where the
+    // plane sits
+    void pumpSheet();
     // 3D → 2D ACK (t661): the block's ✂ follows the scene — chip clear and
     // bookmark restores retire/revive the cut outside its sliders, and the
-    // toggle must not lie about which of those states is live
+    // toggle must not lie about which of those states is live. t1129 — the
+    // detail also carries the face's LIVE truth (preference AND cut both
+    // on), so the block's ▣ is pressed exactly when a face is showing.
     window.dispatchEvent(
       new CustomEvent(OBLIQUE_CLIP_STATE_EVENT, {
-        detail: { ...obliqueClipRef.current },
+        detail: {
+          ...obliqueClipRef.current,
+          sheet: sheetStateRef.current.on && obliqueClipRef.current.on,
+        },
       })
     );
   };
@@ -4462,6 +4541,138 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     };
     window.addEventListener(OBLIQUE_CLIP_EVENT, onObliqueClip);
     return () => window.removeEventListener(OBLIQUE_CLIP_EVENT, onObliqueClip);
+  }, []);
+
+  /* ---------------- the cut's face (t1129, the oblique sheet) -------- */
+
+  // The density sheet ON the oblique cut plane — a second slice node in
+  // Mol*'s 'plane' mode, wearing the data the cut crosses. One geometry
+  // father (buildObliqueSheetPlane → the lib's anchor word), one pump
+  // family pattern (the settle loop re-reads BOTH gates — the sheet's own
+  // preference AND the cut's liveness — so a scrub during a commit lands
+  // the newest truth), and one retirement law: no cut, no face.
+  const deleteSheet = async () => {
+    if (!sheetRef.current) return;
+    const b = pluginRef.current?.build();
+    if (!b) return;
+    b.delete(sheetRef.current.transform.ref);
+    await b.commit();
+    sheetRef.current = null;
+  };
+
+  const commitSheet = async () => {
+    const plugin = pluginRef.current;
+    const VolumeRepresentation3D = VolumeReprRef.current;
+    const IsoValue = IsoValueRef.current; // the contour family's own handle
+    if (!plugin || !VolumeRepresentation3D || !volRef.current || !IsoValue) throw new Error("not ready");
+    const ob = obliqueClipRef.current;
+    // the retirement law: the preference may sleep, the cut may be off —
+    // either way the face comes down (the scene never keeps a sheet whose
+    // plane is gone)
+    if (!sheetStateRef.current.on || !ob.on) {
+      await deleteSheet();
+      return;
+    }
+    const geo = clipBox();
+    const sheet = geo ? buildObliqueSheetPlane({ theta: ob.theta, phi: ob.phi, offset: ob.offset }, geo) : null;
+    if (!sheet) {
+      await deleteSheet(); // honest no-face — no guessed geometry
+      return;
+    }
+    const typeParams = (old: any) => ({
+      ...old?.type?.params,
+      mode: "plane" as const,
+      plane: { point: sheet.point, normal: sheet.normal },
+      isoValue: IsoValue.relative(signRef.current * sigmaRef.current),
+      alpha: 1,
+    });
+    if (!sheetRef.current) {
+      // create WITH the plane in the initial params (the axis slice's own
+      // create-with-state law — a node is never born empty then told)
+      const b = plugin.build();
+      const node = b
+        .to(volRef.current)
+        .apply(VolumeRepresentation3D, {
+          type: { name: "slice", params: typeParams(undefined) },
+          colorTheme: { name: "uniform", params: {} },
+          sizeTheme: { name: "uniform", params: {} },
+        });
+      await b.commit();
+      sheetRef.current = node;
+    } else {
+      // same-node update — the plane coordinates and the shared threshold
+      // only (the mode never changes across updates; the node was born
+      // 'plane' and stays 'plane')
+      await plugin
+        .build()
+        .to(sheetRef.current)
+        .update(VolumeRepresentation3D, (old: any) => ({
+          ...old,
+          type: { ...old.type, params: typeParams(old) },
+        }))
+        .commit();
+    }
+  };
+
+  const pumpSheet = async () => {
+    if (phase !== "ready") return;
+    if (sheetPending.current) return; // in-flight commit re-checks the gates
+    sheetPending.current = true;
+    try {
+      for (;;) {
+        const seenSheet = sheetStateRef.current.on;
+        const seenCut = { ...obliqueClipRef.current };
+        const seenSigma = sigmaRef.current;
+        const seenSign = signRef.current;
+        await commitSheet();
+        const nowSheet = sheetStateRef.current.on;
+        const nowCut = obliqueClipRef.current;
+        if (
+          nowSheet === seenSheet &&
+          nowCut.on === seenCut.on && nowCut.theta === seenCut.theta &&
+          nowCut.phi === seenCut.phi && nowCut.offset === seenCut.offset &&
+          sigmaRef.current === seenSigma && signRef.current === seenSign
+        ) break; // nothing newer arrived while committing
+      }
+    } catch (err) {
+      console.debug("olstar] sheet update skipped", err);
+    } finally {
+      sheetPending.current = false;
+    }
+  };
+
+  const applySheetIntent = (patch: Partial<{ on: boolean }>) => {
+    sheetStateRef.current = { ...sheetStateRef.current, ...patch };
+    if (patch.on !== undefined) setSheetOn(patch.on);
+    void pumpSheet();
+    // 3D → 2D ACK: the SAME wire the cut echoes on (one truth per plane)
+    // — the face field speaks the LIVE truth (preference AND cut both on),
+    // so the panel's ▣ is pressed exactly when a face is actually showing
+    window.dispatchEvent(
+      new CustomEvent(OBLIQUE_CLIP_STATE_EVENT, {
+        detail: {
+          ...obliqueClipRef.current,
+          sheet: sheetStateRef.current.on && obliqueClipRef.current.on,
+        },
+      })
+    );
+  };
+
+  // 2D → 3D (t1129): the ortho block's ▣ face toggle — the sheet rides
+  // its own wire (the cut's OBLIQUE_CLIP_EVENT speaks {on,theta,phi,offset}
+  // and must not grow a second meaning); the intent applier is read
+  // through a ref so the listener never goes stale across re-renders
+  // (the slice/clip listeners' own law)
+  const sheetIntentRef = useRef(applySheetIntent);
+  sheetIntentRef.current = applySheetIntent;
+  useEffect(() => {
+    const onObliqueSheet = (e: Event) => {
+      const d = (e as CustomEvent<{ on?: unknown }>).detail;
+      if (!d || typeof d !== "object") return;
+      sheetIntentRef.current({ on: d.on === true });
+    };
+    window.addEventListener(OBLIQUE_SHEET_EVENT, onObliqueSheet);
+    return () => window.removeEventListener(OBLIQUE_SHEET_EVENT, onObliqueSheet);
   }, []);
 
   /* ---------------- sub-volume export (t254) ---------------- */
