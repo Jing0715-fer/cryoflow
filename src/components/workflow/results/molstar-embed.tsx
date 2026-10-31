@@ -5124,7 +5124,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                       : "Contour on NEGATIVE density — flip back to positive (F key does the same)"
                   }
                   className={
-                    "rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold transition-colors " +
+                    "rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring " +
                     (sign < 0
                       ? "bg-warning-500 text-white"
                       : "bg-muted text-muted-foreground hover:bg-warning/20 hover:text-warning-700 dark:hover:text-warning-300")
@@ -5144,7 +5144,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                       : "Show a cross-section — a density slice through the box (shares the contour level)"
                   }
                   className={
-                    "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors " +
+                    "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring " +
                     (sliceOn
                       ? "bg-cyan-600 text-white"
                       : "bg-muted text-muted-foreground hover:bg-cyan-600/15 hover:text-cyan-700 dark:hover:text-cyan-300")
@@ -5165,7 +5165,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                       : "Clip the isosurface — each axis has two faces; drag either to crop or keep a slab (ChimeraX-style clip planes)"
                   }
                   className={
-                    "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors " +
+                    "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring " +
                     (clipOn
                       ? "bg-violet-600 text-white"
                       : "bg-muted text-muted-foreground hover:bg-violet-600/15 hover:text-violet-700 dark:hover:text-violet-300")
@@ -5200,7 +5200,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                       aria-pressed={sliceAxis === ax}
                       title={`Slice perpendicular to the ${ax} axis (${ax} key)`}
                       className={
-                        "rounded px-1.5 py-0.5 font-mono text-[10px] font-bold transition-colors " +
+                        "rounded px-1.5 py-0.5 font-mono text-[10px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring " +
                         (sliceAxis === ax
                           ? "bg-cyan-600 text-white"
                           : "bg-muted text-muted-foreground hover:bg-cyan-600/15 hover:text-cyan-700 dark:hover:text-cyan-300")
@@ -5764,7 +5764,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                           disabled={!profile}
                           aria-label={profile ? "Copy profile as CSV" : "Copy profile as CSV (no landscape profile yet)"}
                           title="Copy the density landscape (one row per bin) to the clipboard as CSV — falls back to a download when the clipboard is denied"
-                          className="flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide text-muted-foreground transition-colors hover:bg-cyan-600/15 hover:text-cyan-700 dark:hover:text-cyan-300 disabled:pointer-events-none disabled:opacity-40"
+                          className="flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide text-muted-foreground transition-colors hover:bg-cyan-600/15 hover:text-cyan-700 dark:hover:text-cyan-300 disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                         >
                           <ClipboardCopy className="size-2.5" aria-hidden="true" />
                           Copy CSV
@@ -5775,7 +5775,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                           disabled={!profile}
                           aria-label={profile ? "Download profile as CSV" : "Download profile as CSV (no landscape profile yet)"}
                           title="Save the density landscape as map-profile-<axis>-<stamp>.csv — same bytes as the clipboard copy"
-                          className="flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide text-muted-foreground transition-colors hover:bg-cyan-600/15 hover:text-cyan-700 dark:hover:text-cyan-300 disabled:pointer-events-none disabled:opacity-40"
+                          className="flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide text-muted-foreground transition-colors hover:bg-cyan-600/15 hover:text-cyan-700 dark:hover:text-cyan-300 disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                         >
                           <Download className="size-2.5" aria-hidden="true" />
                           Download CSV
@@ -5790,7 +5790,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                           disabled={!profile}
                           aria-label={profile ? "Copy profile QC report" : "Copy profile QC report (no landscape profile yet)"}
                           title="Copy a human-readable QC summary (peak, trough, comparison-map agreement) to the clipboard as Markdown — falls back to a download when the clipboard is denied"
-                          className="flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide text-muted-foreground transition-colors hover:bg-violet-600/15 hover:text-violet-700 dark:hover:text-violet-300 disabled:pointer-events-none disabled:opacity-40"
+                          className="flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide text-muted-foreground transition-colors hover:bg-violet-600/15 hover:text-violet-700 dark:hover:text-violet-300 disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                         >
                           <FileText className="size-2.5" aria-hidden="true" />
                           Copy Report
@@ -5801,7 +5801,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                           disabled={!profile}
                           aria-label={profile ? "Download profile QC report" : "Download profile QC report (no landscape profile yet)"}
                           title="Save the QC summary as map-qc-report-<axis>-<stamp>.md — same bytes as the clipboard copy"
-                          className="flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide text-muted-foreground transition-colors hover:bg-violet-600/15 hover:text-violet-700 dark:hover:text-violet-300 disabled:pointer-events-none disabled:opacity-40"
+                          className="flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide text-muted-foreground transition-colors hover:bg-violet-600/15 hover:text-violet-700 dark:hover:text-violet-300 disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                         >
                           <Download className="size-2.5" aria-hidden="true" />
                           Download Report
@@ -5813,7 +5813,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                           aria-label="Toggle all-axis landscapes"
                           title="Show the density landscape of ALL three axes — click a ghost row to adopt that axis and jump there"
                           className={
-                            "rounded-full px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide transition-colors " +
+                            "rounded-full px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring " +
                             (showAllAxes
                               ? "bg-cyan-600 text-white"
                               : "bg-muted text-muted-foreground hover:bg-cyan-600/15 hover:text-cyan-700 dark:hover:text-cyan-300")
@@ -5837,7 +5837,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                           aria-label="How to read the addresses"
                           title="Teach the depth dialect — what the strip's rows mean, what the equal-count cut is, why the Comparison table carries no Depth column"
                           className={
-                            "flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide transition-colors " +
+                            "flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring " +
                             (legendOpen
                               ? "bg-warning-600 text-white"
                               : "bg-muted text-muted-foreground hover:bg-warning/15 hover:text-warning-700 dark:hover:text-warning-300")
@@ -5861,7 +5861,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                                   onClick={() => applySliceIntent({ axis: ax.toUpperCase() as SliceAxis })}
                                   aria-label={`Adopt the ${ax.toUpperCase()} axis`}
                                   title={`Make ${ax.toUpperCase()} the active axis`}
-                                  className="w-3.5 shrink-0 rounded bg-muted py-px font-mono text-[8px] font-bold text-muted-foreground transition-colors hover:bg-cyan-600/15 hover:text-cyan-700 dark:hover:text-cyan-300"
+                                  className="w-3.5 shrink-0 rounded bg-muted py-px font-mono text-[8px] font-bold text-muted-foreground transition-colors hover:bg-cyan-600/15 hover:text-cyan-700 dark:hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                                 >
                                   {ax.toUpperCase()}
                                 </button>
@@ -5966,7 +5966,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                         onClick={() => applyClipAxisInterval(axisIdx, 0, 1)}
                         title={`Reset the ${ax} clip — both faces come off (full extent kept)`}
                         aria-label={`Reset ${ax} clip`}
-                        className="w-4 shrink-0 rounded bg-violet-600/90 px-1 py-0.5 font-mono text-[10px] font-bold text-white transition-opacity hover:opacity-80"
+                        className="w-4 shrink-0 rounded bg-violet-600/90 px-1 py-0.5 font-mono text-[10px] font-bold text-white transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                       >
                         {ax}
                       </button>
@@ -6078,7 +6078,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                         : "Flip every plane to crop from the − side instead of the + side"
                     }
                     className={
-                      "rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors " +
+                      "rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring " +
                       (clipInvert
                         ? "bg-violet-600 text-white"
                         : "bg-muted text-muted-foreground hover:bg-violet-600/15 hover:text-violet-700 dark:hover:text-violet-300")
@@ -6089,7 +6089,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                   <button
                     type="button"
                     onClick={() => applyClipIntent({ x: 1, y: 1, z: 1 })}
-                    className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground transition-colors hover:bg-violet-600/15 hover:text-violet-700 dark:hover:text-violet-300"
+                    className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground transition-colors hover:bg-violet-600/15 hover:text-violet-700 dark:hover:text-violet-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
                     reset all
                   </button>
@@ -6128,7 +6128,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                         : "The surface keeps the −n (camera-facing) half — flip to keep the other side"
                     }
                     className={
-                      "rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors " +
+                      "rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring " +
                       (obliqueClip.invert
                         ? "bg-violet-600 text-white"
                         : "bg-muted text-muted-foreground hover:bg-violet-600/15 hover:text-violet-700 dark:hover:text-violet-300")
