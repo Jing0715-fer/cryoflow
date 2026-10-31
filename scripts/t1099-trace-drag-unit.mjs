@@ -177,8 +177,8 @@ ok("W5 the pick yields once (the grab owns the click that ends its own drag)",
   panelSrc.includes("cursor-grabbing") &&
   panelSrc.includes('traceRiding ? "cursor-grabbing" : traceHover && "cursor-grab"'));
 
-ok("W6 the loop's ACK half closes the truth (the block mirrors the scene — t661, no desync)",
-  /const onAck = \(e: Event\) => \{[\s\S]{0,900}OBLIQUE_CLIP_STATE_EVENT[\s\S]{0,120}removeEventListener\(OBLIQUE_CLIP_STATE_EVENT/.test(panelSrc) &&
+ok("W6 the loop's ACK half closes the truth (the block mirrors the scene — t661, no desync; t1129 re-key: the window grew 900→1200 — the ACK now also corrects the ▣ face's live truth, three more lines ride inside the same handler)",
+  /const onAck = \(e: Event\) => \{[\s\S]{0,1200}OBLIQUE_CLIP_STATE_EVENT[\s\S]{0,120}removeEventListener\(OBLIQUE_CLIP_STATE_EVENT/.test(panelSrc) &&
   /setOffset\(Math\.round\(Math\.min\(1, Math\.max\(-1, d\.offset\)\) \* 100\)\)/.test(panelSrc));
 
 /* ------------------------------------------------------------------ */

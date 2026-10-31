@@ -250,7 +250,12 @@ if (twin) {
 /* ---------- the sweep ---------- */
 console.log("sweep — the ride's own residue:");
 if (twin) {
-  try { await api("DELETE", `/api/jobs/${twin.id}`); } catch { /* the failure is not sticky */ }
+  // t1129 — the EXIT sweep rides the same patience law the ENTRY sweep
+  // has ridden since t1088: a bare single-shot delete answers 5xx under
+  // HMR recompile storms (the census's full runs recompile the canvas
+  // mid-sweep) and the refusal row STANDS — the world gate then fails on
+  // the unit's own residue. Patient now (the t1023 law), 4 rounds.
+  await apiRetry("DELETE", `/api/jobs/${twin.id}`, undefined, 4);
   await sleep(1000);
 }
 rmSync(FIX, { force: true, recursive: true });

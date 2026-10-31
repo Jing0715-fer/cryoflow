@@ -67,10 +67,10 @@ try {
 }
 try { unlinkSync(TMP); } catch {}
 
-ok("R8a the disabled census's population stands at 175 (the busy gate added no disabled row; +1 the t1096 filmstrip walk name, +1 the t1098 ortho walk name, +1 the t1105 print-plate busy door, +1 the t1115 direction walk export name)",
-  receipt?.population === 175, `got ${receipt?.population}`);
-ok("R8b stateful 153 · silent-static 0 · silences 22 — the t1005 second arm's re-key (the static bucket EMPTIED) + the t1008 third arm's re-key (three dynamic names moved their honest-name stories) + the t1096 filmstrip arm (+1 the walk's a11y voice) + the t1098 ortho walk arm (+1 the axis walk's a11y voice) + the t1105 print-plate arm (+1 the busy door's flip voice) + the t1115 direction walk arm (+1 the export button's busy voice), this unit's own no-disabled-prop law stands untouched",
-  receipt?.tally?.stateful === 153 &&
+ok("R8a the disabled census's population stands at 176 (the busy gate added no disabled row; +1 the t1096 filmstrip walk name, +1 the t1098 ortho walk name, +1 the t1105 print-plate busy door, +1 the t1115 direction walk export name, +1 the t1129 sheet face gate — the cut's density face rides behind its own disabled until the cut is on)",
+  receipt?.population === 176, `got ${receipt?.population}`);
+ok("R8b stateful 154 · silent-static 0 · silences 22 — the t1005 second arm's re-key (the static bucket EMPTIED) + the t1008 third arm's re-key (three dynamic names moved their honest-name stories) + the t1096 filmstrip arm (+1 the walk's a11y voice) + the t1098 ortho walk arm (+1 the axis walk's a11y voice) + the t1105 print-plate arm (+1 the busy door's flip voice) + the t1115 direction walk arm (+1 the export button's busy voice) + the t1129 sheet face arm (+1 the face's gated state), this unit's own no-disabled-prop law stands untouched",
+  receipt?.tally?.stateful === 154 &&
   receipt?.tally?.["silent-static"] === 0 &&
   receipt?.silences === 22,
   `stateful=${receipt?.tally?.stateful} static=${receipt?.tally?.["silent-static"]} silences=${receipt?.silences}`);

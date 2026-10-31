@@ -82,10 +82,10 @@ try { unlinkSync(TMP); } catch {}
 
 ok("C1 the census's population gate stands (the disabled-refusal law)",
   (() => { try { return readFileSync(path.join(ROOT, "scripts/t982-aria-refusal-census.mjs"), "utf8").includes("if (!/\\bdisabled=\\{/.test(text)) continue;"); } catch { return false; } })());
-ok("C2 population = 175 (the grips carry no disabled prop — the no-shift ruling, live; +1 the t1096 filmstrip walk name, +1 the t1098 ortho walk name, +1 the t1105 print-plate busy door, +1 the t1115 direction walk export name)",
-  receipt?.population === 175, `got ${receipt?.population}`);
-ok("C3 stateful = 153 (the panel's population tags unmoved; +30 from the t1005 refusal-name arm, +3 from the t1008 dynamic names, +1 from the t1096 filmstrip walk name, +1 from the t1098 ortho walk name, +1 from the t1105 print-plate busy name, +1 from the t1115 direction walk export's busy name)",
-  receipt?.tally?.stateful === 153, `got ${receipt?.tally?.stateful}`);
+ok("C2 population = 176 (the grips carry no disabled prop — the no-shift ruling, live; +1 the t1096 filmstrip walk name, +1 the t1098 ortho walk name, +1 the t1105 print-plate busy door, +1 the t1115 direction walk export name, +1 the t1129 sheet face gate — the cut's density face rides behind its own disabled until the cut is on)",
+  receipt?.population === 176, `got ${receipt?.population}`);
+ok("C3 stateful = 154 (the panel's population tags unmoved; +30 from the t1005 refusal-name arm, +3 from the t1008 dynamic names, +1 from the t1096 filmstrip walk name, +1 from the t1098 ortho walk name, +1 from the t1105 print-plate busy name, +1 from the t1115 direction walk export's busy name, +1 from the t1129 sheet face's gated state)",
+  receipt?.tally?.stateful === 154, `got ${receipt?.tally?.stateful}`);
 ok("C4 silent-static = 0 (the echo region is not an interactive tag; the t1005 arm emptied the bucket)",
   receipt?.tally?.["silent-static"] === 0, `got ${receipt?.tally?.["silent-static"]}`);
 ok("C5 silences = 22 (the flip bucket only — the t1005 arm retired the static half, the t1008 arm spoke three honest names)",

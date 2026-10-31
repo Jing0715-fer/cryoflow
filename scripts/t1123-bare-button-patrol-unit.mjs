@@ -256,8 +256,8 @@ for (const f of rawButtonFiles) {
   tags += m.length;
   if (t.includes("focus-visible:ring") || riderEvidence(t)) fileRingedTags += m.length;
 }
-ok("F2 299 raw <button occurrences (295 real tags + 4 prose)", tags === 299, `got ${tags}`);
-ok("F3 every raw occurrence sits in a ringed or rider file", fileRingedTags === 299, `got ${fileRingedTags}/299`);
+ok("F2 300 raw <button occurrences (296 real tags + 4 prose; +1 the t1129 sheet face toggle — the cut block's fourth verb)", tags === 300, `got ${tags}`);
+ok("F3 every raw occurrence sits in a ringed or rider file", fileRingedTags === 300, `got ${fileRingedTags}/300`);
 
 // ---------------- band G: the per-button auditor gate ----------------
 const { execFileSync } = await import("node:child_process");
