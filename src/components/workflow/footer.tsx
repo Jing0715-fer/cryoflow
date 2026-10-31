@@ -6,6 +6,7 @@ import { formatElapsed } from "@/lib/elapsed";
 import { useNow } from "@/lib/use-now";
 import React from "react";
 import { FIND_STATUSES } from "./canvas-find-bar";
+import { WorldHealthBoard } from "./world-health-dialog"; // t1133 — the world's own door
 import { STATUS_CHIP } from "@/lib/status-style"; // t647 — straight from the map family, no re-export relays
 
 export function Footer() {
@@ -105,6 +106,12 @@ export function Footer() {
           {jobs.length} {jobs.length === 1 ? "job" : "jobs"} · {edges.length}{" "}
           {edges.length === 1 ? "edge" : "edges"}
         </span>
+        {/* t1133 — the world health board: the three numbers beside it
+            learn a memory (the transition ledger) and the engine's
+            vitals learn a verdict row. It counts the SAME numbers this
+            footer counts — a board that disagreed with the footer
+            beside it would be a lie with a dialog. */}
+        <WorldHealthBoard />
         {census.length > 0 && (
           <>
             <span aria-hidden="true" className="text-border">
