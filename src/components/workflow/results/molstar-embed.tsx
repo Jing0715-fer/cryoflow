@@ -35,7 +35,7 @@ import { sanitizeMrcHeader } from "@/lib/mrc-axis";
 import { canCopyImageToClipboard, copyViewerPng, drawFigureFooter, exportViewerPng, figureFooterHeightPx, figureTitleMeta, viewerFileSlug, viewerFileTimestamp } from "@/lib/viewer-export";
 import { downloadBlob } from "@/lib/download";
 import { keptIntervalOf, normalizeInterval } from "@/lib/clip-interval"; // t905 — the slab seat: both clip languages answer to one interval editor
-import { OBLIQUE_SHEET_ANNOTATION, axisIndex, dimAlong, obliqueAnchorVox, obliqueCutAnnotation, obliqueDepthVox, obliqueDepthVoice, obliqueNormal, obliqueOffsetPctVoice, obliqueSupportVox, voxelAriaText, voxelAnnotation, voxelIndexOf, voxelIntervalReadout, voxelPlaneVoice, voxelSliderVoice } from "@/lib/voxel-voice"; // t906/t907 — one honest voice: the slice family speaks the voxel address the ortho tiles speak, the oblique cut speaks its depth along its own normal; t1129 — the cut's face rides the lib's anchor word
+import { OBLIQUE_SHEET_ANNOTATION, axisIndex, buildObliqueSheetMesh, densityWindow, dimAlong, obliqueAnchorVox, obliqueCutAnnotation, obliqueDepthVox, obliqueDepthVoice, obliqueNormal, obliqueOffsetPctVoice, obliqueSupportVox, voxelAriaText, voxelAnnotation, voxelIndexOf, voxelIntervalReadout, voxelPlaneVoice, voxelSliderVoice, type SheetMeshArrays } from "@/lib/voxel-voice"; // t906/t907 — one honest voice: the slice family speaks the voxel address the ortho tiles speak, the oblique cut speaks its depth along its own normal; t1129 — the cut's face rides the lib's anchor word; t1130 — the face's geometry words (densityWindow, buildObliqueSheetMesh) ride the lib too (the t1122 patchBoxRect precedent: geometry the family shares lives where node can ride it)
 import { downloadText } from "@/lib/download";
 // t197: the profile QC report family moved to @/lib/qc-report — the session
 // QC report is its second consumer, and the lib is the one honest home
@@ -558,6 +558,135 @@ export function buildObliqueGuidePlane(
   };
 }
 
+/* -------- the sheet's state kit (t1130): transform + mesh wrapper ------- */
+/* The face's GEOMETRY words (densityWindow, buildObliqueSheetMesh and their
+   types) live in the lib — voxel-voice.ts, the t1122 patchBoxRect precedent:
+   geometry the family shares lives where node can ride it. This block keeps
+   only the mol*-wrapping half: the kit, the transform, the state nodes. */
+
+/** The mol* runtime pieces the sheet's state nodes need — resolved ONCE,
+ *  lazily (the embed's dynamic-import doctrine: heavy mol* modules stay
+ *  out of the dialog's first chunk). All are CPU-side modules; nothing
+ *  here touches WebGL until the representation renders. */
+interface SheetKit {
+  PluginStateTransform: any;
+  SO: any;
+  StateTransformer: any;
+  Task: any;
+  PD: any;
+  Vec3: any;
+  MeshBuilder: any;
+  Mesh: any;
+  Shape: any;
+}
+let sheetKitCache: SheetKit | null = null;
+async function ensureSheetKit(): Promise<SheetKit> {
+  if (sheetKitCache) return sheetKitCache;
+  const [objects, state, task, pd, la, mb, mesh, shape] = await Promise.all([
+    import("molstar/lib/mol-plugin-state/objects"),
+    import("molstar/lib/mol-state"),
+    import("molstar/lib/mol-task"),
+    import("molstar/lib/mol-util/param-definition"),
+    import("molstar/lib/mol-math/linear-algebra"),
+    import("molstar/lib/mol-geo/geometry/mesh/mesh-builder"),
+    import("molstar/lib/mol-geo/geometry/mesh/mesh"),
+    import("molstar/lib/mol-model/shape"),
+  ]);
+  sheetKitCache = {
+    PluginStateTransform: objects.PluginStateTransform,
+    SO: objects.PluginStateObject,
+    StateTransformer: state.StateTransformer,
+    Task: task.Task,
+    PD: pd.ParamDefinition,
+    Vec3: la.Vec3,
+    MeshBuilder: mb.MeshBuilder,
+    Mesh: mesh.Mesh,
+    Shape: shape.Shape,
+  };
+  return sheetKitCache;
+}
+
+/** Wrap the mesh arrays into a mol* Shape (one GROUP per gray band — the
+ *  shape-group color theme reads Shape.getColor, so the bands ARE the
+ *  colors; no theme wiring). Pure CPU. Exported for the unit. */
+export function sheetArraysToShape(kit: SheetKit, arrays: SheetMeshArrays): unknown {
+  const { MeshBuilder, Mesh, Shape, Vec3 } = kit;
+  const state = MeshBuilder.create(arrays.indices.length, Math.max(256, arrays.positions.length / 3));
+  const triCount = arrays.indices.length / 3;
+  let group = -1;
+  for (let t = 0; t < triCount; t++) {
+    const b = arrays.bandOfTri[t];
+    if (b !== group) {
+      group = b;
+      state.currentGroup = b; // the builder's own group voice
+    }
+    const o0 = arrays.indices[t * 3] * 3;
+    const o1 = arrays.indices[t * 3 + 1] * 3;
+    const o2 = arrays.indices[t * 3 + 2] * 3;
+    const a = Vec3.create(arrays.positions[o0], arrays.positions[o0 + 1], arrays.positions[o0 + 2]);
+    const c = Vec3.create(arrays.positions[o1], arrays.positions[o1 + 1], arrays.positions[o1 + 2]);
+    const d = Vec3.create(arrays.positions[o2], arrays.positions[o2 + 1], arrays.positions[o2 + 2]);
+    MeshBuilder.addTriangle(state, a, c, d);
+  }
+  const mesh = MeshBuilder.getMesh(state);
+  return Shape.create(
+    "oblique-density-sheet",
+    arrays,
+    mesh,
+    (g: number, _i: number) => Color(arrays.bandColors[Math.min(g, arrays.bandColors.length - 1)]),
+    () => 1,
+    (g: number, _i: number) => arrays.bandLabels[Math.min(g, arrays.bandLabels.length - 1)] ?? "sheet"
+  );
+}
+
+/** The sheet's state transform: SO.Root → SO.Shape.Provider with the mesh
+ *  geometry riding IN THE PARAMS (PD.Value — the params ARE the geometry,
+ *  BoxShape3D's own pattern: no globals, no slot, no hidden state). A rev
+ *  bump drives the update; Recreate re-applies from the new params (the
+ *  repr child is torn down and reborn in the same transaction — one frame,
+ *  sanctioned semantics). Registered nowhere else: the embed applies it
+ *  programmatically and persists no state snapshots. */
+let sheetTransformCache: any = null;
+function ensureSheetTransform(kit: SheetKit): any {
+  if (sheetTransformCache) return sheetTransformCache;
+  const { PluginStateTransform, Task, PD } = kit;
+  sheetTransformCache = PluginStateTransform.BuiltIn({
+    name: "cryoflow-oblique-density-sheet",
+    display: { name: "Oblique density sheet", description: OBLIQUE_SHEET_ANNOTATION },
+    from: kit.SO.Root,
+    to: kit.SO.Shape.Provider,
+    params: {
+      geometry: (PD.Value as any)(null),
+      rev: PD.Numeric(0),
+    },
+  })({
+    canAutoUpdate: () => true,
+    apply({ params }: any) {
+      return Task.create("Oblique density sheet", async () => {
+        if (!params?.geometry) throw new Error("no sheet geometry");
+        const shape = sheetArraysToShape(kit, params.geometry);
+        const provider = {
+          label: "Oblique density sheet",
+          data: shape,
+          params: kit.Mesh.Utils.Params,
+          getShape: async () => shape,
+          geometryUtils: kit.Mesh.Utils,
+        };
+        return new kit.SO.Shape.Provider(provider, {
+          label: "Oblique density sheet",
+          description: OBLIQUE_SHEET_ANNOTATION,
+        });
+      });
+    },
+    update({ oldParams, newParams }: any) {
+      if (!newParams?.geometry) return kit.StateTransformer.UpdateResult.Null;
+      if (newParams.rev === oldParams?.rev) return kit.StateTransformer.UpdateResult.Unchanged;
+      return kit.StateTransformer.UpdateResult.Recreate;
+    },
+  });
+  return sheetTransformCache;
+}
+
 /** The viewport is a guest: it follows the room's theme. The Mol* canvas
  *  paints ITSELF — no computed-style audit can ever see its background, and
  *  the stock background is a near-white rectangle: a wound on a dark dialog.
@@ -656,6 +785,10 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
   const volRef = useRef<any>(null);
   const sliceRef = useRef<any>(null);
   const VolumeReprRef = useRef<any>(null);
+  // t1130 — the mesh face's representation (SO.Shape.Provider → 3D repr):
+  // resolved in the same boot bundle as VolumeRepresentation3D (the same
+  // molstar transforms module exports both)
+  const ShapeRepresentation3DRef = useRef<any>(null);
   const IsoValueRef = useRef<any>(null);
   const GridRef = useRef<any>(null);
 
@@ -802,7 +935,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
         const { bytes: buf, corrected, cured } = sanitizeMrcHeader(fetched);
         if (corrected) console.debug(`[molstar] header sanitized (${cured.join(" · ")})`, name);
 
-        const [{ RawData, ParseCcp4 }, { VolumeFromCcp4 }, { VolumeRepresentation3D }, { Volume }, { Grid }] =
+        const [{ RawData, ParseCcp4 }, { VolumeFromCcp4 }, { VolumeRepresentation3D, ShapeRepresentation3D }, { Volume }, { Grid }] =
           await Promise.all([
             import("molstar/lib/mol-plugin-state/transforms/data"),
             import("molstar/lib/mol-plugin-state/transforms/volume"),
@@ -811,6 +944,9 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
             import("molstar/lib/mol-model/volume/grid"),
           ]);
         VolumeReprRef.current = VolumeRepresentation3D;
+        // t1130 — the same module exports the shape world's repr (the mesh
+        // face's visual node rides it)
+        ShapeRepresentation3DRef.current = ShapeRepresentation3D;
         IsoValueRef.current = Volume.IsoValue;
         GridRef.current = Grid;
 
@@ -3550,6 +3686,11 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
   const sheetStateRef = useRef({ on: false });
   const sheetRef = useRef<{ transform: { ref: string } } | null>(null);
   const sheetPending = useRef(false);
+  // t1130 — the mesh face's geometry revision: every commitSheet builds a
+  // new lattice; the rev bump is what the transform's update hook reads to
+  // decide Unchanged vs Recreate (the params carry the geometry — the rev
+  // is their fingerprint)
+  const sheetRevRef = useRef(0);
   // t906 — the dim along the ACTIVE axis (null until the grid is mirrored):
   // every slice voice reads this one derivation, so the slider's address,
   // the aria text and the landscape's plane label can never disagree
@@ -4136,14 +4277,12 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     void pumpSlice();
   }, [sigma, sign]);
 
-  // t1129 — the sheet shares the threshold as well (its isoValue rides the
-  // SAME contour the isosurface and the axis slice speak): every σ/sign
-  // change re-pumps the face, so the image and the surface never disagree
-  // about where "signal" starts
-  useEffect(() => {
-    if (!sheetStateRef.current.on) return;
-    void pumpSheet();
-  }, [sigma, sign]);
+  // t1130 — the sheet's σ coupling RETIRES with the slice node it served:
+  // the old mode-'plane' sheet wore the contour's isoValue, so every σ/sign
+  // change re-pumped the face. The MESH face wears the FIELD (the tile
+  // stretch law, not the contour), the σ slider cuts the SURFACE — the same
+  // division the ortho tiles already live by. No σ effect, no re-pump: the
+  // face stays put while the surface opens and closes.
 
   /* ---------------- box clipping (crop the isosurface) ---------------- */
 
@@ -4562,9 +4701,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
 
   const commitSheet = async () => {
     const plugin = pluginRef.current;
-    const VolumeRepresentation3D = VolumeReprRef.current;
-    const IsoValue = IsoValueRef.current; // the contour family's own handle
-    if (!plugin || !VolumeRepresentation3D || !volRef.current || !IsoValue) throw new Error("not ready");
+    if (!plugin || !volRef.current || !GridRef.current) throw new Error("not ready");
     const ob = obliqueClipRef.current;
     // the retirement law: the preference may sleep, the cut may be off —
     // either way the face comes down (the scene never keeps a sheet whose
@@ -4579,37 +4716,74 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       await deleteSheet(); // honest no-face — no guessed geometry
       return;
     }
-    const typeParams = (old: any) => ({
-      ...old?.type?.params,
-      mode: "plane" as const,
-      plane: { point: sheet.point, normal: sheet.normal },
-      isoValue: IsoValue.relative(signRef.current * sigmaRef.current),
-      alpha: 1,
+    // the plane∩box trace: the guide's polygon (the same world-space trace
+    // the 3D guide draws — one geometry father, the face is its inlay)
+    const guide = geo
+      ? buildObliqueGuidePlane({ theta: ob.theta, phi: ob.phi, offset: ob.offset }, false, geo, geo.cols)
+      : null;
+    if (!guide || guide.polygon.length < 3) {
+      await deleteSheet();
+      return;
+    }
+    // the volume's own grid: the sampler walks it trilinearly (the same
+    // CPU path the t1129 offline experiment verified healthy)
+    let grid: any = null;
+    for (const cell of plugin.state.data.cells.values()) {
+      const obj = (cell as any)?.obj;
+      if (obj?.type?.name !== "Volume") continue;
+      if (obj?.data?.grid?.cells?.space?.dimensions) { grid = obj.data.grid; break; }
+    }
+    if (!grid) {
+      await deleteSheet();
+      return;
+    }
+    const window_ = densityWindow(grid);
+    if (!window_) {
+      await deleteSheet();
+      return;
+    }
+    const sampler = GridRef.current.makeGetTrilinearlyInterpolated(grid, "none");
+    const arrays = buildObliqueSheetMesh({
+      polygon: guide.polygon,
+      point: sheet.point,
+      normal: sheet.normal,
+      sampler: (p) => sampler(p as never) as number,
+      grayLo: window_[0],
+      grayHi: window_[1],
     });
+    if (!arrays) {
+      await deleteSheet(); // the honest no-face (empty lattice / no samples)
+      return;
+    }
+    let kit: SheetKit;
+    try {
+      kit = await ensureSheetKit();
+    } catch (err) {
+      console.debug("olstar] sheet kit unavailable — no face", err);
+      await deleteSheet();
+      return;
+    }
+    const SheetTransform = ensureSheetTransform(kit);
+    const params = { geometry: arrays, rev: ++sheetRevRef.current };
     if (!sheetRef.current) {
-      // create WITH the plane in the initial params (the axis slice's own
-      // create-with-state law — a node is never born empty then told)
+      // create WITH the geometry in the initial params (the axis slice's
+      // own create-with-state law — a node is never born empty then told);
+      // the provider node is the tracked one — deleting it takes the repr
+      // child down with it (the subtree dies with its root)
       const b = plugin.build();
-      const node = b
+      const provider = b
         .to(volRef.current)
-        .apply(VolumeRepresentation3D, {
-          type: { name: "slice", params: typeParams(undefined) },
-          colorTheme: { name: "uniform", params: {} },
-          sizeTheme: { name: "uniform", params: {} },
-        });
+        .apply(SheetTransform, params);
+      provider.apply(ShapeRepresentation3DRef.current, {});
       await b.commit();
-      sheetRef.current = node;
+      sheetRef.current = provider as unknown as { transform: { ref: string } };
     } else {
-      // same-node update — the plane coordinates and the shared threshold
-      // only (the mode never changes across updates; the node was born
-      // 'plane' and stays 'plane')
+      // same-node update — the rev bump tells the transform the geometry
+      // changed; Recreate re-applies from the new params in one transaction
       await plugin
         .build()
         .to(sheetRef.current)
-        .update(VolumeRepresentation3D, (old: any) => ({
-          ...old,
-          type: { ...old.type, params: typeParams(old) },
-        }))
+        .update(SheetTransform, params as never)
         .commit();
     }
   };
@@ -4620,18 +4794,19 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     sheetPending.current = true;
     try {
       for (;;) {
+        // t1130 — the mesh face is σ-INDEPENDENT (the contour slider cuts
+        // the surface, the face wears the field): the seen-set tracks the
+        // sheet's preference and the cut's four numbers only — a σ scrub
+        // during a commit no longer forces a needless lattice rebuild
         const seenSheet = sheetStateRef.current.on;
         const seenCut = { ...obliqueClipRef.current };
-        const seenSigma = sigmaRef.current;
-        const seenSign = signRef.current;
         await commitSheet();
         const nowSheet = sheetStateRef.current.on;
         const nowCut = obliqueClipRef.current;
         if (
           nowSheet === seenSheet &&
           nowCut.on === seenCut.on && nowCut.theta === seenCut.theta &&
-          nowCut.phi === seenCut.phi && nowCut.offset === seenCut.offset &&
-          sigmaRef.current === seenSigma && signRef.current === seenSign
+          nowCut.phi === seenCut.phi && nowCut.offset === seenCut.offset
         ) break; // nothing newer arrived while committing
       }
     } catch (err) {

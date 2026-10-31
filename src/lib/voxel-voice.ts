@@ -269,6 +269,17 @@ export function obliqueAnchorVox(
  *  the cut's own, already spoken. */
 export const OBLIQUE_SHEET_ANNOTATION = "oblique face (density on the cut plane)";
 
+/** t1130 — the face's TITLE word, mesh edition. The t1129 face rode Mol*'s
+ *  slice mode 'plane' and shared the contour's isoLevel (its title
+ *  confessed "the image shares the contour σ — on maps whose peaks sit
+ *  near the contour the face reads solvent-quiet"); the t1130 pivot moves
+ *  the face onto a density MESH that wears the FIELD — the tiles' own 2–98
+ *  stretch, quantized to gray bands — and the contour σ now cuts the
+ *  SURFACE only, never the face's brightness. The title confesses the new
+ *  division: one plane, two instruments, each honest about what it obeys. */
+export const OBLIQUE_SHEET_FACE_TITLE =
+  "▣ face — hang the density ON the cut plane as a gray mosaic (the tiles' own stretch; the σ slider cuts the surface, the face keeps the field)";
+
 /** The clip interval's readout voice — the kept extent's voxel address:
  * "21–26/64" (1-based, inclusive — the tiles' convention), or null when
  * the grid is unknown (the call site keeps its bare percent: the
@@ -367,4 +378,197 @@ export function patchClampVoice(n: number, radius: number): string | null {
   const full = (2 * radius + 1) ** 2;
   if (n >= full) return null;
   return `of ${full} full`;
+}
+
+/* ---------------- the cut's face, MESH EDITION (t1130) ---------------- */
+/* The face's GEOMETRY words move into the lib (the t1122 patchBoxRect
+   precedent: geometry the family shares lives where node can ride it and
+   no face can drift from another). The mol*-wrapping half of the face —
+   the kit, the transform, the state nodes — stays in the embed; these two
+   are pure tuple math, unit-runnable without React or WebGL. */
+
+/** The gray window the face wears — the tile stretch law's client twin.
+ *  The ortho tiles speak a 2–98 percentile contrast stretch (mrc.ts's
+ *  `makeGrayPng`); the face wears the SAME law: a strided sample of the
+ *  grid's raw cells (≤65536 reads — the tensor order is irrelevant to a
+ *  percentile) sorted to its 2nd and 98th percentile. Non-finite cells
+ *  are skipped (the honest window never includes the map's NaN border).
+ *  Returns null when the grid carries nothing usable — the honest no-face
+ *  beats a guessed window. Pure. */
+export function densityWindow(grid: unknown): [number, number] | null {
+  const data = (grid as { cells?: { data?: ArrayLike<number> } } | null | undefined)?.cells?.data;
+  if (!data || typeof data.length !== "number" || data.length < 16) return null;
+  const stride = Math.max(1, Math.floor(data.length / 65536));
+  const sample: number[] = [];
+  for (let i = 0; i < data.length; i += stride) {
+    const v = data[i];
+    if (Number.isFinite(v)) sample.push(v);
+  }
+  if (sample.length < 16) return null;
+  sample.sort((a, b) => a - b);
+  const pct = (p: number) =>
+    sample[Math.min(sample.length - 1, Math.max(0, Math.round(p * (sample.length - 1))))];
+  const lo = pct(0.02);
+  const hi = pct(0.98);
+  return hi > lo ? [lo, hi] : null;
+}
+
+/** The cut's face as a DENSITY MESH (t1130) — the pivot off Mol*'s slice
+ *  mode 'plane' (an experimental path mol* itself never uses: the node
+ *  mounted, the render object said visible, the screen showed nothing —
+ *  the t1129 diagnosis). The face is now a lattice mosaic of flat gray
+ *  quads ON the cut plane: a N×N lattice over the plane∩box trace polygon
+ *  (the guide's own world-space polygon — one geometry father), each quad
+ *  sampled at its centroid through the volume's trilinear field, banded
+ *  into K gray bands over the tile-stretch window (densityWindow — the
+ *  tiles' 2–98 stretch), kept when the centroid lies inside the polygon.
+ *  σ-INDEPENDENT by design: the contour slider cuts the SURFACE, the face
+ *  wears the FIELD — the same division the ortho tiles already live by.
+ *
+ *  Pure tuple math — no mol* imports — so the unit can hand-compute every
+ *  vertex. Returns null when the geometry is unusable (fewer than 3
+ *  polygon points, a degenerate normal, an empty window, or a lattice
+ *  that kept nothing — the honest no-face beats a guessed sheet). */
+export interface SheetMeshInput {
+  /** the plane∩box trace (buildObliqueGuidePlane's polygon — world space,
+   *  wound consistently around the normal) */
+  polygon: [number, number, number][];
+  /** the cut's anchor on the plane (buildObliqueSheetPlane's point) */
+  point: [number, number, number];
+  /** the cut's unit world normal (buildObliqueSheetPlane's normal) */
+  normal: [number, number, number];
+  /** world point → density | NaN (Grid.makeGetTrilinearlyInterpolated's
+   *  own voice — NaN outside the grid, the sampler's honesty) */
+  sampler: (p: [number, number, number]) => number;
+  /** the tile-stretch window (densityWindow's [lo, hi]) */
+  grayLo: number;
+  grayHi: number;
+  /** gray band count (default 9 — odd keeps a middle band) */
+  bands?: number;
+  /** lattice resolution per axis (default 56 — smooth on 33³ to 400³) */
+  latticeN?: number;
+}
+
+export interface SheetMeshArrays {
+  /** xyz triplets, 4 per kept quad (the two triangles share them) */
+  positions: Float32Array;
+  /** triangle indices into positions (2 per kept quad) */
+  indices: Uint32Array;
+  /** gray band index per triangle (one shape group per band) */
+  bandOfTri: Int32Array;
+  /** band center color as 0xrrggbb gray (index = band) */
+  bandColors: number[];
+  /** band center density as a readable label (index = band) */
+  bandLabels: string[];
+  stats: { kept: number; dropped: number; lattice: number };
+}
+
+export function buildObliqueSheetMesh(input: SheetMeshInput): SheetMeshArrays | null {
+  const { polygon, point, normal, sampler, grayLo, grayHi } = input;
+  const K = input.bands ?? 9;
+  const N = input.latticeN ?? 56;
+  if (!Array.isArray(polygon) || polygon.length < 3) return null;
+  if (!Number.isFinite(grayLo) || !Number.isFinite(grayHi) || grayHi <= grayLo) return null;
+  if (!Number.isFinite(K) || K < 2 || !Number.isFinite(N) || N < 2) return null;
+  const nLen = Math.hypot(normal[0], normal[1], normal[2]);
+  if (!(nLen > 1e-9)) return null;
+  const n: [number, number, number] = [normal[0] / nLen, normal[1] / nLen, normal[2] / nLen];
+  // in-plane basis: swing the least-aligned world axis into the plane —
+  // stable under the normal's own orientation (no arbitrary roll)
+  let axis: [number, number, number] = [1, 0, 0];
+  let best = Math.abs(n[0]);
+  if (Math.abs(n[1]) < best) { axis = [0, 1, 0]; best = Math.abs(n[1]); }
+  if (Math.abs(n[2]) < best) { axis = [0, 0, 1]; }
+  let u: [number, number, number] = [
+    n[1] * axis[2] - n[2] * axis[1],
+    n[2] * axis[0] - n[0] * axis[2],
+    n[0] * axis[1] - n[1] * axis[0],
+  ];
+  const uLen = Math.hypot(u[0], u[1], u[2]);
+  if (!(uLen > 1e-9)) return null;
+  u = [u[0] / uLen, u[1] / uLen, u[2] / uLen];
+  const v: [number, number, number] = [
+    n[1] * u[2] - n[2] * u[1],
+    n[2] * u[0] - n[0] * u[2],
+    n[0] * u[1] - n[1] * u[0],
+  ];
+  // the polygon in the plane's (u, v) frame, relative to the anchor
+  let uMin = Infinity, uMax = -Infinity, vMin = Infinity, vMax = -Infinity;
+  for (const q of polygon) {
+    const r: [number, number, number] = [q[0] - point[0], q[1] - point[1], q[2] - point[2]];
+    const cu = r[0] * u[0] + r[1] * u[1] + r[2] * u[2];
+    const cv = r[0] * v[0] + r[1] * v[1] + r[2] * v[2];
+    if (cu < uMin) uMin = cu;
+    if (cu > uMax) uMax = cu;
+    if (cv < vMin) vMin = cv;
+    if (cv > vMax) vMax = cv;
+  }
+  if (!(uMax > uMin) || !(vMax > vMin)) return null;
+  const du = (uMax - uMin) / N;
+  const dv = (vMax - vMin) / N;
+  if (!(du > 0) || !(dv > 0)) return null;
+  // convex membership: every edge's cross product faces the same way
+  // (the polygon is wound consistently around n — the guide's contract)
+  const inside = (c: [number, number, number]): boolean => {
+    for (let e = 0; e < polygon.length; e++) {
+      const a = polygon[e];
+      const b = polygon[(e + 1) % polygon.length];
+      const e0 = b[0] - a[0], e1 = b[1] - a[1], e2 = b[2] - a[2];
+      const r0 = c[0] - a[0], r1 = c[1] - a[1], r2 = c[2] - a[2];
+      const cx = e1 * r2 - e2 * r1;
+      const cy = e2 * r0 - e0 * r2;
+      const cz = e0 * r1 - e1 * r0;
+      if (cx * n[0] + cy * n[1] + cz * n[2] < -1e-9) return false;
+    }
+    return true;
+  };
+  const pos: number[] = [];
+  const idx: number[] = [];
+  const band: number[] = [];
+  let kept = 0;
+  let dropped = 0;
+  for (let j = 0; j < N; j++) {
+    for (let i = 0; i < N; i++) {
+      const cu = uMin + (i + 0.5) * du;
+      const cv = vMin + (j + 0.5) * dv;
+      const c: [number, number, number] = [
+        point[0] + cu * u[0] + cv * v[0],
+        point[1] + cu * u[1] + cv * v[1],
+        point[2] + cu * u[2] + cv * v[2],
+      ];
+      if (!inside(c)) continue;
+      const d = sampler(c);
+      if (!Number.isFinite(d)) { dropped++; continue; }
+      const t = Math.min(1, Math.max(0, (d - grayLo) / (grayHi - grayLo)));
+      const b = Math.min(K - 1, Math.floor(t * K));
+      // the quad's four corners (half-cell around the centroid); winding
+      // (c1,c2,c3)+(c1,c3,c4) is CCW around +n — u×v = n by construction
+      const hu = du / 2, hv = dv / 2;
+      const c1: [number, number, number] = [c[0] - hu * u[0] - hv * v[0], c[1] - hu * u[1] - hv * v[1], c[2] - hu * u[2] - hv * v[2]];
+      const c2: [number, number, number] = [c[0] + hu * u[0] - hv * v[0], c[1] + hu * u[1] - hv * v[1], c[2] + hu * u[2] - hv * v[2]];
+      const c3: [number, number, number] = [c[0] + hu * u[0] + hv * v[0], c[1] + hu * u[1] + hv * v[1], c[2] + hu * u[2] + hv * v[2]];
+      const c4: [number, number, number] = [c[0] - hu * u[0] + hv * v[0], c[1] - hu * u[1] + hv * v[1], c[2] - hu * u[2] + hv * v[2]];
+      const base = pos.length / 3;
+      pos.push(c1[0], c1[1], c1[2], c2[0], c2[1], c2[2], c3[0], c3[1], c3[2], c4[0], c4[1], c4[2]);
+      idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+      band.push(b, b);
+      kept++;
+    }
+  }
+  if (kept === 0) return null; // the honest no-face
+  const bandColors: number[] = [];
+  const bandLabels: number[] = [];
+  for (let i = 0; i < K; i++) {
+    const g = Math.round(255 * ((i + 0.5) / K));
+    bandColors.push((g << 16) | (g << 8) | g);
+    bandLabels.push(grayLo + ((i + 0.5) / K) * (grayHi - grayLo));
+  }
+  return {
+    positions: new Float32Array(pos),
+    indices: new Uint32Array(idx),
+    bandOfTri: new Int32Array(band),
+    bandColors,
+    bandLabels: bandLabels.map((mid) => `${Number(mid.toPrecision(3))} density`),
+    stats: { kept, dropped, lattice: N * N },
+  };
 }

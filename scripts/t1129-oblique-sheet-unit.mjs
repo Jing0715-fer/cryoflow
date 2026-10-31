@@ -45,6 +45,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import {
   OBLIQUE_SHEET_ANNOTATION,
+  OBLIQUE_SHEET_FACE_TITLE,
   obliqueAnchorVox,
   obliqueDepthVox,
   obliqueNormal,
@@ -145,9 +146,14 @@ ok(count(sheetFn, "return null") >= 2, "B5 the honest nulls stand (unusable dims
 ok(!/invert/.test(sheetFn), "B6 invert is deliberately ABSENT — the flip keeps half-spaces, the boundary plane does not move");
 
 /* C band — the commit/pump/intent family (bytes) */
-ok(count(embed, 'mode: "plane" as const') === 1, "C1 the sheet node is born 'plane' (Mol* slice's arbitrary-plane mode)");
-ok(count(embed, "plane: { point: sheet.point, normal: sheet.normal }") === 1, "C2 the plane params speak point + normal (createPlaneImage's own dialect)");
-ok(count(embed, "isoValue: IsoValue.relative(signRef.current * sigmaRef.current)") === 1, "C3 the face shares the contour (signRef·sigmaRef — the isosurface's own threshold)");
+// t1130 re-key: the face pivoted OFF Mol*'s slice mode 'plane' (the GL-invisible
+// experimental path — the t1129 render diagnosis named it, the t1130 mesh
+// replaced it) onto a density MESH: the geometry rides the lib
+// (buildObliqueSheetMesh), the state nodes ride a custom
+// SO.Root → SO.Shape.Provider transform whose params CARRY the geometry.
+ok(count(embed, 'mode: "plane" as const') === 0 && !embed.includes("mode: 'plane'"), "C1 the sheet node no longer rides mode 'plane' (the t1130 mesh pivot — the GL-invisible path retired)");
+ok(embed.includes("buildObliqueSheetMesh({") && embed.includes("point: sheet.point") && embed.includes("normal: sheet.normal"), "C2 the face's geometry still speaks the lib's anchor word (point = the cut's anchor, normal = the cut's own) — now as mesh inputs");
+ok(!embed.includes("isoValue: IsoValue.relative(signRef.current * sigmaRef.current)"), "C3 the face no longer wears the contour's isoValue (σ-INDEPENDENT: the slider cuts the surface, the face wears the field — the tiles' own division)");
 ok(count(embed, "if (!sheetStateRef.current.on || !ob.on)") === 1, "C4 the retirement law (no cut, no face) gates the commit");
 ok(count(embed, "const sheetIntentRef = useRef(applySheetIntent);") === 1, "C5 the intent rides the stale-closure ref (the slice/clip listeners' own law)");
 ok(count(embed, "window.addEventListener(OBLIQUE_SHEET_EVENT, onObliqueSheet)") === 1, "C6 the sheet's own wire is listened to once");
@@ -157,8 +163,8 @@ ok(
 );
 ok(count(embed, "void pumpSheet();") >= 2, "C8 every cut intent re-pumps the face (the sheet follows its plane)");
 ok(
-  count(embed, "if (!sheetStateRef.current.on) return;\n    void pumpSheet();") === 1,
-  "C9 the σ/sign effect re-pumps the face (the shared threshold's own shadow)"
+  count(embed, "if (!sheetStateRef.current.on) return;\n    void pumpSheet();") === 0,
+  "C9 the σ/sign sheet effect is RETIRED (t1130: the mesh face is σ-independent — no re-pump on a σ scrub)"
 );
 ok(count(embed, "const [sheetOn, setSheetOn] = useState(false);") === 1, "C10 the sheet's preference state is minted once");
 ok(count(embed, "const sheetCellRef = sheetRef.current?.transform?.ref ?? null;") === 1, "C11 the axis-slice sweep opts the face out (both are Slice cells; the ref decides)");
@@ -168,10 +174,9 @@ ok(count(panel, 'export const OBLIQUE_SHEET_EVENT = "cryoflow:oblique-sheet";') 
 ok(count(panel, 'data-canvas-ui="ortho-oblique-sheet3d"') === 1, "D2 the ▣ face toggle exists (the cut block's fourth verb)");
 ok(count(panel, "disabled={!cut3d}") === 1, "D3 the face needs the cut (disabled until ✂ is on — no plane, no face)");
 ok(
-  count(panel, "▣ face — hang the density ON the cut plane") === 1 &&
-    count(panel, "the image shares the contour σ — on maps whose peaks sit near the contour the face reads solvent-quiet") === 1 &&
+  count(panel, "OBLIQUE_SHEET_FACE_TITLE") >= 2 &&
     count(panel, "▣ face — the density sheet needs the cut: press ✂ first") === 1,
-  "D4 the title's voices (the offer + the gate + the contour boundary — the offline audit's honest confession: image.frag:161 culls value<isoLevel, so a map whose peaks sit near the contour reads a quiet face)"
+  "D4 the title's voices (the offer + the gate) — t1130 re-key: the offer rides the lib's OBLIQUE_SHEET_FACE_TITLE identifier (import + usage — the word's VALUE lives in the lib, the t906 law; the t1129 contour-boundary confession retires with the isoLevel it confessed; the mesh face wears the field, the σ slider only cuts the surface)"
 );
 ok(count(panel, "setSheet3d(d.sheet === true)") === 1, "D5 the ACK corrects the ▣ (the live truth rides the same wire as the cut's)");
 ok(count(panel, "new CustomEvent(OBLIQUE_SHEET_EVENT, { detail: { on: next } })") === 1, "D6 the click speaks {on} over the sheet's own wire");
