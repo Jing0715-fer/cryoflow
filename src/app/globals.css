@@ -531,7 +531,14 @@
    ring therefore paints as an outline here — the same 1px --ring voice,
    cascade-proof. The seat-level ring tokens stay: they are the honest
    declaration of intent, and they take over if a surface ever drops
-   card-lift. */
+   card-lift.
+   t1124 — the cascade sweep's live probe DISPROVED the second suspect:
+   the report compass chips carry their OWN focus-visible outline idiom
+   (2px violet, offset 1px — .report-compass-chip:focus-visible), which
+   survives the active chip's unlayered underline ink (outline and
+   box-shadow are separate channels; the idiom paints on .here too —
+   probed live: fv:true, outline solid 2px violet). The law stays the
+   card-lift pair; the compass family keeps its own voice. */
 .card-lift:focus-visible,
 .card-lift-lg:focus-visible {
   outline: 1px solid var(--ring);

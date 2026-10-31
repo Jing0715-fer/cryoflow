@@ -129,6 +129,116 @@ ok("E2 session report rows keep the violet bg-swap idiom", reportT.includes("foc
 const globalsT = readFileSync(join(ROOT, "src/app/globals.css"), "utf8");
 ok("E3 globals carries the card-lift focus outline law", globalsT.includes(".card-lift:focus-visible") && globalsT.includes("outline: 1px solid var(--ring)"));
 
+// E4 — the unlayered-shadow cascade census (the t1124 sweep): an
+// unlayered static box-shadow beats every layered ring composite, so
+// the census of such rules is a standing assertion. Character-level
+// state machine (the jsx-scan family craft): comments stripped, a
+// context stack distinguishes @keyframes bodies (transient animations,
+// not candidates for ring cascade) from @media(hover) blocks (hover
+// implies not keyboard-focused — the rare hover+focus state is a
+// visual-only judgement, and E3's outline is itself cascade-proof)
+// from plain rules.
+{
+  const css = globalsT.replace(/\/\*[\s\S]*?\*\//g, "");
+  const stack = []; // {kind:'rule'|'media'|'media-hover'|'keyframes', sel}
+  let buf = "";
+  const staticShadows = new Set();
+  const hoverShadows = new Set();
+  for (let i = 0; i < css.length; i += 1) {
+    const ch = css[i];
+    if (ch === "{") {
+      const head = buf.trim();
+      const kind = head.startsWith("@keyframes")
+        ? "keyframes"
+        : head.startsWith("@media")
+          ? head.includes("hover")
+            ? "media-hover"
+            : "media-surface" // print / width blocks — surface-mode scoped
+          : "rule";
+      stack.push({ kind, sel: head });
+      buf = "";
+      continue;
+    }
+    if (ch === "}") {
+      stack.pop();
+      buf = "";
+      continue;
+    }
+    buf += ch;
+    if (ch === ";" && stack.length > 0) {
+      // a declaration just terminated — buf IS the declaration text
+      const decl = buf;
+      buf = "";
+      if (!decl.includes("box-shadow:")) continue;
+      if (stack.some((c) => c.kind === "keyframes")) continue; // transient
+      const inHover = stack.some((c) => c.kind === "media-hover");
+      const top = stack[stack.length - 1];
+      if (top.kind !== "rule") continue; // between rules
+      const sel = top.sel.replace(/\s+/g, " ");
+      if (inHover) hoverShadows.add(sel);
+      else staticShadows.add(sel);
+    }
+  }
+  const staticSet = [...staticShadows].sort();
+  const hoverSet = [...hoverShadows].sort();
+  // the JUDGED census — every member accounted for, none silent:
+  //   .card-lift / .card-lift-lg            → button carriers, E3-outline cured
+  //   .report-doc .report-compass-here…     → button carrier, but the compass
+  //                                           chip family owns its own
+  //                                           focus-visible OUTLINE idiom
+  //                                           (2px violet, offset 1px) which
+  //                                           survives the active chip's
+  //                                           underline ink — probed live
+  //                                           (fv:true, outline solid 2px) —
+  //                                           the t1124 suspect DISPROVED
+  //   .job-running                          → canvas job card (a div; the
+  //                                           canvas nav is arrow-driven)
+  //   .report-doc .report-spark-zoom        → report paper internal (span)
+  //   .reveal-flash / [data-find-ring-flash]::after → flash spans/pseudo
+  //   html:has(…) [data-slot=dialog-content] ×6 → dialog PANELS (buttons
+  //                                           inside them keep their rings)
+  const JUDGED = [
+    ".card-lift",
+    ".card-lift, .card-lift-lg", // the E3 selector head, read as one head
+    ".card-lift-lg",
+    ".job-running",
+    ".report-doc .report-compass-here, .report-doc .report-compass-here:hover",
+    ".report-doc .report-spark-zoom",
+    ".reveal-flash",
+    '[data-find-ring-flash]::after',
+    'body[data-plate-print] [data-slot="dialog-content"]:has([data-ortho-plate-doc])',
+    'body[data-report-print] [data-slot="dialog-content"][data-report-doc]',
+    'html:has([data-compare-dialog][data-state="open"]) [data-slot="dialog-content"]',
+    'html:has([data-family-read-dialog][data-state="open"]) [data-slot="dialog-content"]',
+    'html:has([data-fsc-compare-dialog][data-state="open"]) [data-slot="dialog-content"]',
+    'html:has([data-inspector-dialog][data-state="open"]) [data-log-console]',
+    'html:has([data-inspector-dialog][data-state="open"]) [data-slot="dialog-content"]',
+    'html:has([data-params-diff-dialog][data-state="open"]) [data-slot="dialog-content"]',
+  ];
+  const known = new Set([...JUDGED]);
+  const unknown = staticSet.filter((s) => !known.has(s));
+  ok(
+    "E4 unlayered static shadow census fully judged (16 members, zero unknown)",
+    unknown.length === 0 && staticSet.length === 16,
+    `unknown=${JSON.stringify(unknown)} total=${staticSet.length}`,
+  );
+  ok(
+    "E4 hover-only shadow census == the three lean/whisper faces",
+    hoverSet.length === 3 && hoverSet.every((s) => /card-hover-lean|dash-card-hover|insp-card-whisper/.test(s)),
+    JSON.stringify(hoverSet),
+  );
+  ok(
+    "E4b the outline law names every button carrier (the card-lift pair)",
+    globalsT.includes(".card-lift:focus-visible,") &&
+      globalsT.includes(".card-lift-lg:focus-visible {") &&
+      !globalsT.includes(".report-doc .report-compass-here:focus-visible"),
+  );
+  ok(
+    "E4c the compass chip family keeps its own outline idiom",
+    /\.report-doc \.report-compass-chip:focus-visible\s*\{[^}]*outline:\s*2px solid/.test(globalsT),
+  );
+}
+
 // ---------------- band F: census shape ----------------
 // 62 files carry raw <button> substrings; 295 REAL raw opening tags live
 // in them (plus 4 prose mentions inside comments, which are not tags).
