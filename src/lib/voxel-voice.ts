@@ -263,3 +263,65 @@ export function voxelIntervalReadout(
   if (a === null || b === null || b < a) return null;
   return `${a + 1}–${b + 1}/${dim}`;
 }
+
+/**
+ * The patch footprint's own rectangle (t1122 — the probe's second voice
+ * made VISIBLE: the (2r+1)² patch whose statistics the chip speaks,
+ * drawn on the tile as an outline, so the AREA the numbers summarise is
+ * literally in front of the eye).
+ *
+ * `box` is readMrcPatch's clamped in-plane box (volume frame, lo/hi per
+ * axis — the FIXED axis is pinned to the centre and simply rides along
+ * unused here); `dims` is the live grid; `hAxis`/`vAxis` are the tile's
+ * own frame (the TileSpec map: z tile → h=x v=y, y tile → h=x v=z, x
+ * tile → h=y v=z). The fraction is voxelIndexOf's inverse: an index i
+ * of a dim-n grid sits at i/(n−1) — the same mapping that puts the
+ * probe crosshair at the cursor, so the box and the lines can never
+ * disagree about where a voxel lives.
+ *
+ * Returns null (and the tile draws nothing) when the truth is not
+ * drawable: no box, unknown/unusable dims (the t906 usable-dim law —
+ * finite integers > 1), the same axis twice, a reversed box, or any
+ * edge escaping 0..1 — silence about it, never a wrong rectangle. Pure.
+ */
+export function patchBoxRect(
+  box:
+    | {
+        lo: { x: number; y: number; z: number };
+        hi: { x: number; y: number; z: number };
+      }
+    | null
+    | undefined,
+  dims: readonly [number, number, number] | null | undefined,
+  hAxis: "x" | "y" | "z",
+  vAxis: "x" | "y" | "z"
+): { left: number; top: number; right: number; bottom: number } | null {
+  if (!box || !box.lo || !box.hi) return null;
+  if (!dims || dims.length !== 3) return null;
+  if (hAxis === vAxis) return null;
+  const hi0 = axisIndex(hAxis);
+  const vi0 = axisIndex(vAxis);
+  const dh = dims[hi0];
+  const dv = dims[vi0];
+  // the usable-dim law (t906): a fraction with a degenerate denominator
+  // would place the box nowhere honest
+  for (const dim of [dh, dv]) {
+    if (typeof dim !== "number" || !Number.isFinite(dim) || !Number.isInteger(dim) || dim <= 1) {
+      return null;
+    }
+  }
+  // the box speaks KEY names (readMrcPatch's {x,y,z} objects), the dims
+  // speak INDEX numbers (the live grid's tuple) — two shapes, one axis
+  const lv = box.lo[hAxis];
+  const rv = box.hi[hAxis];
+  const tv = box.lo[vAxis];
+  const bv = box.hi[vAxis];
+  if (![lv, rv, tv, bv].every((v) => Number.isFinite(v))) return null;
+  const left = lv / (dh - 1);
+  const right = rv / (dh - 1);
+  const top = tv / (dv - 1);
+  const bottom = bv / (dv - 1);
+  if (right < left || bottom < top) return null;
+  if (left < 0 || top < 0 || right > 1 || bottom > 1) return null;
+  return { left, top, right, bottom };
+}

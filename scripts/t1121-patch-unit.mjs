@@ -181,11 +181,12 @@ const panelSrc = (await import("node:fs")).readFileSync(
   join(import.meta.dirname, "../src/components/workflow/results/map-ortho-panel.tsx"),
   "utf8"
 );
-ok("G1 the request names r=5 (the 11×11 patch)", panelSrc.includes("&r=5"));
+ok("G1 the request names the LIVE radius (t1122: the panel's own slider)",
+  panelSrc.includes("&r=${probeRadius}"));
 ok("G2 the chip's second line carries its own testid", panelSrc.includes("data-ortho-probe-patch"));
 ok("G3 the second line renders only when the patch speaks", panelSrc.includes("{patchText && ("));
-ok("G4 a partial payload degrades to the first voice (finite guards)",
-  panelSrc.includes("Number.isFinite(d.patch.median)"));
+ok("G4 a partial payload degrades to the first voice (the num seat's finite guards)",
+  panelSrc.includes("const num = (v: unknown): number | null"));
 ok("G5 the z is silent when the patch is flat (null passed through)",
   panelSrc.includes("probe.patch.z === null"));
 ok("G6 the title teaches the read (median & robust z, 1.4826·MAD)",

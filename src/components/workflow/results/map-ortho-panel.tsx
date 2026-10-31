@@ -69,7 +69,7 @@ import { MrcImage } from "./mrc-image";
 import { DensityHistogramStrip } from "./density-histogram";
 import { cn } from "@/lib/utils";
 import { downloadBlob } from "@/lib/download"; // t646 — one blob sink (this dance skipped the attach-before-click law)
-import { obliqueDepthVox, obliqueDepthVoice, obliqueNormal, obliqueOffsetPctVoice, obliqueSupportVox, voxelReadout } from "@/lib/voxel-voice"; // t906/t907 — the tile's and the oblique block's voices ride the ONE lib (the embed's commit site reads the same seats); t1099 — the cut's direction rides the ONE father too
+import { obliqueDepthVox, obliqueDepthVoice, obliqueNormal, obliqueOffsetPctVoice, obliqueSupportVox, patchBoxRect, voxelReadout } from "@/lib/voxel-voice"; // t906/t907 — the tile's and the oblique block's voices ride the ONE lib (the embed's commit site reads the same seats); t1099 — the cut's direction rides the ONE father too; t1122 — the patch's footprint rides the same lib (the box and the crosshair can never disagree about where a voxel lives)
 import { DIRECTION_STATIONS, FILMSTRIP_FRAMES, obliqueDirectionWalkCurrentIndex, obliqueDirectionWalkFilename, obliqueDirectionWalkUrls, obliqueFilmstripFilename, obliqueFilmstripUrls, obliqueWalkCurrentIndex, planObliqueDirectionWalk, planObliqueFilmstrip } from "@/lib/oblique-filmstrip"; // t1096 — the walk's geometry rides the ONE lib: the plan, the URLs and the name are decided before a fetch flies; t1108 — the cut's "you are here" rides the same lib's frac seat; t1109 — the walk dial rides the same two seats on the live screen; t1111 — the direction dial rides the lib's azimuth ladder (the stations carry the voice's own label) and its angular mark; t1112 — the direction page's pixels ride the lib's azimuth URL edition; t1115 — the direction export's name rides the lib's filename edition
 import { ORTHO_FILMSTRIP_FRAMES, orthoFilmstripFilename, orthoFilmstripUrls, orthoWalkCurrentIndex, planOrthoFilmstrip } from "@/lib/ortho-filmstrip"; // t1098 — the axis walks ride the ONE lib: the plan, the URLs and the name are decided before a fetch flies; t1107 — the walk's "you are here" rides the same seat
 import { orthoAxisWalkHeading, orthoPlateDirectionCurrentLegend, orthoPlateDirectionWalkExtentWord, orthoPlateDirectionWalkMetaLine, orthoPlateMetaLine, orthoPlateObliqueCurrentLegend, orthoPlateTileUrl, orthoPlateWalkCurrentLegend, orthoPlateWalkMetaLine, orthoWalkFrameCaption, planOrthoPlate, planPlateHistogram, PLATE_HIST_INKS, type PlateHistPayload } from "@/lib/ortho-plate"; // t1103/t1104/t1105/t1106 — the plate's words and its distribution band ride the ONE plan lib (the voices' own bytes, decided before any print; the walk page's words and the σ leg's geometry ride the same family); t1112 — the direction page's extent and legend ride the same words lib; t1115 — the export button's aria and header ride the extent word seat and the legend's own sentence
@@ -321,6 +321,7 @@ function OrthoTile({
   clip,
   siblings,
   crosshairOn,
+  probeRadius,
   onPositionChange,
   onPick,
 }: {
@@ -343,6 +344,9 @@ function OrthoTile({
   siblings: { x: number; y: number; z: number };
   /** t278 — whether the crosshair lines are shown (panel-level toggle) */
   crosshairOn: boolean;
+  /** t1122 — the probe's patch radius in voxels (panel-level slider):
+   *  the AREA both the chip's statistics and the box outline speak */
+  probeRadius: number;
   /** t278 — report this tile's position upward so siblings can draw it */
   onPositionChange?: (pos: number) => void;
   /** t278 — clicking the image picks a focus point: the panel moves the
@@ -429,8 +433,16 @@ function OrthoTile({
     fy: number;
     value: number | null;
     voxel: { x: number; y: number; z: number } | null;
-    /** t1121 — the patch's second voice (only when the request names r) */
-    patch?: { median: number; sigma: number; z: number | null; n: number };
+    /** t1121 — the patch's second voice (only when the request names r);
+     *  t1122 — carries its clamped box so the tile can DRAW the area */
+    patch?: {
+      median: number;
+      sigma: number;
+      z: number | null;
+      n: number;
+      lo: { x: number; y: number; z: number };
+      hi: { x: number; y: number; z: number };
+    };
   } | null>(null);
   const probeAbort = useRef<AbortController | null>(null);
   const lastProbeAt = useRef(0);
@@ -447,36 +459,63 @@ function OrthoTile({
     probeAbort.current?.abort();
     const ac = new AbortController();
     probeAbort.current = ac;
-    // t1121 — r=5: the answer grows the in-plane 11×11 local statistics
+    // t1121 — r: the answer grows the in-plane (2r+1)² local statistics
     // (median / robust z) around the SAME voxel — still row-wise preads,
-    // still free of any plane buffer, still safe at hover frequency
-    const qs = `path=${encodeURIComponent(path)}&format=value&axis=${spec.axis}&pos=${rendered.toFixed(3)}&fx=${fx.toFixed(4)}&fy=${fy.toFixed(4)}&r=5`;
+    // still free of any plane buffer, still safe at hover frequency;
+    // t1122 — the radius rides the panel's own slider (the chip's numbers
+    // and the tile's box outline follow the same hand)
+    const qs = `path=${encodeURIComponent(path)}&format=value&axis=${spec.axis}&pos=${rendered.toFixed(3)}&fx=${fx.toFixed(4)}&fy=${fy.toFixed(4)}&r=${probeRadius}`;
     fetch(`/api/jobs/${jobId}/outputs/file?${qs}`, { signal: ac.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((d: {
         value?: unknown;
         voxel?: { x: number; y: number; z: number };
-        patch?: { median?: unknown; sigma?: unknown; z?: unknown; n?: unknown };
+        patch?: {
+          median?: unknown;
+          sigma?: unknown;
+          z?: unknown;
+          n?: unknown;
+          box?: {
+            lo?: { x?: unknown; y?: unknown; z?: unknown };
+            hi?: { x?: unknown; y?: unknown; z?: unknown };
+          };
+        };
       } | null) => {
         if (!d || typeof d.value !== "number" || !Number.isFinite(d.value)) return;
         // the patch speaks only when its numbers are finite — a partial
-        // payload degrades to the first voice (honest, never invented)
+        // payload degrades to the first voice (honest, never invented).
+        // Each field is extracted through one finite-guard (the `num`
+        // seat): a box corner that is not a finite number nulls the whole
+        // box — a half-honest rectangle would be a wrong rectangle.
+        const num = (v: unknown): number | null =>
+          typeof v === "number" && Number.isFinite(v) ? v : null;
+        const p = d.patch;
+        const mx = p ? num(p.median) : null;
+        const nx = p ? num(p.n) : null;
+        // the box rides the route's own shape (t1121's `box: {lo, hi}`) —
+        // the footprint and the numbers are ONE payload's two halves
+        const lo = p?.box?.lo;
+        const hi = p?.box?.hi;
+        const lx = lo ? num(lo.x) : null;
+        const ly = lo ? num(lo.y) : null;
+        const lz = lo ? num(lo.z) : null;
+        const hx = hi ? num(hi.x) : null;
+        const hy = hi ? num(hi.y) : null;
+        const hz = hi ? num(hi.z) : null;
         const patch =
-          d.patch &&
-          typeof d.patch.median === "number" && Number.isFinite(d.patch.median) &&
-          typeof d.patch.n === "number" && Number.isFinite(d.patch.n)
+          mx !== null && nx !== null && lx !== null && ly !== null && lz !== null &&
+          hx !== null && hy !== null && hz !== null
             ? {
-                median: d.patch.median,
-                sigma:
-                  typeof d.patch.sigma === "number" && Number.isFinite(d.patch.sigma)
-                    ? d.patch.sigma
-                    : 0,
-                z: typeof d.patch.z === "number" && Number.isFinite(d.patch.z) ? d.patch.z : null,
-                n: d.patch.n,
+                median: mx,
+                sigma: p ? num(p.sigma) ?? 0 : 0,
+                z: p ? num(p.z) : null,
+                n: nx,
+                lo: { x: lx, y: ly, z: lz },
+                hi: { x: hx, y: hy, z: hz },
               }
             : undefined;
-        setProbe((p) =>
-          p ? { ...p, value: d.value as number, voxel: d.voxel ?? null, patch } : p
+        setProbe((pv) =>
+          pv ? { ...pv, value: d.value as number, voxel: d.voxel ?? null, patch } : pv
         );
       })
       .catch(() => {}); // aborted on leave/unmount — silence is correct
@@ -982,6 +1021,28 @@ function OrthoTile({
             {/* t281 — the cursor's own crosshair: SOLID sky lines (the focus
                 lines above are DASHED accent-coloured — the two instruments
                 never blur together) */}
+            {(() => {
+              // t1122 — the patch's own footprint: the (2r+1)² AREA whose
+              // statistics the chip speaks, drawn as a dashed outline —
+              // the numbers and the rectangle are the same object (one
+              // fetch, one box, one lib seat: patchBoxRect). No dims, no
+              // patch, no drawable truth → no box (silence, not a guess).
+              const rect = patchBoxRect(probe?.patch, dims ?? null, spec.hAxis, spec.vAxis);
+              if (!rect) return null;
+              return (
+                <div
+                  data-ortho-probe-box
+                  aria-hidden="true"
+                  className="pointer-events-none absolute border border-dashed border-sky-400/70 bg-sky-400/5"
+                  style={{
+                    left: `${rect.left * 100}%`,
+                    top: `${rect.top * 100}%`,
+                    width: `${(rect.right - rect.left) * 100}%`,
+                    height: `${(rect.bottom - rect.top) * 100}%`,
+                  }}
+                />
+              );
+            })()}
             <div
               data-ortho-probe="h"
               aria-hidden="true"
@@ -1067,6 +1128,11 @@ export function MapOrthoPanel({
   const printed = usePrintedDate();
   /** t278 — crosshair lines on/off (panel-level; default ON) */
   const [crosshairOn, setCrosshairOn] = useState(true);
+  // t1122 — the probe's patch radius (voxels): the slider is panel-level
+  // (one hand, all three tiles), the chip's statistics and the tile's
+  // dashed footprint follow it on the next hover — and the request speaks
+  // it verbatim, the server's own 0..16 law stays the last word
+  const [probeRadius, setProbeRadius] = useState(5);
   /** t283 — the density histogram strip on/off (default OFF: the first
    *  look costs one volume walk — the toggle makes that an explicit ask,
    *  and the server cache makes every later look free) */
@@ -1729,6 +1795,28 @@ export function MapOrthoPanel({
             iso {isoSigma.sign < 0 ? "-" : ""}{isoSigma.sigma.toFixed(2)} σ
           </span>
         )}
+        {/* t1122 — the probe's patch radius: the AREA the second voice
+            summarises, adjustable 1..12. The readout speaks the FULL patch
+            size (2r+1)² — what the chip's `n` counts at the volume edge is
+            its own honest clamped truth, never this number. */}
+        <div
+          className="flex shrink-0 items-center gap-1.5"
+          data-canvas-ui="ortho-probe-radius"
+          title="the density probe reads a (2r+1)² patch around the cursor — its median and robust z fill the chip's second line; drag to widen or narrow the neighbourhood"
+        >
+          <Slider
+            value={[probeRadius]}
+            min={1}
+            max={12}
+            step={1}
+            onValueChange={(v) => setProbeRadius(v[0] ?? 5)}
+            aria-label="Probe patch radius in voxels"
+            className="w-16"
+          />
+          <span className="w-12 font-mono text-[10px] tabular-nums text-muted-foreground">
+            {2 * probeRadius + 1}×{2 * probeRadius + 1}
+          </span>
+        </div>
         {/* t278 — the tri-planar crosshair toggle. Sibling of the expand
             button (never nested): the expand behaviour stays the same for
             every existing locator while the crosshair gets its own switch. */}
@@ -1839,6 +1927,7 @@ export function MapOrthoPanel({
               clip={clip}
               siblings={positions}
               crosshairOn={crosshairOn}
+              probeRadius={probeRadius}
               onPositionChange={(pos) =>
                 setPositions((prev) => (prev[t.axis] === pos ? prev : { ...prev, [t.axis]: pos }))
               }
