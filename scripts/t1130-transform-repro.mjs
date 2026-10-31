@@ -100,3 +100,18 @@ try {
 } catch (e) {
   console.log("1-arg update THREW:", e.message?.slice(0, 120));
 }
+
+// === the DELETE arc: face-off's b.delete(sheetRef.current.transform.ref) ===
+try {
+  const b4 = state.build();
+  b4.delete(node.ref);
+  await state.updateTree(b4.getTree()).runInContext(SyncRuntimeContext);
+  let gone = true;
+  for (const cell of state.cells.values()) {
+    const id = String(cell?.transform?.transformer?.id || "");
+    if (id.includes("repro")) gone = false;
+  }
+  console.log("after delete: cell gone =", gone);
+} catch (e) {
+  console.log("delete THREW:", e.message?.slice(0, 120));
+}
