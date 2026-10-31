@@ -3,9 +3,9 @@
   "born": "2026-10-14",
   "scope": "src/components/**/*.tsx — tags with state-derived disabled={…}",
   "storyScope": "the t983 upgrade — silent-text sites classified by their name-story (flip/spin/unnamed/blind/unbounded)",
-  "population": 173,
+  "population": 174,
   "tally": {
-    "stateful": 151,
+    "stateful": 152,
     "described": 0,
     "silent-static": 0,
     "silent-text": 22
@@ -1681,7 +1681,7 @@
     },
     {
       "f": "src/components/workflow/results/map-ortho-panel.tsx",
-      "line": 1606,
+      "line": 1644,
       "tag": "button",
       "cond": "exportState === \"busy\"",
       "condKind": "comparison",
@@ -1694,7 +1694,20 @@
     },
     {
       "f": "src/components/workflow/results/map-ortho-panel.tsx",
-      "line": 2227,
+      "line": 1674,
+      "tag": "button",
+      "cond": "platePrintBusy",
+      "condKind": "boolean",
+      "condChars": 14,
+      "staticLabel": null,
+      "described": false,
+      "verdict": "stateful",
+      "story": null,
+      "snippet": "<button"
+    },
+    {
+      "f": "src/components/workflow/results/map-ortho-panel.tsx",
+      "line": 2328,
       "tag": "button",
       "cond": "!on || state === \"busy\"",
       "condKind": "comparison",
@@ -1707,7 +1720,7 @@
     },
     {
       "f": "src/components/workflow/results/map-ortho-panel.tsx",
-      "line": 2375,
+      "line": 2476,
       "tag": "button",
       "cond": "state === \"busy\"",
       "condKind": "comparison",
