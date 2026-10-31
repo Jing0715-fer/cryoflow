@@ -32,7 +32,11 @@
  *     honest address). This module speaks for the SLICE family — and,
  *     since t907, for the OBLIQUE cut's DEPTH address (voxels along the
  *     cut's own normal — the one honest position a plane without an axis
- *     can have). The clip EXTENT fractions stay fraction-voiced.
+ *     can have). The clip's OBLIQUE cut and ANCHORED-BOX language stay
+ *     fraction-voiced — no single honest address along an axis. Since
+ *     t1120 the SLIDER language's axis rows join the voxel family: a
+ *     kept interval on a NAMED axis is the same geometry the slice
+ *     voices speak, so its readout rides voxelIntervalReadout.
  */
 
 /** The one formula. Returns the 0-BASED grid index (what Mol*'s slice
@@ -236,4 +240,26 @@ export function obliqueCutAnnotation(
     (depth ? ` · ${depth}` : "") +
     (cut.invert ? " · flip" : "")
   );
+}
+
+/** The clip interval's readout voice — the kept extent's voxel address:
+ * "21–26/64" (1-based, inclusive — the tiles' convention), or null when
+ * the grid is unknown (the call site keeps its bare percent: the
+ * fallback is the OLD voice, not a wrong one). The SLIDER language's
+ * axis rows only — an oblique cut or an anchored box has no honest
+ * address along a named axis (the boundary paragraph above). Both ends
+ * ride the ONE formula (voxelIndexOf's round), so the address agrees
+ * with every plane voice the panel already speaks. Pure. */
+export function voxelIntervalReadout(
+  lo: number,
+  hi: number,
+  dim: number | null | undefined
+): string | null {
+  if (typeof dim !== "number" || !Number.isFinite(dim) || !Number.isInteger(dim) || dim <= 1) {
+    return null;
+  }
+  const a = voxelIndexOf(lo, dim);
+  const b = voxelIndexOf(hi, dim);
+  if (a === null || b === null || b < a) return null;
+  return `${a + 1}–${b + 1}/${dim}`;
 }

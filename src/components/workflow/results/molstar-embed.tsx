@@ -35,7 +35,7 @@ import { sanitizeMrcHeader } from "@/lib/mrc-axis";
 import { canCopyImageToClipboard, copyViewerPng, drawFigureFooter, exportViewerPng, figureFooterHeightPx, figureTitleMeta, viewerFileSlug, viewerFileTimestamp } from "@/lib/viewer-export";
 import { downloadBlob } from "@/lib/download";
 import { keptIntervalOf, normalizeInterval } from "@/lib/clip-interval"; // t905 — the slab seat: both clip languages answer to one interval editor
-import { axisIndex, dimAlong, obliqueCutAnnotation, obliqueDepthVox, obliqueDepthVoice, obliqueOffsetPctVoice, obliqueSupportVox, voxelAriaText, voxelAnnotation, voxelIndexOf, voxelPlaneVoice, voxelSliderVoice } from "@/lib/voxel-voice"; // t906/t907 — one honest voice: the slice family speaks the voxel address the ortho tiles speak, the oblique cut speaks its depth along its own normal
+import { axisIndex, dimAlong, obliqueCutAnnotation, obliqueDepthVox, obliqueDepthVoice, obliqueOffsetPctVoice, obliqueSupportVox, voxelAriaText, voxelAnnotation, voxelIndexOf, voxelIntervalReadout, voxelPlaneVoice, voxelSliderVoice } from "@/lib/voxel-voice"; // t906/t907 — one honest voice: the slice family speaks the voxel address the ortho tiles speak, the oblique cut speaks its depth along its own normal
 import { downloadText } from "@/lib/download";
 // t197: the profile QC report family moved to @/lib/qc-report — the session
 // QC report is its second consumer, and the lib is the one honest home
@@ -5959,6 +5959,13 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                 ).map(([ax, axisIdx]) => {
                   const [lo, hi] = keptIntervalOf(clipStateRef.current, axisIdx);
                   const full = lo <= 0.001 && hi >= 0.999;
+                  // t1120 — the slab speaks voxels: the kept extent's
+                  // address rides the ONE formula (voxel-voice), null
+                  // when the grid is unknown (the bare percent stays
+                  // the honest fallback); full rows keep their —
+                  const vox = full
+                    ? null
+                    : voxelIntervalReadout(lo, hi, clipBox()?.dims?.[axisIdx] ?? null);
                   return (
                     <div key={ax} className="flex items-center gap-2">
                       <button
@@ -5980,10 +5987,18 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                         className="flex-1"
                       />
                       <span
-                        className="w-14 shrink-0 text-right font-mono text-[10px] tabular-nums text-muted-foreground"
+                        className="w-24 shrink-0 text-right font-mono text-[10px] tabular-nums text-muted-foreground"
                         data-testid={`clip-interval-${ax.toLowerCase()}`}
+                        title={vox ? `voxel planes ${vox} along ${ax.toLowerCase()}` : undefined}
                       >
-                        {full ? "—" : `${Math.round(lo * 100)}–${Math.round(hi * 100)}%`}
+                        {full ? (
+                          "—"
+                        ) : (
+                          <>
+                            {Math.round(lo * 100)}–{Math.round(hi * 100)}%
+                            {vox && <span className="opacity-70"> · {vox}</span>}
+                          </>
+                        )}
                       </span>
                     </div>
                   );
