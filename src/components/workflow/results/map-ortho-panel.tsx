@@ -2572,7 +2572,7 @@ function ObliqueFilmstripButton({
       }
       title="\u2317 the walk: the current cut swept face to face through the box along its own normal, one document \u2014 each frame signed with its offset and depth"
       className={cn(
-        "rounded p-0.5 text-violet-600 transition-colors hover:bg-violet-600/10",
+        "rounded p-0.5 text-violet-600 transition-colors hover:bg-violet-600/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
         (!on || state === "busy") && "cursor-not-allowed opacity-50"
       )}
     >
@@ -2749,7 +2749,7 @@ function ObliqueDirectionStripButton({
       }
       title="\u2317 the direction walk: the current cut swept around the box at its own depth \u2014 six azimuths, one document \u2014 each frame signed with its station"
       className={cn(
-        "rounded p-0.5 text-violet-600 transition-colors hover:bg-violet-600/10",
+        "rounded p-0.5 text-violet-600 transition-colors hover:bg-violet-600/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
         (!on || state === "busy") && "cursor-not-allowed opacity-50"
       )}
     >
@@ -3365,7 +3365,7 @@ function ObliqueSectionBlock({
                 type="button"
                 onClick={jumpToView}
                 data-canvas-ui="ortho-oblique-jump"
-                className="rounded p-0.5 text-violet-600 transition-colors hover:bg-violet-600/10"
+                className="rounded p-0.5 text-violet-600 transition-colors hover:bg-violet-600/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 aria-label="Swing the 3D camera to look straight down this plane's normal"
                 title="⌖ the 3D view jumps face-on to this cut (the same ⌖ language the tiles speak)"
               >
@@ -3376,7 +3376,7 @@ function ObliqueSectionBlock({
                 onClick={adoptCamera}
                 data-canvas-ui="ortho-oblique-adopt"
                 className={cn(
-                  "rounded p-0.5 text-violet-600 transition-colors hover:bg-violet-600/10",
+                  "rounded p-0.5 text-violet-600 transition-colors hover:bg-violet-600/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                   adoptFlash && "bg-violet-600/15"
                 )}
                 aria-label="Adopt the current 3D camera direction as this plane's normal"
@@ -3390,7 +3390,7 @@ function ObliqueSectionBlock({
                 aria-pressed={cut3d}
                 data-canvas-ui="ortho-oblique-cut3d"
                 className={cn(
-                  "rounded p-0.5 text-violet-600 transition-colors hover:bg-violet-600/10",
+                  "rounded p-0.5 text-violet-600 transition-colors hover:bg-violet-600/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                   cut3d && "bg-violet-600/15"
                 )}
                 aria-label="Cut the 3D isosurface open at this plane"

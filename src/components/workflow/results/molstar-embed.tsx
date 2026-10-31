@@ -5103,7 +5103,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                     onClick={() => setSigma(p)}
                     aria-label={`Set contour to ${p} sigma`}
                     className={
-                      "rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold tabular-nums transition-colors " +
+                      "rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring " +
                       (Math.abs(sigma - p) < 0.001
                         ? "bg-running-600 text-white"
                         : "bg-muted text-muted-foreground hover:bg-running/15 hover:text-running-700 dark:hover:text-running-300")
