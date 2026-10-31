@@ -165,6 +165,31 @@ export function orthoWalkFrameCaption(frame: {
 }
 
 /* ------------------------------------------------------------------ */
+/* t1106 — the axis walks' paper edition: page 3 speaks the three      */
+/* axis filmstrips (the t1098 walk's own siblings — z, y, x face to    */
+/* face through the box). The words ride the plate's ONE extent seat   */
+/* (orthoPlateWalkMetaLine's own "N frames, face to face" — page 2's   */
+/* phrase, never a second extent dialect) joined with the screen       */
+/* strip's own axis-label dialect ("Z walk" — the tile row's           */
+/* uppercase label, the t1098 export's header voice). The frame        */
+/* captions need no new seat: they ARE the strip lib's planeLabel      */
+/* bytes (the t1098 voice), passed through verbatim by the panel.      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * One axis strip's heading — "Z walk · 6 frames, face to face". The
+ * extent rides the ONE seat above (a null cut line names the extent,
+ * the axis strip does the same), the axis label rides the screen
+ * strip's own uppercase dialect. Pure — nothing mutated, one string.
+ */
+export function orthoAxisWalkHeading(
+  axis: "x" | "y" | "z",
+  frames: number
+): string {
+  return `${axis.toUpperCase()} walk · ${orthoPlateWalkMetaLine(null, frames)}`;
+}
+
+/* ------------------------------------------------------------------ */
 /* t1105 — the plate's σ LEG: the map's density distribution joins     */
 /* page 1. The t291 export already speaks this figure (the PNG foot-   */
 /* er's log-bar miniature with the σ ruler and the cyan cut) — the     */

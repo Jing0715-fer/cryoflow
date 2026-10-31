@@ -72,7 +72,7 @@ import { downloadBlob } from "@/lib/download"; // t646 — one blob sink (this d
 import { obliqueDepthVox, obliqueDepthVoice, obliqueNormal, obliqueOffsetPctVoice, obliqueSupportVox, voxelReadout } from "@/lib/voxel-voice"; // t906/t907 — the tile's and the oblique block's voices ride the ONE lib (the embed's commit site reads the same seats); t1099 — the cut's direction rides the ONE father too
 import { FILMSTRIP_FRAMES, obliqueFilmstripFilename, obliqueFilmstripUrls, planObliqueFilmstrip } from "@/lib/oblique-filmstrip"; // t1096 — the walk's geometry rides the ONE lib: the plan, the URLs and the name are decided before a fetch flies
 import { ORTHO_FILMSTRIP_FRAMES, orthoFilmstripFilename, orthoFilmstripUrls, planOrthoFilmstrip } from "@/lib/ortho-filmstrip"; // t1098 — the axis walks ride the ONE lib: the plan, the URLs and the name are decided before a fetch flies
-import { orthoPlateMetaLine, orthoPlateTileUrl, orthoPlateWalkMetaLine, orthoWalkFrameCaption, planOrthoPlate, planPlateHistogram, PLATE_HIST_INKS, type PlateHistPayload } from "@/lib/ortho-plate"; // t1103/t1104/t1105 — the plate's words and its distribution band ride the ONE plan lib (the voices' own bytes, decided before any print; the walk page's words and the σ leg's geometry ride the same family)
+import { orthoAxisWalkHeading, orthoPlateMetaLine, orthoPlateTileUrl, orthoPlateWalkMetaLine, orthoWalkFrameCaption, planOrthoPlate, planPlateHistogram, PLATE_HIST_INKS, type PlateHistPayload } from "@/lib/ortho-plate"; // t1103/t1104/t1105/t1106 — the plate's words and its distribution band ride the ONE plan lib (the voices' own bytes, decided before any print; the walk page's words and the σ leg's geometry ride the same family)
 import { usePrintedDate } from "@/lib/use-now"; // t1103 — the plate's paper clock (the t232 law: paper clocks do not hydrate)
 import {
   obliqueTraceDragOffset,
@@ -1239,6 +1239,23 @@ export function MapOrthoPanel({
     : null;
   const walkUrls = walkPlan ? obliqueFilmstripUrls(jobId, path, walkPlan) : null;
 
+  // t1106 — the axis walks' paper geometry, decided before any print: the
+  // SAME lib the screen's strip buttons ride (plan + URLs — no second
+  // request dialect), one strip per axis in the tile row's own order (the
+  // page's map below iterates TILE_SPECS — the ONE order father). A grid
+  // the listing cannot claim still walks: the plane voice's own % fallback
+  // carries the position (the t1098 law, stated on paper too).
+  const axisWalkPlans = {
+    z: planOrthoFilmstrip("z", dimFor("z")),
+    y: planOrthoFilmstrip("y", dimFor("y")),
+    x: planOrthoFilmstrip("x", dimFor("x")),
+  };
+  const axisWalkUrls = {
+    z: orthoFilmstripUrls(jobId, path, axisWalkPlans.z),
+    y: orthoFilmstripUrls(jobId, path, axisWalkPlans.y),
+    x: orthoFilmstripUrls(jobId, path, axisWalkPlans.x),
+  };
+
   // t1105 — the distribution band's geometry, decided before any print:
   // the ONE plan seat (the t291 drawing law in pure, node-pinnable form).
   // A null payload plans null → the leg honestly stays home.
@@ -2016,6 +2033,63 @@ export function MapOrthoPanel({
               </footer>
             </div>
           )}
+          {/* t1106 — the walk's THIRD PAGE: the axis walks' paper edition.
+              The screen's strip buttons answer one axis at a time (one
+              export each); the paper answers all three — z, y, x in the
+              tile row's own order (TILES is the ONE order father), each
+              strip six frames face to face along its axis, every frame
+              signed with the strip lib's own plane voice (the t1098
+              seats — the % fallback rides along when the grid is
+              unknown). The strips ride no cut: the axis walk is the
+              box's own document, so this page prints whenever the plate
+              prints. The accent border rides the AXIS_LABEL father
+              (decorative — the voice text stays monochrome: paper
+              contrast is not the dark strip's contrast). */}
+          <div data-ortho-plate-axis-walks className="break-before-page pt-2">
+            <header className="flex items-baseline justify-between gap-2">
+              <span className="text-[11px] font-semibold">Axis walks</span>
+              <span className="truncate font-mono text-[9px] text-muted-foreground">
+                {plateBase}
+                {plateBase && printed ? " · " : ""}
+                {printed}
+              </span>
+            </header>
+            {TILES.map((spec) => (
+              <div
+                key={spec.axis}
+                data-ortho-plate-axis-walk={spec.axis}
+                className="mt-2 border-l-2 pl-2"
+                style={{ borderColor: AXIS_LABEL[spec.axis] }}
+              >
+                <p className="font-mono text-[9px] leading-4 text-muted-foreground">
+                  {orthoAxisWalkHeading(
+                    spec.axis,
+                    axisWalkPlans[spec.axis].frames.length
+                  )}
+                </p>
+                <div className="mt-1 grid grid-cols-6 gap-1.5">
+                  {axisWalkPlans[spec.axis].frames.map((f, i) => (
+                    <figure key={f.pos} className="min-w-0">
+                      <div className="relative aspect-square w-full overflow-hidden rounded-sm border border-foreground/15 bg-white">
+                        <img
+                          src={axisWalkUrls[spec.axis][i]}
+                          alt=""
+                          className="absolute inset-0 h-full w-full object-contain"
+                        />
+                      </div>
+                      <figcaption className="pt-0.5 font-mono text-[8px] leading-3 text-muted-foreground">
+                        {f.planeLabel}
+                      </figcaption>
+                    </figure>
+                  ))}
+                </div>
+              </div>
+            ))}
+            <footer className="pt-1 font-mono text-[8px] leading-3 text-muted-foreground">
+              {path}
+              {printed ? ` · printed ${printed}` : ""}
+            </footer>
+          </div>
         </section>
       )}
     </section>
