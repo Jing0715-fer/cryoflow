@@ -200,8 +200,8 @@ const css = readFileSync("src/app/globals.css", "utf8");
 {
   const hits = panel.split('from "@/lib/ortho-plate"').length - 1;
   ok(
-    "W1 the panel rides the ONE plan lib (a single import of @/lib/ortho-plate; t1104 re-key — the walk page's word fns join the same import, the ONE lib grows one family)",
-    hits === 1 && /orthoPlateMetaLine, orthoPlateTileUrl, orthoPlateWalkMetaLine, orthoWalkFrameCaption, planOrthoPlate/.test(panel)
+    "W1 the panel rides the ONE plan lib (a single import of @/lib/ortho-plate; t1104 re-key — the walk page's word fns join the same import; t1107 re-key — the current mark's legend joins the family)",
+    hits === 1 && /orthoPlateMetaLine, orthoPlateTileUrl, orthoPlateWalkCurrentLegend, orthoPlateWalkMetaLine, orthoWalkFrameCaption, planOrthoPlate/.test(panel)
   );
 }
 

@@ -229,15 +229,17 @@ const plateLib = readFileSync(
   "utf8"
 );
 
-// W1 — the ONE imports (words from the plate lib — the family grew one
-// name; geometry from the strip lib, already the t1098 seat)
+// W1 — the ONE imports (words from the plate lib — the family grew two
+// names across t1106 and t1107: orthoAxisWalkHeading, then the current
+// mark's legend; geometry from the strip lib, whose family grew the
+// t1107 "you are here" seat)
 ok(
-  "W1 the panel imports the axis page's words from the ONE plate lib (orthoAxisWalkHeading rides the family line) and the geometry from the ONE strip lib",
+  "W1 the panel imports the axis page's words from the ONE plate lib (orthoAxisWalkHeading and the t1107 legend ride the family line) and the geometry from the ONE strip lib (the plan family plus the t1107 current seat)",
   panel.includes(
-    'import { orthoAxisWalkHeading, orthoPlateMetaLine, orthoPlateTileUrl, orthoPlateWalkMetaLine, orthoWalkFrameCaption, planOrthoPlate, planPlateHistogram, PLATE_HIST_INKS, type PlateHistPayload } from "@/lib/ortho-plate"'
+    'import { orthoAxisWalkHeading, orthoPlateMetaLine, orthoPlateTileUrl, orthoPlateWalkCurrentLegend, orthoPlateWalkMetaLine, orthoWalkFrameCaption, planOrthoPlate, planPlateHistogram, PLATE_HIST_INKS, type PlateHistPayload } from "@/lib/ortho-plate"'
   ) &&
     panel.includes(
-      'import { ORTHO_FILMSTRIP_FRAMES, orthoFilmstripFilename, orthoFilmstripUrls, planOrthoFilmstrip } from "@/lib/ortho-filmstrip"'
+      'import { ORTHO_FILMSTRIP_FRAMES, orthoFilmstripFilename, orthoFilmstripUrls, orthoWalkCurrentIndex, planOrthoFilmstrip } from "@/lib/ortho-filmstrip"'
     )
 );
 
@@ -273,7 +275,7 @@ ok(
 // stand in the tile row's own order z, y, x)
 {
   const axisAt = panel.indexOf('data-ortho-plate-axis-walks');
-  const block = panel.slice(axisAt, axisAt + 2400);
+  const block = panel.slice(axisAt, axisAt + 3000);
   ok(
     "W5 the strips ride the ONE order father (TILES.map inside the axis walks block — the page's order IS the tile row's order)",
     /TILES\.map\(\(spec\) =>/.test(block)
@@ -284,7 +286,7 @@ ok(
 // non-text — paper contrast is not the dark strip's contrast)
 {
   const axisAt = panel.indexOf('data-ortho-plate-axis-walks');
-  const block = panel.slice(axisAt, axisAt + 2400);
+  const block = panel.slice(axisAt, axisAt + 3000);
   ok(
     "W6 the strip accent rides the AXIS_LABEL father (borderColor: AXIS_LABEL[spec.axis] — no new color invented)",
     /borderColor: AXIS_LABEL\[spec\.axis\]/.test(block)
@@ -294,7 +296,7 @@ ok(
 // W7 — the heading rides the word fn (no inline extent template)
 {
   const axisAt = panel.indexOf('data-ortho-plate-axis-walks');
-  const block = panel.slice(axisAt, axisAt + 2400);
+  const block = panel.slice(axisAt, axisAt + 3000);
   ok(
     "W7 the heading rides the ONE word fn (orthoAxisWalkHeading(spec.axis, …) — the extent composed in the lib, never inline)",
     /orthoAxisWalkHeading\(\s*spec\.axis,/.test(block) &&
@@ -306,7 +308,7 @@ ok(
 // re-derived label)
 {
   const axisAt = panel.indexOf('data-ortho-plate-axis-walks');
-  const block = panel.slice(axisAt, axisAt + 2400);
+  const block = panel.slice(axisAt, axisAt + 3000);
   ok(
     "W8 the captions ride the strip lib's own voice (figcaption speaks f.planeLabel — the t1098 seat, no second label dialect)",
     /\{f\.planeLabel\}/.test(block)
@@ -317,7 +319,7 @@ ok(
 // the t1098 standing speakers stay three: probe, tile, triptych)
 {
   const axisAt = panel.indexOf('data-ortho-plate-axis-walks');
-  const block = panel.slice(axisAt, axisAt + 2400);
+  const block = panel.slice(axisAt, axisAt + 3000);
   const axisPosTemplates = panel.match(/axis=\$\{/g)?.length ?? 0;
   ok(
     "W9 the imgs ride the ONE strip lib (src={axisWalkUrls[spec.axis][i]} — the file's axis+pos templates stay the t1098 standing three: probe, tile, triptych; the walk adds zero)",
@@ -330,7 +332,7 @@ ok(
 // left to right, the axis's own direction)
 {
   const axisAt = panel.indexOf('data-ortho-plate-axis-walks');
-  const block = panel.slice(axisAt, axisAt + 2400);
+  const block = panel.slice(axisAt, axisAt + 3000);
   ok(
     "W10 the strip is a filmstrip (grid-cols-6 — six frames in one row, the walk reading left to right)",
     /grid grid-cols-6/.test(block)

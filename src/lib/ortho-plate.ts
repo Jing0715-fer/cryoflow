@@ -189,6 +189,21 @@ export function orthoAxisWalkHeading(
   return `${axis.toUpperCase()} walk · ${orthoPlateWalkMetaLine(null, frames)}`;
 }
 
+/**
+ * The current mark's legend (t1107) — the one sentence that names the
+ * ring on the axis walks' page. The ring itself is decorative (the
+ * AXIS_LABEL father's own colors — the strip border's sibling, not a
+ * new ink), and a decorative mark on a standalone document still needs
+ * its words: the paper cannot assume the screen's context, so the
+ * legend tells the reader what the ring means without pointing at a
+ * live tile. ONE seat so the page and any future face speak the same
+ * sentence — never a second legend dialect. Pure — nothing mutated,
+ * one string.
+ */
+export function orthoPlateWalkCurrentLegend(): string {
+  return "the colored ring marks each walk's current tile plane";
+}
+
 /* ------------------------------------------------------------------ */
 /* t1105 — the plate's σ LEG: the map's density distribution joins     */
 /* page 1. The t291 export already speaks this figure (the PNG foot-   */

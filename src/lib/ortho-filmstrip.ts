@@ -104,6 +104,36 @@ export function orthoFilmstripUrls(
 }
 
 /**
+ * The walk's "you are here" (t1107) — the frame whose plane stands
+ * nearest the tile's current position. The walk sweeps the axis's whole
+ * support, and a reader holding the document (paper or export) needs to
+ * find the plane they were just looking at: the mark ties the walk back
+ * to the live view without a second position dialect. The law: the
+ * FIRST frame at the minimal distance wins — a current plane exactly
+ * between two stops resolves toward the face the walk reads first
+ * (left to right, the document's own direction). A null/undefined or
+ * non-finite current (the honest silence the plan's own dim fallback
+ * speaks) and an empty frame list return null — no mark, no invented
+ * plane. Pure.
+ */
+export function orthoWalkCurrentIndex(
+  frames: ReadonlyArray<{ pos: number }>,
+  current: number | null | undefined
+): number | null {
+  if (typeof current !== "number" || !Number.isFinite(current)) return null;
+  let best: number | null = null;
+  let bestD = Infinity;
+  for (let i = 0; i < frames.length; i++) {
+    const d = Math.abs(frames[i].pos - current);
+    if (d < bestD) {
+      bestD = d;
+      best = i;
+    }
+  }
+  return best;
+}
+
+/**
  * The document's name — "ortho-filmstrip-<axis>-<map>-<stamp>.png", the
  * same naming grammar the oblique walk speaks (base stripped of its map
  * extension, the moment's HHMMSS stamp), the axis named where the

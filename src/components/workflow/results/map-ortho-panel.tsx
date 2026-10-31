@@ -71,8 +71,8 @@ import { cn } from "@/lib/utils";
 import { downloadBlob } from "@/lib/download"; // t646 — one blob sink (this dance skipped the attach-before-click law)
 import { obliqueDepthVox, obliqueDepthVoice, obliqueNormal, obliqueOffsetPctVoice, obliqueSupportVox, voxelReadout } from "@/lib/voxel-voice"; // t906/t907 — the tile's and the oblique block's voices ride the ONE lib (the embed's commit site reads the same seats); t1099 — the cut's direction rides the ONE father too
 import { FILMSTRIP_FRAMES, obliqueFilmstripFilename, obliqueFilmstripUrls, planObliqueFilmstrip } from "@/lib/oblique-filmstrip"; // t1096 — the walk's geometry rides the ONE lib: the plan, the URLs and the name are decided before a fetch flies
-import { ORTHO_FILMSTRIP_FRAMES, orthoFilmstripFilename, orthoFilmstripUrls, planOrthoFilmstrip } from "@/lib/ortho-filmstrip"; // t1098 — the axis walks ride the ONE lib: the plan, the URLs and the name are decided before a fetch flies
-import { orthoAxisWalkHeading, orthoPlateMetaLine, orthoPlateTileUrl, orthoPlateWalkMetaLine, orthoWalkFrameCaption, planOrthoPlate, planPlateHistogram, PLATE_HIST_INKS, type PlateHistPayload } from "@/lib/ortho-plate"; // t1103/t1104/t1105/t1106 — the plate's words and its distribution band ride the ONE plan lib (the voices' own bytes, decided before any print; the walk page's words and the σ leg's geometry ride the same family)
+import { ORTHO_FILMSTRIP_FRAMES, orthoFilmstripFilename, orthoFilmstripUrls, orthoWalkCurrentIndex, planOrthoFilmstrip } from "@/lib/ortho-filmstrip"; // t1098 — the axis walks ride the ONE lib: the plan, the URLs and the name are decided before a fetch flies; t1107 — the walk's "you are here" rides the same seat
+import { orthoAxisWalkHeading, orthoPlateMetaLine, orthoPlateTileUrl, orthoPlateWalkCurrentLegend, orthoPlateWalkMetaLine, orthoWalkFrameCaption, planOrthoPlate, planPlateHistogram, PLATE_HIST_INKS, type PlateHistPayload } from "@/lib/ortho-plate"; // t1103/t1104/t1105/t1106 — the plate's words and its distribution band ride the ONE plan lib (the voices' own bytes, decided before any print; the walk page's words and the σ leg's geometry ride the same family)
 import { usePrintedDate } from "@/lib/use-now"; // t1103 — the plate's paper clock (the t232 law: paper clocks do not hydrate)
 import {
   obliqueTraceDragOffset,
@@ -893,8 +893,10 @@ function OrthoTile({
         </button>
         {/* t1098 — the axis's own walk: the whole box swept face to face
             along this axis, one document; revealed with the sync button's
-            own hover vocabulary (the tile's feature tier) */}
-        <OrthoFilmstripButton jobId={jobId} path={path} spec={spec} dim={dim} />
+            own hover vocabulary (the tile's feature tier). t1107 — the
+            tile's own position rides along: the export marks the frame
+            nearest the plane the reader was just looking at. */}
+        <OrthoFilmstripButton jobId={jobId} path={path} spec={spec} dim={dim} current={pos} />
         <button
           type="button"
           onClick={syncTo3d}
@@ -1254,6 +1256,18 @@ export function MapOrthoPanel({
     z: orthoFilmstripUrls(jobId, path, axisWalkPlans.z),
     y: orthoFilmstripUrls(jobId, path, axisWalkPlans.y),
     x: orthoFilmstripUrls(jobId, path, axisWalkPlans.x),
+  };
+
+  // t1107 — the walk's "you are here": each strip marks the frame whose
+  // plane stands nearest the tile's own current position (the ONE seat —
+  // the export's canvas rides the same answer, so the paper and the
+  // downloaded document can never disagree about where the reader was).
+  // positions are the state the tiles themselves speak (t278's focus
+  // point), so the mark follows every scrub without a second channel.
+  const axisWalkCurrent = {
+    z: orthoWalkCurrentIndex(axisWalkPlans.z.frames, positions.z),
+    y: orthoWalkCurrentIndex(axisWalkPlans.y.frames, positions.y),
+    x: orthoWalkCurrentIndex(axisWalkPlans.x.frames, positions.x),
   };
 
   // t1105 — the distribution band's geometry, decided before any print:
@@ -2054,6 +2068,9 @@ export function MapOrthoPanel({
                 {printed}
               </span>
             </header>
+            <p className="font-mono text-[9px] leading-4 text-muted-foreground">
+              {orthoPlateWalkCurrentLegend()}
+            </p>
             {TILES.map((spec) => (
               <div
                 key={spec.axis}
@@ -2070,7 +2087,19 @@ export function MapOrthoPanel({
                 <div className="mt-1 grid grid-cols-6 gap-1.5">
                   {axisWalkPlans[spec.axis].frames.map((f, i) => (
                     <figure key={f.pos} className="min-w-0">
-                      <div className="relative aspect-square w-full overflow-hidden rounded-sm border border-foreground/15 bg-white">
+                      <div
+                        className={cn(
+                          "relative aspect-square w-full overflow-hidden rounded-sm bg-white",
+                          i === axisWalkCurrent[spec.axis]
+                            ? "border-2"
+                            : "border border-foreground/15"
+                        )}
+                        style={
+                          i === axisWalkCurrent[spec.axis]
+                            ? { borderColor: AXIS_LABEL[spec.axis] }
+                            : undefined
+                        }
+                      >
                         <img
                           src={axisWalkUrls[spec.axis][i]}
                           alt=""
@@ -2445,6 +2474,7 @@ function OrthoFilmstripButton({
   path,
   spec,
   dim,
+  current,
 }: {
   jobId: string;
   path: string;
@@ -2452,6 +2482,10 @@ function OrthoFilmstripButton({
   /** voxels along the walked axis (from the outputs listing) — the
    * span's voice and the frames' addresses; absent → the honest % */
   dim?: number;
+  /** t1107 — the tile's own current position (the live slider's
+   * fraction): the walk's "you are here" anchor. The ONE seat decides
+   * the frame; the export and the plate's page 3 speak the same mark. */
+  current: number;
 }) {
   const [state, setState] = useState<"idle" | "busy" | "ok" | "err">("idle");
   useEffect(() => {
@@ -2466,6 +2500,9 @@ function OrthoFilmstripButton({
     try {
       const plan = planOrthoFilmstrip(spec.axis, dim ?? null);
       const urls = orthoFilmstripUrls(jobId, path, plan);
+      // t1107 — the mark's frame, decided by the ONE seat before any
+      // pixel: the paper (page 3) and this export share the answer.
+      const currentIdx = orthoWalkCurrentIndex(plan.frames, current);
       const bitmaps = await Promise.all(
         urls.map(async (u) => {
           const r = await fetch(u, { cache: "no-store" });
@@ -2503,7 +2540,11 @@ function OrthoFilmstripButton({
       ctx.fillStyle = EXPORT_TEXT;
       ctx.textAlign = "right";
       const span = plan.dim != null ? `${plan.dim} vox face to face \u00b7 ` : "";
-      ctx.fillText(`${span}${n} frames`, W - GAP, GAP + HEAD_H / 2);
+      ctx.fillText(
+        `${span}${n} frames${currentIdx != null ? " \u00b7 ring marks the current plane" : ""}`,
+        W - GAP,
+        GAP + HEAD_H / 2
+      );
       ctx.textAlign = "left";
       // the frames: the tile's own plane voice in the tile's own accent —
       // the one honest label a cite needs; the plane beneath
@@ -2518,6 +2559,17 @@ function OrthoFilmstripButton({
         ctx.strokeStyle = EXPORT_TILE_BORDER;
         ctx.lineWidth = 1;
         ctx.strokeRect(x0 + 0.5, rowTop + LABEL_H + 0.5, TILE - 1, TILE - 1);
+        // t1107 — the "you are here" ring: the current plane's frame
+        // wears the axis's own accent (the header's voice color — no
+        // new ink), a 2px ring inside the tile's own border. The header
+        // legend names it; the plate's page 3 speaks the same mark
+        // with the same father.
+        if (i === currentIdx) {
+          ctx.strokeStyle = AXIS_LABEL[spec.axis];
+          ctx.lineWidth = 2;
+          ctx.strokeRect(x0 + 1.5, rowTop + LABEL_H + 1.5, TILE - 3, TILE - 3);
+          ctx.lineWidth = 1;
+        }
       });
       // footer: the map's name left, the moment right — the document
       // provenance the oblique walk already speaks

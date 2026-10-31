@@ -148,9 +148,9 @@ ok("W1 the panel imports the ONE lib — the geometry is never re-derived inline
   panelSrc.includes("orthoFilmstripUrls") &&
   panelSrc.includes("orthoFilmstripFilename"));
 
-ok("W2 the three tiles wire the button (the axis template, one mount with the tile's own handles)",
+ok("W2 the three tiles wire the button (the axis template, one mount with the tile's own handles — and the t1107 position riding along: the export marks the reader's own plane)",
   panelSrc.includes("ortho-filmstrip-${spec.axis}") &&
-  panelSrc.includes("<OrthoFilmstripButton jobId={jobId} path={path} spec={spec} dim={dim} />"));
+  panelSrc.includes("<OrthoFilmstripButton jobId={jobId} path={path} spec={spec} dim={dim} current={pos} />"));
 
 ok("W3 the a11y voice names the walk (the plane, the frame count, the axis)",
   panelSrc.includes("frames from face to face along ${spec.axisLabel}") &&
@@ -165,12 +165,12 @@ ok("W5 the strip adds NO second src shape — the file's axis+pos templates stay
   (panelSrc.match(/&axis=\$\{(spec|t)\.axis\}&pos=/g) || []).length === 3 &&
   /walk = async[\s\S]{0,400}orthoFilmstripUrls\(jobId, path, plan\)/.test(panelSrc));
 
-ok("W6 the publishing palette rides the house's own father (AXIS_LABEL — header, frames, and the t1106 plate's accent border: three speakers, one father)",
-  (panelSrc.match(/AXIS_LABEL\[spec\.axis\]/g) || []).length === 3 &&
+ok("W6 the publishing palette rides the house's own father (AXIS_LABEL — header, frames, the t1106 plate's accent border, and the t1107 current mark's two rings (the paper's frame ring + the export's tile ring): five speakers, one father)",
+  (panelSrc.match(/AXIS_LABEL\[spec\.axis\]/g) || []).length === 5 &&
   !panelSrc.includes("AXIS_ACCENT"));
 
-ok("W7 the download rides the one blob sink and the lib's name (the t646 law)",
-  /OrthoFilmstripButton[\s\S]{0,4200}downloadBlob\(blob, orthoFilmstripFilename\(path, spec\.axis, stamp\)\)/.test(panelSrc));
+ok("W7 the download rides the one blob sink and the lib's name (the t646 law — the window widened with the t1107 mark: the prop, the seat call, the header legend, the ring)",
+  /OrthoFilmstripButton[\s\S]{0,5200}downloadBlob\(blob, orthoFilmstripFilename\(path, spec\.axis, stamp\)\)/.test(panelSrc));
 
 /* ------------------------------------------------------------------ */
 
