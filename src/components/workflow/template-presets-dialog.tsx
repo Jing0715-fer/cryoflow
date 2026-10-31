@@ -519,7 +519,7 @@ function CustomTemplatesSection({ onEditingChange }: { onEditingChange: (active:
                 type="button"
                 onClick={() => setSearchQ("")}
                 aria-label="Clear filter"
-                className="rounded-sm p-px hover:bg-muted"
+                className="rounded-sm p-px hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 data-testid="custom-template-search-clear"
               >
                 <X className="size-3" aria-hidden="true" />
@@ -604,7 +604,7 @@ function CustomTemplatesSection({ onEditingChange }: { onEditingChange: (active:
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-6 px-2 text-[11px] opacity-0 transition-opacity hover:bg-primary/10 hover:text-primary focus-visible:opacity-100 group-hover:opacity-100"
+                    className="h-6 px-2 text-[11px] opacity-0 transition-opacity hover:bg-primary/10 hover:text-primary focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring group-hover:opacity-100"
                     onClick={() => {
                       setRenameValue(t.name);
                       setRenameId(t.id);
@@ -618,7 +618,7 @@ function CustomTemplatesSection({ onEditingChange }: { onEditingChange: (active:
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-6 px-2 text-[11px] opacity-0 transition-opacity hover:bg-primary/10 hover:text-primary focus-visible:opacity-100 group-hover:opacity-100"
+                    className="h-6 px-2 text-[11px] opacity-0 transition-opacity hover:bg-primary/10 hover:text-primary focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring group-hover:opacity-100"
                     onClick={() => exportOne(t)}
                     disabled={exporting}
                     aria-label={`Export template ${t.name}`}
@@ -634,7 +634,7 @@ function CustomTemplatesSection({ onEditingChange }: { onEditingChange: (active:
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-6 px-2 text-[11px] text-danger-600 opacity-0 transition-opacity hover:bg-danger-500/10 hover:text-danger-700 focus-visible:opacity-100 group-hover:opacity-100"
+                    className="h-6 px-2 text-[11px] text-danger-600 opacity-0 transition-opacity hover:bg-danger-500/10 hover:text-danger-700 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring group-hover:opacity-100"
                     onClick={() => setArmDeleteId(t.id)}
                     aria-label={`Delete template ${t.name}`}
                     title="Forget this template"
@@ -818,7 +818,7 @@ export function TemplatePresetsDialog() {
                 onClick={() => pickPreset(p)}
                 aria-pressed={active}
                 className={cn(
-                  "rounded-lg border p-2 text-left transition-all",
+                  "rounded-lg border p-2 text-left transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                   active
                     ? "border-primary bg-primary/5 ring-1 ring-primary"
                     : "bg-card hover:border-primary/40 hover:bg-muted/50"

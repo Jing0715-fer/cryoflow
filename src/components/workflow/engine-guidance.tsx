@@ -196,7 +196,7 @@ export function EngineReDetectRow() {
         onClick={() => void refreshSystem()}
         disabled={systemRefreshing}
         aria-busy={systemRefreshing}
-        className="flex items-center gap-1.5 rounded-md border bg-card px-2 py-1 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground disabled:opacity-60"
+        className="flex items-center gap-1.5 rounded-md border bg-card px-2 py-1 text-[10px] font-medium text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:bg-secondary/60 hover:text-foreground disabled:opacity-60"
         title="Re-run the RELION/WSL environment probe (bypasses the 60s cache)"
       >
         <RefreshCw
@@ -240,7 +240,7 @@ function InstallRow({
       disabled={pending || selected}
       onClick={() => onSelect(install.id)}
       className={cn(
-        "group flex w-full items-center gap-2 rounded-lg border px-2 py-1.5 text-left transition-colors",
+        "group flex w-full items-center gap-2 rounded-lg border px-2 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
         selected
           ? "border-running-500/50 bg-running/10"
           : "border-border bg-card hover:bg-secondary/60",

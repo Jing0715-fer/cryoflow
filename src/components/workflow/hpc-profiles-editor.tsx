@@ -356,6 +356,7 @@ export function HpcProfilesEditor({
                       setConfirmDelete(false);
                     }}
                     className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                       "w-full rounded-md border px-2.5 py-2 text-left transition-colors",
                       p.id === selectedId
                         ? "border-primary/50 bg-primary/[0.06]"

@@ -1393,6 +1393,7 @@ function StageChip({
           : ({ "--sd": arrivalDelay } as React.CSSProperties)
       }
       className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
         "group/stage flex shrink-0 items-center gap-2 rounded-lg border bg-card px-2.5 py-2 text-left transition-all hover:shadow-sm print:max-w-full",
         job.status === "running"
           ? "border-running-500/50 ring-1 ring-running/25"
@@ -1544,7 +1545,7 @@ function JobRow({
         type="button"
         onClick={open}
         title={orphan ? "Adopt this job to see it on a canvas" : `Open ${job.name}`}
-        className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left"
+        className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       >
         <span
           className={cn(
@@ -1682,7 +1683,7 @@ function JobRow({
           title={`Move to ${defaultWs.name} — makes the job visible on that canvas`}
           onClick={adopt}
           disabled={adopting}
-          className="no-print flex h-5 shrink-0 items-center gap-1 rounded-full border border-warning/40 bg-warning/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-warning transition-colors hover:bg-warning/20 disabled:opacity-50"
+          className="no-print flex h-5 shrink-0 items-center gap-1 rounded-full border border-warning/40 bg-warning/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-warning transition-colors hover:bg-warning/20 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           {adopting ? (
             <Loader2 className="size-2.5 animate-spin" aria-hidden="true" />
@@ -1976,7 +1977,7 @@ function RecentActivityFeed({ activeProjectId }: { activeProjectId: string | nul
                 // suites can now pick a row BY its job, not by its position
                 // in a feed whose tie order isn't the probe's to assume
                 data-activity-job={j.id}
-                className="group/row flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-secondary/60"
+                className="group/row flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-secondary/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 title={`Open ${j.name}${!isLocal && j.projectName ? ` in ${j.projectName}` : ""}`}
               >
                 <span
@@ -2113,7 +2114,7 @@ function FailedJobsStrip() {
             title={`Open “${j.name}” — failed ${fmtAgo(j.updatedAt)}${
               j.projectName && j.projectId !== activeProjectId ? ` in ${j.projectName}` : ""
             } · jumps to its canvas and opens the inspector`}
-            className="group inline-flex max-w-full items-center gap-1.5 rounded-full border border-danger-500/30 bg-card px-2.5 py-1 text-xs transition-colors hover:bg-danger-500/10"
+            className="group inline-flex max-w-full items-center gap-1.5 rounded-full border border-danger-500/30 bg-card px-2.5 py-1 text-xs transition-colors hover:bg-danger-500/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <span className="size-1.5 shrink-0 rounded-full bg-danger" aria-hidden="true" />
             <span className="max-w-52 truncate font-medium">{j.name}</span>
@@ -2132,7 +2133,7 @@ function FailedJobsStrip() {
         {hidden > 0 ? (
           <button
             onClick={() => setShowAll(true)}
-            className="rounded-full border border-dashed border-danger-500/40 px-2.5 py-1 text-xs text-danger-600 transition-colors hover:bg-danger-500/10 dark:text-danger-400"
+            className="rounded-full border border-dashed border-danger-500/40 px-2.5 py-1 text-xs text-danger-600 transition-colors hover:bg-danger-500/10 dark:text-danger-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             +{hidden} more failed
           </button>
@@ -2195,6 +2196,7 @@ function StatusFilterChip({
       onClick={onClick}
       title={`Show ${label.toLowerCase()} job${n === 1 ? "" : "s"} only${kbd ? ` — or press ${kbd}` : ""}${dimmed ? " — none match the search" : ""}`}
       className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
         "h-5 rounded-full border px-1.5 text-[9px] font-semibold uppercase tracking-wider transition-colors",
         active ? toneCls : "border-border text-muted-foreground hover:bg-muted hover:text-foreground",
         dimmed && "opacity-40 hover:opacity-100",
@@ -2580,7 +2582,7 @@ function ActiveProjectSpotlight({
               onClick={toggleCriticalLens}
               aria-pressed={true}
               title="The critical path lens is on — rows the finish didn't wait on recede. Click to turn it off (or press P)."
-              className="flex h-4 items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-1.5 text-[9px] font-semibold text-primary transition-colors hover:bg-primary/20"
+              className="flex h-4 items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-1.5 text-[9px] font-semibold text-primary transition-colors hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               <Route className="size-2.5" aria-hidden="true" />
               Critical path · {chainWalk.chain.length} step
@@ -2637,7 +2639,7 @@ function ActiveProjectSpotlight({
                   data-testid="roster-search-clear"
                   onClick={() => setRosterQuery("")}
                   aria-label="Clear roster search"
-                  className="absolute right-1 top-1/2 flex size-5 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                  className="absolute right-1 top-1/2 flex size-5 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
                   <X className="size-3" aria-hidden="true" />
                 </button>

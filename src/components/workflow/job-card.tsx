@@ -788,7 +788,7 @@ function JobCardMenu({
                     if (res.ok) setNoteOpen(false);
                   });
                 }}
-                className="mr-auto text-[11px] font-medium text-muted-foreground underline-offset-2 hover:text-danger-600 hover:underline dark:hover:text-danger-400"
+                className="mr-auto text-[11px] font-medium text-muted-foreground underline-offset-2 hover:text-danger-600 hover:underline dark:hover:text-danger-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 Clear note
               </button>
@@ -796,7 +796,7 @@ function JobCardMenu({
             <button
               type="button"
               onClick={() => setNoteOpen(false)}
-              className="inline-flex h-9 items-center justify-center rounded-md px-4 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              className="inline-flex h-9 items-center justify-center rounded-md px-4 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               Cancel
             </button>
@@ -805,7 +805,7 @@ function JobCardMenu({
               disabled={noteBusy || noteDraft.trim().length === 0}
               aria-label={noteBusy ? "Save note (the note is being saved)" : noteDraft.trim().length === 0 ? "Save note (type a note first)" : "Save note"}
               onClick={() => void saveNote()}
-              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               {noteBusy ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : null}
               Save note

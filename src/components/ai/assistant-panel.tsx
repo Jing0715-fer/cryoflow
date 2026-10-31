@@ -427,7 +427,7 @@ function ToolCard({ item }: { item: Extract<UiItem, { kind: "tool" }> }) {
       <div className="flex items-stretch">
         <button
           type="button"
-          className="flex min-w-0 flex-1 items-start gap-2 px-2.5 py-2 text-left"
+          className="flex min-w-0 flex-1 items-start gap-2 px-2.5 py-2 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
         >
@@ -1654,7 +1654,7 @@ export function AssistantPanel() {
         ) : (
           <button
             type="button"
-            className="min-w-0 flex-1 text-left disabled:opacity-50"
+            className="min-w-0 flex-1 text-left disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             onClick={() => void switchSession(s.id)}
             disabled={busy}
             title={s.title ? `${s.title}（原文：${s.preview}）` : s.preview}
@@ -1703,7 +1703,7 @@ export function AssistantPanel() {
         {renamingId === s.id ? (
           <button
             type="button"
-            className="h-6 shrink-0 rounded-md border border-danger-600/40 px-1.5 text-[10px] font-medium text-danger-600 transition-colors hover:bg-danger-500/10 dark:text-danger-400"
+            className="h-6 shrink-0 rounded-md border border-danger-600/40 px-1.5 text-[10px] font-medium text-danger-600 transition-colors hover:bg-danger-500/10 dark:text-danger-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => void commitRename(s.id)}
           >
@@ -1714,7 +1714,7 @@ export function AssistantPanel() {
             {armedDelete === s.id ? (
               <button
                 type="button"
-                className="h-6 shrink-0 rounded-md border border-danger-600/40 px-1.5 text-[10px] font-medium text-danger-600 transition-colors hover:bg-danger-500/10 dark:text-danger-400"
+                className="h-6 shrink-0 rounded-md border border-danger-600/40 px-1.5 text-[10px] font-medium text-danger-600 transition-colors hover:bg-danger-500/10 dark:text-danger-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 onClick={() => void removeSession(s.id)}
               >
                 确认
@@ -1971,7 +1971,7 @@ export function AssistantPanel() {
                     type="button"
                     onClick={() => setSessionQuery("")}
                     aria-label="清除搜索"
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded text-muted-foreground/60 transition-colors hover:text-foreground"
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded text-muted-foreground/60 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
                     <X className="size-3" aria-hidden="true" />
                   </button>
@@ -2072,7 +2072,7 @@ export function AssistantPanel() {
                     key={s.text}
                     type="button"
                     onClick={() => void send(s.text)}
-                    className="group flex w-full items-start gap-2.5 rounded-lg border bg-card px-3 py-2.5 text-left transition-all hover:border-primary/40 hover:bg-primary/[0.04] hover:shadow-sm"
+                    className="group flex w-full items-start gap-2.5 rounded-lg border bg-card px-3 py-2.5 text-left transition-all hover:border-primary/40 hover:bg-primary/[0.04] hover:shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
                     <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
                       <s.icon className="size-3.5" aria-hidden="true" />
@@ -2247,7 +2247,7 @@ export function AssistantPanel() {
               <button
                 type="button"
                 onClick={() => void send(follow.text)}
-                className="mb-2 flex max-w-full items-center gap-1.5 rounded-full border bg-card px-2.5 py-1 text-[11px] leading-relaxed text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/[0.04] hover:text-foreground"
+                className="mb-2 flex max-w-full items-center gap-1.5 rounded-full border bg-card px-2.5 py-1 text-[11px] leading-relaxed text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/[0.04] hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 <FIcon className="size-3 shrink-0 text-primary" aria-hidden="true" />
                 <span className="truncate">{follow.text}</span>

@@ -2851,6 +2851,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                     : "No saved views on this job"
               }
               className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                 "flex w-full items-center gap-1.5 rounded px-1 py-1 text-left transition-colors",
                 j.count !== 0 ? "hover:bg-muted" : "cursor-default opacity-50",
               )}

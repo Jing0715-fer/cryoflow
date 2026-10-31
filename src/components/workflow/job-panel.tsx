@@ -240,7 +240,7 @@ function EdgeChip({
         type="button"
         onClick={onRemove}
         aria-label={`Remove connection ${direction === "in" ? "from" : "to"} ${label}`}
-        className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+        className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       >
         <X className="size-3" />
       </button>
@@ -325,7 +325,7 @@ function LinkSourceControl({
         type="button"
         disabled
         title="No compatible output ports on other jobs yet"
-        className="flex w-full cursor-not-allowed items-center gap-1.5 rounded-md border border-dashed px-2 py-1.5 text-left text-[11px] italic text-muted-foreground/60"
+        className="flex w-full cursor-not-allowed items-center gap-1.5 rounded-md border border-dashed px-2 py-1.5 text-left text-[11px] italic text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       >
         <Plus className="size-3 shrink-0" aria-hidden="true" />
         <span className="sr-only">Link a source to {port.label}</span>
@@ -341,7 +341,7 @@ function LinkSourceControl({
           type="button"
           title="Pick an upstream job to feed this input"
           aria-label={`Link a source to ${port.label} input`}
-          className="flex w-full items-center gap-1.5 rounded-md border border-dashed px-2 py-1.5 text-left text-[11px] text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
+          className="flex w-full items-center gap-1.5 rounded-md border border-dashed px-2 py-1.5 text-left text-[11px] text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <Plus className="size-3 shrink-0 text-primary" aria-hidden="true" />
           <span className="sr-only">Link a source to {port.label}</span>
@@ -839,7 +839,7 @@ function PathParamField({
               </span>
               <button
                 type="button"
-                className="ml-auto inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+                className="ml-auto inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 onClick={() => setExpanded(true)}
                 aria-label={`Show all ${lines.length} file paths`}
                 title="Expand to the full editable path list"
@@ -1011,7 +1011,7 @@ function PathParamField({
           )}
           <button
             type="button"
-            className="ml-auto rounded px-1 text-[10px] text-muted-foreground transition-colors hover:text-destructive"
+            className="ml-auto rounded px-1 text-[10px] text-muted-foreground transition-colors hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             onClick={() => onChange("")}
             aria-label={`Clear ${p.label}`}
           >
@@ -1211,7 +1211,7 @@ function ContinueField({
                   </p>
                   <button
                     type="button"
-                    className="text-[11px] font-medium text-primary hover:underline"
+                    className="text-[11px] font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     onClick={() => void load(true)}
                   >
                     Try again
@@ -1358,7 +1358,7 @@ function ContinueField({
               </p>
               <button
                 type="button"
-                className="inline-flex items-center gap-1 rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+                className="inline-flex items-center gap-1 rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 onClick={() => void load(true)}
                 aria-label="Re-read the rounds from the engine and the cluster"
               >
@@ -1464,7 +1464,7 @@ function ContinueField({
           )}
           <button
             type="button"
-            className="ml-auto inline-flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+            className="ml-auto inline-flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             onClick={() => onChange("")}
             aria-label="Clear the continue-from path"
             title="Clear — start fresh from iteration 0"

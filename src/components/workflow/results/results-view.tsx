@@ -1202,7 +1202,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                      (file name + row count + size) — the Task 114 glass
                      door hides raw controls, not wrapped records (Task 116) */
                   data-print-keep=""
-                  className="flex w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left text-xs transition-colors hover:border-violet-600/40 hover:bg-violet-600/5"
+                  className="flex w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left text-xs transition-colors hover:border-violet-600/40 hover:bg-violet-600/5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
                   <FileText className="h-3.5 w-3.5 shrink-0 text-violet-600" aria-hidden="true" />
                   <span className="truncate font-mono text-[11px]">{f.label ?? f.name}</span>
@@ -1254,7 +1254,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                     /* data-print-keep: same paper contract as the STAR rows
                        above — the wrapped name/size record must print */
                     data-print-keep=""
-                    className="flex w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left text-xs transition-colors hover:border-warning/40 hover:bg-warning/5"
+                    className="flex w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left text-xs transition-colors hover:border-warning/40 hover:bg-warning/5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
                     <ScrollText className="h-3.5 w-3.5 shrink-0 text-warning-600" aria-hidden="true" />
                     <span className="truncate font-mono text-[11px]">{f.name}</span>
@@ -1422,7 +1422,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                               : "Command the montage with the display window — sixteen images are sixteen distributions; by default each cell speaks its own auto stretch"
                         }
                         className={
-                          "rounded border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider transition-colors " +
+                          "rounded border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider transition-colors  focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" +
                           (montageWin && imgWindow
                             ? "border-violet-700/60 bg-violet-950/30 text-violet-700 dark:border-violet-400/50 dark:bg-violet-950/40 dark:text-violet-300"
                             : "border-border/60 bg-background/60 text-muted-foreground hover:bg-muted/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50")
@@ -2071,7 +2071,7 @@ function MrcGallery({
                 type="button"
                 aria-pressed={filter === it}
                 onClick={() => setFilter(it)}
-                className="font-mono"
+                className="font-mono focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 it{String(it).padStart(3, "0")}
               </button>
@@ -2241,7 +2241,7 @@ function RemoteFileTile({
           <button
             type="button"
             onClick={() => setFetching(true)}
-            className="flex aspect-square w-full flex-col items-center justify-center gap-1 rounded-md border border-border/50 bg-muted/40 text-muted-foreground transition-colors hover:border-running/40 hover:text-foreground"
+            className="flex aspect-square w-full flex-col items-center justify-center gap-1 rounded-md border border-border/50 bg-muted/40 text-muted-foreground transition-colors hover:border-running/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             aria-label={`Fetch ${file.label ?? file.name} from the cluster and preview it`}
             title={`Fetch & preview — pulls ${formatBytes(file.size)} from the cluster over SSH, then renders it (stays on this machine afterwards)`}
             data-canvas-ui="remote-fetch-preview"
@@ -2652,7 +2652,7 @@ function WarningsCard({ warnings }: { warnings: string[] }) {
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="flex w-full items-center gap-2 text-left"
+        className="flex w-full items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       >
         <AlertTriangle className="h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
         <span className="font-medium text-warning-700 dark:text-warning-300">

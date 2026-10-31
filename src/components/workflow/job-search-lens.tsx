@@ -272,7 +272,7 @@ export function JobSearchLens({
                 onMouseEnter={() => setActive(i)}
                 onClick={() => pick(job)}
                 className={cn(
-                  "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors",
+                  "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                   i === active ? "bg-accent" : "hover:bg-secondary/60"
                 )}
               >

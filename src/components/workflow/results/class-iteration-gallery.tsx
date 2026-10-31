@@ -675,6 +675,7 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
                   type="button"
                   onClick={showPicker ? () => toggle(c.cls) : undefined}
                   className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                     "group relative overflow-hidden rounded-md border bg-background text-left transition-colors",
                     showPicker ? "cursor-pointer hover:border-primary/50" : "cursor-default",
                     showPicker && isSelected && "border-primary ring-2 ring-primary/30"

@@ -647,7 +647,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
               onClick={() => void copySummary()}
               title="Copy a plain-text summary of the funnel, resolution ladder, session timeline and job counts"
               aria-label="Copy pipeline summary"
-              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               {copied ? (
                 <Check className="size-3.5 text-success-600" aria-hidden="true" />
@@ -660,7 +660,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
               onClick={exportCsv}
               title="Download the job inventory (current scope) as CSV"
               aria-label="Export jobs as CSV"
-              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               <Download className="size-3.5" aria-hidden="true" />
             </button>
@@ -669,7 +669,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
               onClick={exportTimelineCsv}
               title="Download the session timeline (honest windows: start, end, duration, share) as CSV"
               aria-label="Export timeline as CSV"
-              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               <Clock className="size-3.5" aria-hidden="true" />
             </button>
@@ -678,7 +678,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
               onClick={exportRuntimeCsv}
               title="Download runtime by stage (per-type median, p90, total and share of wall clock) as CSV"
               aria-label="Export runtime by stage as CSV"
-              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               <Timer className="size-3.5" aria-hidden="true" />
             </button>
@@ -694,6 +694,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
               aria-pressed={wsFilter == null}
               data-analytics-scope-chip="all"
               className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                 "rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors",
                 wsFilter == null
                   ? "bg-primary text-primary-foreground"
@@ -714,6 +715,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
                 data-analytics-scope-chip={w.id || "unassigned"}
                 title={`Scope the analytics to the “${w.name}” workspace`}
                 className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                   "rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors",
                   wsFilter === w.id
                     ? "bg-primary text-primary-foreground"

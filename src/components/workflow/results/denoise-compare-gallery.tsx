@@ -375,7 +375,7 @@ export function DenoiseCompareGallery({
               onClick={() => setMode(m)}
               aria-pressed={mode === m}
               className={
-                "inline-flex items-center gap-1 px-2.5 py-0.5 text-[10px] font-semibold transition-colors " +
+                "inline-flex items-center gap-1 px-2.5 py-0.5 text-[10px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring " +
                 (mode === m
                   ? "bg-fuchsia-600 text-white"
                   : "bg-transparent text-muted-foreground hover:bg-fuchsia-600/10 hover:text-fuchsia-700 dark:hover:text-fuchsia-300")
@@ -497,7 +497,7 @@ export function DenoiseCompareGallery({
           <button
             type="button"
             onClick={() => setShown((s) => s + PAGE * 2)}
-            className="rounded-full border border-fuchsia-600/30 bg-fuchsia-600/5 px-3 py-1 text-[11px] font-semibold text-fuchsia-700 transition-colors hover:bg-fuchsia-600/15 dark:text-fuchsia-300"
+            className="rounded-full border border-fuchsia-600/30 bg-fuchsia-600/5 px-3 py-1 text-[11px] font-semibold text-fuchsia-700 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:bg-fuchsia-600/15 dark:text-fuchsia-300"
           >
             show more ({pairs.length - shown} remaining)
           </button>

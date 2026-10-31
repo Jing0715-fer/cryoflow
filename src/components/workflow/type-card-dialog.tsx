@@ -342,6 +342,7 @@ export function TypeCardDialog({
                     title={`${u.fromPort} → ${u.toPort}${chipInk(u.type, u.fromPort) ? ` — ${outputKindOf(u.type, u.fromPort)} data` : ""} — click to open ${u.label}`}
                     onClick={() => onNavigate(u.type)}
                     className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                       "flex max-w-full items-center gap-1.5 rounded-full border bg-card px-2 py-0.5 text-[11px] transition-colors hover:bg-accent",
                       u.type === spec.key && "border-dashed"
                     )}
@@ -399,7 +400,7 @@ export function TypeCardDialog({
                     data-testid={`type-card-downstream-chip-${d.type}`}
                     title={`${d.caption}${chipInk(spec.key, d.fromPort) ? ` — ${outputKindOf(spec.key, d.fromPort)} data` : ""} — click to open ${d.label}`}
                     onClick={() => onNavigate(d.type)}
-                    className="flex max-w-full items-center gap-1.5 rounded-full border bg-card px-2 py-0.5 text-[11px] transition-colors hover:bg-accent"
+                    className="flex max-w-full items-center gap-1.5 rounded-full border bg-card px-2 py-0.5 text-[11px] transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
                     <TypeIcon name={d.icon} className="size-3 shrink-0" />
                     <span className="truncate font-medium">{d.label}</span>

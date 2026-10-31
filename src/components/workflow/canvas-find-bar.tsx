@@ -363,7 +363,7 @@ export function CanvasFindBar() {
             requestAnimationFrame(() => inputRef.current?.focus());
           }}
           title="Jump to next match"
-          className="shrink-0 cursor-pointer whitespace-nowrap rounded px-0.5 text-[11px] font-medium tabular-nums text-muted-foreground transition-all motion-safe:active:scale-[0.96] hover:bg-muted/60 hover:text-foreground"
+          className="shrink-0 cursor-pointer whitespace-nowrap rounded px-0.5 text-[11px] font-medium tabular-nums text-muted-foreground transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring motion-safe:active:scale-[0.96] hover:bg-muted/60 hover:text-foreground"
         >
           {/* keyed remount per label: the amber tick is a one-shot per
               change (t578), not a blinking ornament */}
@@ -463,6 +463,7 @@ export function CanvasFindBar() {
                   }
                 }}
                 className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                   active
                     ? chip.active
                     : "border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground",

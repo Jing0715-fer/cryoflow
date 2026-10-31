@@ -825,7 +825,7 @@ function LogConsole({
           <button
             type="button"
             onClick={() => setMode("full")}
-            className="rounded-full bg-warning/15 px-2 py-0.5 text-[10px] font-medium text-warning-400 transition-colors hover:bg-warning/25"
+            className="rounded-full bg-warning/15 px-2 py-0.5 text-[10px] font-medium text-warning-400 transition-colors hover:bg-warning/25 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             title={`Showing the last 600 of ${totalLines.toLocaleString()} lines — click to load the full log`}
           >
             +{(totalLines - lineCount).toLocaleString()} hidden — show full log
@@ -868,7 +868,7 @@ function LogConsole({
                 type="button"
                 onClick={() => setQuery("")}
                 aria-label="Clear log filter"
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-zinc-500 hover:bg-zinc-700/60 hover:text-zinc-300"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-zinc-500 hover:bg-zinc-700/60 hover:text-zinc-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 <X className="size-3" aria-hidden="true" />
               </button>
@@ -885,6 +885,7 @@ function LogConsole({
                     aria-pressed={mode === m}
                     onClick={() => setMode(m)}
                     className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                       "rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide transition-colors",
                       mode === m
                         ? "bg-running/20 text-running-300"
@@ -2154,7 +2155,7 @@ function ParamsGrid({ job }: { job: JobDTO }) {
                 type="button"
                 onClick={() => setParamFilter("")}
                 aria-label="Clear parameter filter"
-                className="rounded-sm p-px hover:bg-muted"
+                className="rounded-sm p-px hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 data-testid="inspector-param-filter-clear"
               >
                 <X className="size-3" aria-hidden="true" />
@@ -2973,6 +2974,7 @@ function FilesTab({
                 aria-pressed={active}
                 onClick={() => setKindFilter(k)}
                 className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                   "inline-flex h-7 items-center gap-1 rounded-full border px-2.5 text-[10px] font-semibold uppercase tracking-wide transition-colors",
                   active
                     ? "border-running/40 bg-running/15 text-running-700 dark:text-running-300"
@@ -3135,7 +3137,7 @@ function FilesTab({
           onClick={onLoadMore}
           disabled={loadingMore}
           aria-busy={loadingMore}
-          className="no-print flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-2 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground disabled:opacity-50"
+          className="no-print flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-2 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           {loadingMore ? (
             <>
@@ -3634,7 +3636,7 @@ function InspectorHeader({
                       type="button"
                       onClick={() => onEditChange({ id: job.id, draft: job.name })}
                       aria-label={`Rename ${job.name}`}
-                      className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
+                      className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     >
                       <Pencil className="size-3" aria-hidden="true" />
                     </button>
@@ -3670,6 +3672,7 @@ function InspectorHeader({
                   data-canvas-ui="inspector-return-link"
                   onClick={() => void goBackFromInspector()}
                   title={`You came here from "${cameFrom.name}" — click to go back`}
+                  className="focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded"
                 >
                   <ArrowLeft
                     className="size-2.5 shrink-0 transition-transform duration-200 ease-out motion-safe:group-hover:-translate-x-px"
@@ -4087,7 +4090,7 @@ function InspectorHeader({
                   setClusterRunOpen(true);
                 }}
                 title="Re-run this job and every downstream job on the cluster — the door opens with the subtree rider checked"
-                className="ml-auto inline-flex shrink-0 items-center gap-1 rounded border border-warning/30 bg-background/50 px-1.5 py-0.5 text-[10px] font-medium text-warning-700 transition-colors hover:bg-warning/15 dark:text-warning-400"
+                className="ml-auto inline-flex shrink-0 items-center gap-1 rounded border border-warning/30 bg-background/50 px-1.5 py-0.5 text-[10px] font-medium text-warning-700 transition-colors hover:bg-warning/15 dark:text-warning-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 <Play className="size-3 shrink-0" aria-hidden="true" />
                 Re-run subtree ({subtreePlan.order.length})
@@ -4133,7 +4136,7 @@ function InspectorHeader({
                   aria-controls={diffTableId}
                   data-testid="drift-diff-toggle"
                   title={diffOpen ? "Collapse the per-setting receipt" : "Every changed setting, ran-with value → current value"}
-                  className="ml-auto inline-flex shrink-0 items-center gap-1 rounded border border-warning/30 bg-background/50 px-1.5 py-0.5 text-[10px] font-medium text-warning-700 transition-colors hover:bg-warning/15 dark:text-warning-400"
+                  className="ml-auto inline-flex shrink-0 items-center gap-1 rounded border border-warning/30 bg-background/50 px-1.5 py-0.5 text-[10px] font-medium text-warning-700 transition-colors hover:bg-warning/15 dark:text-warning-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
                   <ChevronDown
                     className={cn(

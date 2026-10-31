@@ -220,7 +220,7 @@ export function NewProjectDialog({
                   aria-selected={location === opt.value}
                   onClick={() => setLocation(opt.value)}
                   className={cn(
-                    "flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2 text-left transition-colors",
+                    "flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                     location === opt.value
                       ? "border-primary/50 bg-primary/5 shadow-sm"
                       : "border-border text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
@@ -248,7 +248,7 @@ export function NewProjectDialog({
                 <Label htmlFor="new-project-connection">Cluster connection</Label>
                 <button
                   type="button"
-                  className="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:text-foreground"
+                  className="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:text-foreground"
                   onClick={() => setClusterOpen(true)}
                 >
                   Manage clusters…

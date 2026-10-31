@@ -1768,7 +1768,7 @@ export default function SessionReportDialog({
                     key={`${t.level}·${t.text}`}
                     type="button"
                     className={
-                      "report-compass-chip" +
+                      "report-compass-chip focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" +
                       (t.level === 3 ? " report-compass-sub" : "") +
                       (i === activeToc ? " report-compass-here" : "")
                     }

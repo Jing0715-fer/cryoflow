@@ -391,7 +391,7 @@ export function UserPresetShelf() {
             type="button"
             data-testid="preset-shelf-expand"
             onClick={() => setShowAll(true)}
-            className="flex min-h-[64px] items-center justify-center rounded-lg border border-dashed text-xs text-muted-foreground transition-colors motion-reduce:transition-none hover:bg-muted"
+            className="flex min-h-[64px] items-center justify-center rounded-lg border border-dashed text-xs text-muted-foreground transition-colors motion-reduce:transition-none hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             +{hidden} more snapshot{hidden === 1 ? "" : "s"}
           </button>

@@ -712,7 +712,7 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
                   // the mode change (the mm-set settle) on one channel;
                   // the animation owns scale while it runs, the transition
                   // owns it at rest (the CSS cascade is the handoff).
-                  "rounded px-1 py-0.5 text-[9px] font-semibold uppercase leading-none tracking-wide transition-all motion-safe:active:scale-[0.96]",
+                  "rounded px-1 py-0.5 text-[9px] font-semibold uppercase leading-none tracking-wide transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring motion-safe:active:scale-[0.96]",
                   effMode === m.id
                     ? "bg-card text-primary shadow-sm"
                     : "text-muted-foreground/60 hover:text-foreground",

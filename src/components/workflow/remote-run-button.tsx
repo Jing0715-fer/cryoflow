@@ -972,6 +972,7 @@ export function RemoteRunButton({
                     onClick={() => setMode("direct")}
                     onKeyDown={onModeCardKey}
                     className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                       "flex min-w-0 items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors",
                       mode === "direct"
                         ? "border-primary/50 bg-primary/5 ring-1 ring-primary/25"
@@ -1004,6 +1005,7 @@ export function RemoteRunButton({
                         : "Slurm needs a scheduler client on the cluster — the connection probe found none, so only Direct (nohup on the login node) is offered."
                     }
                     className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                       "flex min-w-0 items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors",
                       mode === "slurm"
                         ? "border-primary/50 bg-primary/5 ring-1 ring-primary/25"

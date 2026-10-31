@@ -315,6 +315,7 @@ export function ImportWorkflowDialog() {
                         aria-checked={active}
                         onClick={() => setTargetWs(w.id)}
                         className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                           "flex items-center gap-2.5 rounded-md border px-2.5 py-2 text-left transition-all",
                           active
                             ? "border-primary bg-primary/5 ring-1 ring-primary"

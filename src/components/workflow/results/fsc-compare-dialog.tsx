@@ -990,6 +990,7 @@ export function FscCompareDialog({
                           : `click to ${isHidden ? "show" : "hide"} this curve`
                       }
                       className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                         isHidden
                           ? "border-muted-foreground/25 bg-muted text-muted-foreground/60 line-through"
                           : "border-border bg-background hover:border-primary/40",

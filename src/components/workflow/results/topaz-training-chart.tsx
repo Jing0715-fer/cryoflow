@@ -416,7 +416,7 @@ export function TopazTrainingChart({
                 onClick={() => setMode(m)}
                 aria-pressed={mode === m}
                 className={
-                  "px-2.5 py-0.5 text-[10px] font-semibold transition-colors " +
+                  "px-2.5 py-0.5 text-[10px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring " +
                   (mode === m
                     ? "bg-fuchsia-600 text-white"
                     : "bg-transparent text-muted-foreground hover:bg-fuchsia-600/10 hover:text-fuchsia-700 dark:hover:text-fuchsia-300")

@@ -253,7 +253,7 @@ function GroupSection({
                       data-page-error-retry=""
                       onClick={() => void loadPage(page.offset)}
                       aria-label="Retry loading this page"
-                      className="inline-flex shrink-0 items-center gap-0.5 rounded border border-destructive/30 bg-destructive/10 px-1 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wide transition-colors hover:bg-destructive/20"
+                      className="inline-flex shrink-0 items-center gap-0.5 rounded border border-destructive/30 bg-destructive/10 px-1 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wide transition-colors hover:bg-destructive/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     >
                       <RefreshCw className="size-2.5" aria-hidden="true" />
                       Retry
@@ -306,7 +306,7 @@ function GroupSection({
                 data-page-error-retry=""
                 onClick={() => void loadPage(0)}
                 aria-label="Retry loading this page"
-                className="inline-flex shrink-0 items-center gap-1 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide transition-colors hover:bg-destructive/20"
+                className="inline-flex shrink-0 items-center gap-1 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide transition-colors hover:bg-destructive/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 <RefreshCw className="size-3" aria-hidden="true" />
                 Retry

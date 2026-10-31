@@ -565,7 +565,7 @@ export function DensityHistogramStrip({
                       });
                     }}
                     className={
-                      "rounded border px-1.5 py-0.5 font-mono text-[9px] tabular-nums transition-colors " +
+                      "rounded border px-1.5 py-0.5 font-mono text-[9px] tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring " +
                       (active
                         ? "border-violet-700/60 bg-violet-950/30 text-violet-700 dark:border-violet-400/50 dark:bg-violet-950/40 dark:text-violet-300"
                         : "border-border/60 bg-background/60 text-muted-foreground hover:bg-muted/60 hover:text-foreground")
@@ -701,7 +701,7 @@ export function QuickHistSection({
           onClick={() => setOn((o) => !o)}
           aria-pressed={on}
           data-canvas-ui="quick-hist-toggle"
-          className="flex items-center gap-1.5 rounded-md border border-border/70 bg-background/60 px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground aria-pressed:border-cyan-700/60 aria-pressed:bg-cyan-950/30 aria-pressed:text-cyan-700 dark:aria-pressed:text-cyan-300"
+          className="flex items-center gap-1.5 rounded-md border border-border/70 bg-background/60 px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:bg-muted/60 hover:text-foreground aria-pressed:border-cyan-700/60 aria-pressed:bg-cyan-950/30 aria-pressed:text-cyan-700 dark:aria-pressed:text-cyan-300"
           title="Count every voxel and draw the density distribution (a chunked two-pass server read — the first look walks the file, the server cache makes the rest free)"
         >
           <svg

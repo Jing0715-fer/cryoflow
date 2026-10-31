@@ -236,7 +236,7 @@ function RelionStatusChip() {
           type="button"
           title={title}
           aria-label={`RELION environment status: ${label}`}
-          className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg border bg-card px-2.5 card-lift transition-colors hover:bg-secondary/60"
+          className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg border bg-card px-2.5 card-lift transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:bg-secondary/60"
         >
           <span className="relative flex size-2">
             <span
@@ -569,7 +569,7 @@ function ViewSwitcher() {
         title="Project dashboard (Shift+D toggles)"
         onClick={() => setView("dashboard")}
         className={cn(
-          "flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors",
+          "flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
           view === "dashboard"
             ? "bg-primary/10 text-primary shadow-sm"
             : "text-muted-foreground hover:text-foreground"
@@ -590,7 +590,7 @@ function ViewSwitcher() {
         title="Workflow canvas (Shift+D toggles)"
         onClick={() => setView("canvas")}
         className={cn(
-          "flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors",
+          "flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
           view === "canvas"
             ? "bg-primary/10 text-primary shadow-sm"
             : "text-muted-foreground hover:text-foreground"
@@ -642,7 +642,7 @@ function NoteSpotlightChip() {
         // this chip x=783 — 57px interpenetration, "not found" over
         // "note"). The lens is the row's least-essential control (the
         // dashboard Noted chip is its second entry) — it yields first.
-        "hidden h-8 items-center gap-1.5 rounded-lg border px-2.5 card-lift transition-colors 2xl:flex",
+        "hidden h-8 items-center gap-1.5 rounded-lg border px-2.5 card-lift transition-colors 2xl:flex focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
         on
           ? "border-warning-500/60 bg-warning/10"
           : "border-border bg-card hover:bg-secondary/60",

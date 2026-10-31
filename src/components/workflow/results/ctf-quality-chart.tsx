@@ -252,7 +252,7 @@ export function CtfQualityChart({ jobId, className }: { jobId: string; className
           type="button"
           onClick={() => setGalleryOpen((v) => !v)}
           aria-expanded={galleryOpen}
-          className="flex w-full items-center gap-1.5 rounded-md border bg-muted/40 px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground"
+          className="flex w-full items-center gap-1.5 rounded-md border bg-muted/40 px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <Grid3x3 className="size-3.5 shrink-0" aria-hidden="true" />
           Micrographs

@@ -521,6 +521,7 @@ export function PathBrowserDialog({
               role="tab"
               aria-selected={mode === "folder"}
               className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                 "inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium transition-colors",
                 mode === "folder"
                   ? "bg-background text-foreground shadow-sm"
@@ -536,6 +537,7 @@ export function PathBrowserDialog({
               role="tab"
               aria-selected={mode === "files"}
               className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                 "inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium transition-colors",
                 mode === "files"
                   ? "bg-background text-foreground shadow-sm"
@@ -605,7 +607,7 @@ export function PathBrowserDialog({
               <button
                 key={q.path}
                 type="button"
-                className="inline-flex items-center gap-1 rounded-full border bg-background px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+                className="inline-flex items-center gap-1 rounded-full border bg-background px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 onClick={() => setCwd(q.path)}
                 title={q.path}
               >
@@ -669,6 +671,7 @@ export function PathBrowserDialog({
                     id={`pb-root-${idx}`}
                     aria-selected={false}
                     className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                       "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-secondary/60",
                       // t784 — the cursor row's persistent tone: hover paints
                       // the pointer's candidate, this paints the keyboard's —
@@ -733,6 +736,7 @@ export function PathBrowserDialog({
                       aria-setsize={visibleEntries.length}
                       title={e.name}
                       className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                         "mb-0.5 flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-xs transition-colors hover:bg-secondary/60",
                         cursor === rowIdx && "bg-secondary/70 hover:bg-secondary/70"
                       )}
@@ -760,6 +764,7 @@ export function PathBrowserDialog({
                       aria-label={singleFile ? `Pick file ${e.name}` : `Select file ${e.name}`}
                       title={singleFile ? e.abs : e.name}
                       className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                         "mb-0.5 flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-xs transition-colors hover:bg-secondary/60",
                         singleFile
                           ? "hover:bg-primary/10"
@@ -879,7 +884,7 @@ export function PathBrowserDialog({
                 <button
                   type="button"
                   onClick={() => setFilter("")}
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground/70 transition-colors hover:text-foreground"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground/70 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   aria-label="Clear filter"
                 >
                   <X className="h-3.5 w-3.5" aria-hidden="true" />

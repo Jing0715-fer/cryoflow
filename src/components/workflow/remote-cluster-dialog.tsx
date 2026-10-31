@@ -254,6 +254,7 @@ function ProbeCard({
                   onClick={() => onPickModule(m)}
                   disabled={picking !== null}
                   className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                     "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[10.5px] transition-colors disabled:opacity-60",
                     isDefault
                       ? "border-primary/50 bg-primary/10 text-primary"
@@ -1973,6 +1974,7 @@ export function RemoteClusterDialog({
                       type="button"
                       onClick={() => select(c.id)}
                       className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                         "w-full rounded-md border px-2.5 py-2 text-left transition-colors",
                         active
                           ? "border-primary/50 bg-primary/[0.06]"

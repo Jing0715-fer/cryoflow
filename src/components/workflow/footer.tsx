@@ -142,7 +142,7 @@ export function Footer() {
                     }
                     onClick={() => onCensusClick(value)}
                     className={cn(
-                      "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 tabular-nums transition-colors",
+                      "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                       armed
                         ? chip.active
                         : "border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground",

@@ -2313,7 +2313,7 @@ export function CommandPaletteTrigger() {
     <button
       type="button"
       onClick={() => window.dispatchEvent(new CustomEvent(OPEN_EVENT))}
-      className="flex h-8 items-center gap-1 rounded-md border bg-muted/40 px-2 max-sm:px-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground"
+      className="flex h-8 items-center gap-1 rounded-md border bg-muted/40 px-2 max-sm:px-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       aria-label="Open command palette (Ctrl+K)"
       title="Command palette — Ctrl/⌘ + K"
     >

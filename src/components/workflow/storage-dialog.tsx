@@ -783,7 +783,7 @@ export default function StorageDialog({
                 <button
                   type="button"
                   onClick={() => openRunLens(whaleDir)}
-                  className="mt-3 flex w-full items-start gap-2 rounded-lg border border-violet-500/30 bg-violet-500/[0.06] px-3 py-2 text-left text-xs text-violet-700 transition-colors hover:bg-violet-500/[0.12] dark:text-violet-300"
+                  className="mt-3 flex w-full items-start gap-2 rounded-lg border border-violet-500/30 bg-violet-500/[0.06] px-3 py-2 text-left text-xs text-violet-700 transition-colors hover:bg-violet-500/[0.12] dark:text-violet-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   title="The heaviest run — click to weigh it by category right here"
                   aria-label="The heaviest run — open its run lens"
                 >
@@ -850,7 +850,7 @@ export default function StorageDialog({
                               setRunCatFilter(null);
                               setLens(lens === c.id ? null : c.id);
                             }}
-                            className={`inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs transition-colors ${
+                            className={`focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs transition-colors ${
                               CATEGORY_TEXT[c.id]
                             } ${
                               lens === c.id
@@ -936,7 +936,7 @@ export default function StorageDialog({
                               inspect(job.jobId);
                               onOpenChange(false);
                             }}
-                            className={`flex min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-2.5 text-left transition-colors ${
+                            className={`focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring flex min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-2.5 text-left transition-colors ${
                               orphan
                                 ? "cursor-default bg-warning/[0.05]"
                                 : "hover:bg-muted/40"
@@ -1120,7 +1120,7 @@ export default function StorageDialog({
                         type="button"
                         aria-pressed={runCatFilter === null}
                         onClick={() => setRunCatFilter(null)}
-                        className={`inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs text-foreground transition-colors ${
+                        className={`focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs text-foreground transition-colors ${
                           runCatFilter === null
                             ? "bg-muted font-semibold ring-1 ring-inset ring-border"
                             : "opacity-60 hover:opacity-100 hover:bg-muted/40"
@@ -1135,7 +1135,7 @@ export default function StorageDialog({
                           type="button"
                           aria-pressed={runCatFilter === slice.id}
                           onClick={() => setRunCatFilter(runCatFilter === slice.id ? null : slice.id)}
-                          className={`inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs transition-colors ${
+                          className={`focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs transition-colors ${
                             CATEGORY_TEXT[slice.id]
                           } ${
                             runCatFilter === slice.id
@@ -1178,7 +1178,7 @@ export default function StorageDialog({
                                     inspect(runLensRow.jobId as string);
                                     onOpenChange(false);
                                   }}
-                                  className={`flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition-colors ${
+                                  className={`focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition-colors ${
                                     orphan
                                       ? "cursor-default bg-warning/[0.05]"
                                       : "hover:bg-muted/40"
@@ -1330,7 +1330,7 @@ export default function StorageDialog({
                                   inspect(f.jobId);
                                   onOpenChange(false);
                                 }}
-                                className={`flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition-colors ${
+                                className={`focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition-colors ${
                                   orphan
                                     ? "cursor-default bg-warning/[0.05]"
                                     : "hover:bg-muted/40"
@@ -1402,7 +1402,7 @@ export default function StorageDialog({
                                   inspect(r.jobId);
                                   onOpenChange(false);
                                 }}
-                                className={`flex min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-2.5 text-left transition-colors ${
+                                className={`focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring flex min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-2.5 text-left transition-colors ${
                                   orphan
                                     ? "cursor-default bg-warning/[0.05]"
                                     : "hover:bg-muted/40"
@@ -1559,7 +1559,7 @@ export default function StorageDialog({
                         data-testid="graveyard-sort-newest"
                         aria-pressed={graveSort === "newest"}
                         onClick={() => setGraveSort("newest")}
-                        className={`h-5 rounded px-1.5 text-[10px] ${
+                        className={`focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring h-5 rounded px-1.5 text-[10px] ${
                           graveSort === "newest"
                             ? "bg-muted font-medium text-foreground"
                             : "text-muted-foreground hover:text-foreground"
@@ -1572,7 +1572,7 @@ export default function StorageDialog({
                         data-testid="graveyard-sort-weight"
                         aria-pressed={graveSort === "weight"}
                         onClick={() => setGraveSort("weight")}
-                        className={`h-5 rounded px-1.5 text-[10px] ${
+                        className={`focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring h-5 rounded px-1.5 text-[10px] ${
                           graveSort === "weight"
                             ? "bg-muted font-medium text-foreground"
                             : "text-muted-foreground hover:text-foreground"
@@ -1592,7 +1592,7 @@ export default function StorageDialog({
                             <button
                               type="button"
                               data-testid="graveyard-row-toggle"
-                              className="-m-1 flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+                              className="-m-1 flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                               aria-expanded={open}
                               aria-controls={`graveyard-epitaph-${g.id}`}
                               aria-label={`${open ? "Hide" : "Read"} the epitaph of ${g.name ?? g.id}`}

@@ -346,7 +346,7 @@ function HistoryRows({
                     type="button"
                     disabled={jumping}
                     aria-expanded={open}
-                    className="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-xs hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
+                    className="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-xs hover:bg-accent disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     data-canvas-ui="history-group"
                     data-history-kind={run.kind}
                     data-run-count={run.labels.length}
@@ -372,7 +372,7 @@ function HistoryRows({
                       <button
                         type="button"
                         disabled={jumping}
-                        className="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-xs hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
+                        className="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-xs hover:bg-accent disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                         data-canvas-ui="history-row"
                         data-history-kind="past"
                         data-history-index={i}
@@ -415,7 +415,7 @@ function HistoryRows({
                     type="button"
                     disabled={jumping}
                     aria-expanded={open}
-                    className="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-xs italic text-muted-foreground hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+                    className="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-xs italic text-muted-foreground hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     data-canvas-ui="history-group"
                     data-history-kind={run.kind}
                     data-run-count={run.labels.length}
@@ -442,7 +442,7 @@ function HistoryRows({
                       <button
                         type="button"
                         disabled={jumping}
-                        className="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-xs italic text-muted-foreground hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+                        className="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-xs italic text-muted-foreground hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                         data-canvas-ui="history-row"
                         data-history-kind="future"
                         data-history-index={i}
@@ -549,7 +549,7 @@ const TemplateSuggestionsChip = React.memo(function TemplateSuggestionsChip() {
           onClick={() => useWorkflowStore.getState().dismissTemplateSuggestions()}
           aria-label="Dismiss connection suggestions"
           title="Dismiss — wire by hand instead"
-          className="rounded-full p-0.5 text-muted-foreground transition-colors hover:text-foreground"
+          className="rounded-full p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           data-testid="template-suggestions-dismiss"
         >
           <X className="size-3.5" aria-hidden="true" />
@@ -574,6 +574,7 @@ const TemplateSuggestionsChip = React.memo(function TemplateSuggestionsChip() {
                 aria-pressed={on}
                 title={on ? "Click to skip this wire" : "Click to include this wire"}
                 className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                   "flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-[11px] transition-colors",
                   on ? "bg-muted/40 hover:bg-muted/70" : "text-muted-foreground/50 line-through decoration-border hover:bg-muted/40"
                 )}
@@ -3017,7 +3018,7 @@ export function WorkflowCanvas() {
             type="button"
             onClick={cancelConnect}
             aria-label="Cancel connection"
-            className="rounded-full p-0.5 text-muted-foreground transition-colors hover:text-foreground"
+            className="rounded-full p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <X className="size-3.5" />
           </button>
@@ -3383,7 +3384,7 @@ export function WorkflowCanvas() {
                     )}
                     <button
                       type="button"
-                      className="flex min-w-0 flex-1 items-center justify-between rounded px-1.5 py-1 text-left text-xs hover:bg-accent"
+                      className="flex min-w-0 flex-1 items-center justify-between rounded px-1.5 py-1 text-left text-xs hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                       onClick={() => {
                         // t588 — the row click is an ARRIVAL, not a
                         // teleport: same dialogue as the slot keys (hold,
@@ -3506,6 +3507,7 @@ export function WorkflowCanvas() {
                   data-canvas-ui="kind-legend-item"
                   data-kind={k}
                   className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                     "flex items-center gap-1.5 rounded px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
                     active && "bg-accent text-foreground"
                   )}

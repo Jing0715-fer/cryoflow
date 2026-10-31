@@ -336,7 +336,7 @@ export function ImportGallery({
           <button
             type="button"
             onClick={resample}
-            className="inline-flex items-center gap-1 rounded border px-1.5 py-px text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+            className="inline-flex items-center gap-1 rounded border px-1.5 py-px text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             aria-label="Sample five different micrographs"
             title="Pick five different micrographs (a new stable selection — it persists until you press again)"
           >
@@ -354,6 +354,7 @@ export function ImportGallery({
           aria-pressed={compareMode}
           data-gallery-ui="compare-toggle"
           className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
             "inline-flex items-center gap-1 rounded border px-1.5 py-px text-[10px] font-medium transition-colors",
             compareMode
               ? "border-running-600/40 bg-running-600/10 text-running-700 dark:text-running-300"
@@ -370,7 +371,7 @@ export function ImportGallery({
             onClick={() => setCompareOpen(true)}
             disabled={pickedEntries.length < 2}
             data-gallery-ui="compare-open"
-            className="inline-flex items-center gap-1 rounded border border-running-600/40 bg-running-600/10 px-1.5 py-px text-[10px] font-semibold text-running-700 transition-colors hover:bg-running-600/20 dark:text-running-300 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-running-600/10"
+            className="inline-flex items-center gap-1 rounded border border-running-600/40 bg-running-600/10 px-1.5 py-px text-[10px] font-semibold text-running-700 transition-colors hover:bg-running-600/20 dark:text-running-300 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-running-600/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             title={
               pickedEntries.length < 2
                 ? "Pick at least two thumbnails to compare"
