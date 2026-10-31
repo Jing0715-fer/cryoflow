@@ -204,6 +204,23 @@ export function orthoPlateWalkCurrentLegend(): string {
   return "the colored ring marks each walk's current tile plane";
 }
 
+/**
+ * The cut mark's legend (t1108) — the one sentence that names the ring
+ * on the cut's own walk page (page 2). The mark ties the paper back to
+ * the live block: the ring sits on the frame nearest the cut's own
+ * offset, and the legend tells the reader so without pointing at a
+ * screen. The oblique dialect of the t1107 legend seat — page 3 marks
+ * the tiles' planes, page 2 marks the cut's own plane; two sentences,
+ * never one blurred word. The legend rides unconditionally whenever the
+ * walk page prints: the page exists only under a live cut, and the
+ * cut's offset is a number by its own type — the mark is always present
+ * when its legend is (the seat's null law stays the honest silence,
+ * unreachable with a mounted cut). Pure — nothing mutated, one string.
+ */
+export function orthoPlateObliqueCurrentLegend(): string {
+  return "the colored ring marks the cut's own plane on this walk";
+}
+
 /* ------------------------------------------------------------------ */
 /* t1105 — the plate's σ LEG: the map's density distribution joins     */
 /* page 1. The t291 export already speaks this figure (the PNG foot-   */

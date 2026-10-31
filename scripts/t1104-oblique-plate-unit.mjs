@@ -189,12 +189,12 @@ const lib = readFileSync(
 
 // W1 — the ONE imports (words from the plate lib, geometry from the walk lib)
 ok(
-  "W1 the panel imports the walk page's words from the ONE plate lib (the t1107 legend joins the family) and the geometry from the ONE walk lib",
+  "W1 the panel imports the walk page's words from the ONE plate lib (the t1107/t1108 legends join the family) and the geometry from the ONE walk lib (the t1108 frac seat joins)",
   panel.includes(
-    'import { orthoAxisWalkHeading, orthoPlateMetaLine, orthoPlateTileUrl, orthoPlateWalkCurrentLegend, orthoPlateWalkMetaLine, orthoWalkFrameCaption, planOrthoPlate, planPlateHistogram, PLATE_HIST_INKS, type PlateHistPayload } from "@/lib/ortho-plate"'
+    'import { orthoAxisWalkHeading, orthoPlateMetaLine, orthoPlateObliqueCurrentLegend, orthoPlateTileUrl, orthoPlateWalkCurrentLegend, orthoPlateWalkMetaLine, orthoWalkFrameCaption, planOrthoPlate, planPlateHistogram, PLATE_HIST_INKS, type PlateHistPayload } from "@/lib/ortho-plate"'
   ) &&
     panel.includes(
-      'import { FILMSTRIP_FRAMES, obliqueFilmstripFilename, obliqueFilmstripUrls, planObliqueFilmstrip } from "@/lib/oblique-filmstrip"'
+      'import { FILMSTRIP_FRAMES, obliqueFilmstripFilename, obliqueFilmstripUrls, obliqueWalkCurrentIndex, planObliqueFilmstrip } from "@/lib/oblique-filmstrip"'
     )
 );
 

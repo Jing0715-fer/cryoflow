@@ -114,6 +114,38 @@ export function obliqueFilmstripUrls(
 }
 
 /**
+ * The walk's "you are here" (t1108) — the t1107 seat's frac edition:
+ * the frame whose plane stands nearest the cut's own offset. The walk
+ * sweeps the box's whole support along the normal, and a reader holding
+ * the document (paper page 2 or the export) needs to find the plane the
+ * cut is actually sitting on: the mark ties the walk back to the live
+ * block without a second offset dialect. The law is the ortho seat's
+ * own, re-derived in the oblique dialect (the sibling walk libs mirror
+ * their laws, never share code — the t1098 precedent): the FIRST frame
+ * at the minimal distance wins — the default offset 0 is the exact
+ * midpoint of −0.2/+0.2, and the tie resolves toward the face the walk
+ * reads first (left to right, the document's own direction — the lower
+ * index). A null/undefined or non-finite offset and an empty frame list
+ * return null — no mark, no invented plane. Pure.
+ */
+export function obliqueWalkCurrentIndex(
+  frames: ReadonlyArray<{ frac: number }>,
+  offset: number | null | undefined
+): number | null {
+  if (typeof offset !== "number" || !Number.isFinite(offset)) return null;
+  let best: number | null = null;
+  let bestD = Infinity;
+  for (let i = 0; i < frames.length; i++) {
+    const d = Math.abs(frames[i].frac - offset);
+    if (d < bestD) {
+      bestD = d;
+      best = i;
+    }
+  }
+  return best;
+}
+
+/**
  * The document's name — "oblique-filmstrip-<map>-<stamp>.png", the same
  * naming grammar the triptych speaks (base stripped of its map
  * extension, the moment's HHMMSS stamp).

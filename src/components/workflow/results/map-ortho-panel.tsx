@@ -70,9 +70,9 @@ import { DensityHistogramStrip } from "./density-histogram";
 import { cn } from "@/lib/utils";
 import { downloadBlob } from "@/lib/download"; // t646 — one blob sink (this dance skipped the attach-before-click law)
 import { obliqueDepthVox, obliqueDepthVoice, obliqueNormal, obliqueOffsetPctVoice, obliqueSupportVox, voxelReadout } from "@/lib/voxel-voice"; // t906/t907 — the tile's and the oblique block's voices ride the ONE lib (the embed's commit site reads the same seats); t1099 — the cut's direction rides the ONE father too
-import { FILMSTRIP_FRAMES, obliqueFilmstripFilename, obliqueFilmstripUrls, planObliqueFilmstrip } from "@/lib/oblique-filmstrip"; // t1096 — the walk's geometry rides the ONE lib: the plan, the URLs and the name are decided before a fetch flies
+import { FILMSTRIP_FRAMES, obliqueFilmstripFilename, obliqueFilmstripUrls, obliqueWalkCurrentIndex, planObliqueFilmstrip } from "@/lib/oblique-filmstrip"; // t1096 — the walk's geometry rides the ONE lib: the plan, the URLs and the name are decided before a fetch flies; t1108 — the cut's "you are here" rides the same lib's frac seat
 import { ORTHO_FILMSTRIP_FRAMES, orthoFilmstripFilename, orthoFilmstripUrls, orthoWalkCurrentIndex, planOrthoFilmstrip } from "@/lib/ortho-filmstrip"; // t1098 — the axis walks ride the ONE lib: the plan, the URLs and the name are decided before a fetch flies; t1107 — the walk's "you are here" rides the same seat
-import { orthoAxisWalkHeading, orthoPlateMetaLine, orthoPlateTileUrl, orthoPlateWalkCurrentLegend, orthoPlateWalkMetaLine, orthoWalkFrameCaption, planOrthoPlate, planPlateHistogram, PLATE_HIST_INKS, type PlateHistPayload } from "@/lib/ortho-plate"; // t1103/t1104/t1105/t1106 — the plate's words and its distribution band ride the ONE plan lib (the voices' own bytes, decided before any print; the walk page's words and the σ leg's geometry ride the same family)
+import { orthoAxisWalkHeading, orthoPlateMetaLine, orthoPlateObliqueCurrentLegend, orthoPlateTileUrl, orthoPlateWalkCurrentLegend, orthoPlateWalkMetaLine, orthoWalkFrameCaption, planOrthoPlate, planPlateHistogram, PLATE_HIST_INKS, type PlateHistPayload } from "@/lib/ortho-plate"; // t1103/t1104/t1105/t1106 — the plate's words and its distribution band ride the ONE plan lib (the voices' own bytes, decided before any print; the walk page's words and the σ leg's geometry ride the same family)
 import { usePrintedDate } from "@/lib/use-now"; // t1103 — the plate's paper clock (the t232 law: paper clocks do not hydrate)
 import {
   obliqueTraceDragOffset,
@@ -1241,6 +1241,16 @@ export function MapOrthoPanel({
     : null;
   const walkUrls = walkPlan ? obliqueFilmstripUrls(jobId, path, walkPlan) : null;
 
+  // t1108 — the cut walk's "you are here": the frame whose plane stands
+  // nearest the cut's own offset (the ONE frac seat — the export's
+  // canvas rides the same answer via live.offset). A null walkPlan (no
+  // live cut) has no page and no mark: the honest absence, stated on
+  // both faces at once.
+  const walkCurrent =
+    walkPlan && plateOblique
+      ? obliqueWalkCurrentIndex(walkPlan.frames, plateOblique.offset)
+      : null;
+
   // t1106 — the axis walks' paper geometry, decided before any print: the
   // SAME lib the screen's strip buttons ride (plan + URLs — no second
   // request dialect), one strip per axis in the tile row's own order (the
@@ -2025,10 +2035,25 @@ export function MapOrthoPanel({
                   walkPlan.frames.length
                 ) || "—"}
               </p>
+              <p className="font-mono text-[9px] leading-4 text-muted-foreground">
+                {orthoPlateObliqueCurrentLegend()}
+              </p>
               <div className="mt-1 grid grid-cols-3 gap-2">
                 {walkPlan.frames.map((f, i) => (
                   <figure key={f.frac} className="min-w-0">
-                    <div className="relative aspect-square w-full overflow-hidden rounded-sm border border-foreground/15 bg-white">
+                    <div
+                      className={cn(
+                        "relative aspect-square w-full overflow-hidden rounded-sm bg-white",
+                        i === walkCurrent
+                          ? "border-2"
+                          : "border border-foreground/15"
+                      )}
+                      style={
+                        i === walkCurrent
+                          ? { borderColor: EXPORT_OBLIQUE_ACCENT }
+                          : undefined
+                      }
+                    >
                       <img
                         src={walkUrls[i]}
                         alt=""
@@ -2336,6 +2361,10 @@ function ObliqueFilmstripButton({
     try {
       const plan = planObliqueFilmstrip(live.theta, live.phi, dims);
       const urls = obliqueFilmstripUrls(jobId, path, plan);
+      // t1108 — the mark's frame, decided by the ONE frac seat before
+      // any pixel: the paper's page 2 and this export share the answer
+      // (the block's own live offset — the same number the slider speaks).
+      const currentIdx = obliqueWalkCurrentIndex(plan.frames, live.offset);
       const bitmaps = await Promise.all(
         urls.map(async (u) => {
           const r = await fetch(u, { cache: "no-store" });
@@ -2374,7 +2403,7 @@ function ObliqueFilmstripButton({
       const span =
         plan.supportVox != null ? `${(plan.supportVox * 2).toFixed(1)} vox face to face · ` : "";
       ctx.fillText(
-        `${prov}\u03b8 ${live.theta}\u00b0 \u00b7 \u03c6 ${live.phi}\u00b0 \u00b7 ${span}${n} frames`,
+        `${prov}\u03b8 ${live.theta}\u00b0 \u00b7 \u03c6 ${live.phi}\u00b0 \u00b7 ${span}${n} frames${currentIdx != null ? " \u00b7 ring marks the cut's plane" : ""}`,
         W - GAP,
         GAP + HEAD_H / 2
       );
@@ -2399,6 +2428,16 @@ function ObliqueFilmstripButton({
         ctx.strokeStyle = EXPORT_TILE_BORDER;
         ctx.lineWidth = 1;
         ctx.strokeRect(x0 + 0.5, rowTop + LABEL_H + 0.5, TILE - 1, TILE - 1);
+        // t1108 — the "you are here" ring: the cut's own plane wears the
+        // block's violet (the header's voice color — no new ink), a 2px
+        // ring inside the tile's own border. The header legend names it;
+        // the plate's page 2 speaks the same mark with the same father.
+        if (i === currentIdx) {
+          ctx.strokeStyle = EXPORT_OBLIQUE_ACCENT;
+          ctx.lineWidth = 2;
+          ctx.strokeRect(x0 + 1.5, rowTop + LABEL_H + 1.5, TILE - 3, TILE - 3);
+          ctx.lineWidth = 1;
+        }
       });
       // footer: the map's name left, the moment right — the document
       // provenance the triptych already speaks
