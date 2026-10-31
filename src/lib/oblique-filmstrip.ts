@@ -278,3 +278,18 @@ export function obliqueDirectionWalkCurrentIndex(
   }
   return best;
 }
+
+/**
+ * The direction walk's document name — "oblique-direction-walk-<map>-
+ * <stamp>.png" (t1115): the filename family's azimuth edition. The
+ * grammar is the oblique walk's own (obliqueFilmstripFilename — the
+ * base stripped of its map extension, the moment's HHMMSS stamp); the
+ * walk's word changes (direction-walk, not filmstrip) because the
+ * document names its own tour: around the box, not through it. The
+ * sibling walks mirror their laws, never share code — the t1098
+ * precedent holds for names too. Pure — one string.
+ */
+export function obliqueDirectionWalkFilename(path: string, stamp: string): string {
+  const base = path.split("/").pop() || path;
+  return `oblique-direction-walk-${base.replace(/\.(mrc|mrcs)$/i, "")}-${stamp}.png`;
+}

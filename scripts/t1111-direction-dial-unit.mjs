@@ -33,6 +33,7 @@ import {
   DIRECTION_STATIONS,
   obliqueAzimuthVoice,
   obliqueDirectionWalkCurrentIndex,
+  obliqueDirectionWalkFilename,
   planObliqueDirectionWalk,
 } from "@/lib/oblique-filmstrip";
 
@@ -230,10 +231,14 @@ ok(
 // literal azimuth array near the dial). The t1112 re-key: the call
 // count grew 1 → 2 — the direction page's print seats ride the SAME
 // ladder (the paper's fourth page plans its frames from the ONE plan
-// seat, never a second station dialect), reason named.
+// seat, never a second station dialect), reason named. t1115 re-key
+// 2 → 3 — the direction walk's EXPORT joins (the family's last honest
+// gap closed): the export's compositor plans its frames from the SAME
+// ONE seat — three faces of one ladder (the dial, the paper, the
+// document), reason named.
 ok(
-  "U4 the ladder rides the ONE plan — planObliqueDirectionWalk() twice (the dial + the t1112 print page riding the same ONE seat), no inline azimuth array",
-  (panelSrc.match(/planObliqueDirectionWalk\(\)/g) || []).length === 2 &&
+  "U4 the ladder rides the ONE plan — planObliqueDirectionWalk() thrice (the dial + the t1112 print page + the t1115 export riding the same ONE seat), no inline azimuth array",
+  (panelSrc.match(/planObliqueDirectionWalk\(\)/g) || []).length === 3 &&
     !panelSrc.includes("[0, 60, 120") &&
     !panelSrc.includes("[0,60,120")
 );
@@ -342,6 +347,92 @@ ok(
   "W4 the voice lives in the lib — obliqueAzimuthVoice is the stations' one father",
   libSrc.includes("export function obliqueAzimuthVoice(") &&
     libSrc.includes("label: obliqueAzimuthVoice(phi)")
+);
+
+/* ------------------------------------------------------------------ */
+/* t1115 — the direction walk's EXPORT: the family's last honest gap.  */
+/* The numbers first (the t1107 lesson): the filename grammar's pins   */
+/* are computed calls, not string hopes.                               */
+/* ------------------------------------------------------------------ */
+
+// E1 — the filename's grammar: the walk family's own word, the base
+// stripped of its map extension, the HHMMSS stamp
+ok(
+  "E1 the filename speaks the family grammar — oblique-direction-walk-cm_t982_class001-<stamp>.png",
+  obliqueDirectionWalkFilename("/a/b/cm_t982_class001.mrc", "063000") ===
+    "oblique-direction-walk-cm_t982_class001-063000.png"
+);
+
+// E2 — the .mrcs edge: the stack extension strips too (the grammar's
+// own alternation — one name law for both map kinds)
+ok(
+  "E2 the filename strips .mrcs too — oblique-direction-walk-stack-<stamp>.png",
+  obliqueDirectionWalkFilename("/x/stack.mrcs", "120001") ===
+    "oblique-direction-walk-stack-120001.png"
+);
+
+// E3 — the lib owns the name (ONE father): the filename seat is the
+// lib's export, not a panel-local string
+ok(
+  "E3 the name lives in the lib — obliqueDirectionWalkFilename is the lib's export",
+  libSrc.includes("export function obliqueDirectionWalkFilename(") &&
+    libSrc.includes("oblique-direction-walk-")
+);
+
+// E4 — the panel rides the lib's name (the import family grew; the
+// panel never hardcodes the document's name)
+ok(
+  "E4 the panel rides the lib's name — the import family grew the filename seat",
+  panelSrc.includes("obliqueDirectionWalkFilename")
+);
+
+// E5 — the URL's offset rides the /100 translation BORN IN (the t1109
+// lesson): the slider's percent never crosses raw into the request
+// dialect (the seat speaks the scene's fraction)
+ok(
+  "E5 the export's offset speaks the fraction dialect — live.offset / 100 rides the URL seat",
+  panelSrc.includes(
+    "obliqueDirectionWalkUrls(jobId, path, live.theta, live.offset / 100, plan)"
+  )
+);
+
+// E6 — the export rides the SAME three lib seats the paper's page 4
+// rides (the ONE plan, the azimuth URLs, the angular mark) — the
+// sibling-walks mirror, never a second geometry
+ok(
+  "E6 the export rides the page-4 seats — the plan, the URLs and the mark are the ONE lib's",
+  panelSrc.includes("const plan = planObliqueDirectionWalk();") &&
+    panelSrc.includes("obliqueDirectionWalkCurrentIndex(plan, live.phi)")
+);
+
+// E7 — ONE export button: the direction export mounts exactly once,
+// in the block's own header row, next to the offset walk's export
+// (the family's own seat — no second invitation face)
+ok(
+  "E7 ONE direction export — data-canvas-ui=\"ortho-oblique-direction-export\" appears exactly once, beside the walk export",
+  (panelSrc.match(/data-canvas-ui="ortho-oblique-direction-export"/g) || []).length === 1 &&
+    panelSrc.indexOf("<ObliqueDirectionStripButton") <
+      panelSrc.indexOf("</div>", panelSrc.indexOf("<ObliqueFilmstripButton"))
+);
+
+// E8 — the button speaks the extent's own word (the meta line's
+// "frames, around the box" — the paper's fourth page's bytes) and the
+// station count rides the lib's constant (no second six)
+ok(
+  "E8 the button rides the extent word's ONE father — orthoPlateDirectionWalkExtentWord(DIRECTION_STATIONS) in the aria, the words law's own shape (no coin in the panel's code; the t1115 words-cure re-key — the raw coin left the panel, the lib's seat speaks)",
+  panelSrc.includes(
+    "orthoPlateDirectionWalkExtentWord(DIRECTION_STATIONS)"
+  ) && panelSrc.includes("orthoPlateDirectionWalkExtentWord(n)")
+);
+
+// E9 — the grid is the walk family's own measures: THREE compositor
+// blocks now speak the same TILE/LABEL/HEAD/FOOT/GAP numbers (the
+// offset walk, the axis walks, the direction walk — one publishing
+// language, three documents)
+ok(
+  "E9 the family's grid measures — three compositor blocks, the same numbers",
+  (panelSrc.match(/const TILE = 220;/g) || []).length === 3 &&
+    (panelSrc.match(/const LABEL_H = 26;/g) || []).length === 3
 );
 
 console.log(`GREEN: ${pass}/${pass + fail} green`);

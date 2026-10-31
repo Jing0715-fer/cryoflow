@@ -70,9 +70,9 @@ import { DensityHistogramStrip } from "./density-histogram";
 import { cn } from "@/lib/utils";
 import { downloadBlob } from "@/lib/download"; // t646 — one blob sink (this dance skipped the attach-before-click law)
 import { obliqueDepthVox, obliqueDepthVoice, obliqueNormal, obliqueOffsetPctVoice, obliqueSupportVox, voxelReadout } from "@/lib/voxel-voice"; // t906/t907 — the tile's and the oblique block's voices ride the ONE lib (the embed's commit site reads the same seats); t1099 — the cut's direction rides the ONE father too
-import { FILMSTRIP_FRAMES, obliqueDirectionWalkCurrentIndex, obliqueDirectionWalkUrls, obliqueFilmstripFilename, obliqueFilmstripUrls, obliqueWalkCurrentIndex, planObliqueDirectionWalk, planObliqueFilmstrip } from "@/lib/oblique-filmstrip"; // t1096 — the walk's geometry rides the ONE lib: the plan, the URLs and the name are decided before a fetch flies; t1108 — the cut's "you are here" rides the same lib's frac seat; t1109 — the walk dial rides the same two seats on the live screen; t1111 — the direction dial rides the lib's azimuth ladder (the stations carry the voice's own label) and its angular mark; t1112 — the direction page's pixels ride the lib's azimuth URL edition
+import { DIRECTION_STATIONS, FILMSTRIP_FRAMES, obliqueDirectionWalkCurrentIndex, obliqueDirectionWalkFilename, obliqueDirectionWalkUrls, obliqueFilmstripFilename, obliqueFilmstripUrls, obliqueWalkCurrentIndex, planObliqueDirectionWalk, planObliqueFilmstrip } from "@/lib/oblique-filmstrip"; // t1096 — the walk's geometry rides the ONE lib: the plan, the URLs and the name are decided before a fetch flies; t1108 — the cut's "you are here" rides the same lib's frac seat; t1109 — the walk dial rides the same two seats on the live screen; t1111 — the direction dial rides the lib's azimuth ladder (the stations carry the voice's own label) and its angular mark; t1112 — the direction page's pixels ride the lib's azimuth URL edition; t1115 — the direction export's name rides the lib's filename edition
 import { ORTHO_FILMSTRIP_FRAMES, orthoFilmstripFilename, orthoFilmstripUrls, orthoWalkCurrentIndex, planOrthoFilmstrip } from "@/lib/ortho-filmstrip"; // t1098 — the axis walks ride the ONE lib: the plan, the URLs and the name are decided before a fetch flies; t1107 — the walk's "you are here" rides the same seat
-import { orthoAxisWalkHeading, orthoPlateDirectionCurrentLegend, orthoPlateDirectionWalkMetaLine, orthoPlateMetaLine, orthoPlateObliqueCurrentLegend, orthoPlateTileUrl, orthoPlateWalkCurrentLegend, orthoPlateWalkMetaLine, orthoWalkFrameCaption, planOrthoPlate, planPlateHistogram, PLATE_HIST_INKS, type PlateHistPayload } from "@/lib/ortho-plate"; // t1103/t1104/t1105/t1106 — the plate's words and its distribution band ride the ONE plan lib (the voices' own bytes, decided before any print; the walk page's words and the σ leg's geometry ride the same family); t1112 — the direction page's extent and legend ride the same words lib
+import { orthoAxisWalkHeading, orthoPlateDirectionCurrentLegend, orthoPlateDirectionWalkExtentWord, orthoPlateDirectionWalkMetaLine, orthoPlateMetaLine, orthoPlateObliqueCurrentLegend, orthoPlateTileUrl, orthoPlateWalkCurrentLegend, orthoPlateWalkMetaLine, orthoWalkFrameCaption, planOrthoPlate, planPlateHistogram, PLATE_HIST_INKS, type PlateHistPayload } from "@/lib/ortho-plate"; // t1103/t1104/t1105/t1106 — the plate's words and its distribution band ride the ONE plan lib (the voices' own bytes, decided before any print; the walk page's words and the σ leg's geometry ride the same family); t1112 — the direction page's extent and legend ride the same words lib; t1115 — the export button's aria and header ride the extent word seat and the legend's own sentence
 import { usePrintedDate } from "@/lib/use-now"; // t1103 — the plate's paper clock (the t232 law: paper clocks do not hydrate)
 import {
   obliqueTraceDragOffset,
@@ -2590,6 +2590,183 @@ function ObliqueFilmstripButton({
 }
 
 /**
+ * t1115 — the direction walk's EXPORT: the walk-page family's last
+ * honest gap, closed. Both siblings export — the offset walk as ONE PNG
+ * (t1096), the axis walks as their own (t1098); the direction walk had
+ * its live dial (t1111) and its paper page (t1112) but no document. The
+ * strip rides the SAME publishing-grid language and the SAME lib seats
+ * the paper's fourth page rides (the ONE plan, the azimuth URL edition,
+ * the angular mark) — the sibling walks mirror their laws, never share
+ * code (the t1098 precedent): this export is the offset walk's azimuth
+ * edition, not a parameterized merge. The frames speak the stations'
+ * own voice (the lib's label — "φ 0°"…, the ONE father); the held cut's
+ * θ and offset speak the header (the walk varies φ only); the ring is
+ * the mark family's father (EXPORT_OBLIQUE_ACCENT, 2px against the
+ * tiles' 1px — zero new ink). The URL's offset rides the /100
+ * translation BORN IN (the t1109 lesson — the seat speaks the scene's
+ * fraction dialect; the slider's percent never crosses raw).
+ */
+function ObliqueDirectionStripButton({
+  jobId,
+  path,
+  on,
+  live,
+}: {
+  jobId: string;
+  path: string;
+  on: boolean;
+  live: { theta: number; phi: number; offset: number };
+}) {
+  const [state, setState] = useState<"idle" | "busy" | "ok" | "err">("idle");
+  useEffect(() => {
+    if (state !== "ok" && state !== "err") return;
+    const t = setTimeout(() => setState("idle"), 1600);
+    return () => clearTimeout(t);
+  }, [state]);
+
+  const walk = async () => {
+    if (state === "busy" || !on) return;
+    setState("busy");
+    try {
+      const plan = planObliqueDirectionWalk();
+      const urls = obliqueDirectionWalkUrls(jobId, path, live.theta, live.offset / 100, plan);
+      // the mark's frame, decided by the ONE angular seat before any
+      // pixel: the paper's page 4 and this export share the answer
+      // (the cut's own φ, measured around the circle — the wrap law).
+      const currentIdx = obliqueDirectionWalkCurrentIndex(plan, live.phi);
+      const bitmaps = await Promise.all(
+        urls.map(async (u) => {
+          const r = await fetch(u, { cache: "no-store" });
+          if (!r.ok) throw new Error(`frame render failed (${r.status})`);
+          return createImageBitmap(await r.blob());
+        })
+      );
+      // the publishing grid: the walk family's own measures — fixed
+      // tiles, a label strip per frame, a header naming the held cut
+      // and a footer naming the map + the moment
+      const TILE = 220;
+      const LABEL_H = 26;
+      const HEAD_H = 30;
+      const FOOT_H = 46;
+      const GAP = 12;
+      const n = bitmaps.length;
+      const W = GAP * (n + 1) + TILE * n;
+      const H = GAP + HEAD_H + GAP + LABEL_H + TILE + GAP + FOOT_H;
+      const cv = document.createElement("canvas");
+      cv.width = W;
+      cv.height = H;
+      const ctx = cv.getContext("2d");
+      if (!ctx) throw new Error("no 2d context");
+      ctx.fillStyle = EXPORT_BG;
+      ctx.fillRect(0, 0, W, H);
+      // header: the walk's name in the block's violet; the held cut's
+      // θ and offset left-adjacent in the mono voice, the walk's span
+      // word right — "N frames, around the box", the meta line's own
+      // extent word (the paper's fourth page speaks the same bytes),
+      // plus the ring's legend while the mark holds
+      ctx.textBaseline = "middle";
+      ctx.textAlign = "left";
+      ctx.font = "600 13px ui-sans-serif, system-ui, sans-serif";
+      ctx.fillStyle = EXPORT_OBLIQUE_ACCENT;
+      ctx.fillText("Direction walk", GAP, GAP + HEAD_H / 2);
+      const nameW = ctx.measureText("Direction walk").width;
+      ctx.font = "11px ui-monospace, SFMono-Regular, Menlo, monospace";
+      ctx.fillStyle = EXPORT_TEXT;
+      const offPct = `${live.offset > 0 ? "+" : ""}${Math.round(live.offset)}%`;
+      ctx.fillText(
+        `\u03b8 ${live.theta}\u00b0 \u00b7 offset ${offPct}`,
+        GAP + nameW + 14,
+        GAP + HEAD_H / 2
+      );
+      ctx.textAlign = "right";
+      ctx.fillText(
+        `${orthoPlateDirectionWalkExtentWord(n)}${currentIdx != null ? ` \u00b7 ${orthoPlateDirectionCurrentLegend()}` : ""}`,
+        W - GAP,
+        GAP + HEAD_H / 2
+      );
+      ctx.textAlign = "left";
+      // the frames: each station's own voice (the lib's label — the ONE
+      // father), violet, above its tile
+      const rowTop = GAP + HEAD_H + GAP;
+      plan.forEach((s, i) => {
+        const x0 = GAP + i * (TILE + GAP);
+        ctx.font = "600 11px ui-monospace, SFMono-Regular, Menlo, monospace";
+        ctx.fillStyle = EXPORT_OBLIQUE_ACCENT;
+        ctx.textBaseline = "middle";
+        ctx.fillText(s.label, x0, rowTop + LABEL_H / 2);
+        ctx.drawImage(bitmaps[i], x0, rowTop + LABEL_H, TILE, TILE);
+        ctx.strokeStyle = EXPORT_TILE_BORDER;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x0 + 0.5, rowTop + LABEL_H + 0.5, TILE - 1, TILE - 1);
+        // the "you are here" ring: the cut's own direction wears the
+        // block's violet (the mark family's father — no new ink), a 2px
+        // ring inside the tile's own border. The header legend names it;
+        // the paper's page 4 speaks the same mark with the same father.
+        if (i === currentIdx) {
+          ctx.strokeStyle = EXPORT_OBLIQUE_ACCENT;
+          ctx.lineWidth = 2;
+          ctx.strokeRect(x0 + 1.5, rowTop + LABEL_H + 1.5, TILE - 3, TILE - 3);
+          ctx.lineWidth = 1;
+        }
+      });
+      // footer: the map's name left, the moment right — the document
+      // provenance the walk family already speaks
+      const footTop = H - GAP - FOOT_H;
+      const footY = footTop + FOOT_H / 2;
+      const base = path.split("/").pop() || path;
+      ctx.font = "600 13px ui-sans-serif, system-ui, sans-serif";
+      ctx.fillStyle = "#e2e8f0";
+      ctx.fillText(base, GAP, footY);
+      ctx.font = "12px ui-monospace, SFMono-Regular, Menlo, monospace";
+      ctx.fillStyle = EXPORT_TEXT;
+      ctx.textAlign = "right";
+      ctx.fillText(
+        `${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC`,
+        W - GAP,
+        footY
+      );
+      ctx.textAlign = "left";
+      const blob = await new Promise<Blob | null>((res) => cv.toBlob(res, "image/png"));
+      if (!blob) throw new Error("encode failed");
+      const stamp = new Date().toISOString().slice(11, 19).replace(/:/g, "");
+      downloadBlob(blob, obliqueDirectionWalkFilename(path, stamp));
+      setState("ok");
+    } catch {
+      setState("err");
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={walk}
+      disabled={!on || state === "busy"}
+      data-canvas-ui="ortho-oblique-direction-export"
+      aria-label={
+        state === "busy"
+          ? "Exporting the direction walk\u2026"
+          : `Export the cut's direction walk \u2014 ${orthoPlateDirectionWalkExtentWord(DIRECTION_STATIONS)}`
+      }
+      title="\u2317 the direction walk: the current cut swept around the box at its own depth \u2014 six azimuths, one document \u2014 each frame signed with its station"
+      className={cn(
+        "rounded p-0.5 text-violet-600 transition-colors hover:bg-violet-600/10",
+        (!on || state === "busy") && "cursor-not-allowed opacity-50"
+      )}
+    >
+      {state === "busy" ? (
+        <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+      ) : state === "ok" ? (
+        <Check className="h-3 w-3" aria-hidden="true" />
+      ) : state === "err" ? (
+        <TriangleAlert className="h-3 w-3" aria-hidden="true" />
+      ) : (
+        <Film className="h-3 w-3" aria-hidden="true" />
+      )}
+    </button>
+  );
+}
+
+/**
  * t1098 — the walk's SIBLINGS: one ortho axis swept face to face through
  * the box, composed into ONE PNG document. The strip rides the same
  * publishing-grid language as the oblique walk (t1096), but speaks the
@@ -3228,6 +3405,12 @@ function ObliqueSectionBlock({
                 on={on}
                 live={live}
                 provenance={provenance}
+              />
+              <ObliqueDirectionStripButton
+                jobId={jobId}
+                path={path}
+                on={on}
+                live={live}
               />
             </div>
           </div>

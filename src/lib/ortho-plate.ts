@@ -240,6 +240,17 @@ export function orthoPlateObliqueCurrentLegend(): string {
 /* ------------------------------------------------------------------ */
 
 /**
+ * The direction walk's extent word (t1115) — "N frames, around the
+ * box", the ONE father for the walk's extent bytes: the paper's meta
+ * line and the export button's aria speak the same sentence (the
+ * words law — a face never coins its own dialect of a family word).
+ * Pure — one string.
+ */
+export function orthoPlateDirectionWalkExtentWord(frames: number): string {
+  return `${frames} frames, around the box`;
+}
+
+/**
  * The direction page's meta line — page 1's own cut line (the
  * annotation voice's bytes, passed through — never recomputed) joined
  * with the direction walk's own extent ("6 frames, around the box").
@@ -251,7 +262,7 @@ export function orthoPlateDirectionWalkMetaLine(
   cutLine: string | null,
   frames: number
 ): string {
-  const extent = `${frames} frames, around the box`;
+  const extent = orthoPlateDirectionWalkExtentWord(frames);
   return cutLine ? `${cutLine} · ${extent}` : extent;
 }
 

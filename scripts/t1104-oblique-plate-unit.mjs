@@ -196,12 +196,12 @@ const lib = readFileSync(
 // WalkMetaLine — the fourth page's extent and legend; the t1106/t1107/
 // t1108 family-growth re-key precedent, reason named).
 ok(
-  "W1 the panel imports the walk page's words from the ONE plate lib (the t1107/t1108 legends join the family; the t1112 direction page's extent + legend joined the line) and the geometry from the ONE walk lib (the t1108 frac seat joins; the t1111 direction seats + the t1112 direction URL edition joined the line — the family-growth re-key)",
+  "W1 the panel imports the walk page's words from the ONE plate lib (the t1107/t1108 legends join the family; the t1112 direction page's extent + legend joined the line; the t1115 extent word seat joined — the words law's ONE father for the export button) and the geometry from the ONE walk lib (the t1108 frac seat joins; the t1111 direction seats + the t1112 direction URL edition + the t1115 filename edition joined the line — the family-growth re-key, third named)",
   panel.includes(
-    'import { orthoAxisWalkHeading, orthoPlateDirectionCurrentLegend, orthoPlateDirectionWalkMetaLine, orthoPlateMetaLine, orthoPlateObliqueCurrentLegend, orthoPlateTileUrl, orthoPlateWalkCurrentLegend, orthoPlateWalkMetaLine, orthoWalkFrameCaption, planOrthoPlate, planPlateHistogram, PLATE_HIST_INKS, type PlateHistPayload } from "@/lib/ortho-plate"'
+    'import { orthoAxisWalkHeading, orthoPlateDirectionCurrentLegend, orthoPlateDirectionWalkExtentWord, orthoPlateDirectionWalkMetaLine, orthoPlateMetaLine, orthoPlateObliqueCurrentLegend, orthoPlateTileUrl, orthoPlateWalkCurrentLegend, orthoPlateWalkMetaLine, orthoWalkFrameCaption, planOrthoPlate, planPlateHistogram, PLATE_HIST_INKS, type PlateHistPayload } from "@/lib/ortho-plate"'
   ) &&
     panel.includes(
-      'import { FILMSTRIP_FRAMES, obliqueDirectionWalkCurrentIndex, obliqueDirectionWalkUrls, obliqueFilmstripFilename, obliqueFilmstripUrls, obliqueWalkCurrentIndex, planObliqueDirectionWalk, planObliqueFilmstrip } from "@/lib/oblique-filmstrip"'
+      'import { DIRECTION_STATIONS, FILMSTRIP_FRAMES, obliqueDirectionWalkCurrentIndex, obliqueDirectionWalkFilename, obliqueDirectionWalkUrls, obliqueFilmstripFilename, obliqueFilmstripUrls, obliqueWalkCurrentIndex, planObliqueDirectionWalk, planObliqueFilmstrip } from "@/lib/oblique-filmstrip"'
     )
 );
 

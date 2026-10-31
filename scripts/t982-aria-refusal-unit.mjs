@@ -70,8 +70,8 @@ try { unlinkSync(TMP); } catch {}
  * thirty refusal-name cures moved every silent-static site into
  * stateful (the static bucket EMPTIED — the fifth pass's milestone),
  * the census signal genuinely moved, the re-key rides the same era. */
-ok("A2 population = 174 (the world's shape; +1 the t1096 filmstrip walk name, +1 the t1098 ortho walk name, +1 the t1105 print-plate busy door)", receipt?.population === 174, `got ${receipt?.population}`);
-ok("A3 stateful = 152 (61 standing + the 13 t982 + the 7 t983 + the 18 t984 + the 17 t985 cures + the 30 t1005 refusal names + the 3 t1008 dynamic names + the 1 t1096 filmstrip walk name + the 1 t1098 ortho walk name + the 1 t1105 print-plate busy name)", receipt?.tally?.stateful === 152, `got ${receipt?.tally?.stateful}`);
+ok("A2 population = 175 (the world's shape; +1 the t1096 filmstrip walk name, +1 the t1098 ortho walk name, +1 the t1105 print-plate busy door, +1 the t1115 direction walk export name)", receipt?.population === 175, `got ${receipt?.population}`);
+ok("A3 stateful = 153 (61 standing + the 13 t982 + the 7 t983 + the 18 t984 + the 17 t985 cures + the 30 t1005 refusal names + the 3 t1008 dynamic names + the 1 t1096 filmstrip walk name + the 1 t1098 ortho walk name + the 1 t1105 print-plate busy name, +1 from the t1115 direction walk export's busy name)", receipt?.tally?.stateful === 153, `got ${receipt?.tally?.stateful}`);
 ok("A4 silent-static = 0 (43 − the 13 cures − the 30 t1005 cures — THE BUCKET EMPTIED)", receipt?.tally?.["silent-static"] === 0, `got ${receipt?.tally?.["silent-static"]}`);
 ok("A5 silences = 22 (55 − the 30 t1005 cures − the 3 t1008 dynamic names — the honest-name stories spoke)", receipt?.silences === 22, `got ${receipt?.silences}`);
 

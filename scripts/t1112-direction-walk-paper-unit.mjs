@@ -243,12 +243,12 @@ ok(
 // re-key precedent — reason named in the re-keyed pins; the lines stay
 // the file's own single-line form)
 ok(
-  "U4 the import receipts — orthoPlateDirectionWalkMetaLine + orthoPlateDirectionCurrentLegend + obliqueDirectionWalkUrls join the panel's import lines",
+  "U4 the import receipts — orthoPlateDirectionWalkMetaLine + orthoPlateDirectionCurrentLegend + obliqueDirectionWalkUrls join the panel's import lines (the t1115 re-key: the extent word seat + the filename edition joined the same lines, the receipts speak the final bytes)",
   panelSrc.includes(
-    "orthoPlateDirectionCurrentLegend, orthoPlateDirectionWalkMetaLine, orthoPlateMetaLine"
+    "orthoPlateDirectionCurrentLegend, orthoPlateDirectionWalkExtentWord, orthoPlateDirectionWalkMetaLine, orthoPlateMetaLine"
   ) &&
     panelSrc.includes(
-      "obliqueDirectionWalkCurrentIndex, obliqueDirectionWalkUrls, obliqueFilmstripFilename"
+      "obliqueDirectionWalkCurrentIndex, obliqueDirectionWalkFilename, obliqueDirectionWalkUrls, obliqueFilmstripFilename"
     )
 );
 
