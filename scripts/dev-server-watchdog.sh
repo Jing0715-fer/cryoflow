@@ -368,6 +368,13 @@ while true; do
     case "$decision" in
       fire*)
         echo "[$(date -u +%H:%M:%SZ)] recycle: ${decision} — thresholds fat>=${RSS_RECYCLE_KB}KB soft>=${RSS_SOFT_KB}KB floor<=${HOST_FLOOR_KB}KB — controlled recycle before the kernel OOM does it" >> "$LOG"
+        # t1128 — the consequence must be spoken where the kill is decided:
+        # the HMR reconnect after this kill FULL-RELOADS every open tab, and
+        # a reload evicts the whole modal chain silently (no console error,
+        # no focus event — the DOM removal moves focus to body without one).
+        # The t1128 witness: a Mol* ride died mid-walk with an empty
+        # recorder — this line is the killer confessing at the scene.
+        echo "[$(date -u +%H:%M:%SZ)] recycle: this kill full-reloads every open tab (HMR reconnect) — open dialogs evaporate silently (t1128 hollow-shell autopsy)" >> "$LOG"
         pkill -f "next dev" 2>/dev/null; pkill -f "next-server" 2>/dev/null
         sleep 2
         boot
@@ -392,6 +399,10 @@ while true; do
       dt=$((now - silent_since))
       if [ "$dt" -ge "$SILENT_ZOMBIE_S" ]; then
         echo "[$(date -u +%H:%M:%SZ)] silent ${dt}s with process present — lock-dead zombie, executing" >> "$LOG"
+        # t1128 — same spoken consequence as the recycle arm's fire: the
+        # reboot's HMR reconnect full-reloads open tabs and evicts their
+        # dialogs silently.
+        echo "[$(date -u +%H:%M:%SZ)] zombie kill: this kill full-reloads every open tab (HMR reconnect) — open dialogs evaporate silently (t1128 hollow-shell autopsy)" >> "$LOG"
         pkill -f "next dev" 2>/dev/null; pkill -f "next-server" 2>/dev/null
         sleep 2
         silent_since=""

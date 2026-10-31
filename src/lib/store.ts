@@ -310,6 +310,49 @@ function persistSelectedJob(id: string | null) {
   }
 }
 
+// t1128 — the INSPECTOR is the session position's third seat. The hollow
+// shell's autopsy (this window's ride): the dev lane's watchdog recycles
+// the server under memory pressure (rss soft line 1.9GB sits BELOW the
+// lane's born weight ~2.0-2.3GB, so any host avail dip past 768MB fires
+// the thin-host arm mid-ride), the HMR reconnect full-reloads the tab,
+// and the whole modal chain — inspector included — evaporates silently
+// (no focusout, no dismissal, console cleared: the element removal moves
+// focus to body without an event). The reload also hits REAL users: an
+// accidental F5 closes the inspector and the reader must re-find the
+// card. Same family law as the selection seed above: a BARE string, the
+// trust gate is reality itself (the apply step resolves it against the
+// landed canvas), and the empty string is the honest "closed".
+
+const INSPECT_JOB_KEY = "cryoflow.inspect.v1";
+
+/** Read the inspector-position seed (t1128). Same read-only bare-string
+ *  doctrine as the selection seed: no format whitelist can name a job id,
+ *  the real trust gate is the apply step in load(). */
+function hydrateInspectJob(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(INSPECT_JOB_KEY);
+    if (raw == null) return null;
+    const trimmed = raw.trim();
+    return trimmed === "" ? null : trimmed;
+  } catch {
+    return null;
+  }
+}
+
+/** Echo a committed inspector transition to storage (t1128). The empty
+ *  string is the explicit close — absence must not be misread as
+ *  "never inspected". Same two-way-door reasoning as the selection's
+ *  echo above. */
+function persistInspectJob(id: string | null) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(INSPECT_JOB_KEY, id ?? "");
+  } catch {
+    // private mode / quota — the position stays in-RAM for this session
+  }
+}
+
 const ACTIVE_WS_KEY = "cryoflow.activeWorkspace.v1";
 
 /** Read the workspace-position seed (Task 159). The selection (Task 157)
@@ -1587,6 +1630,11 @@ let selectionSeedApplied = false;
  *  whatever canvas the user is on right now. */
 let wsSeedApplied = false;
 
+/** t1128 — same once-per-page-load rule for the inspector seed: the
+ *  reload's first landing reopens the inspector the tab closed with;
+ *  later load()s keep whatever the user is inspecting right now. */
+let inspectSeedApplied = false;
+
 /** Client-side cycle check: would edge from→to create a cycle? */
 function wouldCreateCycle(edges: EdgeDTO[], from: string, to: string): boolean {
   const adj = new Map<string, string[]>();
@@ -2408,6 +2456,22 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           ? landedJobs.find((x) => x.id === seed && jobInWorkspace(x, activeWs))
           : null;
         if (seedJob) set({ selectedId: seedJob.id, selectedIds: [seedJob.id] });
+      }
+      // t1128 — the inspector seed: the reload's first landing reopens the
+      // inspector the tab closed with (the hollow-shell cure — the HMR
+      // reload after a watchdog recycle used to orphan the reader on the
+      // bare canvas). Same filtered-list trust gate as the selection's
+      // seed above: a seed that resolves to no job on THIS canvas is
+      // ignored, and the boot writes nothing to storage either way. The
+      // inspect() action (not a raw set) so the selection semantics and
+      // the storage echo stay the user-facing door's own.
+      if (!inspectSeedApplied) {
+        inspectSeedApplied = true;
+        const inspectSeed = hydrateInspectJob();
+        const inspectJob = inspectSeed
+          ? landedJobs.find((x) => x.id === inspectSeed && jobInWorkspace(x, activeWs))
+          : null;
+        if (inspectJob) get().inspect(inspectJob.id);
       }
       // RELION status came from the SAVED detection — the server is
       // re-verifying in the background; poll until the fresh probe lands so
@@ -5560,6 +5624,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     } else {
       set({ inspectId: null, cameFromJob: null });
     }
+    // t1128 — the session position's third seat echoes its transitions:
+    // the reload's first landing reopens the inspector this tab closed
+    // with. Open and close both speak (the empty string is the explicit
+    // close, the selection echo's own doctrine).
+    persistInspectJob(id);
   },
 
   // t569 — the return chip's click: the openJob dialect with the captured
