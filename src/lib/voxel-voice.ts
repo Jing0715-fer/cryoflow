@@ -325,3 +325,19 @@ export function patchBoxRect(
   if (left < 0 || top < 0 || right > 1 || bottom > 1) return null;
   return { left, top, right, bottom };
 }
+
+/** t1126 — the clamp's own voice. The chip's second line speaks the ACTUAL
+ *  point count (the honest n — never a round (2r+1)² lie); when that n
+ *  falls short of the full in-plane grid, the clamp itself gets ONE
+ *  telegraphic micro-phrase — "of 169 full" — so an edge read explains its
+ *  own shortfall at the point of reading. A full-grid read stays silent
+ *  (n === full: the number already says it all), and so does every unusable
+ *  input — silence, never a wrong arithmetic. Pure.
+ */
+export function patchClampVoice(n: number, radius: number): string | null {
+  if (!Number.isFinite(n) || !Number.isFinite(radius)) return null;
+  if (!Number.isInteger(radius) || radius < 0 || n < 1) return null;
+  const full = (2 * radius + 1) ** 2;
+  if (n >= full) return null;
+  return `of ${full} full`;
+}

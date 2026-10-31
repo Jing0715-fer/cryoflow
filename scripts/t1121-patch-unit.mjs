@@ -21,6 +21,7 @@ import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MAX_PATCH_RADIUS, readMrcPatch, readMrcVoxel } from "@/lib/mrc";
+import { patchClampVoice } from "@/lib/voxel-voice"; // t1126 — the clamp's own voice (the chip's shortfall is the lib's word)
 
 let pass = 0;
 let fail = 0;
@@ -181,6 +182,10 @@ const panelSrc = (await import("node:fs")).readFileSync(
   join(import.meta.dirname, "../src/components/workflow/results/map-ortho-panel.tsx"),
   "utf8"
 );
+const voiceSrc = (await import("node:fs")).readFileSync(
+  join(import.meta.dirname, "../src/lib/voxel-voice.ts"),
+  "utf8"
+);
 ok("G1 the request names the LIVE radius (t1122: the panel's own slider)",
   panelSrc.includes("&r=${probeRadius}"));
 ok("G2 the chip's second line carries its own testid", panelSrc.includes("data-ortho-probe-patch"));
@@ -193,6 +198,25 @@ ok("G6 the title teaches the read (median & robust z, 1.4826·MAD)",
   panelSrc.includes("1.4826·MAD"));
 ok("G7 the actual n is spoken (never a round (2r+1)² lie)",
   panelSrc.includes("${probe.patch.n} pts"));
+ok("G8 the clamp's own voice is family-minted (the lib casts, the panel only quotes — the 词律)",
+  voiceSrc.includes("export function patchClampVoice(") &&
+  voiceSrc.includes("`of ${full} full`"));
+ok("G9 the chip quotes the voice after its honest n (the G7 pin's tail)",
+  panelSrc.includes("patchClampVoice(probe.patch.n, probeRadius)") &&
+  panelSrc.includes('}${probe.patch.n} pts${clampVoice ? ` ${clampVoice}` : ""}`'));
+ok("G10 the panel's radius is the voice's radius (the slider and the shortfall share one r)",
+  panelSrc.includes("const clampVoice = probe?.patch == null ? null : patchClampVoice(probe.patch.n, probeRadius);"));
+
+console.log("H — the clamp's own voice (live, the lib rides ts-alias)");
+ok("H1 an edge patch speaks its shortfall (n=28 of the 11² full)",
+  patchClampVoice(28, 5) === "of 121 full");
+ok("H2 a full-grid patch stays silent (n === full — the number already says it all)",
+  patchClampVoice(121, 5) === null);
+ok("H3 radius 0 is always full (the voxel alone: n=1 of 1)",
+  patchClampVoice(1, 0) === null);
+ok("H4 unusable inputs refuse (fractional radius, n=0, non-finite — silence, never a wrong arithmetic)",
+  patchClampVoice(28, 2.5) === null && patchClampVoice(0, 5) === null &&
+  patchClampVoice(28, NaN) === null);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);
