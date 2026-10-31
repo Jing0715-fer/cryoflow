@@ -895,6 +895,172 @@ export function readMrcVoxel(
   }
 }
 
+/**
+ * Read the (2r+1)² IN-PLANE patch around one voxel and speak its local
+ * statistics (t1121 — the density probe's second voice: "particle or
+ * noise" answered by AREA, not by one number and a squint).
+ *
+ * The probe (readMrcVoxel) says WHAT the cursor is on; this says HOW that
+ * number sits against its own neighbourhood — the centre's robust z-score
+ * against the patch median (σ via 1.4826·MAD, the normal-consistent
+ * scale). A particle apex rises far above its local background; ice or
+ * noise sits inside the crowd. The read is row-wise preads along the
+ * x-fastest axis (≤ (2r+1) preads per plane row) — still free of any
+ * plane buffer, still safe at hover frequency.
+ *
+ * `plane` names the two in-plane axes (the ortho tiles' own frame):
+ *   "xy" → z fixed (the axis=z tile), "xz" → y fixed, "yz" → x fixed.
+ * The centre resolves with the SAME rounding readMrcVoxel uses
+ * (round(p·(dim-1)), clamped), so the statistics belong to the pixels
+ * the cursor is actually over. The box CLAMPS at the volume edge and
+ * `n` reports the voxels actually read — an honest statistic never
+ * invents neighbours. `z` is null when the patch is too flat or too
+ * small to speak (sigma 0, n < 4, r = 0) — the chip just stays quiet
+ * about it rather than showing a lie.
+ *
+ * Refusals (null, the family voice): unreadable file/header, a
+ * non-finite fraction, a radius that is negative, non-integer, finite
+ * but > MAX_PATCH_RADIUS (the route clamps requests; the lib refuses
+ * lies), or any dim < 1.
+ */
+export const MAX_PATCH_RADIUS = 16;
+
+export function readMrcPatch(
+  file: string,
+  fx: number,
+  fy: number,
+  fz: number,
+  radius: number,
+  plane: "xy" | "xz" | "yz",
+  header?: MrcHeader
+): {
+  value: number;
+  ix: number;
+  iy: number;
+  iz: number;
+  half: number;
+  n: number;
+  min: number;
+  max: number;
+  mean: number;
+  median: number;
+  mad: number;
+  sigma: number;
+  z: number | null;
+  lo: { x: number; y: number; z: number };
+  hi: { x: number; y: number; z: number };
+} | null {
+  const h = header ?? readMrcHeader(file);
+  if (!h) return null;
+  if (h.nx < 1 || h.ny < 1 || h.nz < 1) return null;
+  if (![fx, fy, fz].every((v) => Number.isFinite(v))) return null;
+  if (!Number.isFinite(radius)) return null;
+  if (!Number.isInteger(radius) || radius < 0 || radius > MAX_PATCH_RADIUS) return null;
+  if (plane !== "xy" && plane !== "xz" && plane !== "yz") return null;
+  const clamp = (v: number, dim: number) =>
+    Math.max(0, Math.min(Math.round(v * (dim - 1)), dim - 1));
+  const ix = clamp(fx, h.nx);
+  const iy = clamp(fy, h.ny);
+  const iz = clamp(fz, h.nz);
+  // the box CLAMPS at the volume edge — and the FIXED axis is PINNED (the
+  // patch is IN-PLANE: the xy plane reads the z=iz row alone, so the box
+  // speaks lo.z=hi.z=iz, never a phantom z-neighbourhood it never read)
+  const x0 = Math.max(0, ix - radius), x1 = Math.min(h.nx - 1, ix + radius);
+  const y0 = Math.max(0, iy - radius), y1 = Math.min(h.ny - 1, iy + radius);
+  const z0 = Math.max(0, iz - radius), z1 = Math.min(h.nz - 1, iz + radius);
+  let fd: number;
+  try {
+    fd = openSync(file, "r");
+  } catch {
+    return null;
+  }
+  // the data start is the same layout every reader here walks: x fastest,
+  // then y, z slowest — offset = 1024 + nsymbt + ((z·ny + y)·nx + x)·bpv
+  const base = 1024 + h.nsymbt;
+  const values: number[] = [];
+  let value = 0;
+  try {
+    const raw = Buffer.alloc((x1 - x0 + 1) * h.bytesPerVoxel);
+    const one = Buffer.alloc(h.bytesPerVoxel);
+    // walk the plane's rows; the inner axis (x) is the contiguous one
+    if (plane === "xy") {
+      for (let y = y0; y <= y1; y++) {
+        const off = base + ((iz * h.ny + y) * h.nx + x0) * h.bytesPerVoxel;
+        const got = readSync(fd, raw, 0, raw.length, off);
+        if (got < raw.length) return null;
+        for (let k = 0; k <= x1 - x0; k++) {
+          const v = decodeVoxel(raw, k * h.bytesPerVoxel, h.mode);
+          values.push(v);
+          if (y === iy && x0 + k === ix) value = v;
+        }
+      }
+    } else if (plane === "xz") {
+      for (let z = z0; z <= z1; z++) {
+        const off = base + ((z * h.ny + iy) * h.nx + x0) * h.bytesPerVoxel;
+        const got = readSync(fd, raw, 0, raw.length, off);
+        if (got < raw.length) return null;
+        for (let k = 0; k <= x1 - x0; k++) {
+          const v = decodeVoxel(raw, k * h.bytesPerVoxel, h.mode);
+          values.push(v);
+          if (z === iz && x0 + k === ix) value = v;
+        }
+      }
+    } else {
+      // "yz": x is pinned — every voxel is its own (contiguous) read
+      for (let z = z0; z <= z1; z++) {
+        for (let y = y0; y <= y1; y++) {
+          const off = base + ((z * h.ny + y) * h.nx + ix) * h.bytesPerVoxel;
+          const got = readSync(fd, one, 0, h.bytesPerVoxel, off);
+          if (got < h.bytesPerVoxel) return null;
+          const v = decodeVoxel(one, 0, h.mode);
+          values.push(v);
+          if (z === iz && y === iy) value = v;
+        }
+      }
+    }
+  } catch {
+    return null;
+  } finally {
+    closeSync(fd);
+  }
+  const n = values.length;
+  if (n === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const median =
+    n % 2 === 1 ? sorted[(n - 1) / 2] : (sorted[n / 2 - 1] + sorted[n / 2]) / 2;
+  let sum = 0;
+  for (const v of values) sum += v;
+  const mean = sum / n;
+  const absDevs = values.map((v) => Math.abs(v - median)).sort((a, b) => a - b);
+  const mad =
+    n % 2 === 1
+      ? absDevs[(n - 1) / 2]
+      : (absDevs[n / 2 - 1] + absDevs[n / 2]) / 2;
+  const sigma = 1.4826 * mad;
+  // the honest z: only a patch big enough and textured enough may speak
+  const z = sigma > 0 && n >= 4 ? (value - median) / sigma : null;
+  return {
+    value,
+    ix,
+    iy,
+    iz,
+    half: radius,
+    n,
+    min: sorted[0],
+    max: sorted[n - 1],
+    mean,
+    median,
+    mad,
+    sigma,
+    z,
+    // the fixed axis is PINNED to the centre (the patch is IN-PLANE: the
+    // xy plane reads the z=iz row alone, so the box speaks lo.z=hi.z=iz —
+    // never a phantom neighbourhood on the pinned axis it never read)
+    lo: { x: plane === "yz" ? ix : x0, y: plane === "xz" ? iy : y0, z: plane === "xy" ? iz : z0 },
+    hi: { x: plane === "yz" ? ix : x1, y: plane === "xz" ? iy : y1, z: plane === "xy" ? iz : z1 },
+  };
+}
+
 /* ------------------------------------------------------------------ */
 /* Volume histogram (t283)                                             */
 /* ------------------------------------------------------------------ */

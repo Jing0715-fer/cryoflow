@@ -429,6 +429,8 @@ function OrthoTile({
     fy: number;
     value: number | null;
     voxel: { x: number; y: number; z: number } | null;
+    /** t1121 — the patch's second voice (only when the request names r) */
+    patch?: { median: number; sigma: number; z: number | null; n: number };
   } | null>(null);
   const probeAbort = useRef<AbortController | null>(null);
   const lastProbeAt = useRef(0);
@@ -445,12 +447,37 @@ function OrthoTile({
     probeAbort.current?.abort();
     const ac = new AbortController();
     probeAbort.current = ac;
-    const qs = `path=${encodeURIComponent(path)}&format=value&axis=${spec.axis}&pos=${rendered.toFixed(3)}&fx=${fx.toFixed(4)}&fy=${fy.toFixed(4)}`;
+    // t1121 — r=5: the answer grows the in-plane 11×11 local statistics
+    // (median / robust z) around the SAME voxel — still row-wise preads,
+    // still free of any plane buffer, still safe at hover frequency
+    const qs = `path=${encodeURIComponent(path)}&format=value&axis=${spec.axis}&pos=${rendered.toFixed(3)}&fx=${fx.toFixed(4)}&fy=${fy.toFixed(4)}&r=5`;
     fetch(`/api/jobs/${jobId}/outputs/file?${qs}`, { signal: ac.signal })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: { value?: unknown; voxel?: { x: number; y: number; z: number } } | null) => {
+      .then((d: {
+        value?: unknown;
+        voxel?: { x: number; y: number; z: number };
+        patch?: { median?: unknown; sigma?: unknown; z?: unknown; n?: unknown };
+      } | null) => {
         if (!d || typeof d.value !== "number" || !Number.isFinite(d.value)) return;
-        setProbe((p) => (p ? { ...p, value: d.value as number, voxel: d.voxel ?? null } : p));
+        // the patch speaks only when its numbers are finite — a partial
+        // payload degrades to the first voice (honest, never invented)
+        const patch =
+          d.patch &&
+          typeof d.patch.median === "number" && Number.isFinite(d.patch.median) &&
+          typeof d.patch.n === "number" && Number.isFinite(d.patch.n)
+            ? {
+                median: d.patch.median,
+                sigma:
+                  typeof d.patch.sigma === "number" && Number.isFinite(d.patch.sigma)
+                    ? d.patch.sigma
+                    : 0,
+                z: typeof d.patch.z === "number" && Number.isFinite(d.patch.z) ? d.patch.z : null,
+                n: d.patch.n,
+              }
+            : undefined;
+        setProbe((p) =>
+          p ? { ...p, value: d.value as number, voxel: d.voxel ?? null, patch } : p
+        );
       })
       .catch(() => {}); // aborted on leave/unmount — silence is correct
   };
@@ -464,7 +491,9 @@ function OrthoTile({
     const fy = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
     // the line is instant (local geometry); the value keeps whatever it
     // had until the next fetch answers — the chip never flashes empty
-    setProbe((p) => (p ? { ...p, fx, fy } : { fx, fy, value: null, voxel: null }));
+    setProbe((p) =>
+      p ? { ...p, fx, fy } : { fx, fy, value: null, voxel: null, patch: undefined }
+    );
     const now = Date.now();
     const remaining = PROBE_THROTTLE_MS - (now - lastProbeAt.current);
     if (probeTimer.current) clearTimeout(probeTimer.current);
@@ -707,6 +736,23 @@ function OrthoTile({
           ? `… @ ${probe.voxel.x + 1},${probe.voxel.y + 1},${probe.voxel.z + 1}`
           : null
         : `${probe.value.toFixed(3)}${probe.voxel ? ` @ ${probe.voxel.x + 1},${probe.voxel.y + 1},${probe.voxel.z + 1}` : ""}`;
+
+  // t1121 — the patch's second line (the AREA voice): median first (the
+  // robust centre of the neighbourhood), then the robust z with an
+  // explicit sign (σ = 1.4826·MAD — a positive z on an apex says the
+  // blob rises above its own background; a z near zero says it sits
+  // inside the crowd), then the ACTUAL point count — a clamped edge
+  // patch speaks its true n, never a round (2r+1)² lie. When the patch
+  // is too flat or too small to speak (z null) the line simply omits
+  // the z — silence about it, never a lie about it.
+  const patchText =
+    probe?.patch == null
+      ? null
+      : `med ${probe.patch.median.toFixed(3)} · ${
+          probe.patch.z === null
+            ? ""
+            : `z ${probe.patch.z >= 0 ? "+" : "−"}${Math.abs(probe.patch.z).toFixed(1)}σ · `
+        }${probe.patch.n} pts`;
 
   const syncTo3d = () => {
     window.dispatchEvent(
@@ -954,6 +1000,15 @@ function OrthoTile({
                 className="pointer-events-none absolute bottom-1 left-1 rounded border border-sky-500/30 bg-background/85 px-1.5 py-0.5 font-mono text-[9px] tabular-nums text-sky-300"
               >
                 {probeText}
+                {patchText && (
+                  <span
+                    data-ortho-probe-patch
+                    className="block text-sky-400/70"
+                    title="local (2r+1)² patch around the probed voxel — median & robust z (σ = 1.4826·MAD): a high z says the blob rises above its own background, a z near zero says noise"
+                  >
+                    {patchText}
+                  </span>
+                )}
               </div>
             )}
           </>

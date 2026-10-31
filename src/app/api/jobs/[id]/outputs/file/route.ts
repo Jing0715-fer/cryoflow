@@ -8,7 +8,7 @@ import { isPathrefPath, readPathrefTarget } from "@/lib/relion/pathref";
 import { resolveInsideJobWorkdir } from "@/lib/relion/jobfile";
 import { isLocalRequest } from "@/lib/http-guard";
 import { fetchRemoteFileIntoWorkdir } from "@/lib/remote/remote-files";
-import { isMrcPath, readMrcHeader, readMrcHistogram, readMrcVoxel, renderMrcLargePng, renderMrcMontagePng, renderMrcObliquePng, renderMrcOrthoPng, renderMrcSlicePng } from "@/lib/mrc";
+import { MAX_PATCH_RADIUS, isMrcPath, readMrcHeader, readMrcHistogram, readMrcPatch, readMrcVoxel, renderMrcLargePng, renderMrcMontagePng, renderMrcObliquePng, renderMrcOrthoPng, renderMrcSlicePng } from "@/lib/mrc";
 import { displayPolarityFor } from "@/lib/render-polarity";
 import { cachedComputeAsync } from "@/lib/relion/statcache";
 import { serverErrorReply } from "@/lib/server-error";
@@ -244,15 +244,52 @@ export async function GET(request: NextRequest, context: RouteContext) {
       if (!hit) {
         return NextResponse.json({ error: "Could not read this map" }, { status: 400 });
       }
-      return NextResponse.json(
-        {
-          jobId: job.id,
-          axis,
-          value: hit.value,
-          voxel: { x: hit.ix, y: hit.iy, z: hit.iz },
-        },
-        { headers: { "Cache-Control": "no-cache" } }
-      );
+      // t1121 — the probe's second voice: an optional `r` names a patch
+      // radius and the answer grows the in-plane local statistics around
+      // the SAME voxel (median / MAD-σ / robust z — "particle or noise"
+      // answered by AREA). The parameter is opt-in: without it the
+      // payload is byte-for-byte the t281 shape (older callers never
+      // notice). An r that IS present must be honest — a non-finite,
+      // negative or over-sized radius is a 400 that names the law, not a
+      // silent clamp. The plane mapping is the tiles' own frame: the
+      // pos-axis is fixed, the other two are the patch's plane (z→xy,
+      // y→xz, x→yz). A failed patch read degrades HONESTLY: the t281
+      // shape returns without the field — the chip keeps its first voice
+      // rather than the server inventing neighbours.
+      let patch: ReturnType<typeof readMrcPatch> = null;
+      const rRaw = url.searchParams.get("r");
+      if (rRaw !== null) {
+        const r = Number.parseFloat(rRaw);
+        if (!Number.isFinite(r) || !Number.isInteger(r) || r < 0 || r > MAX_PATCH_RADIUS) {
+          return NextResponse.json(
+            { error: `r must be an integer between 0 and ${MAX_PATCH_RADIUS}` },
+            { status: 400 }
+          );
+        }
+        const plane = axis === "z" ? "xy" : axis === "y" ? "xz" : "yz";
+        patch = readMrcPatch(abs, vf.fx, vf.fy, vf.fz, r, plane);
+      }
+      const body: Record<string, unknown> = {
+        jobId: job.id,
+        axis,
+        value: hit.value,
+        voxel: { x: hit.ix, y: hit.iy, z: hit.iz },
+      };
+      if (patch) {
+        body.patch = {
+          plane: axis === "z" ? "xy" : axis === "y" ? "xz" : "yz",
+          half: patch.half,
+          n: patch.n,
+          min: patch.min,
+          max: patch.max,
+          mean: patch.mean,
+          median: patch.median,
+          sigma: patch.sigma,
+          z: patch.z,
+          box: { lo: patch.lo, hi: patch.hi },
+        };
+      }
+      return NextResponse.json(body, { headers: { "Cache-Control": "no-cache" } });
     }
 
     // t283 — the histogram instrument: the WHOLE volume's density
