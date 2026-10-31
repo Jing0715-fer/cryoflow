@@ -194,5 +194,5 @@ ok("G6 the title teaches the read (median & robust z, 1.4826·MAD)",
 ok("G7 the actual n is spoken (never a round (2r+1)² lie)",
   panelSrc.includes("${probe.patch.n} pts"));
 
-console.log(`\n${pass} pass, ${fail} fail`);
+console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);

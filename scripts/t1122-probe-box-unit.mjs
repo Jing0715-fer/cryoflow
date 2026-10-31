@@ -141,5 +141,20 @@ ok("G5 every tile rides the same hand (probeRadius passed to all three)",
   (panelSrc.match(/probeRadius=\{probeRadius\}/g) || []).length === 1
   && panelSrc.includes("probeRadius: number;"));
 
-console.log(`\n${pass} pass, ${fail} fail`);
+console.log("H — the radius slider's live re-probe (t1124, source assertions)");
+ok("H1 the debounce constant exists at the throttle's side",
+  panelSrc.includes("const PROBE_REFETCH_MS = 180;")
+  && panelSrc.indexOf("PROBE_REFETCH_MS") > panelSrc.indexOf("PROBE_THROTTLE_MS = 140"));
+ok("H2 the re-probe effect's only reactive dependency is the radius",
+  /useEffect\(\(\) => \{[\s\S]*?fireProbeRef\.current\(fx, fy\);[\s\S]*?\}, \[probeRadius\]\)/.test(panelSrc));
+ok("H3 the position and fetcher ride post-render refs (react-hooks/refs law)",
+  panelSrc.includes("const probeRef = useRef(probe);")
+  && panelSrc.includes("const fireProbeRef = useRef(fireProbe);")
+  && /useEffect\(\(\) => \{\s*probeRef\.current = probe;\s*fireProbeRef\.current = fireProbe;\s*\}\);/.test(panelSrc));
+ok("H4 a slider drag sweeps notches but lands ONE request (trailing debounce)",
+  /if \(probeTimer\.current\) clearTimeout\(probeTimer\.current\);\s*probeTimer\.current = setTimeout\(\(\) => \{\s*lastProbeAt\.current = Date\.now\(\);\s*fireProbeRef\.current\(fx, fy\);/.test(panelSrc));
+ok("H5 mouse leave still silences everything (no ghost re-probe)",
+  /const leaveProbe = \(\) => \{\s*if \(probeTimer\.current\) clearTimeout\(probeTimer\.current\);\s*probeAbort\.current\?\.abort\(\);\s*setProbe\(null\);/.test(panelSrc));
+
+console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);

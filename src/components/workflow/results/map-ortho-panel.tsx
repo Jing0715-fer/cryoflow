@@ -261,6 +261,10 @@ const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
  *  them is still a flood; the crosshair line follows the cursor at full
  *  rate and only the VALUE chases on this cadence */
 const PROBE_THROTTLE_MS = 140;
+/** t1124 — the radius slider's re-probe debounce: a drag sweeps many r
+ *  values; ONE request lands, 180 ms after the last notch (a notch-step
+ *  is a deliberate ask, so the debounce is short) */
+const PROBE_REFETCH_MS = 180;
 /** t281 — the probe's hue (sky, the σ chip's cyan family): distinct from
  *  the three focus accents so "where I am looking" (dashed, accent) and
  *  "where my cursor is" (solid, sky) never share a colour language */
@@ -551,6 +555,32 @@ function OrthoTile({
     probeAbort.current?.abort();
     setProbe(null);
   };
+
+  // t1124 — the radius slider's LIVE re-probe: the chip and the dashed
+  // box answer the slider without waiting for the next mouse move. The
+  // last hovered position is the probe's own state (fx/fy — t281 made
+  // the line pure geometry, t1121 taught the chip to speak a radius);
+  // a radius change re-fires at the SAME point, trailing-debounced so a
+  // slider drag sweeps many notches and ONE request lands. The refs
+  // bridge the freshest probe position and fetcher (assigned in the
+  // post-render pass — react-hooks/refs forbids render-time writes);
+  // radius is the ONLY reactive dependency of the re-probe effect.
+  const probeRef = useRef(probe);
+  const fireProbeRef = useRef(fireProbe);
+  useEffect(() => {
+    probeRef.current = probe;
+    fireProbeRef.current = fireProbe;
+  });
+  useEffect(() => {
+    const p = probeRef.current;
+    if (!p) return;
+    const { fx, fy } = p;
+    if (probeTimer.current) clearTimeout(probeTimer.current);
+    probeTimer.current = setTimeout(() => {
+      lastProbeAt.current = Date.now();
+      fireProbeRef.current(fx, fy);
+    }, PROBE_REFETCH_MS);
+  }, [probeRadius]);
 
   // t253 — the clip's tile overlay. The clip box lives in 3D; each 2D tile
   // speaks its slice of the story: the kept region's cross-section drawn as
