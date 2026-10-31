@@ -523,6 +523,21 @@
     0 16px 40px -12px var(--ink-18);
 }
 
+/* t1123 — the family focus ring cannot ride utilities on card-lift
+   surfaces: this rule is UNLAYERED, so it beats every layered ring
+   composite (measured live: the header's env pill held focus-visible:ring-1
+   in its class list while its computed box-shadow showed only the two
+   card-lift inks — the ring was cascaded out, not absent). The family
+   ring therefore paints as an outline here — the same 1px --ring voice,
+   cascade-proof. The seat-level ring tokens stay: they are the honest
+   declaration of intent, and they take over if a surface ever drops
+   card-lift. */
+.card-lift:focus-visible,
+.card-lift-lg:focus-visible {
+  outline: 1px solid var(--ring);
+  outline-offset: 0;
+}
+
 /* t571 — the hover lean. Canvas cards are cursor-grab: on hover the card
    leans INTO your hand — it rises 2px and lets its shadow answer (the
    shadow transition is paint, unguarded by the house's motion doctrine;

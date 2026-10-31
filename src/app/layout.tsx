@@ -1,3 +1,6 @@
+// t1123 — the graph re-knock: the card-lift focus outline law landed in
+// globals.css but the persistent Turbopack cache served the stale module;
+// touching the importer re-walks the graph (the comment is the knob).
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";

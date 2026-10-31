@@ -122,6 +122,12 @@ const denoiseT = srcOf.get(join(ROOT, "src/components/workflow/results/denoise-c
 const reportT = srcOf.get(join(ROOT, "src/components/workflow/session-report-dialog.tsx")) ?? "";
 ok("E1 denoise compare slider keeps its outline idiom", denoiseT.includes("focus-visible:outline-fuchsia-400"));
 ok("E2 session report rows keep the violet bg-swap idiom", reportT.includes("focus-visible:bg-violet-500/15"));
+// E3 — the card-lift cascade law: the unlayered .card-lift box-shadow
+// beats every layered ring composite, so the family ring paints as an
+// outline there (measured live: the header env pill held ring-1 in its
+// class list while its computed box-shadow showed only the lift inks).
+const globalsT = readFileSync(join(ROOT, "src/app/globals.css"), "utf8");
+ok("E3 globals carries the card-lift focus outline law", globalsT.includes(".card-lift:focus-visible") && globalsT.includes("outline: 1px solid var(--ring)"));
 
 // ---------------- band F: census shape ----------------
 // 62 files carry raw <button> substrings; 295 REAL raw opening tags live
