@@ -234,9 +234,9 @@ const plateLib = readFileSync(
 // mark's legend; geometry from the strip lib, whose family grew the
 // t1107 "you are here" seat)
 ok(
-  "W1 the panel imports the axis page's words from the ONE plate lib (orthoAxisWalkHeading and the t1107/t1108 legends ride the family line) and the geometry from the ONE strip lib (the plan families plus the t1107/t1108 current seats)",
+  "W1 the panel imports the axis page's words from the ONE plate lib (orthoAxisWalkHeading and the t1107/t1108 legends ride the family line; the t1112 direction page's extent + legend joined the line — the family-growth re-key, reason named) and the geometry from the ONE strip lib (the plan families plus the t1107/t1108 current seats)",
   panel.includes(
-    'import { orthoAxisWalkHeading, orthoPlateMetaLine, orthoPlateObliqueCurrentLegend, orthoPlateTileUrl, orthoPlateWalkCurrentLegend, orthoPlateWalkMetaLine, orthoWalkFrameCaption, planOrthoPlate, planPlateHistogram, PLATE_HIST_INKS, type PlateHistPayload } from "@/lib/ortho-plate"'
+    'import { orthoAxisWalkHeading, orthoPlateDirectionCurrentLegend, orthoPlateDirectionWalkMetaLine, orthoPlateMetaLine, orthoPlateObliqueCurrentLegend, orthoPlateTileUrl, orthoPlateWalkCurrentLegend, orthoPlateWalkMetaLine, orthoWalkFrameCaption, planOrthoPlate, planPlateHistogram, PLATE_HIST_INKS, type PlateHistPayload } from "@/lib/ortho-plate"'
   ) &&
     panel.includes(
       'import { ORTHO_FILMSTRIP_FRAMES, orthoFilmstripFilename, orthoFilmstripUrls, orthoWalkCurrentIndex, planOrthoFilmstrip } from "@/lib/ortho-filmstrip"'

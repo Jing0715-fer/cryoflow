@@ -227,10 +227,13 @@ ok(
 );
 
 // U4 — the ladder rides the ONE plan: no inline station math (no
-// literal azimuth array near the dial)
+// literal azimuth array near the dial). The t1112 re-key: the call
+// count grew 1 → 2 — the direction page's print seats ride the SAME
+// ladder (the paper's fourth page plans its frames from the ONE plan
+// seat, never a second station dialect), reason named.
 ok(
-  "U4 the ladder rides the ONE plan — planObliqueDirectionWalk() once, no inline azimuth array",
-  (panelSrc.match(/planObliqueDirectionWalk\(\)/g) || []).length === 1 &&
+  "U4 the ladder rides the ONE plan — planObliqueDirectionWalk() twice (the dial + the t1112 print page riding the same ONE seat), no inline azimuth array",
+  (panelSrc.match(/planObliqueDirectionWalk\(\)/g) || []).length === 2 &&
     !panelSrc.includes("[0, 60, 120") &&
     !panelSrc.includes("[0,60,120")
 );

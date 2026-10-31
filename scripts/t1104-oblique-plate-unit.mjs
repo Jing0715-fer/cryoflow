@@ -188,17 +188,20 @@ const lib = readFileSync(
 );
 
 // W1 — the ONE imports (words from the plate lib, geometry from the walk
-// lib). The walk-lib line's exact bytes re-keyed at t1111: the import
-// family grew the direction dial's two names (obliqueDirectionWalkCur-
-// rentIndex + planObliqueDirectionWalk — the dial's own seats; the
-// t1106/t1107/t1108 family-growth re-key precedent, reason named).
+// lib). The walk-lib line's exact bytes re-keyed at t1111 (the dial's
+// two names) and again at t1112: the family grew the direction page's
+// URL edition (obliqueDirectionWalkUrls). The plate-lib line's exact
+// bytes re-keyed at t1112: the family grew the direction page's two
+// word seats (orthoPlateDirectionCurrentLegend + orthoPlateDirection-
+// WalkMetaLine — the fourth page's extent and legend; the t1106/t1107/
+// t1108 family-growth re-key precedent, reason named).
 ok(
-  "W1 the panel imports the walk page's words from the ONE plate lib (the t1107/t1108 legends join the family) and the geometry from the ONE walk lib (the t1108 frac seat joins; the t1111 direction seats joined the line — the family-growth re-key)",
+  "W1 the panel imports the walk page's words from the ONE plate lib (the t1107/t1108 legends join the family; the t1112 direction page's extent + legend joined the line) and the geometry from the ONE walk lib (the t1108 frac seat joins; the t1111 direction seats + the t1112 direction URL edition joined the line — the family-growth re-key)",
   panel.includes(
-    'import { orthoAxisWalkHeading, orthoPlateMetaLine, orthoPlateObliqueCurrentLegend, orthoPlateTileUrl, orthoPlateWalkCurrentLegend, orthoPlateWalkMetaLine, orthoWalkFrameCaption, planOrthoPlate, planPlateHistogram, PLATE_HIST_INKS, type PlateHistPayload } from "@/lib/ortho-plate"'
+    'import { orthoAxisWalkHeading, orthoPlateDirectionCurrentLegend, orthoPlateDirectionWalkMetaLine, orthoPlateMetaLine, orthoPlateObliqueCurrentLegend, orthoPlateTileUrl, orthoPlateWalkCurrentLegend, orthoPlateWalkMetaLine, orthoWalkFrameCaption, planOrthoPlate, planPlateHistogram, PLATE_HIST_INKS, type PlateHistPayload } from "@/lib/ortho-plate"'
   ) &&
     panel.includes(
-      'import { FILMSTRIP_FRAMES, obliqueDirectionWalkCurrentIndex, obliqueFilmstripFilename, obliqueFilmstripUrls, obliqueWalkCurrentIndex, planObliqueDirectionWalk, planObliqueFilmstrip } from "@/lib/oblique-filmstrip"'
+      'import { FILMSTRIP_FRAMES, obliqueDirectionWalkCurrentIndex, obliqueDirectionWalkUrls, obliqueFilmstripFilename, obliqueFilmstripUrls, obliqueWalkCurrentIndex, planObliqueDirectionWalk, planObliqueFilmstrip } from "@/lib/oblique-filmstrip"'
     )
 );
 

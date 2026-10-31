@@ -219,6 +219,36 @@ export function planObliqueDirectionWalk(
 }
 
 /**
+ * The direction walk's request series (t1112) — the paper's fourth page
+ * asks for the same truth the offset walk's page asks for, with the
+ * walk's varying axis rotated: page 2 holds (θ, φ) and varies the
+ * offset; the direction walk holds the cut's own θ and offset and
+ * varies φ across the stations. The bytes obey the block's own src law
+ * verbatim (plane=oblique, θ/φ toFixed(1), offset toFixed(3)) — a
+ * paper frame and the live view are the same request shape, so a
+ * station's frame and the screen can never disagree about what was
+ * rendered. The sibling walks mirror their laws, never share code
+ * (the t1098 precedent): this seat is obliqueFilmstripUrls' azimuth
+ * edition, not a parameterized merge. Pure.
+ */
+export function obliqueDirectionWalkUrls(
+  jobId: string,
+  path: string,
+  theta: number,
+  offset: number,
+  stops: ReadonlyArray<{ phi: number }>
+): string[] {
+  const th = Number.isFinite(theta) ? theta : 0;
+  const off = Number.isFinite(offset) ? offset : 0;
+  return stops.map(
+    (s) =>
+      `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(path)}` +
+      `&format=png&plane=oblique&theta=${th.toFixed(1)}` +
+      `&phi=${s.phi.toFixed(1)}&offset=${off.toFixed(3)}`
+  );
+}
+
+/**
  * The direction dial's "you are here" (t1111) — the t1108 seat's
  * ANGULAR edition: the stop whose azimuth stands nearest the cut's
  * own, measured around the circle (min(|a−b|, 360−|a−b|)) — the wrap

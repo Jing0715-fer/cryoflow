@@ -222,6 +222,57 @@ export function orthoPlateObliqueCurrentLegend(): string {
 }
 
 /* ------------------------------------------------------------------ */
+/* t1112 — the direction walk's paper edition: page 4 speaks the cut's */
+/* SECOND degree of freedom. The screen's direction dial (t1111) walks */
+/* the cut around the box — six azimuth stations at the cut's own θ    */
+/* and depth; the paper answers in the same breath: six frames around  */
+/* the box, each rendered by the SAME server truth (the block's own    */
+/* src law, the walk lib's azimuth URL edition), the current direction */
+/* marked by the family's ring (the angular seat's own answer). The    */
+/* words ride the plate's laws unchanged, with one honest new word:    */
+/* the extent. "N frames, face to face" is the offset walk's phrase —  */
+/* the direction walk does not pass face to face, it walks AROUND —    */
+/* so the extent speaks its own word ("N frames, around the box")      */
+/* from its own seat, never a second dialect of page 2's line. The     */
+/* legend joins the family as the direction dialect: page 3 marks the  */
+/* tiles' planes, page 2 marks the cut's own plane, page 4 marks the   */
+/* cut's own direction — three sentences, never one blurred word.      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The direction page's meta line — page 1's own cut line (the
+ * annotation voice's bytes, passed through — never recomputed) joined
+ * with the direction walk's own extent ("6 frames, around the box").
+ * A null cut line still names the extent: the frames carry their own
+ * azimuth voices, the page honestly says nothing about a cut it
+ * cannot see. Pure — nothing mutated, one string.
+ */
+export function orthoPlateDirectionWalkMetaLine(
+  cutLine: string | null,
+  frames: number
+): string {
+  const extent = `${frames} frames, around the box`;
+  return cutLine ? `${cutLine} · ${extent}` : extent;
+}
+
+/**
+ * The direction mark's legend (t1112) — the one sentence that names
+ * the ring on the direction walk's page (page 4). The direction
+ * dialect of the t1107/t1108 legend family: the ring sits on the
+ * station nearest the cut's own azimuth (the angular seat's answer —
+ * the wrap law included), and the legend tells the reader so without
+ * pointing at a screen. The legend rides unconditionally whenever the
+ * direction page prints: the page exists only under a live cut, and
+ * the cut's φ is a number by its own type — the mark is always
+ * present when its legend is (the t1108 seat's own null law, the
+ * honest silence unreachable with a mounted cut). Pure — nothing
+ * mutated, one string.
+ */
+export function orthoPlateDirectionCurrentLegend(): string {
+  return "the colored ring marks the cut's own direction on this walk";
+}
+
+/* ------------------------------------------------------------------ */
 /* t1105 — the plate's σ LEG: the map's density distribution joins     */
 /* page 1. The t291 export already speaks this figure (the PNG foot-   */
 /* er's log-bar miniature with the σ ruler and the cyan cut) — the     */

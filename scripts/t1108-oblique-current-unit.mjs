@@ -187,11 +187,11 @@ ok(
     "the colored ring marks the cut's own plane on this walk"
 );
 
-// U2 — the ONE seat beside its t1107 sibling (two dialects — the tiles'
-// sentence and the cut's sentence stay distinct words)
+// U2 — the ONE seat beside its t1107 sibling (two dialects at t1108;
+// the t1112 family grew the third — the direction legend)
 ok(
-  "U2 the two legends are distinct seats (the oblique sentence never blurs into the tiles' sentence)",
-  (plateLib.match(/the colored ring marks/g) || []).length === 2 &&
+  "U2 the legends are distinct seats (the oblique sentence never blurs into the tiles' sentence; the t1112 re-key: the family grew the direction legend's third sentence — three dialects, never one blurred word)",
+  (plateLib.match(/the colored ring marks/g) || []).length === 3 &&
     plateLib.includes("the colored ring marks each walk's current tile plane")
 );
 

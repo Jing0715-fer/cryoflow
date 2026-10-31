@@ -70,9 +70,9 @@ import { DensityHistogramStrip } from "./density-histogram";
 import { cn } from "@/lib/utils";
 import { downloadBlob } from "@/lib/download"; // t646 — one blob sink (this dance skipped the attach-before-click law)
 import { obliqueDepthVox, obliqueDepthVoice, obliqueNormal, obliqueOffsetPctVoice, obliqueSupportVox, voxelReadout } from "@/lib/voxel-voice"; // t906/t907 — the tile's and the oblique block's voices ride the ONE lib (the embed's commit site reads the same seats); t1099 — the cut's direction rides the ONE father too
-import { FILMSTRIP_FRAMES, obliqueDirectionWalkCurrentIndex, obliqueFilmstripFilename, obliqueFilmstripUrls, obliqueWalkCurrentIndex, planObliqueDirectionWalk, planObliqueFilmstrip } from "@/lib/oblique-filmstrip"; // t1096 — the walk's geometry rides the ONE lib: the plan, the URLs and the name are decided before a fetch flies; t1108 — the cut's "you are here" rides the same lib's frac seat; t1109 — the walk dial rides the same two seats on the live screen; t1111 — the direction dial rides the lib's azimuth ladder (the stations carry the voice's own label) and its angular mark
+import { FILMSTRIP_FRAMES, obliqueDirectionWalkCurrentIndex, obliqueDirectionWalkUrls, obliqueFilmstripFilename, obliqueFilmstripUrls, obliqueWalkCurrentIndex, planObliqueDirectionWalk, planObliqueFilmstrip } from "@/lib/oblique-filmstrip"; // t1096 — the walk's geometry rides the ONE lib: the plan, the URLs and the name are decided before a fetch flies; t1108 — the cut's "you are here" rides the same lib's frac seat; t1109 — the walk dial rides the same two seats on the live screen; t1111 — the direction dial rides the lib's azimuth ladder (the stations carry the voice's own label) and its angular mark; t1112 — the direction page's pixels ride the lib's azimuth URL edition
 import { ORTHO_FILMSTRIP_FRAMES, orthoFilmstripFilename, orthoFilmstripUrls, orthoWalkCurrentIndex, planOrthoFilmstrip } from "@/lib/ortho-filmstrip"; // t1098 — the axis walks ride the ONE lib: the plan, the URLs and the name are decided before a fetch flies; t1107 — the walk's "you are here" rides the same seat
-import { orthoAxisWalkHeading, orthoPlateMetaLine, orthoPlateObliqueCurrentLegend, orthoPlateTileUrl, orthoPlateWalkCurrentLegend, orthoPlateWalkMetaLine, orthoWalkFrameCaption, planOrthoPlate, planPlateHistogram, PLATE_HIST_INKS, type PlateHistPayload } from "@/lib/ortho-plate"; // t1103/t1104/t1105/t1106 — the plate's words and its distribution band ride the ONE plan lib (the voices' own bytes, decided before any print; the walk page's words and the σ leg's geometry ride the same family)
+import { orthoAxisWalkHeading, orthoPlateDirectionCurrentLegend, orthoPlateDirectionWalkMetaLine, orthoPlateMetaLine, orthoPlateObliqueCurrentLegend, orthoPlateTileUrl, orthoPlateWalkCurrentLegend, orthoPlateWalkMetaLine, orthoWalkFrameCaption, planOrthoPlate, planPlateHistogram, PLATE_HIST_INKS, type PlateHistPayload } from "@/lib/ortho-plate"; // t1103/t1104/t1105/t1106 — the plate's words and its distribution band ride the ONE plan lib (the voices' own bytes, decided before any print; the walk page's words and the σ leg's geometry ride the same family); t1112 — the direction page's extent and legend ride the same words lib
 import { usePrintedDate } from "@/lib/use-now"; // t1103 — the plate's paper clock (the t232 law: paper clocks do not hydrate)
 import {
   obliqueTraceDragOffset,
@@ -1251,6 +1251,22 @@ export function MapOrthoPanel({
       ? obliqueWalkCurrentIndex(walkPlan.frames, plateOblique.offset)
       : null;
 
+  // t1112 — the direction walk's paper geometry, decided before any
+  // print: the SAME seats the screen's direction dial rides (the ONE
+  // lib's azimuth ladder + angular mark) joined with the azimuth URL
+  // edition (the block's own src law — no second request dialect).
+  // The θ and offset are the cut's own (the plate's echo state — the
+  // paper never prints a stale cut, the t1103 echo law, fourth page);
+  // φ walks the stations. No live cut → no page: page 2's own law,
+  // stated on paper again.
+  const directionPrintStops = planObliqueDirectionWalk();
+  const directionPrintUrls = plateOblique
+    ? obliqueDirectionWalkUrls(jobId, path, plateOblique.theta, plateOblique.offset, directionPrintStops)
+    : null;
+  const directionPrintCurrent = plateOblique
+    ? obliqueDirectionWalkCurrentIndex(directionPrintStops, plateOblique.phi)
+    : null;
+
   // t1106 — the axis walks' paper geometry, decided before any print: the
   // SAME lib the screen's strip buttons ride (plan + URLs — no second
   // request dialect), one strip per axis in the tile row's own order (the
@@ -2144,6 +2160,78 @@ export function MapOrthoPanel({
               {printed ? ` · printed ${printed}` : ""}
             </footer>
           </div>
+          {/* t1112 — the walk's FOURTH PAGE: the direction walk's paper
+              edition. The screen's direction dial (t1111) walks the cut
+              around the box — six azimuth stations at the cut's own θ
+              and depth; the paper answers: six frames around the box,
+              planned by the SAME seats the dial rides (the ONE lib's
+              azimuth ladder + angular mark) joined with the azimuth URL
+              edition (the block's own src law — no second request
+              dialect), introduced by page 1's own cut line (the
+              annotation voice's bytes, passed through — never restated)
+              and the direction extent (the walk's own word — "around
+              the box"; face to face is the offset walk's phrase, the
+              direction walk does not pass through faces, it circles
+              them), each frame signed with the station's own voice
+              (the ladder's label bytes, passed through). The current
+              direction wears the mark family's ring (page 2's own ring
+              bytes — the cut's violet, 2px against 1px), the ANGULAR
+              seat's answer: the wrap law holds on paper too (350°
+              rings φ 0°). No live cut → the page honestly stays home
+              (page 2's own law). break-before-page starts it on a
+              fresh sheet: page 1 is the three sections, page 2 is the
+              cut's walk through the box, page 3 is the axis walks,
+              page 4 is the cut's walk around it. */}
+          {plateOblique && directionPrintUrls && (
+            <div data-ortho-plate-direction-walk className="break-before-page pt-2">
+              <header className="flex items-baseline justify-between gap-2">
+                <span className="text-[11px] font-semibold">Direction walk</span>
+                <span className="truncate font-mono text-[9px] text-muted-foreground">
+                  {plateBase}
+                  {plateBase && printed ? " · " : ""}
+                  {printed}
+                </span>
+              </header>
+              <p className="font-mono text-[9px] leading-4 text-muted-foreground">
+                {orthoPlateDirectionWalkMetaLine(platePlan.cutLine, directionPrintStops.length) || "—"}
+              </p>
+              <p className="font-mono text-[9px] leading-4 text-muted-foreground">
+                {orthoPlateDirectionCurrentLegend()}
+              </p>
+              <div className="mt-1 grid grid-cols-3 gap-2">
+                {directionPrintStops.map((s, i) => (
+                  <figure key={s.phi} className="min-w-0">
+                    <div
+                      className={cn(
+                        "relative aspect-square w-full overflow-hidden rounded-sm bg-white",
+                        i === directionPrintCurrent
+                          ? "border-2"
+                          : "border border-foreground/15"
+                      )}
+                      style={
+                        i === directionPrintCurrent
+                          ? { borderColor: EXPORT_OBLIQUE_ACCENT }
+                          : undefined
+                      }
+                    >
+                      <img
+                        src={directionPrintUrls[i]}
+                        alt=""
+                        className="absolute inset-0 h-full w-full object-contain"
+                      />
+                    </div>
+                    <figcaption className="pt-0.5 font-mono text-[8px] leading-3 text-muted-foreground">
+                      {s.label}
+                    </figcaption>
+                  </figure>
+                ))}
+              </div>
+              <footer className="pt-1 font-mono text-[8px] leading-3 text-muted-foreground">
+                {path}
+                {printed ? ` · printed ${printed}` : ""}
+              </footer>
+            </div>
+          )}
         </section>
       )}
     </section>
