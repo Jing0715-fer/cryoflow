@@ -3609,7 +3609,7 @@ function ObliqueSectionBlock({
                 aria-label="Show the cut's face — a density sheet on this plane"
                 title={
                   cut3d
-                    ? "▣ face — hang the density ON the cut plane (the same plane the surface opens along; the image shares the contour σ)"
+                    ? "▣ face — hang the density ON the cut plane (the same plane the surface opens along; the image shares the contour σ — on maps whose peaks sit near the contour the face reads solvent-quiet)"
                     : "▣ face — the density sheet needs the cut: press ✂ first"
                 }
                 onClick={() => {

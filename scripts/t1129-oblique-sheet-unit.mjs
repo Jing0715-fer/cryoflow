@@ -169,8 +169,9 @@ ok(count(panel, 'data-canvas-ui="ortho-oblique-sheet3d"') === 1, "D2 the ▣ fac
 ok(count(panel, "disabled={!cut3d}") === 1, "D3 the face needs the cut (disabled until ✂ is on — no plane, no face)");
 ok(
   count(panel, "▣ face — hang the density ON the cut plane") === 1 &&
+    count(panel, "the image shares the contour σ — on maps whose peaks sit near the contour the face reads solvent-quiet") === 1 &&
     count(panel, "▣ face — the density sheet needs the cut: press ✂ first") === 1,
-  "D4 the title's two voices (the offer and the gate) — honesty in both states"
+  "D4 the title's voices (the offer + the gate + the contour boundary — the offline audit's honest confession: image.frag:161 culls value<isoLevel, so a map whose peaks sit near the contour reads a quiet face)"
 );
 ok(count(panel, "setSheet3d(d.sheet === true)") === 1, "D5 the ACK corrects the ▣ (the live truth rides the same wire as the cut's)");
 ok(count(panel, "new CustomEvent(OBLIQUE_SHEET_EVENT, { detail: { on: next } })") === 1, "D6 the click speaks {on} over the sheet's own wire");
