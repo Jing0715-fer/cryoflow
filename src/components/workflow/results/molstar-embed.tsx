@@ -5994,7 +5994,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                     data-testid="clip-box-release"
                     onClick={() => applyClipIntent({ on: false })}
                     title="Release the kept box — the clip planes come off and the full map returns"
-                    className="w-full rounded-md border border-violet-600/30 bg-background/60 px-2 py-1 text-[10px] font-medium text-violet-700 transition-colors hover:bg-violet-600/15 hover:text-violet-800 dark:text-violet-300 dark:hover:text-violet-200"
+                    className="w-full rounded-md border border-violet-600/30 bg-background/60 px-2 py-1 text-[10px] font-medium text-violet-700 transition-colors hover:bg-violet-600/15 hover:text-violet-800 dark:text-violet-300 dark:hover:text-violet-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
                     release the kept box
                   </button>
@@ -6012,7 +6012,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                       disabled={!dims}
                       title="Download the kept box as a standalone MRC map — the RELION box-subregion workflow (crop a region of interest for focused processing)"
                       aria-label={dims ? `Export sub-volume (${dims[0]}×${dims[1]}×${dims[2]} vox)` : "Export sub-volume — set a crop box first"}
-                      className="flex w-full items-center justify-center gap-1.5 rounded-md border border-violet-600/40 bg-violet-600/15 px-2 py-1 text-[10.5px] font-semibold text-violet-700 transition-colors hover:bg-violet-600/25 hover:text-violet-800 dark:text-violet-300 dark:hover:text-violet-200 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex w-full items-center justify-center gap-1.5 rounded-md border border-violet-600/40 bg-violet-600/15 px-2 py-1 text-[10.5px] font-semibold text-violet-700 transition-colors hover:bg-violet-600/25 hover:text-violet-800 dark:text-violet-300 dark:hover:text-violet-200 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     >
                       <Download className="h-3 w-3 shrink-0" aria-hidden="true" />
                       <span>export sub-volume</span>
@@ -6036,7 +6036,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                       aria-busy={sendBusy}
                       data-testid="clip-send-job"
                       title="Send the kept box to a NEW Import Map job — the crop is materialized in this job's SubVolumes folder and wired into the workflow graph (box-subregion → focused refinement)"
-                      className="flex w-full items-center justify-center gap-1.5 rounded-md border border-violet-600/40 bg-background/60 px-2 py-1 text-[10.5px] font-semibold text-violet-700 transition-colors hover:bg-violet-600/25 hover:text-violet-800 dark:text-violet-300 dark:hover:text-violet-200 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex w-full items-center justify-center gap-1.5 rounded-md border border-violet-600/40 bg-background/60 px-2 py-1 text-[10.5px] font-semibold text-violet-700 transition-colors hover:bg-violet-600/25 hover:text-violet-800 dark:text-violet-300 dark:hover:text-violet-200 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     >
                       {sendBusy ? (
                         <Loader2 className="h-3 w-3 shrink-0 animate-spin" aria-hidden="true" />
@@ -6142,7 +6142,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                     onClick={() => applyObliqueClipIntent({ on: false })}
                     aria-label="Remove the oblique cut"
                     title="Remove the oblique cut — the full isosurface returns (the 2D block's ✂ goes dark with it)"
-                    className="rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-violet-600/15 hover:text-violet-700 dark:hover:text-violet-300"
+                    className="rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-violet-600/15 hover:text-violet-700 dark:hover:text-violet-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
                     <X className="h-3 w-3" aria-hidden="true" />
                   </button>
@@ -6195,7 +6195,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                 onClick={() => {
                   spinCancelRef.current = true;
                 }}
-                className="ml-0.5 rounded px-1 text-[9px] font-medium transition-colors hover:bg-white/20"
+                className="ml-0.5 rounded px-1 text-[9px] font-medium transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 aria-label="Cancel the turntable recording (partial clip is discarded)"
               >
                 cancel
@@ -6256,7 +6256,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                         <button
                           type="button"
                           className={cn(
-                            "size-2.5 shrink-0 rounded-full ring-1 ring-black/10 transition-transform",
+                            "size-2.5 shrink-0 rounded-full ring-1 ring-black/10 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:scale-125",
                             colorPickerFor === o.path && "scale-125 ring-2 ring-ring ring-offset-1 ring-offset-card"
                           )}
                           style={{ backgroundColor: o.color }}
@@ -6273,7 +6273,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                         <button
                           type="button"
                           onClick={() => void removeOverlay(o.path)}
-                          className="flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                          className="flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                           aria-label={`Remove overlay ${o.name}`}
                           title="Remove overlay"
                         >
@@ -6302,7 +6302,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                                     setColorPickerFor(null);
                                   }}
                                   className={cn(
-                                    "size-4 rounded-full ring-1 ring-black/15 transition-transform hover:scale-110",
+                                    "size-4 rounded-full ring-1 ring-black/15 transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                                     active && "ring-2 ring-ring ring-offset-1 ring-offset-card"
                                   )}
                                   style={{ backgroundColor: c }}
@@ -6402,7 +6402,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                           disabled={active || busy || overlayBusy !== null}
                           onClick={() => void addOverlay(c)}
                           className={cn(
-                            "flex w-full items-center gap-2 rounded-md px-1.5 py-1.5 text-left transition-colors",
+                            "flex w-full items-center gap-2 rounded-md px-1.5 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                             active ? "opacity-50" : "hover:bg-muted",
                             "disabled:cursor-default"
                           )}
@@ -6485,7 +6485,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                       data-testid={`export-scale-${v}`}
                       onClick={() => pickExportScale(v)}
                       className={cn(
-                        "flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left transition-colors",
+                        "flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                         active ? "bg-primary/10" : "hover:bg-muted"
                       )}
                     >
@@ -6527,7 +6527,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                     <button
                       type="button"
                       onClick={() => editCaption("")}
-                      className="flex items-center gap-0.5 text-[9px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+                      className="flex items-center gap-0.5 text-[9px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                       aria-label="Reset caption to the default"
                       data-testid="caption-reset"
                     >
@@ -6663,7 +6663,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                       }}
                       aria-pressed={active}
                       className={cn(
-                        "flex w-full items-center justify-between rounded-md border px-2 py-1.5 text-[11px] transition-colors",
+                        "flex w-full items-center justify-between rounded-md border px-2 py-1.5 text-[11px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                         active
                           ? "border-primary/50 bg-primary/10 text-primary"
                           : "bg-card text-foreground/90 hover:bg-muted"
@@ -6702,7 +6702,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                       }}
                       aria-pressed={active}
                       className={cn(
-                        "flex flex-col items-start rounded-md border px-2 py-1.5 text-[11px] transition-colors",
+                        "flex flex-col items-start rounded-md border px-2 py-1.5 text-[11px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                         active
                           ? "border-primary/50 bg-primary/10 text-primary"
                           : "bg-card text-foreground/90 hover:bg-muted"
@@ -6741,7 +6741,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                       }}
                       aria-pressed={active}
                       className={cn(
-                        "flex flex-col items-start rounded-md border px-2 py-1.5 text-[11px] transition-colors",
+                        "flex flex-col items-start rounded-md border px-2 py-1.5 text-[11px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                         active
                           ? "border-primary/50 bg-primary/10 text-primary"
                           : "bg-card text-foreground/90 hover:bg-muted"
@@ -6808,7 +6808,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                     data-testid={`view-preset-${p.key}`}
                     onClick={() => applyViewPreset(p.dir, p.up)}
                     title={`${p.label} view (key ${i + 1})`}
-                    className="relative rounded-md border bg-card px-1 py-1.5 text-[11px] font-medium text-foreground/90 transition-colors hover:bg-primary/10 hover:text-primary"
+                    className="relative rounded-md border bg-card px-1 py-1.5 text-[11px] font-medium text-foreground/90 transition-colors hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
                     {p.label}
                     <span
@@ -6823,7 +6823,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
               <button
                 type="button"
                 onClick={resetCamera}
-                className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed px-1 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed px-1 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 <RotateCw className="size-3" />
                 Default ¾ view
@@ -7028,7 +7028,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                       <button
                         type="button"
                         onClick={() => restoreBookmark(b)}
-                        className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                        className="flex min-w-0 flex-1 items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                         title={`Fly back to “${b.name}”`}
                       >
                         {thumb}
@@ -7049,7 +7049,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                           onClick={() => updateBookmark(b)}
                           aria-label={`Update bookmark ${b.name} with the current view`}
                           title="Update — re-capture this bookmark from the current pose & optics"
-                          className="rounded p-0.5 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-primary"
+                          className="rounded p-0.5 text-muted-foreground/50 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:bg-muted hover:text-primary"
                         >
                           <RefreshCcw className="size-3" />
                         </button>
@@ -7057,7 +7057,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                           type="button"
                           onClick={() => removeBookmark(b.id)}
                           aria-label={`Delete bookmark ${b.name}`}
-                          className="rounded p-0.5 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-destructive"
+                          className="rounded p-0.5 text-muted-foreground/50 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:bg-muted hover:text-destructive"
                         >
                           <X className="size-3" />
                         </button>
@@ -7066,7 +7066,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                           onClick={() => beginRename(b)}
                           aria-label={`Rename bookmark ${b.name}`}
                           title="Rename this view"
-                          className="rounded p-0.5 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-primary"
+                          className="rounded p-0.5 text-muted-foreground/50 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:bg-muted hover:text-primary"
                         >
                           <Pencil className="size-3" />
                         </button>
@@ -7079,7 +7079,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                           onClick={() => duplicateBookmark(b)}
                           aria-label={`Duplicate bookmark ${b.name}`}
                           title="Save as copy — freezes this view's saved pose & optics into a new bookmark"
-                          className="rounded p-0.5 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-primary"
+                          className="rounded p-0.5 text-muted-foreground/50 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:bg-muted hover:text-primary"
                         >
                           <CopyPlus className="size-3" />
                         </button>
@@ -7093,7 +7093,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                           onClick={() => copyRowViewLink(b)}
                           aria-label={`Copy view link for ${b.name}`}
                           title="Copy view link — anyone opening this URL lands on this saved pose & optics"
-                          className="rounded p-0.5 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-primary"
+                          className="rounded p-0.5 text-muted-foreground/50 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:bg-muted hover:text-primary"
                         >
                           <Link2 className="size-3" />
                         </button>
@@ -7119,7 +7119,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                     onClick={exportBookmarks}
                     aria-label="Export view bookmarks to a JSON file"
                     title="Export — download these views as a JSON file"
-                    className="flex items-center gap-1 whitespace-nowrap rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    className="flex items-center gap-1 whitespace-nowrap rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
                     <Download className="size-3" />
                     Export
@@ -7129,7 +7129,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                     onClick={() => importInputRef.current?.click()}
                     aria-label="Import view bookmarks from JSON files"
                     title="Import — merge views from one or more JSON files into this job"
-                    className="flex items-center gap-1 whitespace-nowrap rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    className="flex items-center gap-1 whitespace-nowrap rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
                     <Upload className="size-3" />
                     Import
@@ -7141,7 +7141,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                     aria-label="Import view bookmarks from another job"
                     title="From job — pull saved views straight from another job in this project"
                     className={cn(
-                      "flex items-center gap-1 whitespace-nowrap rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+                      "flex items-center gap-1 whitespace-nowrap rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                       fromJobOpen && "bg-muted text-foreground",
                     )}
                   >
@@ -7165,7 +7165,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                     onClick={() => void copyViewLink()}
                     aria-label="Copy view link — share the current pose as a URL"
                     title="Copy view link — anyone opening this URL lands on this exact pose & optics"
-                    className="flex items-center gap-1 whitespace-nowrap rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    className="flex items-center gap-1 whitespace-nowrap rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
                     <ClipboardCopy className="size-3" />
                     Copy view link
@@ -7228,7 +7228,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                 type="button"
                 onClick={selectAllPicked}
                 title="Tick everything that fits (source order wins ties)"
-                className="rounded px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="rounded px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 Select all
               </button>
@@ -7236,7 +7236,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                 type="button"
                 onClick={clearPicked}
                 title="Untick everything — locked rows re-enable as room frees up"
-                className="rounded px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="rounded px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 Clear
               </button>
@@ -7381,7 +7381,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                   type="button"
                   onClick={() => importInputRef.current?.click()}
                   title="Add views from one or more JSON files"
-                  className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
                   <FilePlus2 className="size-3" />
                   File
@@ -7392,7 +7392,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                   aria-expanded={addJobOpen}
                   title="Add views from another job in this project"
                   className={cn(
-                    "flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+                    "flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                     addJobOpen && "bg-muted text-foreground",
                   )}
                 >
