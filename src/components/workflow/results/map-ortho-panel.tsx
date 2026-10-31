@@ -70,7 +70,7 @@ import { DensityHistogramStrip } from "./density-histogram";
 import { cn } from "@/lib/utils";
 import { downloadBlob } from "@/lib/download"; // t646 — one blob sink (this dance skipped the attach-before-click law)
 import { obliqueDepthVox, obliqueDepthVoice, obliqueNormal, obliqueOffsetPctVoice, obliqueSupportVox, voxelReadout } from "@/lib/voxel-voice"; // t906/t907 — the tile's and the oblique block's voices ride the ONE lib (the embed's commit site reads the same seats); t1099 — the cut's direction rides the ONE father too
-import { FILMSTRIP_FRAMES, obliqueFilmstripFilename, obliqueFilmstripUrls, obliqueWalkCurrentIndex, planObliqueFilmstrip } from "@/lib/oblique-filmstrip"; // t1096 — the walk's geometry rides the ONE lib: the plan, the URLs and the name are decided before a fetch flies; t1108 — the cut's "you are here" rides the same lib's frac seat
+import { FILMSTRIP_FRAMES, obliqueFilmstripFilename, obliqueFilmstripUrls, obliqueWalkCurrentIndex, planObliqueFilmstrip } from "@/lib/oblique-filmstrip"; // t1096 — the walk's geometry rides the ONE lib: the plan, the URLs and the name are decided before a fetch flies; t1108 — the cut's "you are here" rides the same lib's frac seat; t1109 — the walk dial rides the same two seats on the live screen
 import { ORTHO_FILMSTRIP_FRAMES, orthoFilmstripFilename, orthoFilmstripUrls, orthoWalkCurrentIndex, planOrthoFilmstrip } from "@/lib/ortho-filmstrip"; // t1098 — the axis walks ride the ONE lib: the plan, the URLs and the name are decided before a fetch flies; t1107 — the walk's "you are here" rides the same seat
 import { orthoAxisWalkHeading, orthoPlateMetaLine, orthoPlateObliqueCurrentLegend, orthoPlateTileUrl, orthoPlateWalkCurrentLegend, orthoPlateWalkMetaLine, orthoWalkFrameCaption, planOrthoPlate, planPlateHistogram, PLATE_HIST_INKS, type PlateHistPayload } from "@/lib/ortho-plate"; // t1103/t1104/t1105/t1106 — the plate's words and its distribution band ride the ONE plan lib (the voices' own bytes, decided before any print; the walk page's words and the σ leg's geometry ride the same family)
 import { usePrintedDate } from "@/lib/use-now"; // t1103 — the plate's paper clock (the t232 law: paper clocks do not hydrate)
@@ -2363,8 +2363,13 @@ function ObliqueFilmstripButton({
       const urls = obliqueFilmstripUrls(jobId, path, plan);
       // t1108 — the mark's frame, decided by the ONE frac seat before
       // any pixel: the paper's page 2 and this export share the answer
-      // (the block's own live offset — the same number the slider speaks).
-      const currentIdx = obliqueWalkCurrentIndex(plan.frames, live.offset);
+      // (the block's own live offset — the same number the slider
+      // speaks). t1109 — the two-scales translation lands HERE: the
+      // seat speaks the scene's fraction dialect (−1…+1), the slider
+      // speaks the block's percent dialect (−100…+100); the /100 is
+      // the boundary's own conversion (the raw percent read the seat
+      // past the tie band — a cut at +12% wore the +100% frame's ring).
+      const currentIdx = obliqueWalkCurrentIndex(plan.frames, live.offset / 100);
       const bitmaps = await Promise.all(
         urls.map(async (u) => {
           const r = await fetch(u, { cache: "no-store" });
@@ -2706,6 +2711,17 @@ function ObliqueSectionBlock({
   const scrubOffset = (v: number) => { setOffset(v); };
 
   const frame = obliqueFrame(dims, theta, phi, offset / 100);
+
+  // t1109 — the walk DIAL's seats: the stops ride the settled walk
+  // (live θ/φ — the span doesn't jitter under the hand; the same plan
+  // the strip export prints and the paper's page 2 wears), and the
+  // mark rides the HAND's own offset — the same number the % voice
+  // above speaks — through the ONE frac seat's fraction dialect. The
+  // /100 is the two-scales precedent's own translation (t1108's
+  // export rode the raw percent and the seat misread the hand past
+  // the tie band; the dial is born speaking the boundary's law).
+  const dialPlan = planObliqueFilmstrip(live.theta, live.phi, dims);
+  const dialCurrent = obliqueWalkCurrentIndex(dialPlan.frames, offset / 100);
   const src = on
     ? `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(path)}&format=png&plane=oblique&theta=${live.theta.toFixed(1)}&phi=${live.phi.toFixed(1)}&offset=${(live.offset / 100).toFixed(3)}`
     : null;
@@ -2962,6 +2978,54 @@ function ObliqueSectionBlock({
                 onValueChange={(v) => scrubOffset(v[0] ?? 0)}
                 aria-label="Signed offset of the plane along its normal"
               />
+              {/* t1109 — the walk DIAL: the strip's six stops join the
+                  slider's own neighborhood — the cut's walk gains its
+                  LIVE screen face (the ring's third face: the export
+                  canvas and the paper's page 2 wear it; the live block
+                  never did). A click walks the cut to that stop through
+                  scrubOffset (the slider's own door — no second
+                  channel, no new request dialect; the walk keeps the
+                  direction's provenance — an offset scrub never revokes
+                  it, the t559 law's own reading). The current stop
+                  wears the block's violet (the t1108 mark's father —
+                  zero new ink), 2px ring against the stops' 1px — the
+                  plate's own marked/unmarked language, mirrored onto
+                  the screen. The stops speak: each names its frame and
+                  its depth; the current one says so (aria-pressed). */}
+              <div
+                role="group"
+                data-canvas-ui="ortho-oblique-walk-dial"
+                aria-label="The cut's walk stops — six frames face to face along the normal; the ringed stop is the cut's own plane"
+                title="The walk's stops — the frames the strip export prints and the paper's second page wear. Click a stop to walk the cut there."
+                className="mt-1.5 flex flex-wrap items-center gap-1"
+              >
+                {dialPlan.frames.map((f, i) => {
+                  const current = i === dialCurrent;
+                  return (
+                    <button
+                      key={f.frac}
+                      type="button"
+                      onClick={() => scrubOffset(f.offsetPct)}
+                      aria-pressed={current}
+                      aria-label={
+                        (current ? "The cut's own plane — " : "") +
+                        `Walk the cut to ${f.pctLabel} of the face-to-face span` +
+                        (f.depthLabel ? ` (${f.depthLabel})` : "")
+                      }
+                      title={`Walk the cut to ${f.pctLabel}${f.depthLabel ? ` · ${f.depthLabel}` : ""}`}
+                      data-walk-stop={f.pctLabel}
+                      className={cn(
+                        "rounded-sm border px-1.5 py-0.5 font-mono text-[10px] tabular-nums transition-colors duration-150",
+                        current
+                          ? "border-2 border-violet-600 bg-violet-600/10 font-semibold text-violet-700 dark:text-violet-300"
+                          : "border-border/70 text-muted-foreground hover:border-violet-600/40 hover:bg-violet-600/5 hover:text-foreground"
+                      )}
+                    >
+                      {f.pctLabel}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] tabular-nums text-muted-foreground">
               <span title="Unit plane normal in grid coordinates">

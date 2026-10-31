@@ -23,15 +23,18 @@
  *     the cut's own plane on this walk"), the ONE seat beside its
  *     t1107 sibling (two dialects, never one blurred word), the plate
  *     lib's purity (no fs / db / clock).
- *   W the wiring (9) — the panel speaks the seat exactly twice (page
- *     2's wiring + the export's canvas — ONE decider, no inline
- *     nearest-math); the mark rides the cut's own offset under the
+ *   W the wiring (9) — the panel speaks the seat exactly three times
+ *     (page 2's wiring + the export's canvas + the t1109 walk dial —
+ *     ONE decider, no inline nearest-math); the mark rides the cut's
+ *     own offset under the
  *     walkPlan guard (no live cut → no page → no mark: the honest
  *     absence on both faces at once); the ring rides the conditional
  *     border-2 with EXPORT_OBLIQUE_ACCENT (the block's own violet — no
  *     new ink invented); the unmarked frame keeps the honest /15
  *     border; the legend <p> rides the word fn; the export rides
- *     live.offset (the same number the slider speaks); the canvas ring
+ *     live.offset / 100 (the t1109 re-key: the seat speaks the scene's
+ *     fraction dialect, the slider speaks the block's percent dialect —
+ *     the raw percent read the seat past the tie band); the canvas ring
  *     rides the same father under if (i === currentIdx); the canvas
  *     header names the mark ("ring marks the cut's plane"); the
  *     oblique lib's purity (no fs / db / clock).
@@ -201,11 +204,13 @@ ok(
 
 // ---- W — the wiring ----------------------------------------------------
 
-// W1 — the panel speaks the seat exactly twice: page 2's wiring + the
-// export's canvas (ONE decider, no inline nearest-math)
+// W1 — the panel speaks the seat exactly THREE times: page 2's wiring +
+// the export's canvas + the walk dial (the t1109 re-key: the ring's
+// third face joins the ONE decider — three faces, one answer, no inline
+// nearest-math)
 ok(
-  "W1 the seat is the ONE decider (obliqueWalkCurrentIndex spoken exactly twice — page 2's wiring + the export's canvas)",
-  (panelSrc.match(/obliqueWalkCurrentIndex\(/g) || []).length === 2
+  "W1 the seat is the ONE decider (obliqueWalkCurrentIndex spoken exactly three times — page 2's wiring + the export's canvas + the t1109 walk dial)",
+  (panelSrc.match(/obliqueWalkCurrentIndex\(/g) || []).length === 3
 );
 
 // W2 — the mark rides the cut's own offset under the walkPlan guard
@@ -251,10 +256,15 @@ ok(
   );
 }
 
-// W6 — the export rides live.offset (the same number the slider speaks)
+// W6 — the export rides live.offset / 100 (the t1109 re-key: the seat
+// speaks FRACTION (−1…+1), the block's live offset speaks PERCENT
+// (−100…+100) — the raw percent misread the seat past the tie band (a
+// cut at +12% wore the +100% frame's ring); the /100 is the boundary's
+// own translation, the two-scales precedent (readout = voxel names,
+// mark = fraction choices) landing in code)
 ok(
-  "W6 the canvas rides the block's own live offset (obliqueWalkCurrentIndex(plan.frames, live.offset))",
-  /obliqueWalkCurrentIndex\(plan\.frames, live\.offset\)/.test(panelSrc)
+  "W6 the canvas rides the block's own live offset through the fraction translation (obliqueWalkCurrentIndex(plan.frames, live.offset / 100) — the t1109 two-scales cure)",
+  /obliqueWalkCurrentIndex\(plan\.frames, live\.offset \/ 100\)/.test(panelSrc)
 );
 
 // W7 — the canvas ring rides the same father under the marked
