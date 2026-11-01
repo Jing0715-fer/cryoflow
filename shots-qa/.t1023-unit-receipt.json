@@ -3,7 +3,7 @@
   "verdict": "GREEN",
   "pass": 24,
   "fail": 0,
-  "at": "2026-11-01T23:05:40.431Z",
+  "at": "2026-11-01T23:29:21.380Z",
   "bands": [
     "F the guard at source",
     "L the decision arithmetic live"
