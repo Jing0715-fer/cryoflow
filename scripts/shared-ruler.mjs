@@ -43,14 +43,15 @@
  * of their MEASURE IIFE. Must contain no backtick and no ${ (the
  * embeddability contract — it rides inside single-quoted strings and
  * shell-escaped evals alike). */
-export const NAMEOF = `const nameOf = (el) => { const al = el.getAttribute("aria-label"); if (al && al.trim()) return al.trim(); const lb = el.getAttribute("aria-labelledby"); if (lb) { const t = lb.split(/\\s+/).map((id) => { const d = document.getElementById(id); return d ? (d.textContent || "").trim() : ""; }).join(" ").trim(); if (t) return t; } if (el.id) { const lf = document.querySelector('label[for="' + CSS.escape(el.id) + '"]'); if (lf && (lf.textContent || "").trim()) return lf.textContent.trim(); } const tc = (el.textContent || "").trim(); if (tc) return tc; if (el.tagName === "IMG") { const a = el.getAttribute("alt"); if (a !== null && a.trim()) return a.trim(); } if (/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) { const v = (el.value || "").trim(); if (v) return v; const p = (el.getAttribute("placeholder") || "").trim(); if (p) return p; } return ""; };`;
+export const NAMEOF = `const nameOf = (el) => { const al = el.getAttribute("aria-label"); if (al && al.trim()) return al.trim(); const lb = el.getAttribute("aria-labelledby"); if (lb) { const t = lb.split(/\\s+/).map((id) => { const d = document.getElementById(id); return d ? (d.textContent || "").trim() : ""; }).join(" ").trim(); if (t) return t; } if (el.id) { const lf = document.querySelector('label[for="' + CSS.escape(el.id) + '"]'); if (lf && (lf.textContent || "").trim()) return lf.textContent.trim(); } const tc = (el.textContent || "").trim(); if (tc) return tc; if (el.tagName === "IMG") { const a = el.getAttribute("alt"); if (a !== null && a.trim()) return a.trim(); } if (/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) { const v = (el.value || "").trim(); if (v) return v; const p = (el.getAttribute("placeholder") || "").trim(); if (p) return p; } const ti = el.getAttribute("title"); if (ti && ti.trim()) return ti.trim(); return ""; };`;
 
 /** NAMEOF_LAW — the family's one-sentence ruler law (rides every carrier's
  * receipt as `ruler`, the LEDGER_LAW pattern). */
 export const NAMEOF_LAW =
   "the census's ONE name computation: aria-label -> aria-labelledby resolved -> " +
-  "label[for] -> textContent -> img alt -> input value/placeholder — the ruler grows " +
-  "once, every instrument rides the growth (t864, the t861 pattern); " +
+  "label[for] -> textContent -> img alt -> input value/placeholder -> title (the t867 " +
+  "growth — the tree's own tooltip voice, the accessible-name spec's own last resort) — " +
+  "the ruler grows once, every instrument rides the growth (t864, the t861 pattern); " +
   "name-monotone: the shared ruler's names are a superset of any older inline copy's";
 
 /** buildNameOf — build the live function for offline use (the self-test's
@@ -144,18 +145,28 @@ if (process.argv[1] && process.argv[1].endsWith("shared-ruler.mjs")) {
     nameOf(mkEl({ tag: "INPUT", attrs: { placeholder: "p" } })) === "p");
   // 11 nothing at all -> ""
   expect("nothing at all -> empty string", nameOf(mkEl({})) === "");
+  // 11b the t867 growth: title is the LAST resort — a button whose only
+  // voice is its tooltip speaks it (the Mol* chrome's own shape); an
+  // explicit aria-label still beats the title
+  expect("title names a tooltip-only button (the t867 growth)",
+    nameOf(mkEl({ attrs: { title: "Layout controls" } })) === "Layout controls");
+  expect("title empty falls through",
+    nameOf(mkEl({ attrs: { title: "   " } })) === "");
+  expect("aria-label still beats title",
+    nameOf(mkEl({ attrs: { "aria-label": "real", title: "tooltip" } })) === "real");
   // 12 the embeddability contract: no backtick, no ${ in the source
   expect("NAMEOF contains no backtick and no ${",
     !NAMEOF.includes("`") && !NAMEOF.includes("${"));
   // 13 the mechanism order — the canonical chain, verbatim
   const at = (s) => NAMEOF.indexOf(s);
-  expect("mechanism order: aria-label < aria-labelledby < label[for] < textContent < IMG < placeholder",
+  expect("mechanism order: aria-label < aria-labelledby < label[for] < textContent < IMG < placeholder < title",
     at('getAttribute("aria-label")') > -1 &&
     at('getAttribute("aria-label")') < at('getAttribute("aria-labelledby")') &&
     at('getAttribute("aria-labelledby")') < at('label[for="') &&
     at('label[for="') < at('el.textContent || ""') &&
     at('el.textContent || ""') < at('"IMG"') &&
-    at('"IMG"') < at('getAttribute("placeholder")'));
+    at('"IMG"') < at('getAttribute("placeholder")') &&
+    at('getAttribute("placeholder")') < at('getAttribute("title")'));
 
   console.log(bad === 0 ? "shared-ruler self-test: all green" : `shared-ruler self-test: ${bad} RED`);
   process.exit(bad ? 1 : 0);
