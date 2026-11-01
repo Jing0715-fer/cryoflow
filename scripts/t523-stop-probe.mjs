@@ -2,7 +2,25 @@
  *  stopRun ever runs. Each step logs, so the last line before silence is the
  *  killer module. */
 const REPO = "/home/z/my-project";
-process.env.DATABASE_URL = `file:${REPO}/db/cryoflow.db`;
+// the t869 armor (the t871 retarget): .env FIRST, the frozen pin as
+// fallback, the world NAMED at the gate (the t867 resurrection made
+// .env -> db/custom.db the living world; the old cryoflow.db pin is a
+// 0-byte corpse — docs/world-db-law.md is the law).
+import { readFileSync as __t871EnvRead } from 'node:fs';
+process.env.DATABASE_URL = (() => {
+  try {
+    const m = __t871EnvRead('/home/z/my-project/.env', 'utf8').match(/^DATABASE_URL=(.*)$/m);
+    if (m) {
+      let u = m[1].trim().replace(/^["']|["']$/g, '');
+      if (!u.startsWith('file:')) u = 'file:' + u;
+      if (/^file:[^/]/.test(u)) u = 'file:/home/z/my-project/prisma/' + u.slice(5);
+      return u;
+    }
+  } catch { /* fall through */ }
+  return 'file:/home/z/my-project/db/cryoflow.db';
+})();
+console.log(`db pin: ${process.env.DATABASE_URL} (the t869 armor: .env-first, frozen fallback)`);
+
 process.env.CRYOFLOW_DATA_DIR = `${REPO}/data`;
 console.log("step0: env set");
 const { stopRun } = await import(`${REPO}/src/lib/relion/engine.ts`);

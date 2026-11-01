@@ -44,7 +44,33 @@ import urllib.request
 from datetime import datetime, timezone
 
 REPO = "/home/z/my-project"
-DB = f"{REPO}/db/cryoflow.db"
+# t872 — the world-ride armor (the fleet's law since the reconciliation):
+# .env FIRST (the platform owns it, the boot world rides it), Prisma's
+# schema-relative resolution mirrored, the frozen pin as fallback, the
+# world NAMED at the gate. The old hard pin read the corpse after the
+# t872 unification and the census caught its own corpse-reading as
+# B2/B3 reds — the instrument that READS must know which world it reads.
+import os as _os
+import re as _re
+
+
+def _resolve_world_db(repo: str) -> str:
+    try:
+        m = _re.search(r"^DATABASE_URL=(.*)$", open(f"{repo}/.env").read(), _re.M)
+        if m:
+            u = m.group(1).strip().strip("'\"")
+            if not u.startswith("file:"):
+                u = "file:" + u
+            if _re.match(r"^file:[^/]", u):
+                u = "file:" + repo + "/prisma/" + u[5:]
+            return u[5:] if u.startswith("file:") else u
+    except OSError:
+        pass
+    return f"{repo}/db/cryoflow.db"
+
+
+DB = _resolve_world_db(REPO)
+print(f"  db pin: file:{DB} (the t872 armor: .env-first, frozen fallback)")
 BASE = "http://localhost:3000"
 
 PASS = 0
