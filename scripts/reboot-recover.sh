@@ -212,8 +212,22 @@ else
     # a no-op that leaves the stale stamp in place forever. FRESH=1 is the
     # stamp's only mover (build-until-green.sh's own hint: "source changed
     # since? FRESH=1 forces a rebuild").
-    say "4. provenance stale — FRESH grinder round (an incremental call would no-op the complete trio and never re-stamp)"
-    FRESH=1 bash scripts/build-until-green.sh "${REBOOT_BUILD_ATTEMPTS:-1}"
+    if [ "${REBOOT_ACCEPT_STAMP:-0}" = "1" ]; then
+      # t1135 — the operator's acceptance lever, born of a real wall: the
+      # t1134-tree COLD build crosses the kernel line on the 4GB box —
+      # witnessed across three lanes and five heap caps in one window
+      # (webpack 1344/1440/1536/1792 V8-abort at the same stack, 2048 and
+      # turbopack SIGKILL at anon-rss 3588992kB). The 19:04 green itself
+      # rode the snapshot's warm cache chain, which the abort spiral and a
+      # cache purge burned. The lever keeps the world ALIVE on the last
+      # green build; the acceptance (build provenance vs tree commit, the
+      # unbaked delta named) is the worklog's word, and the next
+      # build-capable window re-stamps for real.
+      say "4. provenance stale — ACCEPTED by operator (REBOOT_ACCEPT_STAMP=1): the world rides the last green build; the unbaked delta is the worklog's word"
+    else
+      say "4. provenance stale — FRESH grinder round (an incremental call would no-op the complete trio and never re-stamp)"
+      FRESH=1 bash scripts/build-until-green.sh "${REBOOT_BUILD_ATTEMPTS:-1}"
+    fi
   else
     say "4. build incomplete — ONE grinder round (cache grows across invocations)"
     bash scripts/build-until-green.sh "${REBOOT_BUILD_ATTEMPTS:-1}"
