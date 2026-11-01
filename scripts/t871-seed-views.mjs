@@ -25,20 +25,32 @@
  */
 
 import { deflateSync } from "node:zlib";
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 const REPO = process.cwd();
-// t11391's tax, paid again — the seeder must speak the LANE'S db, not the
-// .env's template: dev-server.sh pins cryoflow.db, PrismaClient would
-// otherwise inherit .env's custom.db and seed a world nobody serves.
-// The pin happens at the process boundary (see main()) — here we only
-// assert it, loudly.
-if (!process.env.DATABASE_URL?.includes("db/cryoflow.db")) {
-  console.log("  FAIL: DATABASE_URL must be pinned to db/cryoflow.db before this seeder runs");
-  console.log("        (node scripts/t871-seed-views.mjs expects the lane's world)");
-  process.exit(1);
-}
+// t11391's tax + the t872 reconciliation — the seeder speaks THE LIVING
+// WORLD, wherever .env says it is (the t869 armor, fleet-wide since the
+// sibling branch's world-db-law: .env FIRST — the platform owns that file
+// and the boot world rides it; Prisma's schema-relative resolution
+// mirrored; the frozen pin as fallback; the world NAMED at the gate).
+// The t871 form asserted a hard cryoflow.db pin — the law it guarded
+// against (seeding a world nobody serves) is now guarded by riding the
+// same resolution the armored dev-server.sh itself uses, so the seeder
+// and the lane can never again disagree about which file is real.
+process.env.DATABASE_URL = (() => {
+  try {
+    const m = readFileSync(path.join(REPO, ".env"), "utf8").match(/^DATABASE_URL=(.*)$/m);
+    if (m) {
+      let u = m[1].trim().replace(/^["']|["']$/g, "");
+      if (!u.startsWith("file:")) u = "file:" + u;
+      if (/^file:[^/]/.test(u)) u = "file:" + REPO + "/prisma/" + u.slice(5);
+      return u;
+    }
+  } catch { /* absent .env — the fallback speaks */ }
+  return "file:" + REPO + "/db/cryoflow.db";
+})();
+console.log(`  db pin: ${process.env.DATABASE_URL} (the t872 armor: .env-first, frozen fallback)`);
 const { PrismaClient } = await import("@prisma/client");
 const db = new PrismaClient();
 const BASE = "http://localhost:3000";

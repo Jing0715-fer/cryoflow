@@ -68,11 +68,36 @@ sleep 1
 # this cap, three witnesses in the t402 window) needs ~1792MB of V8 heap
 # to compile the home graph; 896 dies with "Ineffective mark-compacts".
 export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--max-old-space-size=${DEV_HEAP_MB:-896}"
-# t377 — HARD overrides: the sandbox tool environment itself exports a
-# TEMPLATE DATABASE_URL (my-project's custom.db); `${VAR:-…}` passthrough
-# would poison Prisma into a User/Post-only database. These two are always
-# pinned to THIS repo's own paths.
-export DATABASE_URL="file:$REPO_ROOT/db/cryoflow.db"
+# t377 + t872 — THE WORLD RIDE, armored (the t872 reconciliation with the
+# sibling branch's world-db-law): the OLD law hard-pinned cryoflow.db and
+# the platform boot (start.sh rewriting .env every boot, `next dev` reading
+# it) served custom.db — two lanes, two worlds, and the t871 window paid a
+# full split-brain incident for it (the healer woke on the empty lane, its
+# honest step-3 FAIL the only thing that kept the world from being written
+# blind). The unified law, three clauses (the t869 pattern, fleet-wide):
+#   1. .env FIRST — the platform owns .env; the living world is wherever
+#      it says. A pin that never reads it is a pin on a corpse.
+#   2. Prisma's own resolution mirrored — absolute file:/ kept; relative
+#      file:db/x.db resolved from prisma/ (schema-relative).
+#   3. The frozen pin as FALLBACK + the world NAMED at the gate — absent
+#      .env (a fresh tar world) the lane still boots, and every boot
+#      PRINTS which world it rides, so a corpse-reading instrument is
+#      caught in its own first line, not three layers down.
+export DATABASE_URL="$(REPO_ROOT="$REPO_ROOT" node -e '
+const { readFileSync } = require("fs");
+let u = null;
+try {
+  const m = readFileSync(process.env.REPO_ROOT + "/.env", "utf8").match(/^DATABASE_URL=(.*)$/m);
+  if (m) {
+    u = m[1].trim().replace(/^["'"'"']|["'"'"']$/g, "");
+    if (!u.startsWith("file:")) u = "file:" + u;
+    if (/^file:[^/]/.test(u)) u = "file:" + process.env.REPO_ROOT + "/prisma/" + u.slice(5);
+  }
+} catch { /* absent .env — the fallback speaks */ }
+if (!u) u = "file:" + process.env.REPO_ROOT + "/db/cryoflow.db";
+console.log(u);
+')"
+echo "[dev-server] world: $DATABASE_URL (the t872 env-ride armor: .env-first, frozen fallback)" >&2
 export CRYOFLOW_DATA_DIR="$REPO_ROOT/data"
 export CRYOFLOW_TRUST_GATEWAY=1
 # t402 — spawn under NODE explicitly: `bunx next` / `bun next` make BUN the
