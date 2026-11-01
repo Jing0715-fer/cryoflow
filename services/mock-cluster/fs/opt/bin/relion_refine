@@ -261,7 +261,15 @@ if isinstance(_cont, str) and _cont.strip():
             for _p, _r in enumerate(_rows):
                 _f = _r.split()
                 _fh.write(f"{_f[0]}\t{(_p * 7 + _it) % _ncls + 1}\n")
-        write_mrc(os.path.join(outdir, f"run_it{_its}_classes.mrcs"), 64, 64, _ncls, 4096 + _it)
+        # t869 — the classes stack speaks the t373 convention: each class
+        # its own BRIGHT blob (kind="classes"), the frames never twins
+        # (the per-frame sub-seed varies blob wobble + noise — the t287
+        # law: a different image is a different window). The old default
+        # kind landed uniform noise whose distribution was identical in
+        # every frame — the class gallery rendered N copies of the same
+        # static. The alias run_classes.mrcs below copies this file, so
+        # the fix rides every name the discovery lane reads.
+        write_mrc(os.path.join(outdir, f"run_it{_its}_classes.mrcs"), 64, 64, _ncls, 4096 + _it, kind="classes")
         # t485 — the fresh-run flow writes per-class mrcs (line ~590) and
         # the picker's completeness law reads them by name; the continue
         # branch used to skip them, so every continued round scored
@@ -563,7 +571,11 @@ if real_mode and cf_cryo:
         _seed_np.stack(_seed_imgs),
     )
 else:
-    write_mrc(os.path.join(outdir, "run_it000_classes.mrcs"), 64, 64, ncls, 4096)
+    # t869 — the seed round's classes stack joins the t373 convention too
+    # (kind="classes"): the same bright-blob, per-frame-varied dialect the
+    # continue branch now speaks — one writer, one convention, no lane
+    # left rendering the static.
+    write_mrc(os.path.join(outdir, "run_it000_classes.mrcs"), 64, 64, ncls, 4096, kind="classes")
 # t575 — the seed round's per-class VOLUMES for the class3d lane: a real
 # relion_refine class3d writes run_it000_classNNN.mrc from the random
 # start up (discovery reads the LATEST iteration only, but the workdir

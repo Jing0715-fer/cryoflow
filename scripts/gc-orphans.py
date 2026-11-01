@@ -71,6 +71,13 @@ def main():
             full = os.path.join(pdir, d)
             if not os.path.isdir(full) or "_" not in d:
                 continue
+            # t869 — the seed's own property is not a workdir: _fixtures is
+            # the seed plan's fixture tree (the t532 map-inventory law reads
+            # class00N.mrc from it) and micrographs is the seed's EMPIAR
+            # hard-link source. Neither answers to the <type>_<id8> grammar
+            # and neither is a fossil.
+            if d in ("_fixtures", "micrographs"):
+                continue
             tail = d.rsplit("_", 1)[-1]
             if tail not in live_tails:
                 orphan_dirs.append(full)

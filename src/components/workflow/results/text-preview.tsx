@@ -24,15 +24,28 @@
  * move, Esc closes, nothing acts). The copy affordance rides the header
  * row: the same clipboard dialect every consumer speaks (Task 170's
  * one-clipboard law).
+ *
+ * t869 — the two silent states learned the house dialects. The loading
+ * row speaks (role="status" — the same voice the path browser's status
+ * lines use), because a dialog that opens silent and swaps to content
+ * leaves the screen-reader reader holding nothing. And the wound is no
+ * longer a dead end: a failed tail load (a dev-server OOM, a first-hit
+ * compile 500) used to render a message with NO door — close and reopen
+ * was the only retry. The strip now carries the chart-error-strip's own
+ * chip (t491's third state: not the chart, not the empty, "the load
+ * failed and you can try again"), re-firing the same fetch.
  */
 
 import * as React from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, RefreshCw } from "lucide-react";
 import { CopyButton } from "@/components/workflow/copy-button";
 
 export function TextPreview({ jobId, path }: { jobId: string; path: string }) {
   const [text, setText] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  // t869 — the retry door: bumping the attempt re-fires the tail fetch
+  // (the effect's own dependency — no imperative re-fetch wiring)
+  const [attempt, setAttempt] = React.useState(0);
   const preRef = React.useRef<HTMLPreElement | null>(null);
 
   React.useEffect(() => {
@@ -56,7 +69,7 @@ export function TextPreview({ jobId, path }: { jobId: string; path: string }) {
     return () => {
       cancelled = true;
     };
-  }, [jobId, path]);
+  }, [jobId, path, attempt]);
 
   // the tail landed — hand the dialog's focus to the content itself, so
   // the keyboard user is already inside the scroll region (t774: focus
@@ -68,14 +81,37 @@ export function TextPreview({ jobId, path }: { jobId: string; path: string }) {
 
   if (error) {
     return (
-      <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-        {error}
-      </p>
+      /* the wound speaks and offers its door (the t491 third state —
+         aria-live rides the container, the chip re-fires the fetch) */
+      <section
+        data-text-error=""
+        aria-live="polite"
+        aria-label="File preview could not be loaded"
+        className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs leading-snug text-destructive"
+      >
+        <p className="min-w-0 flex-1 pt-0.5">
+          <span className="font-semibold">Couldn&apos;t load the file</span>
+          <span className="ml-1 font-mono text-[10px] opacity-70">({error})</span>
+        </p>
+        <button
+          type="button"
+          data-text-error-retry=""
+          onClick={() => setAttempt((a) => a + 1)}
+          aria-label="Retry loading the file"
+          className="inline-flex shrink-0 items-center gap-1 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide transition-colors hover:bg-destructive/20"
+        >
+          <RefreshCw className="size-3" aria-hidden="true" />
+          Retry
+        </button>
+      </section>
     );
   }
   if (text === null) {
     return (
-      <div className="flex items-center justify-center gap-2 py-8 text-xs text-muted-foreground">
+      <div
+        role="status"
+        className="flex items-center justify-center gap-2 py-8 text-xs text-muted-foreground"
+      >
         <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
         Loading file…
       </div>

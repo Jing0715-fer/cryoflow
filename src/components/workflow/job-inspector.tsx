@@ -90,6 +90,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import { Kbd } from "@/components/ui/kbd"; // t869 — the Files tab's peek dialogs join the keymap family (the t832 law, second family's turn)
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -2948,6 +2949,20 @@ function FilesTab({ job, data, reload }: { job: JobDTO; data: OutputsResponse | 
                 </DialogDescription>
               </DialogHeader>
               <TextPreview jobId={job.id} path={textFile.path} />
+              {/* t869 — the keymap family's second-family seats: the peek
+                  dialogs speak the results-view's own word forms verbatim
+                  (one brain, one voice — the t832 must-not-lie law closes
+                  its last gap; Esc is the only key these dialogs have, so
+                  the seat teaches exactly that key). */}
+              <div
+                data-canvas-ui="text-keymap"
+                className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-[10px] leading-tight text-muted-foreground"
+              >
+                <span className="inline-flex items-center gap-0.5">
+                  <Kbd>Esc</Kbd>
+                  <span className="ml-1">closes</span>
+                </span>
+              </div>
             </>
           )}
         </DialogContent>
@@ -2967,6 +2982,17 @@ function FilesTab({ job, data, reload }: { job: JobDTO; data: OutputsResponse | 
                 <DialogDescription className="font-mono text-[11px]">{starFile.path}</DialogDescription>
               </DialogHeader>
               <StarTable job={job} path={starFile.path} />
+              {/* t869 — the star peek's seat: the results-view's own
+                  word form (Esc closes), the family's fifth application. */}
+              <div
+                data-canvas-ui="star-keymap"
+                className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-[10px] leading-tight text-muted-foreground"
+              >
+                <span className="inline-flex items-center gap-0.5">
+                  <Kbd>Esc</Kbd>
+                  <span className="ml-1">closes</span>
+                </span>
+              </div>
             </>
           )}
         </DialogContent>

@@ -94,6 +94,10 @@ def main():
             suffix = d.split("_", 1)[-1] if "_" in d else d
             if suffix == "_fixtures" or d == "_fixtures":
                 continue  # fixture tree, not a job workdir
+            if d == "micrographs":
+                continue  # t869 — the seed's own EMPIAR hard-link source (the
+                          # import lane's first DONE upstream reads it); a
+                          # symlink to real data, never a fossil
             if any(rid.endswith(suffix) for rid in reg_ids):
                 continue  # registered — alive or at least named by the ledger
             st = dir_stats(wdir)
