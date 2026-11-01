@@ -1,9 +1,9 @@
 {
   "instrument": "scripts/t869-textpreview-a11y.mjs",
   "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder -> title (the t867 growth — the tree's own tooltip voice, the accessible-name spec's own last resort) — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
-  "build": "dev@71479abfe3d2",
+  "build": "dev@ec37c84ff38b",
   "worldMode": "dev",
-  "date": "2026-11-01T02:08:59.087Z",
+  "date": "2026-11-01T02:49:15.233Z",
   "chain": "clean room -> canvas -> ctffind card (plain door) -> Results tab (mousedown) -> Logs & reports rows -> run.out preview (focus lands) -> Esc -> run.err empty world (the honest empty) -> Files tab (mousedown) -> Preview doors -> text peek (t869 seat) -> star peek (t869 seat) -> Esc all -> world back",
   "doors": {
     "inspector": "plain pointerdown+pointerup on the card — the submitted law",
@@ -294,7 +294,7 @@
       "starPeek": {
         "url": "/",
         "panelOpen": false,
-        "pageBtns": 1,
+        "pageBtns": 8,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 0,
@@ -521,7 +521,7 @@
     {
       "label": "F10 the star peek keeps the census's invariant",
       "pass": true,
-      "detail": "btns=1 ctrls=0"
+      "detail": "btns=8 ctrls=0"
     },
     {
       "label": "F11 the whole inspector world closed honestly (all dialogs dismissed)",
@@ -541,27 +541,27 @@
     {
       "label": "L logsFace face ride-drift law",
       "pass": true,
-      "detail": "arm 1 — first ride, no predecessor"
+      "detail": "arm 2 — world key moved (dev@71479abfe3d2 -> dev@ec37c84ff38b), drift +0 informational"
     },
     {
       "label": "L previewFace face ride-drift law",
       "pass": true,
-      "detail": "arm 1 — first ride, no predecessor"
+      "detail": "arm 2 — world key moved (dev@71479abfe3d2 -> dev@ec37c84ff38b), drift +0 informational"
     },
     {
       "label": "L emptyFace face ride-drift law",
       "pass": true,
-      "detail": "arm 1 — first ride, no predecessor"
+      "detail": "arm 2 — world key moved (dev@71479abfe3d2 -> dev@ec37c84ff38b), drift +0 informational"
     },
     {
       "label": "L filesFace face ride-drift law",
       "pass": true,
-      "detail": "arm 1 — first ride, no predecessor"
+      "detail": "arm 2 — world key moved (dev@71479abfe3d2 -> dev@ec37c84ff38b), drift +0 informational"
     },
     {
       "label": "L worldBack face ride-drift law",
       "pass": true,
-      "detail": "arm 1 — first ride, no predecessor"
+      "detail": "arm 2 — world key moved (dev@71479abfe3d2 -> dev@ec37c84ff38b), drift +0 informational"
     }
   ],
   "passed": 41,
@@ -569,57 +569,57 @@
   "total": 41,
   "verdict": "the text-preview face holds: the clean room held (the panel-closed boot — the t866 law), the logs face hosted 3 named text rows under the paper contract, the tail preview arrived TOPMOST with its heading read from the data and the focus landing in the named region (the t774 law), the empty file's world stayed honest (0 bytes, focus still lands, no false wound), the Files tab's second family rode the same brain WITH the t869 seats aboard (text-keymap + star-keymap measured live), and the world came back bit-for-bit",
   "driftLedger": {
-    "prevFound": false,
-    "prevBuild": null,
-    "prevDate": null,
-    "sameBuild": null,
+    "prevFound": true,
+    "prevBuild": "dev@71479abfe3d2",
+    "prevDate": "2026-11-01T02:08:59.087Z",
+    "sameBuild": false,
     "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
     "faces": {
       "logsFace": {
-        "prev": null,
+        "prev": 25,
         "live": 25,
-        "drift": null,
-        "identical": null,
+        "drift": 0,
+        "identical": true,
         "moved": {
           "lens": [],
           "world": []
         }
       },
       "previewFace": {
-        "prev": null,
+        "prev": 2,
         "live": 2,
-        "drift": null,
-        "identical": null,
+        "drift": 0,
+        "identical": true,
         "moved": {
           "lens": [],
           "world": []
         }
       },
       "emptyFace": {
-        "prev": null,
+        "prev": 2,
         "live": 2,
-        "drift": null,
-        "identical": null,
+        "drift": 0,
+        "identical": true,
         "moved": {
           "lens": [],
           "world": []
         }
       },
       "filesFace": {
-        "prev": null,
+        "prev": 2,
         "live": 2,
-        "drift": null,
-        "identical": null,
+        "drift": 0,
+        "identical": true,
         "moved": {
           "lens": [],
           "world": []
         }
       },
       "worldBack": {
-        "prev": null,
+        "prev": 153,
         "live": 153,
-        "drift": null,
-        "identical": null,
+        "drift": 0,
+        "identical": true,
         "moved": {
           "lens": [],
           "world": []
