@@ -236,8 +236,16 @@ export function ensureGlobalReconciler(): void {
     ticking = true;
     try {
       await globalReconcileTick();
-    } catch {
-      /* the reaper never dies loudly — the next beat re-tries */
+    } catch (err) {
+      // t873 — "never dies loudly" grew a voice: swallowing WITHOUT A TRACE
+      // let a wedged sweep tick repeat invisibly across server incarnations
+      // (the class2d finalize's 80-minute silence was invisible exactly
+      // because this catch was anonymous). The beat still never throws —
+      // but the tick's failure now names itself, so a wedge is a LOG LINE
+      // instead of a mystery. One line, once per failing beat.
+      console.log(
+        `[reaper] tick FAILED: ${err instanceof Error ? err.message : String(err)}`
+      );
     } finally {
       ticking = false;
     }
