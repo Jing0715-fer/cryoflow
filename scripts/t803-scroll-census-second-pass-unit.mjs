@@ -216,8 +216,8 @@ ok(
   "L3 the region role granted exactly once in the batch (the diff table) — lists and groups keep their own semantics",
 );
 ok(
-  (assistant.match(/tabIndex=\{0\}/g) || []).length === 3,
-  "L4 the assistant panel: transcript + session list + detail pre — exactly three stops",
+  (assistant.match(/tabIndex=\{0\}/g) || []).length === 5,
+  "L4 the assistant panel: transcript + session list + detail pre + the two keyboard-geometry handles — exactly five stops (the t1137 amendment 3→5: the TWO newcomers are the keyboard GEOMETRY handles (t991's cure — the width/height arrows became tab stops so keyboard users can drive the panel's geometry, each riding aria-orientation + aria-valuemin))",
 );
 
 console.log(`t803-scroll-census-second-pass-unit: ${pass} pass / ${fail} fail`);

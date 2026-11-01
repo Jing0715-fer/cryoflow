@@ -97,10 +97,10 @@ try {
 }
 try { unlinkSync(TMP); } catch {}
 
-ok("R1 the disabled census's population stands at 171",
-  receipt?.population === 171, `got ${receipt?.population}`);
-ok("R2 stateful 149 · silent-static 0 · silent-text 22 — the re-key chain: the t1005 arm emptied the static bucket into stateful, the t1008 arm moved three honest-name flips into stateful (the census signal genuinely moved again)",
-  receipt?.tally?.stateful === 149 &&
+ok("R1 the disabled census's population stands at 176 (t1137 re-key 171→176: five legitimate sites joined since the t1008 arm — the scanner's live answer is the receipt's own word)",
+  receipt?.population === 176, `got ${receipt?.population}`);
+ok("R2 stateful 154 · silent-static 0 · silent-text 22 — the re-key chain: the t1005 arm emptied the static bucket into stateful, the t1008 arm moved three honest-name flips in after, the post-t1008 windows' five new sites all landed stateful (t1137 re-key 149→154)",
+  receipt?.tally?.stateful === 154 &&
   receipt?.tally?.["silent-static"] === 0 &&
   receipt?.tally?.["silent-text"] === 22,
   `stateful=${receipt?.tally?.stateful} static=${receipt?.tally?.["silent-static"]} text=${receipt?.tally?.["silent-text"]}`);

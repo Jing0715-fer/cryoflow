@@ -167,7 +167,12 @@ ok(
   "C9 the σ/sign sheet effect is RETIRED (t1130: the mesh face is σ-independent — no re-pump on a σ scrub)"
 );
 ok(count(embed, "const [sheetOn, setSheetOn] = useState(false);") === 1, "C10 the sheet's preference state is minted once");
-ok(count(embed, "const sheetCellRef = sheetRef.current?.transform?.ref ?? null;") === 1, "C11 the axis-slice sweep opts the face out (both are Slice cells; the ref decides)");
+ok(count(embed, "c.transform.ref !== sheetCellRef") === 1, "C11 the axis-slice sweep opts the face out (both are Slice cells; the ref decides — t1137 re-key: the pin rides the CURED shape, the t1136 feat's own filter line; the old pin hunted the phantom read the feat had just cured — a pin that pins a corpse goes RED when the corpse is buried)");
+ok(
+  count(embed, 'String(cell?.transform?.transformer?.id || "").includes("oblique-density-sheet")') === 3,
+  "C11b the transformer-id witness speaks for THREE readers (deleteSheet + the sweep's opt-out + the hover applier — three readers one truth, counted verbatim three times)"
+);
+ok(count(embed, "sheetRef.current?.transform?.ref") === 0, "C11c the phantom address retired from every reader (the optional chain that swallowed the disease — zero occurrences, even in prose)");
 
 /* D band — the panel's ▣ face toggle (bytes) */
 ok(count(panel, 'export const OBLIQUE_SHEET_EVENT = "cryoflow:oblique-sheet";') === 1, "D1 the sheet's wire is minted once in the panel (the event family's home)");

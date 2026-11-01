@@ -1,0 +1,60 @@
+{
+  "walk": "t1137-w1-stopper-census",
+  "at": "2026-11-01T21:20:12.465Z",
+  "pass": 10,
+  "fail": 0,
+  "phaseTrace": [],
+  "results": [],
+  "path": [
+    {
+      "level": "window",
+      "phase": "capture",
+      "ts": 35,
+      "tgt": "BUTTON",
+      "dp": false
+    },
+    {
+      "level": "document",
+      "phase": "capture",
+      "ts": 47,
+      "tgt": "BUTTON",
+      "dp": true
+    },
+    {
+      "level": "BODY.__variable_8eaea4.__variable_8c25df",
+      "phase": "capture",
+      "ts": 47,
+      "tgt": "BUTTON",
+      "dp": true
+    },
+    {
+      "level": "DIV#fsc-dialog",
+      "phase": "capture",
+      "ts": 47,
+      "tgt": "BUTTON",
+      "dp": true
+    },
+    {
+      "level": "DIV#fsc-dialog",
+      "phase": "bubble",
+      "ts": 47,
+      "tgt": "BUTTON",
+      "dp": true
+    },
+    {
+      "level": "BODY.__variable_8eaea4.__variable_8c25df",
+      "phase": "bubble",
+      "ts": 49,
+      "tgt": "BUTTON",
+      "dp": true
+    }
+  ],
+  "stops": [
+    {
+      "meth": "stopPropagation",
+      "stack": "    at SyntheticBaseEvent.stopPropagation (http://localhost:3000/_next/static/chunks/4bd1b696-426c62b9c83cf100.js:1779:19) |     at onKeyDown (http://localhost:3000/_next/static/chunks/3716.85c76f012f172c86.js:637:23) |     at overrideProps.<computed> (http://localhost:3000/_next/static/chunks/5693-9ad7b31cacb66697.js:5099:26) |     at processDispatchQueue (http://localhost:3000/_next/static/chunk"
+    }
+  ],
+  "preventedCount": 2,
+  "dlgOpen": false
+}

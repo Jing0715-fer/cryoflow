@@ -99,11 +99,11 @@ ok(/className="size-6 opacity-0 transition-opacity group-hover:opacity-100 focus
 
 // A5 — the dialogs: the results view's word forms, verbatim
 ok(/<Dialog open=\{textFile !== null\} onOpenChange=\{\(o\) => !o && setTextFile\(null\)\}>/.test(insp), "A5 the text dialog's open contract");
-ok(/className="max-w-3xl sm:max-w-3xl"/.test(insp), "A5 the text dialog's geometry verbatim");
-ok(/<ScrollText className="h-4 w-4 text-warning-600" aria-hidden="true" \/>/.test(insp), "A5 the text dialog's ScrollText warning face");
+ok(/className="sm:max-w-3xl"/.test(insp), "A5 the text dialog's geometry verbatim (t1137 re-key: the redundant max-w-3xl twin collapsed — one responsive word, one truth)");
+ok(/<ScrollText className="size-8 opacity-40" aria-hidden="true" \/>/.test(insp), "A5 the text dialog's ScrollText ghost face (t1137 re-key: the honest-empty redesign — the icon recedes to a size-8 opacity-40 ghost and the SENTENCE speaks, \"Queued on Slurm — nothing has run yet\"; the warning tint retired with the error-shaped face it dressed)");
 ok(/\{textFile\.path\} · last 64 KB/.test(insp), "A5 the tail notice in the description");
 ok(/<StarTable job=\{job\} path=\{starFile\.path\} \/>/.test(insp), "A5 the star dialog mounts the structured law");
-ok(/<Table2 className="h-4 w-4 text-violet-600" aria-hidden="true" \/>/.test(insp), "A5 the star dialog's Table2 violet face");
+ok(/<Table2 className="h-4 w-4 shrink-0 text-violet-600" aria-hidden="true" \/>/.test(insp), "A5 the star dialog's Table2 violet face (t1137 re-key: shrink-0 joined the row's dress — the icon never yields its box to a long label)");
 eq((insp.match(/onKeyDown=\{onEscapeClose\(\(\) => set(Text|Star)File\(null\)\)\}/g) ?? []).length, 2, "A5 both doors consume Escape (Radix owns the trap, onEscapeClose owns the key)");
 
 // A6 — the download door: untouched for the bytes-shaped kinds

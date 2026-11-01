@@ -199,8 +199,8 @@ ok(
   "E1 the wheel-only verdict is on file at the transcript"
 );
 ok(
-  (panel.match(/tabIndex=\{0\}/g) || []).length === 3,
-  "E2 exactly three tab stops — the two scrollables (t799) plus the tool-detail payload window (t803's second-pass cure joined the panel); still no blanket tabindex"
+  (panel.match(/tabIndex=\{0\}/g) || []).length === 5,
+  "E2 exactly five tab stops — the two scrollables (t799) plus the tool-detail payload window (t803's second-pass cure) plus the two keyboard-geometry handles; still no blanket tabindex (the t1137 amendment 3→5: the TWO newcomers are the keyboard GEOMETRY handles (t991's cure — the width/height arrows became tab stops so keyboard users can drive the panel's geometry, each riding aria-orientation + aria-valuemin))"
 );
 ok(
   panel.includes("are not rivals"),

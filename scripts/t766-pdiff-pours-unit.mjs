@@ -186,8 +186,18 @@ console.log("D — purity (two residents audited, note leads, old residents seat
     src.includes("t766 — the pours ask rides the description's own type word"),
     "D2 the t766 judgment note leads its block",
   );
-  const storage = (src.match(/localStorage|sessionStorage/g) ?? []).length;
-  assert(storage === 0, `D3 zero storage writes`, `found ${storage}`);
+  // t1137 re-key: the ONE storage mention is the #13 law's own PROSE (a
+  // docblock comment naming the law — "no localStorage writes in render
+  // paths"), not a write; the t1123 F-band precedent counts prose
+  // mentions by name. The law itself (zero code writes) still holds.
+  const storageCode = src
+    .split("\n")
+    .filter((l) => !l.trim().startsWith("*") && !l.trim().startsWith("//") && !l.trim().startsWith("/*"))
+    .join("\n")
+    .match(/localStorage|sessionStorage/g) ?? [];
+  assert(storageCode.length === 0, `D3 zero storage writes in CODE (prose mentions counted separately by name — t1137 re-key)`, `found ${storageCode.length}`);
+  const storageProse = (src.match(/localStorage|sessionStorage/g) ?? []).length;
+  assert(storageProse === 1, `D3b exactly ONE prose mention and it is the #13 law's own voice`, `found ${storageProse}`);
   for (const resident of [
     'data-testid="params-diff-dialog"',
     'data-testid="params-diff-swap"',

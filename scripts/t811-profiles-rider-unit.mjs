@@ -38,7 +38,7 @@ const ok = (cond, msg, extra) => {
  * default cap-and-scroll; now it never scrolls) */
 ok(
   editor.includes(
-    'className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 max-w-4xl"',
+    'className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl"',
   ),
   "A1 the card wears the house shape (flex col + gap-0 + overflow-hidden + p-0; the calc cap it rode is now explicit; the 4xl width is the card's own)",
 );
@@ -139,9 +139,9 @@ if (counts) {
   const total = parseInt(counts[1], 10) + parseInt(counts[2], 10) + parseInt(counts[3], 10) + parseInt(counts[4], 10);
   const house = parseInt(counts[1], 10);
   const bodyscroll = parseInt(counts[2], 10);
-  ok(total === 46, "E1 the census still covers FORTY-SIX faces (growth amends the census, never skips it)", `found ${total}`);
+  ok(total === 48, "E1 the census covers FORTY-EIGHT faces (t1137 amendment 46→48: TWO newcomers, both named with their birth windows — pace-dialog (t1009, BODYSCROLL at birth, the same Task-64 long-content shape as the fsc-compare: max-h-[85vh] overflow-y-auto) + world-health-dialog (t1133, the world's memory board, hand-classified plain sm:max-w-2xl); growth amends the census, never skips it)", `found ${total}`);
   ok(house >= 18, "E2 the rider's cure raised the house floor (17 elders + this dressing)", `found ${house}`);
-  ok(bodyscroll === 1, "E3 exactly ONE self-scroll face remains — the documented fsc-compare; no new disease moved in", `found ${bodyscroll}`);
+  ok(bodyscroll === 2, "E3 exactly TWO self-scroll faces remain — the documented fsc-compare (t809) + the pace-dialog (t1009), both the same Task-64 long-content shape; no new DISEASE moved in (t1137 amendment: the second face named, not skipped)", `found ${bodyscroll}`);
   ok(
     /^HOUSE\s+components\/workflow\/hpc-profiles-editor\.tsx/m.test(walk),
     "E4 the census now reads this face as HOUSE (the instrument and the prose agree)",

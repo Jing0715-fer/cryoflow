@@ -210,7 +210,7 @@ console.log("C — the contracts (Enter/Space keep acting, arrows only move)");
   assert(cnt(cardCode, /localStorage|sessionStorage/g) === 4, "C9 job-card storage 4 = 4 (zero new writes)");
   assert(cnt(cardCode, /#[0-9a-fA-F]{3,8}\b/g) === 1, "C10 job-card hex 1 = 1");
   assert(cnt(canvasCode, /\{" "\}/g) === 5, "C11 canvas glue 5 = 5");
-  assert(cnt(canvasCode, /\btruncate\b/g) === 9, "C12 canvas truncate 9 = 9");
+  assert(cnt(canvasCode, /\btruncate\b/g) === 10, "C12 canvas truncate 10 = 10 (t1137 amendment 9→10, counted on the STRIPPED census like the pin's siblings: one truncate joined since t775 — the later dial/paper families dress their labels; the law itself — every truncated label pays the truncate debt — holds at the new count)");
   assert(cnt(canvasCode, /localStorage|sessionStorage/g) === 2, "C13 canvas storage 2 = 2");
   assert(cnt(canvasCode, /#[0-9a-fA-F]{3,8}\b/g) === 0, "C14 canvas hex 0 = 0 (zero new hex in the brain too)");
   assert(

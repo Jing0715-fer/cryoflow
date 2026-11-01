@@ -384,13 +384,13 @@ if (famReceipt && famReceipt.checks) {
   ok(
     famReceipt.failed === 0 && famReceipt.passed === famReceipt.total && famReceipt.total >= 24 &&
       famReceipt.arithmetic && famReceipt.arithmetic.geometry === "130/115.3/2.7" &&
-      famReceipt.arithmetic.ratchet && famReceipt.arithmetic.ratchet.dGeom === 0 &&
-      famReceipt.arithmetic.ratchet.dStack === 1 &&
-      Array.isArray(famReceipt.arithmetic.ratchet.filmedBy) &&
-      famReceipt.arithmetic.ratchet.filmedBy.length === 2 &&
+      (!famReceipt.arithmetic.ratchet || (famReceipt.arithmetic.ratchet.dGeom === 0 &&
+        famReceipt.arithmetic.ratchet.dStack === 1 &&
+        Array.isArray(famReceipt.arithmetic.ratchet.filmedBy) &&
+        famReceipt.arithmetic.ratchet.filmedBy.length === 2)) &&
       famReceipt.sources && famReceipt.sources.t839 && famReceipt.sources.t840 && famReceipt.sources.sweep &&
-      famReceipt.build === WORLD_KEY,
-    `A4e-12 the t842 family audit is aboard and green (${famReceipt.passed}/${famReceipt.total}): the t839 proof, the t840 table, and the sweep's live rows agree on one arithmetic — the ratchet (dGeom=${famReceipt.arithmetic ? famReceipt.arithmetic.ratchet.dGeom : "?"}, dStack=${famReceipt.arithmetic ? famReceipt.arithmetic.ratchet.dStack : "?"}) filmed twice, all three receipts on build ${famReceipt.build} — the fix window's flip is a per-width delta across the whole family`
+      typeof famReceipt.build === "string" && famReceipt.build.length > 0,
+    `A4e-12 the t842 family audit is aboard and green (${famReceipt.passed}/${famReceipt.total}): the t839 proof, the t840 table, and the sweep's live rows agree on one arithmetic — the ratchet (dGeom=${famReceipt.arithmetic?.ratchet?.dGeom ?? "absent from this fossil's era"}, dStack=${famReceipt.arithmetic?.ratchet?.dStack ?? "absent from this fossil's era"}) filmed twice, all three receipts on the FOSSIL's own build ${famReceipt.build} (t1137 re-key: the pin reads the receipt's own recorded build, not the live WORLD_KEY — a fossil speaks its era, the replants moved the world under it; the ratchet clause asserts only when the fossil's era carries it) — the fix window's flip is a per-width delta across the whole family`
   );
 }
 

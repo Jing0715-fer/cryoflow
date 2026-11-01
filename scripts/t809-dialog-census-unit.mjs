@@ -42,7 +42,7 @@ console.log("A — the two disease-live faces cured (the t804 dialect verbatim)"
     "A4 the empty-state face carries its own honest region name");
   ok((RR.match(/focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary\/50/g) ?? []).length === 2,
     "A5 the inset ring rides BOTH remote-run regions (the t808 dialect form verbatim)", String((RR.match(/focus-visible:ring-inset/g) ?? []).length));
-  ok(RV.includes('className="flex max-h-[90dvh] max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"'),
+  ok(RV.includes('className="flex max-h-[90dvh] sm:max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"'),
     "A6 map/stack house: the same spine, the card's own 90dvh cap kept");
   ok(RV.includes('className="shrink-0 border-b px-6 pb-4 pt-6"') &&
      RV.includes('aria-label="Map and stack preview — the image, its window controls, and the histogram"') &&
@@ -66,8 +66,8 @@ console.log("B — the census's arithmetic, gated (the retirement record)");
   ok(!!totals && !!counts, "B1 the walk instrument runs and reports (total + classification line)");
   if (totals && counts) {
     const [, total, house, body] = [null, +totals[1], +counts[1], +counts[2]];
-    ok(total === 46, `B2 the census covers FORTY-SIX faces (growth amends the census, never skips it)`, `found ${total}`);
-    ok(body === 1, `B3 exactly ONE self-scroll face remains on file (fsc-compare, the qa62 documented verdict) — a new undocumented body-scroll face moves this and screams`, `found ${body}`);
+    ok(total === 48, `B2 the census covers FORTY-EIGHT faces (t1137 amendment 46→48: TWO newcomers, both named with their birth windows — pace-dialog (t1009, BODYSCROLL at birth, the same Task-64 long-content shape as the fsc-compare: max-h-[85vh] overflow-y-auto) + world-health-dialog (t1133, the world memory board, hand-classified plain sm:max-w-2xl); growth amends the census, never skips it)`, `found ${total}`);
+    ok(body === 2, `B3 exactly TWO self-scroll faces remain on file (the fsc-compare, the qa62 documented verdict, + the pace-dialog, t1009 — both the same Task-64 long-content shape; t1137 amendment: the second face named, not skipped)`, `found ${body}`);
     ok(house >= 17, `B4 the house count sits at its t809 floor (15 elders + the two t809 cures; future dress-up only raises it)`, `found ${house}`);
   }
 }
