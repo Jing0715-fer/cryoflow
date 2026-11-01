@@ -370,14 +370,19 @@ ok(
 );
 
 const dlgLedger = readFileSync(path.join(ROOT, "src/components/workflow/world-health-dialog.tsx"), "utf8");
+// t1141 re-key — the restore now reads the TWO tiers through the lib's
+// one father (readWorldLedgerTiers): the tab's story wins, the machine's
+// story fills an empty tab; the race law's shape held (restore before
+// commit), so the pin follows the family's face (the re-key named here).
 ok(
-  "G15 the restore lands BEFORE the commit effect (declaration order IS the race law)",
-  dlgLedger.indexOf("readWorldLedgerStorage(store)") >= 0 &&
-    dlgLedger.indexOf("readWorldLedgerStorage(store)") < dlgLedger.indexOf("appendWorldSnapshot(h,"),
+  "G15 the restore lands BEFORE the commit effect (declaration order IS the race law; t1141 the tiers' face)",
+  dlgLedger.indexOf("readWorldLedgerTiers(session, local)") >= 0 &&
+    dlgLedger.indexOf("readWorldLedgerTiers(session, local)") < dlgLedger.indexOf("appendWorldSnapshot(h,"),
 );
 ok(
-  "G16 the write rides an effect, never render (the #13 law)",
+  "G16 the write rides an effect, never render (the #13 law; t1141 the write-through's face)",
   !dlgLedger.includes("useMemo(() => writeWorldLedgerStorage") &&
+    !dlgLedger.includes("useMemo(() => writeWorldLedgerTiers") &&
     /useEffect\(\(\) => \{\s*\n\s*if \(!restoredRef\.current \|\| history\.length === 0\) return;/.test(dlgLedger),
 );
 ok(

@@ -221,9 +221,14 @@ ok("D6 the copy breath untouched (the family's number, spoken once)",
 ok("D7 the footer dialect untouched (the board counts what the footer counts)",
   dlg.includes("useActiveWorkspaceJobs()") && dlg.includes("useWorkflowStore((s) => s.edges)"));
 
-ok("D8 the restore/commit/persist order holds (declaration order IS the race law)",
-  dlg.indexOf("readWorldLedgerStorage(store)") < dlg.indexOf("appendWorldSnapshot(h,") &&
-  dlg.indexOf("appendWorldSnapshot(h,") < dlg.indexOf("writeWorldLedgerStorage(store, history)") &&
+// t1141 re-key — the restore reads the TWO tiers (readWorldLedgerTiers)
+// and the persist writes THROUGH them (writeWorldLedgerTiers): the
+// declaration order's shape held (restore before commit before persist),
+// so the pin follows the family's face (the re-key named here, the same
+// law the t1130/t1129 re-keys rode).
+ok("D8 the restore/commit/persist order holds (declaration order IS the race law; t1141 the tiers' face)",
+  dlg.indexOf("readWorldLedgerTiers(session, local)") < dlg.indexOf("appendWorldSnapshot(h,") &&
+  dlg.indexOf("appendWorldSnapshot(h,") < dlg.indexOf("writeWorldLedgerTiers(session, local, history)") &&
   dlg.includes("restoredRef.current = true;"));
 
 ok("D9 the t1133 faces untouched (the vitals' five words, the flat face, the rows)",
