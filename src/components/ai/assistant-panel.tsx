@@ -108,6 +108,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Chip } from "@/components/ui/chip";
+import { Kbd } from "@/components/ui/kbd";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1967,7 +1968,7 @@ export function AssistantPanel() {
             ) : item.kind === "notice" ? (
               <Notice key={item.key} item={item} />
             ) : item.kind === "assistant" ? (
-              <div key={item.key} className="flex items-start gap-2.5">
+              <div key={item.key} className="group/turn flex items-start gap-2.5">
                 <span
                   className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 text-white shadow-sm"
                   aria-hidden="true"
@@ -1997,6 +1998,20 @@ export function AssistantPanel() {
                       />
                     )
                   )}
+                  {/* t870 — the reply's own copy door: Task 170's one
+                      clipboard, per turn — the AI's analysis walks into
+                      the lab notebook with one named door, tables and
+                      fences surviving the trip (the turn's own markdown
+                      source is what copies). The mouse meets it on
+                      hover, the keyboard through focus (focus-within —
+                      opacity never leaves the tab order), touch keeps it
+                      always visible: an affordance that hides from an
+                      input method is a lie to that hand. The hairline
+                      anchors the footer the same way the ToolCard's
+                      caption row does. */}
+                  <div className="mt-1.5 flex justify-end border-t border-border/40 pt-1 opacity-0 transition-opacity duration-150 group-hover/turn:opacity-100 focus-within:opacity-100 motion-reduce:transition-none max-sm:opacity-100">
+                    <CopyButton text={item.text} label="Copy reply" iconOnly />
+                  </div>
                 </div>
               </div>
             ) : (
@@ -2142,9 +2157,24 @@ export function AssistantPanel() {
               </Button>
             )}
           </div>
-          <p className="mt-1.5 px-1 text-[10px] text-muted-foreground">
-            AI 会创建真实任务并在确认后启动运行 — 操作会显示在对话与画布上。
-          </p>
+          {/* t870 — the panel joins the t832 keymap family: its own seat
+              in the same calibre, in the footer row the eye already
+              reads. The layered Escs are real behaviors, not decoration:
+              a live search query clears first (the search box's veto),
+              a rename editor cancels itself (the t797 stopPropagation),
+              the window closes last — one key, three honest layers. */}
+          <div
+            data-canvas-ui="ai-keymap"
+            className="mt-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-1 text-[10px] leading-tight text-muted-foreground"
+          >
+            <p className="min-w-0">
+              AI 会创建真实任务并在确认后启动运行 — 操作会显示在对话与画布上。
+            </p>
+            <span className="inline-flex shrink-0 items-center gap-0.5">
+              <Kbd>Esc</Kbd>
+              <span className="ml-1">closes</span>
+            </span>
+          </div>
         </div>
 
         {/* ---- t500: the resize grips (desktop) — east, south, and the

@@ -14,7 +14,18 @@ import { Button } from "@/components/ui/button";
  * button (the slop rides over the adjacent non-interactive <pre> in
  * every consumer, so nothing interactive is shadowed).
  */
-export function CopyButton({ text, label }: { text: string; label?: string }) {
+export function CopyButton({
+  text,
+  label,
+  iconOnly,
+}: {
+  text: string;
+  label?: string;
+  /** t870 — the compact door for dense surfaces (the chat turn, the
+   * session row): the icon alone rides, the name goes to the accessible
+   * name + the title — the ToolCard locate door's own dialect. */
+  iconOnly?: boolean;
+}) {
   const [copied, setCopied] = React.useState(false);
   return (
     <Button
@@ -28,9 +39,10 @@ export function CopyButton({ text, label }: { text: string; label?: string }) {
         });
       }}
       aria-label={label ?? "Copy"}
+      title={iconOnly ? label ?? "Copy" : undefined}
     >
       {copied ? <Check className="size-3.5 text-success-600" /> : <Copy className="size-3.5" />}
-      {label ? <span>{copied ? "Copied" : label}</span> : null}
+      {label && !iconOnly ? <span>{copied ? "Copied" : label}</span> : null}
     </Button>
   );
 }
