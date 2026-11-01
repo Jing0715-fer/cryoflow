@@ -254,10 +254,16 @@ boot() {
 }
 
 next_server_rss_kb() {
-  # max RSS across next-server workers (the kernel's OOM victim is the worker,
-  # not the launcher — witness: "task=next-server")
+  # max RSS across the server tree's workers (the kernel's OOM victim is the
+  # worker, not the launcher — witness: "task=next-server").
+  # t1135 — BOTH lanes answer: the dev lane's next-server workers AND the
+  # prod standalone server (bun/node .../standalone/server.js — the t417
+  # verdict's lane on this box). The guard guards THE server serving :3000,
+  # whatever name the lane wears; the lane-blind matcher read rss=0 on a
+  # healthy standalone world (census r1's only RED) and L9 told the truth
+  # about the reader, not the world.
   local p max=0 r
-  for p in $(pgrep -f 'next-server' 2>/dev/null); do
+  for p in $(pgrep -f 'next-server|standalone/server\.js' 2>/dev/null); do
     r=$(ps -o rss= -p "$p" 2>/dev/null | tr -d ' ')
     [ -n "$r" ] && [ "$r" -gt "$max" ] && max=$r
   done

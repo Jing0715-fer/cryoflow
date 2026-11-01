@@ -81,18 +81,31 @@ function serverDatabaseUrl() {
     // must be someone else, never itself: every candidate is
     // cross-examined by its /proc cmdline — the real server's argv[0]
     // IS "next-server …", a wrapper's is "sh"/"pgrep", a repro's "node".
-    const cands = execSync("pgrep -f 'next-server' 2>/dev/null", { encoding: "utf8" })
+    // t1135 — BOTH lanes answer: the t417 verdict's prod lane is a
+    // standalone child (argv0 bun|node, an argument ending in
+    // standalone/server.js). The cross-exam still refuses every mouth
+    // that merely CARRIES the pattern, and the fd/env verdict below
+    // stays the gate — a candidate that merely echoes the path holds no
+    // .db fd and cannot answer.
+    const cands = execSync("pgrep -f 'next-server|standalone/server\\.js' 2>/dev/null", { encoding: "utf8" })
       .split("\n")
       .map((s) => Number(s.trim()))
       .filter(Boolean);
     for (const pid of cands) {
       let argv0 = "";
+      let fullCmd = "";
       try {
-        argv0 = readFileSync(`/proc/${pid}/cmdline`, "utf8").split("\0")[0] ?? "";
+        fullCmd = readFileSync(`/proc/${pid}/cmdline`, "utf8");
+        argv0 = fullCmd.split("\0")[0] ?? "";
       } catch {
         continue; // died between pgrep and read — next candidate
       }
-      if (!argv0.startsWith("next-server")) continue;
+      const isDevServer = argv0.startsWith("next-server");
+      const args = fullCmd.split("\0").filter(Boolean).slice(1);
+      const isStandaloneServer =
+        (argv0 === "bun" || argv0 === "node") &&
+        args.some((a) => /(^|\/)standalone\/server\.js$/.test(a));
+      if (!isDevServer && !isStandaloneServer) continue;
       const env = readFileSync(`/proc/${pid}/environ`, "utf8");
       const hit = env.split("\0").find((kv) => kv.startsWith("DATABASE_URL="));
       if (hit) return { pid, url: hit.slice("DATABASE_URL=".length), source: "process env (the pin)" };
@@ -128,7 +141,7 @@ function envFileUrl() {
 receipt("=== t894 window-start sweep ===");
 const server = serverDatabaseUrl();
 if (!server) {
-  receipt("VERDICT: no next-server process found — the identity probe needs the dev lane up. Aborting before any write.");
+  receipt("VERDICT: no server process found (next-server | standalone/server.js) — the identity probe needs a lane up. Aborting before any write.");
   process.exit(2);
 }
 receipt(`server pid ${server.pid} DATABASE_URL = ${server.url}  [source: ${server.source}]`);
@@ -265,7 +278,7 @@ if (ghosts.length > 0) {
 /* t979 bind law's own verb — the app validates and writes its own pen).    */
 /* ---------------------------------------------------------------------- */
 
-const CLUSTER_CONN = "conn-mvwf4vla"; // the world's one Cluster (host 127.0.0.1:3022) — the conn-mvwf4vla replant epoch's re-key (t1125: conn-mv6a23lx died with the t1075 16-world's db in the epoch rollback)
+const CLUSTER_CONN = "conn-mvy782td"; // the world's one Cluster (host 127.0.0.1:3022) — the epoch re-key chain: conn-mv6a23lx died with the t1075 16-world's db (t1125's re-key) → conn-mvwf4vla died with the t1135 fork-landing replant (the rollback ate the epoch world; the t418 healer minted the fresh connection) → conn-mvy782td
 const CONN_REGISTRY = `${ROOT}/data/remote-connections.json`;
 
 const connRegistry = existsSync(CONN_REGISTRY) ? JSON.parse(readFileSync(CONN_REGISTRY, "utf8")) : [];

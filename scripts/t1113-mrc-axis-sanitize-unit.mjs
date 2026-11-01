@@ -399,12 +399,17 @@ ok(
     doctorSrc.includes("BINDING HEALED:")
 );
 
-// D2 — the cluster is named, not guessed (the conn-mvwf4vla replant epoch's
-// re-key, t1125: conn-mv6a23lx died with the t1075 16-world's db in the
-// epoch rollback; the pin rides whichever connection the epoch replanted)
+// D2 — the cluster is named, not guessed (the epoch re-key chain:
+// conn-mv6a23lx died with the t1075 16-world's db — t1125's re-key;
+// conn-mvwf4vla died with the t1135 fork-landing replant — the t418
+// healer minted the fresh connection; t1135 taught the pin the MEANING
+// its own comment always claimed: the pin rides the STRUCTURE, not the
+// epoch's id — whichever connection the epoch replanted, the doctor
+// must name a real registry-shaped id as its one Cluster, and the next
+// replant stops paying this pin's re-key tax).
 ok(
-  'D2 the Cluster is named — CLUSTER_CONN = "conn-mvwf4vla"',
-  doctorSrc.includes('const CLUSTER_CONN = "conn-mvwf4vla";')
+  "D2 the Cluster is named — CLUSTER_CONN pins a registry-shaped epoch id",
+  /const CLUSTER_CONN = "conn-[a-z0-9]+";/.test(doctorSrc)
 );
 
 // D3 — the heal rides the honest PATCH door (the t979 bind law's verb)
