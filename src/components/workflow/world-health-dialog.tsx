@@ -29,12 +29,23 @@
  *   • the copy chip law  — three-state flip ⧉/✓/⚠, the 1600ms breath,
  *                          the double guard, the unmount/open retirement,
  *                          refusals collapsed into one honest false.
- *   • zero raw buttons   — trigger + copy ride the shadcn <Button> base
- *                          (the t1123 mint table untouched).
+ *   • zero raw buttons   — trigger + copy + download ride the shadcn
+ *                          <Button> base (the t1123 mint table untouched).
+ *
+ * t1139 — the transition inspector + the ledger's download door: the
+ * strip takes focus (the t1138 mirror's sixth application) and walks
+ * the transitions — ← → step, Home/End jump, Escape leaves; the readout
+ * speaks what MOVED at each step (transitionWords — only the movers
+ * speak), hover mirrors the same readout on the pointer's channel, ONE
+ * readout for both hands. The export chip exists only when the ledger
+ * has a story (the honest-empty law — an empty ledger's door does not
+ * exist rather than existing and lying) and rides the SAME versioned
+ * envelope the tab's memory writes (one father) through the ONE
+ * download father (the t191 law) under the family's stamp grammar.
  */
 
 import * as React from "react";
-import { Activity, AlertTriangle, Check, ClipboardCopy } from "lucide-react";
+import { Activity, AlertTriangle, Check, ClipboardCopy, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -47,10 +58,14 @@ import {
 import { useActiveWorkspaceJobs, useWorkflowStore } from "@/lib/store";
 import {
   appendWorldSnapshot,
+  clockWordsOf,
   readWorldLedgerStorage,
   snapshotOf,
+  transitionWords,
   worldAgeWords,
   worldHealthRows,
+  worldLedgerFilename,
+  worldLedgerJson,
   worldLedgerText,
   worldTimelineBars,
   worldVitalsOf,
@@ -62,6 +77,7 @@ import type { JobStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useNow } from "@/lib/use-now";
 import { copyTextToClipboard } from "@/lib/chart-export";
+import { downloadText } from "@/lib/download"; // t1139 — the export door rides the ONE download father (the t191 law)
 
 /** The ⧉ chip's breath (the t1132 law's number, spoken once here). */
 const COPY_BREATH_MS = 1600;
@@ -81,6 +97,11 @@ export function WorldHealthBoard() {
   const [open, setOpen] = React.useState(false);
   const [history, setHistory] = React.useState<WorldSnapshot[]>([]);
   const [copyFace, setCopyFace] = React.useState<CopyFace>("idle");
+  // t1139 — the transition inspector's two hands: the walk (keyboard,
+  // sticky) and the hover (pointer, momentary). ONE readout renders
+  // `hover ?? walk` — a second readout would be a second truth.
+  const [walkIdx, setWalkIdx] = React.useState<number | null>(null);
+  const [hoverIdx, setHoverIdx] = React.useState<number | null>(null);
   const copyTimer = React.useRef<number | null>(null);
   const copyBusy = React.useRef(false);
   // The restore's receipt: the write door stays shut until the restore
@@ -145,7 +166,8 @@ export function WorldHealthBoard() {
 
   // The breath's retirement: the flip resets when the dialog closes and
   // the timer dies on unmount — a stale ✓ must outlive neither its
-  // dialog nor its component.
+  // dialog nor its component. The inspector's walk and hover ride the
+  // same retirement — a walk that survives its dialog is a ghost hand.
   React.useEffect(() => {
     if (open) return;
     if (copyTimer.current !== null) {
@@ -154,6 +176,8 @@ export function WorldHealthBoard() {
     }
     copyBusy.current = false;
     setCopyFace("idle");
+    setWalkIdx(null);
+    setHoverIdx(null);
   }, [open]);
   React.useEffect(
     () => () => {
@@ -184,6 +208,65 @@ export function WorldHealthBoard() {
       copyBusy.current = false;
       setCopyFace("idle");
     }, COPY_BREATH_MS);
+  };
+
+  // t1139 — the inspector's read-side clamp: the ledger only grows (and
+  // slides at the cap), so a walk index can point past the tail — the
+  // clamp is a READ guard, never a render-time state write (the #13 law).
+  const activeIdx =
+    hoverIdx != null && hoverIdx < history.length
+      ? hoverIdx
+      : walkIdx != null && walkIdx < history.length
+        ? walkIdx
+        : null;
+  const readoutWords =
+    activeIdx != null
+      ? `${clockWordsOf(history[activeIdx].t)} · ${transitionWords(activeIdx > 0 ? history[activeIdx - 1] : null, history[activeIdx])}`
+      : null;
+
+  // The timeline's keyboard mirror (the t1138 family shape): the group
+  // takes focus and walks the transitions — the first arrow lands on the
+  // NEWEST transition (the walk-current law's "you are here"), ← walks
+  // older, → walks newer, Home/End jump, Escape leaves. The gate is the
+  // family's gatekeeper (no ctrl/meta/alt — t908's B7); every handled
+  // key preventDefaults (the B5 law); unhandled keys return bare. The
+  // wire is ELEMENT-level — no raw window keydown (the t908 C1 law).
+  const onTimelineKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const n = history.length;
+    if (n === 0) return;
+    let next: number | null;
+    switch (e.key) {
+      case "ArrowLeft":
+      case "ArrowDown":
+        next = activeIdx == null ? n - 1 : Math.max(0, activeIdx - 1);
+        break;
+      case "ArrowRight":
+      case "ArrowUp":
+        next = activeIdx == null ? n - 1 : Math.min(n - 1, activeIdx + 1);
+        break;
+      case "Home":
+        next = 0;
+        break;
+      case "End":
+        next = n - 1;
+        break;
+      case "Escape":
+        next = null;
+        break;
+      default:
+        return; // unhandled keys stay bare — the wrapper is not a key prison
+    }
+    e.preventDefault();
+    setWalkIdx(next);
+  };
+
+  // The download door: the SAME envelope the tab's memory writes (one
+  // father), the family's stamp grammar, the ONE download father (the
+  // t191 law — never re-derive the anchor dance). Fire-and-honest: the
+  // browser owns the receipt, so no flip face is invented here.
+  const onDownload = () => {
+    downloadText(worldLedgerFilename(), worldLedgerJson(history), "application/json");
   };
 
   const ariaSummary =
@@ -280,7 +363,10 @@ export function WorldHealthBoard() {
 
         {/* ---- the timeline: bars colored by the world's own state at
              each transition — danger when failures stood, running ink
-             while work moved, success when all clear ---- */}
+             while work moved, success when all clear. The strip takes
+             focus (t1139): the keyboard mirror walks the transitions and
+             the readout speaks what moved — hover mirrors the same
+             readout on the pointer's own channel. ---- */}
         <div className="grid gap-1.5">
           <div className="flex items-baseline justify-between gap-2 text-xs text-muted-foreground">
             <span aria-hidden="true">transitions since this page loaded</span>
@@ -297,77 +383,136 @@ export function WorldHealthBoard() {
               timeline starts writing
             </div>
           ) : (
-            <svg
-              data-testid="world-health-timeline"
-              viewBox="0 0 100 28"
-              preserveAspectRatio="none"
-              role="img"
-              aria-label={ariaSummary}
-              className="h-14 w-full rounded-md border bg-muted/20"
+            <div
+              data-testid="world-health-timeline-group"
+              role="group"
+              tabIndex={0}
+              aria-label="The transition strip — focus it and walk the ledger with the arrow keys; Home and End jump, Escape leaves. Each step speaks what moved."
+              onKeyDown={onTimelineKeyDown}
+              className="rounded-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              onPointerLeave={() => setHoverIdx(null)}
             >
-              <line x1="0" y1="27.5" x2="100" y2="27.5" className="stroke-border" strokeWidth="0.5" />
-              {layout.bars.map((b, i) => {
-                const s = history[i];
-                const ink =
-                  s.failed > 0
-                    ? "fill-danger-500/80"
-                    : s.running > 0
-                      ? "fill-running-500/80"
-                      : "fill-success-500/60";
-                return (
+              <svg
+                data-testid="world-health-timeline"
+                viewBox="0 0 100 28"
+                preserveAspectRatio="none"
+                role="img"
+                aria-label={ariaSummary}
+                className="h-14 w-full rounded-md border bg-muted/20"
+              >
+                <line x1="0" y1="27.5" x2="100" y2="27.5" className="stroke-border" strokeWidth="0.5" />
+                {layout.bars.map((b, i) => {
+                  const s = history[i];
+                  const ink =
+                    s.failed > 0
+                      ? "fill-danger-500/80"
+                      : s.running > 0
+                        ? "fill-running-500/80"
+                        : "fill-success-500/60";
+                  return (
+                    <rect
+                      key={s.t + "-" + i}
+                      x={b.x}
+                      y={28 - b.h}
+                      width={b.w}
+                      height={b.h}
+                      shapeRendering="crispEdges"
+                      className={ink}
+                      onPointerEnter={() => setHoverIdx(i)}
+                    >
+                      <title>{b.title}</title>
+                    </rect>
+                  );
+                })}
+                {activeIdx != null && layout.bars[activeIdx] && (
                   <rect
-                    key={s.t + "-" + i}
-                    x={b.x}
-                    y={28 - b.h}
-                    width={b.w}
-                    height={b.h}
+                    data-testid="world-health-timeline-marker"
+                    x={layout.bars[activeIdx].x - 0.75}
+                    y={28 - layout.bars[activeIdx].h - 0.75}
+                    width={layout.bars[activeIdx].w + 1.5}
+                    height={layout.bars[activeIdx].h + 0.75}
+                    fill="none"
                     shapeRendering="crispEdges"
-                    className={ink}
-                  >
-                    <title>{b.title}</title>
-                  </rect>
-                );
-              })}
-            </svg>
+                    className="stroke-foreground"
+                    strokeWidth="0.75"
+                    pointerEvents="none"
+                  />
+                )}
+              </svg>
+            </div>
           )}
+          <p
+            data-testid="world-health-transition-readout"
+            aria-live="polite"
+            className={cn(
+              "min-h-4 text-xs tabular-nums",
+              readoutWords ? "text-foreground" : "text-muted-foreground/70",
+            )}
+          >
+            {readoutWords ??
+              (history.length > 1
+                ? "focus the strip and walk with ← → — each step speaks what moved; hover reads the same words"
+                : history.length === 1
+                  ? "one world in the ledger — a second makes a transition to walk"
+                  : "reading the world…")}
+          </p>
         </div>
 
-        {/* ---- the copy chip (the ⧉ law's second sibling) ---- */}
+        {/* ---- the copy chip (the ⧉ law's second sibling) + the ledger's
+             download door (t1139): the export chip exists only when the
+             ledger has a story — an empty ledger's export door does not
+             exist rather than existing and lying (the honest-empty law). ---- */}
         <div className="flex items-center justify-between gap-2">
           <p className="text-xs text-muted-foreground">
             {history.length} sample{history.length === 1 ? "" : "s"} in the ledger
             {oldestWords ? ` · oldest ${oldestWords} ago` : ""}
           </p>
-          <Button
-            variant="outline"
-            size="sm"
-            data-testid="world-health-copy"
-            onClick={onCopy}
-            className={cn(
-              "h-7 gap-1.5 px-2 text-xs",
-              copyFace === "copied" && "border-success/60 text-success-600 dark:text-success-400",
-              copyFace === "refused" && "border-warning/60 text-warning-600 dark:text-warning-400",
+          <div className="flex items-center gap-1.5">
+            {history.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                data-testid="world-health-download"
+                onClick={onDownload}
+                aria-label="Download the world ledger as JSON — the same versioned envelope the tab's memory writes"
+                title="Export ledger (JSON) — the tab's memory, ready for a script"
+                className="h-7 gap-1.5 px-2 text-xs"
+              >
+                <Download aria-hidden="true" className="size-3.5" />
+                Export ledger
+              </Button>
             )}
-          >
-            {copyFace === "idle" && (
-              <>
-                <ClipboardCopy aria-hidden="true" className="size-3.5" />
-                Copy ledger
-              </>
-            )}
-            {copyFace === "copied" && (
-              <>
-                <Check aria-hidden="true" className="size-3.5" />
-                Ledger copied
-              </>
-            )}
-            {copyFace === "refused" && (
-              <>
-                <AlertTriangle aria-hidden="true" className="size-3.5" />
-                Clipboard refused
-              </>
-            )}
-          </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              data-testid="world-health-copy"
+              onClick={onCopy}
+              className={cn(
+                "h-7 gap-1.5 px-2 text-xs",
+                copyFace === "copied" && "border-success/60 text-success-600 dark:text-success-400",
+                copyFace === "refused" && "border-warning/60 text-warning-600 dark:text-warning-400",
+              )}
+            >
+              {copyFace === "idle" && (
+                <>
+                  <ClipboardCopy aria-hidden="true" className="size-3.5" />
+                  Copy ledger
+                </>
+              )}
+              {copyFace === "copied" && (
+                <>
+                  <Check aria-hidden="true" className="size-3.5" />
+                  Ledger copied
+                </>
+              )}
+              {copyFace === "refused" && (
+                <>
+                  <AlertTriangle aria-hidden="true" className="size-3.5" />
+                  Clipboard refused
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

@@ -283,6 +283,67 @@ export function worldAgeWords(ms: number): string {
 }
 
 /* ---------------------------------------------------------------------- */
+/* t1139 — the transition inspector: what MOVED at each step, and the       */
+/* ledger's download door.                                                  */
+/*                                                                          */
+/* The ledger records transitions; the delta is the transition's own        */
+/* story — a bar that only says "16 jobs" makes the reader do the           */
+/* subtraction the lib already knows. Only the movers speak: a world        */
+/* where two numbers moved is a two-word sentence, not a five-field          */
+/* dump. The download door rides the SAME versioned envelope the            */
+/* storage write uses (one father: a future import door reads both          */
+/* with one reader) and the family's stamp grammar (the funnel ledger's     */
+/* ISO stamp, the cryoflow- prefix the presets shelf speaks).               */
+/* ---------------------------------------------------------------------- */
+
+const DELTA_FIELDS: {
+  key: "jobs" | "edges" | "running" | "completed" | "failed";
+  one: string;
+  many: string;
+}[] = [
+  { key: "jobs", one: "job", many: "jobs" },
+  { key: "edges", one: "edge", many: "edges" },
+  { key: "running", one: "running", many: "running" },
+  { key: "completed", one: "completed", many: "completed" },
+  { key: "failed", one: "failed", many: "failed" },
+];
+
+/** The transition's own words — only the fields that MOVED speak, in
+ * the vitals' speaking order, signed (+ arrived / − left). The ledger's
+ * first world has no prev: it introduces itself instead of lying about
+ * a delta that never happened. Pure — one string. */
+export function transitionWords(prev: WorldSnapshot | null, cur: WorldSnapshot): string {
+  if (!prev) {
+    return `the ledger's first world: ${cur.jobs} job${cur.jobs === 1 ? "" : "s"} · ${cur.edges} edge${cur.edges === 1 ? "" : "s"}`;
+  }
+  const words: string[] = [];
+  for (const f of DELTA_FIELDS) {
+    const d = cur[f.key] - prev[f.key];
+    if (d === 0) continue;
+    const n = Math.abs(d);
+    words.push(`${d > 0 ? "+" : "−"}${n} ${n === 1 ? f.one : f.many}`);
+  }
+  return words.length > 0 ? words.join(" · ") : "no visible change";
+}
+
+/** The download door's filename — the family's grammar: the cryoflow-
+ * prefix, the ledger's own word, the funnel ledger's ISO stamp (a
+ * downloads folder full of anonymous "ledger.json" copies is how
+ * export features get distrusted — the preset shelf's law). Pure —
+ * the stamp rides the caller's Date so tests construct fixed ones. */
+export function worldLedgerFilename(now: Date = new Date()): string {
+  return `cryoflow-world-ledger-${now.toISOString().replace(/[:.]/g, "-").slice(0, 19)}.json`;
+}
+
+/** The download door's body — EXACTLY the storage envelope (the v1
+ * shape law): the same writer could read it back. One father means one
+ * envelope — a forked export shape is a second contract wearing the
+ * first's name. Pure — one string. */
+export function worldLedgerJson(history: WorldSnapshot[]): string {
+  return JSON.stringify({ v: WORLD_LEDGER_STORAGE_VERSION, rows: history }, null, 2);
+}
+
+/* ---------------------------------------------------------------------- */
 /* t1135 — the ledger's persistence layer: the world's memory outlives      */
 /* the page.                                                                */
 /*                                                                          */
