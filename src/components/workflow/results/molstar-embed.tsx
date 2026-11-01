@@ -4043,8 +4043,20 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     const deleteAllSlices = async () => {
       // t1129 — the oblique sheet is ALSO a "Slice" cell (same provider
       // label); the sweep must not eat the face: its own ref opts it out
-      // and its own commit path retires it
-      const sheetCellRef = sheetRef.current?.transform?.ref ?? null;
+      // and its own commit path retires it. t1136 — the opt-out rides the
+      // TREE (the t1130 law): the cached builder node has a `ref`, not a
+      // `.transform`, and this phantom read returned null since the t1130
+      // re-plant — the sweep's protection was dead at the same address the
+      // hover's applier was (the optional chain swallowed the disease; the
+      // sweep would have eaten the face on every axis switch). The
+      // transformer-id witness speaks for all three readers.
+      let sheetCellRef: string | null = null;
+      for (const cell of plugin.state.data.cells.values()) {
+        if (String(cell?.transform?.transformer?.id || "").includes("oblique-density-sheet")) {
+          sheetCellRef = cell.transform.ref;
+          break;
+        }
+      }
       const cells = sliceCells().filter((c) => c.transform.ref !== sheetCellRef);
       if (cells.length === 0) return;
       const b = plugin.build();
@@ -4989,13 +5001,26 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       lm.clearHighlights();
       return;
     }
-    // the face's address — read without copying the axis-slice sweep's
-    // opt-out line verbatim (the t1129 C11 pin counts that line ONCE;
-    // the hover is a different reader of the same ref, not the sweep)
-    const sheetCellRef = sheetRef.current?.transform?.ref;
-    if (!sheetCellRef) return; // no face on the scene — a ghost key paints nothing
-    const cell = plugin.state.data.cells.get(sheetCellRef);
-    const shape = cell?.obj?.data as { groupCount: number } | undefined;
+    // t1136 — the address rides the TREE (the t1130 law's own shape: the
+    // tree is the one truth). The old read took `.transform?.ref` off the
+    // CACHED BUILDER NODE — a StateBuilder.To has a `ref`, NOT a
+    // `.transform`, so the optional chain swallowed the exact disease the
+    // deleteSheet live ride had already convicted (the "Cannot read
+    // properties of undefined (reading 'ref')" off the cached To) into a
+    // SILENT no-paint: the ghost-key guard bailed on every hover, and the
+    // `as unknown as` cast kept tsc honest-looking while the address was
+    // dead. Find the sheet cell by its transformer id — the same witness
+    // deleteSheet speaks — and address the band through the CELL's own
+    // live shape (the stale-key bound reads groupCount off the data).
+    let sheetCell: { transform: { ref: string }; obj?: { data?: unknown } } | null = null;
+    for (const cell of plugin.state.data.cells.values()) {
+      if (String(cell?.transform?.transformer?.id || "").includes("oblique-density-sheet")) {
+        sheetCell = cell;
+        break;
+      }
+    }
+    if (!sheetCell) return; // no face on the scene — a ghost key paints nothing
+    const shape = sheetCell.obj?.data as { groupCount: number } | undefined;
     if (!shape || band >= shape.groupCount) return; // the stale-key bound
     const kit = await ensureSheetKit();
     const int = await import("molstar/lib/mol-data/int");
