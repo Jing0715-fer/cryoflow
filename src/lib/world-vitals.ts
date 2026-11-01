@@ -260,6 +260,107 @@ export function worldHealthRows(
   return rows;
 }
 
+/* ---------------------------------------------------------------------- */
+/* t1140 — the jobs' own health face: the board's verdicts above are the    */
+/* ENGINE's and the PIPELINE's; the JOBS' own facts speak here.             */
+/*                                                                          */
+/* Facts, not verdicts: a row exists only when its fact exists — silence    */
+/* is the honest absence, never a "nothing to see" filler (the failures     */
+/* row above already speaks the clean bill; this face NAMES the story).     */
+/* Durations ride the ONE father (worldAgeWords), stamps ride the ONE       */
+/* clock (clockWordsOf) — no second formatter is born here. An unreadable   */
+/* stamp is an absent fact (the row stays silent), never a NaN lie; a       */
+/* stamp in the future is clock skew — the age row steps aside rather       */
+/* than speak a negative duration.                                          */
+/* ---------------------------------------------------------------------- */
+
+/** The narrow clock face the rows need — STRUCTURAL: the store's JobDTO
+ * satisfies it, the tests construct fakes, the lib imports nothing. */
+export interface JobClock {
+  name: string;
+  status: string;
+  result: string | null;
+  startedAt: string | null;
+  updatedAt: string;
+}
+
+/** An ISO stamp → its ms, or null when the stamp is absent or unreadable
+ * (the row's honest absence — never NaN wearing a sentence). */
+function clockMsOf(iso: string | null): number | null {
+  if (!iso) return null;
+  const t = new Date(iso).getTime();
+  return Number.isFinite(t) ? t : null;
+}
+
+/** The failure words' clip — a long result speaks its first breath, not
+ * its whole body (the row is a nameplate, not a log). */
+const FAILURE_WORDS_CLIP = 80;
+
+export function worldJobRows(jobs: JobClock[], now: number): HealthRow[] {
+  const rows: HealthRow[] = [];
+
+  // the LAST failure — the failures row above COUNTS; this row NAMES:
+  // who broke, in the run's own first words, and when the world learned.
+  let lastFail: JobClock | null = null;
+  let lastFailMs = 0;
+  for (const j of jobs) {
+    if (j.status !== "failed") continue;
+    const t = clockMsOf(j.updatedAt);
+    if (t != null && t >= lastFailMs) { lastFailMs = t; lastFail = j; }
+  }
+  if (lastFail) {
+    const words = (lastFail.result ?? "").replace(/\s+/g, " ").trim();
+    rows.push({
+      key: "last-failure",
+      label: "Last failure",
+      ok: false,
+      detail: `${lastFail.name}${words ? ` — ${words.slice(0, FAILURE_WORDS_CLIP)}${words.length > FAILURE_WORDS_CLIP ? "…" : ""}` : ""} · ${clockWordsOf(lastFailMs)}`,
+    });
+  }
+
+  // the OLDEST running — work moving is good news; its age is the fact
+  // the chips cannot speak (a count says HOW MANY, not HOW LONG).
+  let oldestRunMs: number | null = null;
+  let runningCount = 0;
+  for (const j of jobs) {
+    if (j.status !== "running") continue;
+    runningCount += 1;
+    const t = clockMsOf(j.startedAt);
+    if (t != null && (oldestRunMs == null || t < oldestRunMs)) oldestRunMs = t;
+  }
+  if (oldestRunMs != null && now > oldestRunMs) {
+    rows.push({
+      key: "oldest-running",
+      label: "Working now",
+      ok: true,
+      detail: `${runningCount} running — the oldest started ${worldAgeWords(now - oldestRunMs)} ago`,
+    });
+  }
+
+  // the OLDEST waiting — a pending job's silence has a length; the
+  // queue's own patience is a health fact. (Pending never started —
+  // startedAt is null — so the wait rides updatedAt, the world's last
+  // touch of that row.)
+  let oldestWaitMs: number | null = null;
+  let pendingCount = 0;
+  for (const j of jobs) {
+    if (j.status !== "pending") continue;
+    pendingCount += 1;
+    const t = clockMsOf(j.updatedAt);
+    if (t != null && (oldestWaitMs == null || t < oldestWaitMs)) oldestWaitMs = t;
+  }
+  if (oldestWaitMs != null && now > oldestWaitMs) {
+    rows.push({
+      key: "oldest-pending",
+      label: "Waiting",
+      ok: true,
+      detail: `${pendingCount} pending — the oldest waited ${worldAgeWords(now - oldestWaitMs)}`,
+    });
+  }
+
+  return rows;
+}
+
 /** The clipboard's words — the ledger's own sentences, not a second
  * formatter (the t1132 one-father law, the ⧉ chip's sibling). */
 export function worldLedgerText(history: WorldSnapshot[]): string {

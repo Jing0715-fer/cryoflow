@@ -38,10 +38,17 @@
  * speaks what MOVED at each step (transitionWords — only the movers
  * speak), hover mirrors the same readout on the pointer's channel, ONE
  * readout for both hands. The export chip exists only when the ledger
- * has a story (the honest-empty law — an empty ledger's door does not
- * exist rather than existing and lying) and rides the SAME versioned
+ * has a story (the honest-empty law) and rides the SAME versioned
  * envelope the tab's memory writes (one father) through the ONE
  * download father (the t191 law) under the family's stamp grammar.
+ *
+ * t1140 — the jobs' own health face: the last failure NAMED (the
+ * failures row counts; this row names who, in the run's own first
+ * words, and when), the oldest running job's age, the queue's oldest
+ * wait — facts, not verdicts: a row exists only when its fact exists
+ * (silence is the honest absence). The ages ride the SAME tick and the
+ * ONE duration father (worldAgeWords) — no second clock, no second
+ * formatter. The list renders only when it has rows.
  */
 
 import * as React from "react";
@@ -64,6 +71,7 @@ import {
   transitionWords,
   worldAgeWords,
   worldHealthRows,
+  worldJobRows,
   worldLedgerFilename,
   worldLedgerJson,
   worldLedgerText,
@@ -191,12 +199,20 @@ export function WorldHealthBoard() {
 
   const lastT = history.length > 0 ? history[history.length - 1].t : null;
   // The age ticker exists only while the dialog is open AND the world
-  // has moved — an idle world pays zero timers (the useNow doctrine).
-  // BOTH age words ride the same tick — a readout that freezes mid-
-  // breath cannot be told apart from a hung one.
-  const now = useNow(open && lastT !== null && history.length > 1);
+  // has movement to age — an idle world pays zero timers (the useNow
+  // doctrine). BOTH age words ride the same tick — a readout that
+  // freezes mid-breath cannot be told apart from a hung one. t1140: the
+  // jobs' own ages (the oldest running, the oldest waiting) ride the
+  // SAME tick — a second clock would be a drift (the one-clock law).
+  const hasAgeableJobs = vitals.running > 0 || vitals.pending > 0;
+  const now = useNow(open && ((lastT !== null && history.length > 1) || hasAgeableJobs));
   const ageWords = lastT !== null && now > 0 ? worldAgeWords(now - lastT) : null;
   const oldestWords = history.length > 1 && now > 0 ? worldAgeWords(now - history[0].t) : null;
+
+  // t1140 — the jobs' own facts (the last failure NAMED, the oldest
+  // running's age, the queue's oldest wait): the SAME now both faces
+  // ride, the ONE father supplies every word.
+  const jobRows = React.useMemo(() => worldJobRows(jobs, now), [jobs, now]);
 
   const onCopy = async () => {
     if (copyBusy.current) return; // the double guard: a flip mid-breath refuses
@@ -360,6 +376,35 @@ export function WorldHealthBoard() {
             </li>
           ))}
         </ul>
+
+        {/* ---- the jobs' own facts (t1140): the last failure NAMED, the
+             oldest running's age, the queue's oldest wait — a row exists
+             only when its fact exists (silence is the honest absence). ---- */}
+        {jobRows.length > 0 && (
+          <ul
+            data-testid="world-health-job-rows"
+            className="grid gap-1.5 rounded-md border bg-muted/30 p-2.5 text-xs"
+            aria-label="Job health facts — the last failure named, the oldest running job's age, the queue's oldest wait"
+          >
+            {jobRows.map((r) => (
+              <li key={r.key} className="flex items-start gap-2">
+                {r.ok ? (
+                  <Check aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-success-500" />
+                ) : (
+                  <AlertTriangle
+                    aria-hidden="true"
+                    className="mt-0.5 size-3.5 shrink-0 text-warning-500"
+                  />
+                )}
+                <span>
+                  <span className="font-medium text-foreground">{r.label}</span>
+                  <span className="text-muted-foreground"> — {r.detail}</span>
+                </span>
+                <span className="sr-only">{r.ok ? " (all clear)" : " (needs attention)"}</span>
+              </li>
+            ))}
+          </ul>
+        )}
 
         {/* ---- the timeline: bars colored by the world's own state at
              each transition — danger when failures stood, running ink
