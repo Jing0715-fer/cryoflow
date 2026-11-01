@@ -240,14 +240,44 @@ if (template) {
 
 /* ---------- L1 — stop mid-import ---------- */
 console.log("L1 — the stop arm live (stop mid-import, the server survives):");
-if (twinA) {
+// t1139 — the quiet-box conviction: the engine-native import completes in
+// ~470ms total (three traces: flip@186/265/329ms, done@419/473/494ms) so the
+// running phase is ~150-300ms — the OLD 250ms poll grid ALIASED it (the
+// t1137 fleet RED; a coin flip on where the grid fell). The cure: a 50ms
+// grid at the same 10s patience + ONE honest race-loss retry — a run that
+// completes before the stop lands is a fair race loss, not an arm failure;
+// the unit says so and re-rides once with a fresh twin.
+const rideL1 = async (twin) => {
   // the detached trigger — the unit continues while the run flies
-  const ch = spawn("curl", ["-s", "-X", "POST", "-H", `Origin: ${BASE}`, `${BASE}/api/jobs/${twinA.id}/run`], { stdio: "ignore", detached: true });
+  const ch = spawn("curl", ["-s", "-X", "POST", "-H", `Origin: ${BASE}`, `${BASE}/api/jobs/${twin.id}/run`], { stdio: "ignore", detached: true });
   ch.unref();
-  const running = await pollJobs((j) => j.id === twinA.id && j.status === "running", 40, 250);
-  ok("the twin reached running (the flip landed)", !!running);
+  const running = await pollJobs((j) => j.id === twin.id && j.status === "running", 200, 50);
+  if (!running) return { twin, flip: false };
+  const stop = await api("POST", `/api/jobs/${twin.id}/stop`);
+  if (stop.status !== 200) return { twin, flip: true, raced: true, stopStatus: stop.status };
+  return { twin, flip: true, raced: false, stop };
+};
+let twinA2 = null; // the retry twin — swept with the others
+let l1 = null;
+if (twinA) {
+  l1 = await rideL1(twinA);
+  if (!l1.flip || l1.raced) {
+    const why = !l1.flip
+      ? "the flip was never seen in 10s (even the 50ms grid missed it)"
+      : `the run completed before the stop landed (stop=${l1.stopStatus}) — a fair race loss on a ~470ms run`;
+    console.log(`  · L1 first ride lost — ${why}; one honest retry with a fresh twin`);
+    const mintA2 = await apiRetry("POST", "/api/jobs", {
+      type: "import", name: "Import Stop Arm Ride A2", workspaceId: template.workspaceId,
+      x: 760, y: 320, params: paramsA,
+    });
+    twinA2 = mintA2?.json?.job ?? null;
+    if (twinA2) l1 = await rideL1(twinA2);
+  }
+  const running = l1?.flip ?? false;
+  ok("the twin reached running (the flip landed — the 50ms grid rode the ~150-300ms phase)", !!running);
   if (running) {
-    const stop = await api("POST", `/api/jobs/${twinA.id}/stop`);
+    const stop = l1.stop;
+    const victim = l1.twin; // the assertions ride the twin the stop actually landed on (the retry's twin on a race-loss re-ride)
     ok("THE STOP ANSWERED with the arm's receipt (killed + nativeAbort)",
       stop.status === 200 && stop.json?.stopped === true && stop.json?.outcome === "killed" && stop.json?.nativeAbort === true,
       stop.json ? `outcome=${stop.json.outcome} nativeAbort=${stop.json.nativeAbort}` : `status=${stop.status}`);
@@ -256,12 +286,12 @@ if (twinA) {
     const alive = await api("GET", "/api/jobs");
     ok("THE SERVER SURVIVES its own stop click (no self-kill)", alive.status === 200 && Array.isArray(jobsArr(alive.json)));
     // the row: failed, the stop's own words
-    const row = await pollJobs((j) => j.id === twinA.id && j.status === "failed", 30, 300);
+    const row = await pollJobs((j) => j.id === victim.id && j.status === "failed", 30, 300);
     ok("the row landed failed", !!row);
     ok("the row's words carry the user-stop", /stopped by user/.test(row?.result ?? ""), row?.result?.slice(0, 90));
     // the record: closed honestly, no outputs claimed
     let rec = null;
-    for (let i = 0; i < 30 && !(rec && rec.done); i++) { await sleep(200); rec = readRecord(twinA.id); }
+    for (let i = 0; i < 30 && !(rec && rec.done); i++) { await sleep(200); rec = readRecord(victim.id); }
     ok("the run record closed (done)", !!rec && rec.done === true);
     ok("the record's exit is the user-stop stamp", rec?.exitCode === 1, `exit=${rec?.exitCode}`);
     ok("the record's words name the stop", /stopped by user/.test(rec?.result ?? ""));
@@ -269,7 +299,7 @@ if (twinA) {
       !rec?.outputs?.micrographs_star);
     // no completion flip afterward — the unwound arc never completes
     await sleep(2500);
-    const after = await pollJobs((j) => j.id === twinA.id, 5, 300);
+    const after = await pollJobs((j) => j.id === victim.id, 5, 300);
     ok("no completion flip afterward (the stop is terminal)",
       after?.status === "failed" && !/imported/.test(after?.result ?? ""), `status=${after?.status}`);
   }
@@ -282,7 +312,7 @@ console.log("L2 — the delete door live (the belt: no 500, the row is gone):");
 if (twinB) {
   // the run POST as an AWAITED promise — its response is the belt's verdict
   const runPromise = api("POST", `/api/jobs/${twinB.id}/run`).catch((e) => ({ status: 0, json: null, text: String(e) }));
-  const running = await pollJobs((j) => j.id === twinB.id && j.status === "running", 40, 250);
+  const running = await pollJobs((j) => j.id === twinB.id && j.status === "running", 200, 50); // t1139: the 50ms grid — L2's mid-run delete needs the same flip honesty
   ok("twin B reached running", !!running);
   if (running) {
     const del = await apiRetry("DELETE", `/api/jobs/${twinB.id}`);
@@ -310,11 +340,11 @@ if (twinB) {
 
 /* ---------- the sweep (the mint gate's residue) ---------- */
 console.log("sweep — the arc's own residue:");
-if (twinA) {
-  try { await api("DELETE", `/api/jobs/${twinA.id}`); } catch { /* the stop already failed it; the delete still must land */ }
+for (const t of [twinA, twinA2]) {
+  if (t) { try { await api("DELETE", `/api/jobs/${t.id}`); } catch { /* the stop already failed it; the delete still must land */ } }
 }
 rmSync(FIX, { force: true, recursive: true });
-for (const t of [twinA, twinB]) {
+for (const t of [twinA, twinA2, twinB]) {
   if (t?.projectId && t?.id) {
     rmSync(path.join(ROOT, "data/relion", t.projectId, `import_${t.id.slice(-8)}`), { force: true, recursive: true });
   }
