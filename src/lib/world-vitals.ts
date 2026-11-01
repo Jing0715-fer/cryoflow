@@ -476,7 +476,10 @@ export function isWorldSnapshotShape(x: unknown): x is WorldSnapshot {
  *   no store / no raw / bad JSON / wrong version / rows not an array /
  *   any row off-shape / more rows than the cap — all restore nothing.
  * The empty restore is an HONEST absence (the board starts its own
- * story), not an error face. */
+ * story), not an error face. t1142 — the read rides the ONE parse
+ * father (the same reader reads every tier that carries the envelope:
+ * the storage getter and the server GET body land in the same trust
+ * decision), so a tier can never grow a private dialect of "trusted". */
 export function readWorldLedgerStorage(store: Pick<Storage, "getItem"> | null): WorldSnapshot[] {
   if (!store) return [];
   let raw: string | null = null;
@@ -485,44 +488,22 @@ export function readWorldLedgerStorage(store: Pick<Storage, "getItem"> | null): 
   } catch {
     return [];
   }
-  if (!raw) return [];
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return [];
-  }
-  if (!parsed || typeof parsed !== "object") return [];
-  const env = parsed as { v?: unknown; rows?: unknown };
-  if (env.v !== WORLD_LEDGER_STORAGE_VERSION || !Array.isArray(env.rows)) return [];
-  if (env.rows.length > WORLD_LEDGER_CAP) return [];
-  if (!env.rows.every((r) => isWorldSnapshotShape(r))) return [];
-  return env.rows.map((r) => {
-    const s = r as WorldSnapshot;
-    return {
-      t: s.t,
-      jobs: s.jobs,
-      edges: s.edges,
-      running: s.running,
-      completed: s.completed,
-      failed: s.failed,
-    };
-  });
+  return parseWorldLedgerEnvelope(raw);
 }
 
 /** Write a persisted ledger. Returns the write's receipt — a quota or
  * serialization refusal is FALSE, never a throw (the caller keeps the
- * memory-only ledger and the world never sees the wound). */
+ * memory-only ledger and the world never sees the wound). t1142 — the
+ * write rides the ONE envelope father: the storage face and the server
+ * push body are the SAME bytes (JSON.stringify is deterministic), so
+ * no tier can drift into a second contract wearing the first's name. */
 export function writeWorldLedgerStorage(
   store: Pick<Storage, "setItem"> | null,
   history: WorldSnapshot[],
 ): boolean {
   if (!store) return false;
   try {
-    store.setItem(
-      WORLD_LEDGER_STORAGE_KEY,
-      JSON.stringify({ v: WORLD_LEDGER_STORAGE_VERSION, rows: history }),
-    );
+    store.setItem(WORLD_LEDGER_STORAGE_KEY, worldLedgerEnvelope(history));
     return true;
   } catch {
     return false;
@@ -602,4 +583,159 @@ export function writeWorldLedgerTiers(
     session: writeWorldLedgerStorage(session, history),
     local: writeWorldLedgerStorage(local, history),
   };
+}
+
+/* ---------------------------------------------------------------------- */
+/* t1142 — the ledger's SERVER tier: the world's memory outlives the         */
+/* machine.                                                                 */
+/*                                                                          */
+/* The t1135 slice made the ledger sessionStorage (the TAB's memory); the   */
+/* t1141 slice added localStorage (the MACHINE's memory) after its survey   */
+/* measured the tier BEFORE it was wired. That survey named this third      */
+/* tier's cost up front — an API + DB row — and its law: the ENVELOPE       */
+/* RIDES UNCHANGED, the same reader reads it. So the tier adds no second    */
+/* contract; the fathers below are the t1135 family's own words:            */
+/*   • worldLedgerEnvelope — the ONE envelope-text father (the compact      */
+/*     JSON the tiers writer stores; the server push body is the SAME       */
+/*     bytes). The pretty download face (worldLedgerJson) stays             */
+/*     shape-equal — each door keeps its own face (the t1139 law).          */
+/*   • validateWorldLedgerEnvelope — the ONE trust decision: { ok, rows }   */
+/*     or { ok: false, reason } — a refusal NAMES its reason (the route's   */
+/*     400 speaks it verbatim; the reader's face turns it into the honest   */
+/*     empty restore).                                                      */
+/*   • parseWorldLedgerEnvelope — the ONE read father: the storage getter   */
+/*     and the server GET body both land here. A refused tier is that       */
+/*     tier's ABSENCE — never the restore's death (the t1141 per-tier       */
+/*     law, now shared by the network tier).                                */
+/* The fetch is INJECTED (the lib stays pure — the SSR caller never asks,   */
+/* the tests construct a fake). The tier precedence at the door: the TAB's  */
+/* story wins, the MACHINE's story fills an empty tab, the SERVER's story   */
+/* fills an empty machine — a project-scoped row (the API family's          */
+/* grammar: the world's memory under its own project's name, the phantom    */
+/* door refusing a foreign id). Each tier keeps its own receipt; the        */
+/* server's push is fire-and-forget — a refusal degrades that tier alone    */
+/* and the board never waits on the network.                                */
+/* ---------------------------------------------------------------------- */
+
+/** The envelope's byte bound — the t1141 unit's tooth made law: the
+ * envelope at cap (240 rows) weighs 18,976 B, so 64 KiB leaves ~3.4×
+ * headroom; a fatter row shape REDs the tooth and the survey re-runs.
+ * The rows are five numbers and a finite stamp — pure ASCII — so the
+ * JS string length IS the byte count (the route guards with it). */
+export const WORLD_LEDGER_ENVELOPE_MAX_BYTES = 65536;
+
+export type WorldLedgerEnvelopeVerdict =
+  | { ok: true; rows: WorldSnapshot[] }
+  | {
+      ok: false;
+      reason: "bad-json" | "bad-version" | "bad-rows" | "over-cap" | "bad-row-shape";
+    };
+
+/** The ONE trust decision for an envelope text — the version law's
+ * mouth. Absent/empty is NOT a refusal: it is the honest absence (an
+ * empty restore, { ok: true, rows: [] }) — the same face the storage
+ * getter has spoken since t1135. Every real refusal names its reason
+ * (the route speaks it; the reader's face drops it whole). */
+export function validateWorldLedgerEnvelope(
+  raw: string | null | undefined,
+): WorldLedgerEnvelopeVerdict {
+  if (!raw) return { ok: true, rows: [] };
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { ok: false, reason: "bad-json" };
+  }
+  if (!parsed || typeof parsed !== "object") return { ok: false, reason: "bad-json" };
+  const env = parsed as { v?: unknown; rows?: unknown };
+  if (env.v !== WORLD_LEDGER_STORAGE_VERSION) return { ok: false, reason: "bad-version" };
+  if (!Array.isArray(env.rows)) return { ok: false, reason: "bad-rows" };
+  if (env.rows.length > WORLD_LEDGER_CAP) return { ok: false, reason: "over-cap" };
+  if (!env.rows.every((r) => isWorldSnapshotShape(r))) return {
+    ok: false,
+    reason: "bad-row-shape",
+  };
+  return {
+    ok: true,
+    rows: env.rows.map((r) => {
+      const s = r as WorldSnapshot;
+      return {
+        t: s.t,
+        jobs: s.jobs,
+        edges: s.edges,
+        running: s.running,
+        completed: s.completed,
+        failed: s.failed,
+      };
+    }),
+  };
+}
+
+/** The reader's face — every refusal is the honest empty restore (the
+ * t1135 whole-ledger law, now the ONE reader for every tier that
+ * carries the envelope: the storage getter and the server GET body). */
+export function parseWorldLedgerEnvelope(raw: string | null | undefined): WorldSnapshot[] {
+  const verdict = validateWorldLedgerEnvelope(raw);
+  return verdict.ok ? verdict.rows : [];
+}
+
+/** The ONE envelope-text father — the compact JSON the tiers writer
+ * stores and the server push carries (byte-equal: JSON.stringify is
+ * deterministic). One envelope, one contract, every tier's face. */
+export function worldLedgerEnvelope(history: WorldSnapshot[]): string {
+  return JSON.stringify({ v: WORLD_LEDGER_STORAGE_VERSION, rows: history });
+}
+
+/** The fetch shape the lib rides — injected, the lib stays pure. */
+type FetchLike = (
+  input: string,
+  init?: { method?: string; headers?: Record<string, string>; body?: string },
+) => Promise<Response>;
+
+export interface WorldLedgerServerRead {
+  rows: WorldSnapshot[];
+  /** false = the transport refused (non-200, network) — the tier's
+   * ABSENCE; true with zero rows = the server's honest "no memory yet"
+   * (a live row that spoke null). */
+  reachable: boolean;
+}
+
+/** The server tier's READ — GET the project's ledger row; the body's
+ * envelope rides into the ONE parse father. A refusal (non-200,
+ * network, half body) is that tier's ABSENCE — [] — and never a
+ * throw: the board keeps whatever story it already holds. */
+export async function fetchWorldLedgerServer(
+  fetcher: FetchLike,
+  projectId: string,
+): Promise<WorldLedgerServerRead> {
+  try {
+    const res = await fetcher(`/api/projects/${projectId}/world-ledger`, { method: "GET" });
+    if (!res.ok) return { rows: [], reachable: false };
+    const body = (await res.json()) as { envelope?: string | null };
+    return { rows: parseWorldLedgerEnvelope(body?.envelope ?? null), reachable: true };
+  } catch {
+    return { rows: [], reachable: false };
+  }
+}
+
+/** The server tier's WRITE — PUT the envelope through the ONE envelope
+ * father (the transport frame carries it; the envelope field is the
+ * exact bytes the tiers writer stores). The receipt is the promise's
+ * boolean; a refusal is FALSE and never a throw — the caller keeps
+ * the tier-degraded ledger the board already was. */
+export async function pushWorldLedgerServer(
+  fetcher: FetchLike,
+  projectId: string,
+  history: WorldSnapshot[],
+): Promise<boolean> {
+  try {
+    const res = await fetcher(`/api/projects/${projectId}/world-ledger`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ envelope: worldLedgerEnvelope(history) }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }

@@ -16,6 +16,7 @@ model Project {
   edges      Edge[]
   workspaces Workspace[]
   customTemplates CustomTemplate[]
+  worldLedger WorldLedger?
 }
 
 /**
@@ -185,4 +186,26 @@ model PresetShelf {
   id        String   @id
   data      String
   updatedAt DateTime @updatedAt
+}
+
+/*
+ * t1142 — the world ledger's SERVER tier: the health board's transition
+ * memory that outlives the tab (sessionStorage) AND the machine
+ * (localStorage). `envelope` is the versioned ledger envelope VERBATIM —
+ * the exact bytes the board's write-through carries ({ v: 1, rows:
+ * WorldSnapshot[] } as compact JSON, ≤ 64 KiB by the lib's byte bound);
+ * a foreign version or a half shape is refused at the door (the lib's
+ * ONE trust decision speaks the reason), never guessed, and the GET
+ * hands back the exact bytes the PUT received (no re-stringify — the
+ * same reader reads every tier). One row per project — the world's
+ * memory under its own project's name (the phantom door refuses a
+ * foreign id). The row is KEPT on empty stories: only real envelopes
+ * land here, so the row's existence is "this world carried a story".
+ */
+model WorldLedger {
+  projectId String   @id
+  envelope  String
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }

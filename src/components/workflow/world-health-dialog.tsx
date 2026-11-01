@@ -66,6 +66,8 @@ import { useActiveWorkspaceJobs, useWorkflowStore } from "@/lib/store";
 import {
   appendWorldSnapshot,
   clockWordsOf,
+  fetchWorldLedgerServer,
+  pushWorldLedgerServer,
   readWorldLedgerTiers,
   snapshotOf,
   transitionWords,
@@ -138,6 +140,10 @@ export function WorldHealthBoard() {
   const jobs = useActiveWorkspaceJobs();
   const edges = useWorkflowStore((s) => s.edges);
   const project = useWorkflowStore((s) => s.project);
+  // t1142 — the server tier's key: the world's memory under its own
+  // project's name (the route's family grammar; the phantom door
+  // refuses a foreign id). Null until the store's load lands.
+  const projectId = project?.id;
   const system = useWorkflowStore((s) => s.system);
   const jobsVersion = useWorkflowStore((s) => s.jobsVersion);
   // The world's READ receipt: null until load()/pollTick land their first
@@ -177,7 +183,41 @@ export function WorldHealthBoard() {
     const session = typeof window !== "undefined" ? window.sessionStorage : null;
     const local = typeof window !== "undefined" ? window.localStorage : null;
     writeWorldLedgerTiers(session, local, history);
-  }, [history]);
+    // t1142 — the server tier rides the SAME write-through: fire-and-
+    // forget (the board never waits on the network), the receipt
+    // degrades that tier alone — a refused server is the memory-only
+    // ledger this board already was before t1135. The push carries the
+    // ONE envelope father's bytes; the door's trust decision and the
+    // verbatim store are the route's half of the same law.
+    if (projectId) void pushWorldLedgerServer(fetch, projectId, history);
+  }, [history, projectId]);
+
+  // t1142 — the SERVER tier's fill: the restore's second (async) pass.
+  // The sync tiers restored nothing AND the project's id has arrived →
+  // ask the server ONCE per project; the fill lands through the SAME
+  // setHistory door with a functional guard — if a live commit beat
+  // the fetch, the live story wins (the race law: restore before
+  // commit; a world that already spoke is not overwritten by its own
+  // memory). The tab/machine's story winning the sync restore means
+  // the server is not even asked (the precedence: the deepest tier
+  // fills an empty machine, never clobbers a shallow one). The fetch
+  // is cancelled with the effect (the ghost-hand law — a fill that
+  // survives its unmount is a hand reaching past its grave).
+  const serverFillTriedRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!projectId || !restoredRef.current) return;
+    if (serverFillTriedRef.current === projectId) return;
+    serverFillTriedRef.current = projectId;
+    if (history.length > 0) return;
+    let cancelled = false;
+    fetchWorldLedgerServer(fetch, projectId).then((read) => {
+      if (cancelled || read.rows.length === 0) return;
+      setHistory((prev) => (prev.length === 0 ? read.rows : prev));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, history.length]);
 
   // The breath's retirement: the flip resets when the dialog closes and
   // the timer dies on unmount — a stale ✓ must outlive neither its
