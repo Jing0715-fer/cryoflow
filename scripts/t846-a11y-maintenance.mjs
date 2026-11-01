@@ -144,16 +144,16 @@ const ESC =
  * the world MID-MOUNT; settling films the world when it has STOPPED moving:
  * measure, re-measure, require equality, bounded. The receipt's world is the
  * settled one — same-key rides can be bit-for-bit again without lying. */
-const settle = (what) => {
+const settle = (what, tries = 6) => {
   let m = evalJson(MEASURE);
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < tries; i++) {
     sleep(0.8);
     const next = evalJson(MEASURE);
     const same = JSON.stringify(next) === JSON.stringify(m);
     m = next;
     if (same) break;
   }
-  console.log(`  settled ${what}`);
+  console.log(`  settled ${what} (btns=${m.pageBtns})`);
   return m;
 };
 
@@ -183,8 +183,13 @@ const clickR = evalJson(
   '(() => { const t = Array.from(document.querySelectorAll("button")).find((e) => (e.textContent || "").trim() === "Dashboard"); if (!t) return JSON.stringify({ clicked: false }); t.click(); return JSON.stringify({ clicked: true }); })()'
 );
 ok("M4a the switcher clicked", clickR.clicked === true);
-sleep(2);
-const d1 = evalJson(MEASURE);
+// t873 — Face D now rides the t860 settle-wait it always should have: the
+// dashboard's late cards (saved views, AI sessions, the résumé strip) mount
+// on their own schedule, and the old sleep(2) filmed this window's
+// resurrected world MID-DRESS (112 buttons vs the settled 120) — the same
+// partial-dress misread the O1/E7 law named fleet-wide. Settled is the
+// app's silence, not the instrument's patience (the t864 law).
+const d1 = settle("the dashboard", 10);
 ok("M4b the dashboard arrived (own heading, own count)", d1.heading && d1.heading !== c1.heading && d1.pageBtns !== c1.pageBtns, `heading="${d1.heading}" btns=${d1.pageBtns}`);
 ok("M5 dashboard zero unnamed buttons", d1.pageUnnamed === 0, `unnamed=${d1.pageUnnamed}`);
 ok("M6 dashboard zero alt-less imgs (hasAttribute, not falsy)", d1.altless === 0, `imgs=${d1.imgs} altless=${d1.altless}`);
