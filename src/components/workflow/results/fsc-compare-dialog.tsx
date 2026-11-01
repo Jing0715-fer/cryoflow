@@ -512,11 +512,22 @@ export function FscCompareDialog({
         onKeyDown={(e) => {
           // Escape must peel ONE layer: this dialog floats on top of the
           // job inspector modal, and each Radix Dialog root carries its own
-          // dismissable-layer stack — both layers see themselves as highest
-          // and BOTH would dismiss (the inspector behind dies with it).
-          // Consuming Escape at the React level stops the event before the
-          // document-level Radix listeners ever fire; we close ourselves
-          // (through handleOpenChange so the close-path cache reset runs).
+          // dismissable-layer stack. t1137's live measurement (two rides,
+          // receipts in shots-qa/) rewrote this comment's story — the old
+          // text claimed consuming Escape at the React level stops the
+          // event BEFORE the document-level Radix listeners fire; the truth
+          // is the reverse ORDER: Radix's useEscapeKeydown listens at
+          // document CAPTURE and dismisses the top layer there (its
+          // isHighestLayer check IS the peel-one guarantee — the inspector
+          // behind sees isHighestLayer false and stays), before the event
+          // ever descends to this content. THIS handler runs later, at the
+          // React bubble dispatch, on an already-dismissed dialog — the
+          // idempotent second writer. What it really guards: the
+          // stopPropagation eats the key between body and the document
+          // bubble, so the app's window-level keymap (the command palette,
+          // the shortcuts) never sees a modal's Escape; and
+          // handleOpenChange runs OUR close path (the cache reset) even if
+          // Radix's own dismiss ever skipped this layer.
           if (e.key === "Escape") {
             e.preventDefault();
             e.stopPropagation();
