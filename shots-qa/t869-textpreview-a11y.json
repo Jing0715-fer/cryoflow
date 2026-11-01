@@ -1,9 +1,9 @@
 {
   "instrument": "scripts/t869-textpreview-a11y.mjs",
   "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder -> title (the t867 growth — the tree's own tooltip voice, the accessible-name spec's own last resort) — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
-  "build": "dev@ec37c84ff38b",
+  "build": "dev@6db11acaa94a",
   "worldMode": "dev",
-  "date": "2026-11-01T03:52:13.468Z",
+  "date": "2026-11-01T06:09:54.691Z",
   "chain": "clean room -> canvas -> ctffind card (plain door) -> Results tab (mousedown) -> Logs & reports rows -> run.out preview (focus lands) -> Esc -> run.err empty world (the honest empty) -> Files tab (mousedown) -> Preview doors -> text peek (t869 seat) -> star peek (t869 seat) -> Esc all -> world back",
   "doors": {
     "inspector": "plain pointerdown+pointerup on the card — the submitted law",
@@ -15,7 +15,7 @@
   },
   "host": {
     "name": "CTF Estimation 1",
-    "id": "cmvx9eise0006tve8thwezag3",
+    "id": "cmvxcqopj0006ol93c2xx469u",
     "measured": true
   },
   "data": {
@@ -31,13 +31,13 @@
       "name": "micrographs_ctf.star"
     }
   },
-  "openingCanvas": 153,
+  "openingCanvas": 144,
   "faces": {
     "logsFace": {
       "live": {
         "url": "/",
         "panelOpen": false,
-        "pageBtns": 25,
+        "pageBtns": 24,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 0,
@@ -54,10 +54,6 @@
         "logsRows": [
           {
             "n": "run.err0 B",
-            "print": true
-          },
-          {
-            "n": "run.log96 B",
             "print": true
           },
           {
@@ -81,7 +77,7 @@
       "secondRide": {
         "url": "/",
         "panelOpen": false,
-        "pageBtns": 25,
+        "pageBtns": 24,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 0,
@@ -98,10 +94,6 @@
         "logsRows": [
           {
             "n": "run.err0 B",
-            "print": true
-          },
-          {
-            "n": "run.log96 B",
             "print": true
           },
           {
@@ -147,10 +139,6 @@
             "print": true
           },
           {
-            "n": "run.log96 B",
-            "print": true
-          },
-          {
             "n": "run.out3.9 KB",
             "print": true
           }
@@ -188,10 +176,6 @@
         "logsRows": [
           {
             "n": "run.err0 B",
-            "print": true
-          },
-          {
-            "n": "run.log96 B",
             "print": true
           },
           {
@@ -234,10 +218,6 @@
         "logsRows": [
           {
             "n": "run.err0 B",
-            "print": true
-          },
-          {
-            "n": "run.log96 B",
             "print": true
           },
           {
@@ -327,7 +307,7 @@
       "live": {
         "url": "/",
         "panelOpen": false,
-        "pageBtns": 153,
+        "pageBtns": 144,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 2,
@@ -366,7 +346,7 @@
     {
       "label": "O1 the canvas is calm and named (the census's invariant)",
       "pass": true,
-      "detail": "btns=153 — zero unnamed anywhere"
+      "detail": "btns=144 — zero unnamed anywhere"
     },
     {
       "label": "L1 the card's plain door opened the inspector (the submitted law)",
@@ -391,12 +371,12 @@
     {
       "label": "L5 the text rows are named by their own text, the paper contract aboard",
       "pass": true,
-      "detail": "rows=[{\"n\":\"run.err0 B\",\"print\":true},{\"n\":\"run.log96 B\",\"print\":true},{\"n\":\"run.out3.9 KB\",\"print\":true}]"
+      "detail": "rows=[{\"n\":\"run.err0 B\",\"print\":true},{\"n\":\"run.out3.9 KB\",\"print\":true}]"
     },
     {
       "label": "L6 zero unnamed page-wide WITH the inspector up (the census's invariant)",
       "pass": true,
-      "detail": "btns=25 ctrls=0"
+      "detail": "btns=24 ctrls=0"
     },
     {
       "label": "L7 two settled rides bit-identical (the t836 law, the t860 settle)",
@@ -481,7 +461,7 @@
     {
       "label": "F2 the Preview doors are aboard, each named (Preview <file>)",
       "pass": true,
-      "detail": "doors=[\"Preview micrographs_ctf.star\",\"Preview run.err\",\"Preview run.log\",\"Preview run.out\"]"
+      "detail": "doors=[\"Preview micrographs_ctf.star\",\"Preview run.err\",\"Preview run.out\"]"
     },
     {
       "label": "F3 the run.out Preview door clicked",
@@ -531,7 +511,7 @@
     {
       "label": "W1 the world unharmed (canvas count == the opening count, zero unnamed)",
       "pass": true,
-      "detail": "btns=153 (opening 153)"
+      "detail": "btns=144 (opening 144)"
     },
     {
       "label": "W2 the ride leaves no session seed (the t157 two-way door's honest none — the t866 lesson rides every page)",
@@ -541,68 +521,75 @@
     {
       "label": "L logsFace face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@ec37c84ff38b), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+      "detail": "arm 2 — world key moved (dev@ec37c84ff38b -> dev@6db11acaa94a), drift -1 informational"
     },
     {
       "label": "L previewFace face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@ec37c84ff38b), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+      "detail": "arm 2 — world key moved (dev@ec37c84ff38b -> dev@6db11acaa94a), drift +0 informational"
     },
     {
       "label": "L emptyFace face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@ec37c84ff38b), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+      "detail": "arm 2 — world key moved (dev@ec37c84ff38b -> dev@6db11acaa94a), drift +0 informational"
     },
     {
       "label": "L filesFace face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@ec37c84ff38b), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+      "detail": "arm 2 — world key moved (dev@ec37c84ff38b -> dev@6db11acaa94a), drift +0 informational"
     },
     {
       "label": "L worldBack face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@ec37c84ff38b), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+      "detail": "arm 2 — world key moved (dev@ec37c84ff38b -> dev@6db11acaa94a), drift -9 informational"
     }
   ],
   "passed": 41,
   "failed": 0,
   "total": 41,
-  "verdict": "the text-preview face holds: the clean room held (the panel-closed boot — the t866 law), the logs face hosted 3 named text rows under the paper contract, the tail preview arrived TOPMOST with its heading read from the data and the focus landing in the named region (the t774 law), the empty file's world stayed honest (0 bytes, focus still lands, no false wound), the Files tab's second family rode the same brain WITH the t869 seats aboard (text-keymap + star-keymap measured live), and the world came back bit-for-bit",
+  "verdict": "the text-preview face holds: the clean room held (the panel-closed boot — the t866 law), the logs face hosted 2 named text rows under the paper contract, the tail preview arrived TOPMOST with its heading read from the data and the focus landing in the named region (the t774 law), the empty file's world stayed honest (0 bytes, focus still lands, no false wound), the Files tab's second family rode the same brain WITH the t869 seats aboard (text-keymap + star-keymap measured live), and the world came back bit-for-bit",
   "driftLedger": {
     "prevFound": true,
     "prevBuild": "dev@ec37c84ff38b",
-    "prevDate": "2026-11-01T02:49:15.233Z",
-    "sameBuild": true,
+    "prevDate": "2026-11-01T03:52:13.468Z",
+    "sameBuild": false,
     "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
     "faces": {
       "logsFace": {
         "prev": 25,
-        "live": 25,
-        "drift": 0,
-        "identical": true,
+        "live": 24,
+        "drift": -1,
+        "identical": false,
         "moved": {
           "lens": [],
-          "world": []
+          "world": [
+            "logsRows",
+            "pageBtns"
+          ]
         }
       },
       "previewFace": {
         "prev": 2,
         "live": 2,
         "drift": 0,
-        "identical": true,
+        "identical": false,
         "moved": {
           "lens": [],
-          "world": []
+          "world": [
+            "logsRows"
+          ]
         }
       },
       "emptyFace": {
         "prev": 2,
         "live": 2,
         "drift": 0,
-        "identical": true,
+        "identical": false,
         "moved": {
           "lens": [],
-          "world": []
+          "world": [
+            "logsRows"
+          ]
         }
       },
       "filesFace": {
@@ -617,12 +604,14 @@
       },
       "worldBack": {
         "prev": 153,
-        "live": 153,
-        "drift": 0,
-        "identical": true,
+        "live": 144,
+        "drift": -9,
+        "identical": false,
         "moved": {
           "lens": [],
-          "world": []
+          "world": [
+            "pageBtns"
+          ]
         }
       }
     }
