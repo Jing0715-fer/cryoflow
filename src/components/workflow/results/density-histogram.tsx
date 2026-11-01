@@ -540,16 +540,30 @@ export function DensityHistogramStrip({
                       data.std > 0 &&
                       Math.abs((data.mean - winNow.lo) / data.std - Number(k)) < 0.02 &&
                       Math.abs((winNow.hi - data.mean) / data.std - Number(k)) < 0.02;
+                /* t867 — the honest affordance: a degenerate distribution
+                   (σ=0 — an all-zero frame; witnessed live on the stacked
+                   particles' first slice) makes μ±kσ a nonsense command
+                   (lo would equal hi), so the preset must NOT look
+                   pressable while doing nothing — the guard in the onClick
+                   was silent, the button enabled, the affordance a lie.
+                   Disabled with a title that says why (the must-not-lie
+                   law the keymap chips already ride); Auto stays live (it
+                   merely clears). */
+                const degenerate = k !== "auto" && !(data && data.std > 0);
                 return (
                   <button
                     key={k}
                     type="button"
                     data-win-preset={k}
                     aria-pressed={active}
+                    disabled={degenerate}
+                    data-win-degenerate={degenerate ? "true" : undefined}
                     title={
                       k === "auto"
                         ? "The 2–98 percentile stretch answers (the auto window)"
-                        : `Display from μ−${k}σ to μ+${k}σ — lo renders black, hi renders white`
+                        : degenerate
+                          ? `This image's distribution is degenerate (σ=0) — a μ±${k}σ window would be a zero-width command; step to an image with signal`
+                          : `Display from μ−${k}σ to μ+${k}σ — lo renders black, hi renders white`
                     }
                     onClick={() => {
                       if (!onPickWindow) return;

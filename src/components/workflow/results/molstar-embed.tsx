@@ -630,6 +630,8 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
   useEffect(() => {
     let disposed = false;
     let plugin: MolPlugin = null;
+    /** t867 — the late chrome sweeps' timer handles, cleared on dispose. */
+    const labelTimers: ReturnType<typeof setTimeout>[] = [];
 
     const disposePlugin = () => {
       try {
@@ -856,6 +858,32 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
           setPhase("ready");
           console.debug("[molstar] ready");
         }
+        // t867 — the embed's own chrome speaks: Mol* ships icon-only
+        // toolbar buttons whose only accessible name is a `title` tooltip
+        // — invisible to a name chain that stops at textContent, and weak
+        // for keyboard and touch users (a tooltip never shows on focus).
+        // One pass now, two late sweeps (the chrome that mounts with the
+        // layout controls), copying each title onto an aria-label.
+        // Idempotent by construction: only EMPTY aria-labels are filled;
+        // the title stays (the hover voice). The census's ruler also grew
+        // the title fallback (the t867 growth) — defense in depth.
+        const labelChrome = () => {
+          try {
+            document
+              .querySelectorAll<HTMLElement>(".msp-btn[title]")
+              .forEach((b) => {
+                if (!b.getAttribute("aria-label")) {
+                  const t = (b.getAttribute("title") || "").trim();
+                  if (t) b.setAttribute("aria-label", t);
+                }
+              });
+          } catch {
+            /* best-effort: the ruler's title fallback still names them */
+          }
+        };
+        if (!disposed) labelChrome();
+        labelTimers.push(setTimeout(labelChrome, 1500));
+        labelTimers.push(setTimeout(labelChrome, 4000));
       } catch (err) {
         console.error("[molstar] init failed", err);
         if (!disposed) {
@@ -868,6 +896,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     void init();
     return () => {
       disposed = true;
+      labelTimers.forEach(clearTimeout);
       disposePlugin();
       pluginRef.current = null;
       reprRef.current = null;
