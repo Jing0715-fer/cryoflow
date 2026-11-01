@@ -387,3 +387,30 @@ query), so the measured STRING changed while the world's drift stayed
 exactly that, one word per field. The fleet's regression net (A4e-28)
 grew to ELEVEN carriers / 42 faces the window the page was born — the
 birthright now simply the family's shape.
+
+## The transcript's own door (t871) — the whole conversation, one clipboard, byte-for-byte
+
+The copy door's kin arrived (the t870 tail's candidate): the AI panel's
+header now seats a TRANSCRIPT-LEVEL copy door — `Copy conversation as
+markdown`, icon-only, the compact form — and the bytes it writes are the
+session of record's `?format=md` response, fetched at click time. ONE
+maker (the server's `sessionToMarkdown`), so the walk could prove the
+zero-drift claim the only honest way: a clipboard recorder stubbed into
+the page's own API surface, the door clicked, the recorded bytes diffed
+against a fresh endpoint fetch — byte-for-byte, 601 == 601. The door's
+honesty lives in its disabled state: nothing of record yet → the door
+refuses (the send door's own calibre), still named and titled; the
+session arrives → the door wakes; the store restored to absence → the
+refusal comes back. The seat speaks too: the hit-slop goes QUIET on this
+row (the neighbors are interactive doors — a slop that shadows a real
+button lies to the mouse; `::before` display none, measured), and the
+content affordance rides before the tool affordances (next sibling =
+the history toggle, measured). The birth walk (37/37 at the second
+ride) rode the decay order the hard way: the first ride filmed the
+toast poll AFTER the comparator fetch's retries and the flip sleeps —
+the toast had already dismissed; the measurements now ride the
+evidence's own half-lives (flip 1.4 s → toast ~4 s → the retried
+comparator last). The walk's own comparator fetch learned retries the
+same day: the dev lane's socket closed mid-fetch once (the memory
+pressure signature) and the walk died on the world's hiccup it was
+trying to film.

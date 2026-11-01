@@ -1741,6 +1741,39 @@ export function AssistantPanel() {
               {needsSetup ? "未配置 — 点击设置选择供应商" : "自然语言 · 建流程 · 跑任务 · 判 class"}
             </p>
           </div>
+          {/* ---- t871: the transcript's own copy door — the WHOLE
+              conversation as markdown, straight to the clipboard. The
+              bytes are the session of record's `?format=md` — t428's
+              archival shape, ONE maker, zero drift between what copies
+              and what downloads. The honest refusal while there is no
+              session of record yet, and while busy (the live
+              transcript's last turn is not yet of record — what you
+              copy must be what you see). The hit-slop goes quiet on
+              this seat: the neighbors in this row are interactive
+              doors, and a slop that shadows a real button lies to the
+              mouse. ---- */}
+          <CopyButton
+            label="Copy conversation as markdown"
+            iconOnly
+            disabled={busy || !sessionId}
+            className="h-8 w-8 shrink-0 rounded-md px-0 text-muted-foreground hover:text-foreground before:hidden"
+            getText={async () => {
+              try {
+                const res = await fetch(`/api/ai/sessions/${sessionId}?format=md`);
+                if (!res.ok) {
+                  toast({ title: "复制失败 — 会话可能已被删除", variant: "destructive" });
+                  throw new Error("copy: session gone");
+                }
+                const text = await res.text();
+                toast({ title: "已复制整个对话为 Markdown" });
+                return text;
+              } catch (e) {
+                if (e instanceof Error && e.message.startsWith("copy:")) throw e;
+                toast({ title: "复制失败 — 网络不可达", variant: "destructive" });
+                throw e;
+              }
+            }}
+          />
           <Button
             variant="ghost"
             size="icon"
