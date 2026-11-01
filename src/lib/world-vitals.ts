@@ -281,3 +281,88 @@ export function worldLedgerText(history: WorldSnapshot[]): string {
 export function worldAgeWords(ms: number): string {
   return formatElapsed(ms);
 }
+
+/* ---------------------------------------------------------------------- */
+/* t1135 — the ledger's persistence layer: the world's memory outlives      */
+/* the page.                                                                */
+/*                                                                          */
+/* sessionStorage — the TAB's own memory: a new session opens a new world   */
+/* memory (the ledger is a session's story, not an eternal one), and a      */
+/* tab crash loses only the tab. The envelope is versioned (a shape the     */
+/* reader cannot trust is dropped, never guessed) and quota-guarded (a      */
+/* storage refusal keeps the memory-only ledger — the board degrades, it    */
+/* never lies). The lib stays pure: the STORAGE is a parameter, the SSR     */
+/* caller passes null, the tests construct a fake.                          */
+/* ---------------------------------------------------------------------- */
+
+export const WORLD_LEDGER_STORAGE_KEY = "cryoflow.world-ledger.v1";
+export const WORLD_LEDGER_STORAGE_VERSION = 1;
+
+/** The one-row shape law: the five health-bearing numbers and a finite
+ * stamp, each non-negative and finite. The census words beyond the five
+ * (pending/idle) ride the live census, not the ledger — the snapshot
+ * contract is the memory's contract. */
+export function isWorldSnapshotShape(x: unknown): x is WorldSnapshot {
+  if (!x || typeof x !== "object") return false;
+  const r = x as Record<string, unknown>;
+  const nums = [r.t, r.jobs, r.edges, r.running, r.completed, r.failed];
+  return nums.every((n) => typeof n === "number" && Number.isFinite(n) && n >= 0);
+}
+
+/** Read a persisted ledger. EVERY refusal is a whole-ledger refusal —
+ * a half-trusted memory is a lie with a footnote:
+ *   no store / no raw / bad JSON / wrong version / rows not an array /
+ *   any row off-shape / more rows than the cap — all restore nothing.
+ * The empty restore is an HONEST absence (the board starts its own
+ * story), not an error face. */
+export function readWorldLedgerStorage(store: Pick<Storage, "getItem"> | null): WorldSnapshot[] {
+  if (!store) return [];
+  let raw: string | null = null;
+  try {
+    raw = store.getItem(WORLD_LEDGER_STORAGE_KEY);
+  } catch {
+    return [];
+  }
+  if (!raw) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+  if (!parsed || typeof parsed !== "object") return [];
+  const env = parsed as { v?: unknown; rows?: unknown };
+  if (env.v !== WORLD_LEDGER_STORAGE_VERSION || !Array.isArray(env.rows)) return [];
+  if (env.rows.length > WORLD_LEDGER_CAP) return [];
+  if (!env.rows.every((r) => isWorldSnapshotShape(r))) return [];
+  return env.rows.map((r) => {
+    const s = r as WorldSnapshot;
+    return {
+      t: s.t,
+      jobs: s.jobs,
+      edges: s.edges,
+      running: s.running,
+      completed: s.completed,
+      failed: s.failed,
+    };
+  });
+}
+
+/** Write a persisted ledger. Returns the write's receipt — a quota or
+ * serialization refusal is FALSE, never a throw (the caller keeps the
+ * memory-only ledger and the world never sees the wound). */
+export function writeWorldLedgerStorage(
+  store: Pick<Storage, "setItem"> | null,
+  history: WorldSnapshot[],
+): boolean {
+  if (!store) return false;
+  try {
+    store.setItem(
+      WORLD_LEDGER_STORAGE_KEY,
+      JSON.stringify({ v: WORLD_LEDGER_STORAGE_VERSION, rows: history }),
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}

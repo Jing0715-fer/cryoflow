@@ -32,6 +32,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import {
   WORLD_LEDGER_CAP,
+  WORLD_LEDGER_STORAGE_KEY,
+  WORLD_LEDGER_STORAGE_VERSION,
   worldVitalsOf,
   snapshotOf,
   sameWorld,
@@ -41,6 +43,9 @@ import {
   worldLedgerText,
   worldAgeWords,
   clockWordsOf,
+  isWorldSnapshotShape,
+  readWorldLedgerStorage,
+  writeWorldLedgerStorage,
 } from "@/lib/world-vitals";
 
 let pass = 0;
@@ -267,6 +272,119 @@ const ROOT = process.cwd();
   ok("F20 the door sits beside the numbers it remembers", footer.indexOf("jobs.length} {jobs.length === 1 ? \"job\" : \"jobs\"}") < footer.indexOf("<WorldHealthBoard />"));
   ok("F21 the seed waits for the world's first READ (the jobsVersion gate — the t1132 first-screen phantom law)", dlg.includes("jobsVersion === null") && dlg.includes("The seed waits for the read"), "the pre-hydration 0-world must never seed the ledger");
 }
+
+/* ----------------------------------------------------------------------
+ * G — the ledger's persistence layer (t1135): the world's memory outlives
+ * the page. sessionStorage — the tab's own story; versioned, shape-gated,
+ * quota-guarded; the lib stays pure (the store is a parameter, the tests
+ * construct a fake).
+ * ---------------------------------------------------------------------- */
+
+const G_ROWS = () => [
+  { t: 1000, jobs: 15, edges: 14, running: 0, completed: 15, failed: 0 },
+  { t: 6000, jobs: 16, edges: 14, running: 1, completed: 15, failed: 0 },
+  { t: 9000, jobs: 16, edges: 15, running: 0, completed: 16, failed: 0 },
+];
+function fakeStore() {
+  const m = new Map();
+  return {
+    getItem: (k) => (m.has(k) ? m.get(k) : null),
+    setItem: (k, v) => {
+      m.set(k, String(v));
+    },
+  };
+}
+function throwingStore() {
+  return {
+    getItem: () => {
+      throw new Error("quota");
+    },
+    setItem: () => {
+      throw new Error("quota");
+    },
+  };
+}
+
+ok(
+  "G1 the envelope has its own name and version",
+  WORLD_LEDGER_STORAGE_KEY === "cryoflow.world-ledger.v1" && WORLD_LEDGER_STORAGE_VERSION === 1,
+);
+ok("G2 a null store restores absence (the SSR face)", JSON.stringify(readWorldLedgerStorage(null)) === "[]");
+ok("G3 no raw restores absence", readWorldLedgerStorage(fakeStore()).length === 0);
+(() => {
+  const s = fakeStore();
+  s.setItem(WORLD_LEDGER_STORAGE_KEY, "{not json");
+  ok("G4 bad JSON restores absence (never guessed)", readWorldLedgerStorage(s).length === 0);
+})();
+(() => {
+  const s = fakeStore();
+  s.setItem(WORLD_LEDGER_STORAGE_KEY, JSON.stringify({ v: 2, rows: G_ROWS() }));
+  ok("G5 a foreign version drops whole", readWorldLedgerStorage(s).length === 0);
+})();
+(() => {
+  const s = fakeStore();
+  s.setItem(WORLD_LEDGER_STORAGE_KEY, JSON.stringify({ v: 1, rows: { t: 1 } }));
+  ok("G6 rows-not-an-array drops whole", readWorldLedgerStorage(s).length === 0);
+})();
+(() => {
+  const s = fakeStore();
+  s.setItem(WORLD_LEDGER_STORAGE_KEY, JSON.stringify({ v: 1, rows: G_ROWS().slice(0, 2).concat([{ t: "late", jobs: 1, edges: 1, running: 0, completed: 0, failed: 0 }]) }));
+  ok(
+    "G7 one off-shape row drops the WHOLE ledger (a half-trusted memory is a lie with a footnote)",
+    readWorldLedgerStorage(s).length === 0,
+  );
+})();
+(() => {
+  const s = fakeStore();
+  const fat = Array.from(
+    { length: WORLD_LEDGER_CAP + 1 },
+    (_, i) => ({ t: i, jobs: 15, edges: 14, running: 0, completed: 15, failed: 0 }),
+  );
+  s.setItem(WORLD_LEDGER_STORAGE_KEY, JSON.stringify({ v: 1, rows: fat }));
+  ok("G8 an oversize ledger enters only at its own law (beyond the cap drops)", readWorldLedgerStorage(s).length === 0);
+})();
+(() => {
+  const s = fakeStore();
+  const rows = G_ROWS();
+  ok("G9 the write returns its receipt (true on a willing store)", writeWorldLedgerStorage(s, rows) === true);
+  const back = readWorldLedgerStorage(s);
+  ok("G10 the round-trip restores the story row for row", JSON.stringify(back) === JSON.stringify(rows));
+})();
+(() => {
+  const s = fakeStore();
+  writeWorldLedgerStorage(s, G_ROWS());
+  const env = JSON.parse(s.getItem(WORLD_LEDGER_STORAGE_KEY));
+  ok("G11 the envelope carries the version beside the rows", env.v === 1 && Array.isArray(env.rows) && env.rows.length === 3);
+})();
+ok(
+  "G12 a refusing store writes FALSE, never throws (the memory-only degradation)",
+  writeWorldLedgerStorage(throwingStore(), G_ROWS()) === false,
+);
+ok("G13 a null store writes FALSE (the SSR face mirrors the read)", writeWorldLedgerStorage(null, G_ROWS()) === false);
+ok(
+  "G14 the shape law speaks its refusals (string t, negative, a bare string row; a zero world is a world)",
+  isWorldSnapshotShape({ t: "late", jobs: 1, edges: 1, running: 0, completed: 0, failed: 0 }) === false &&
+    isWorldSnapshotShape({ t: 1, jobs: -1, edges: 1, running: 0, completed: 0, failed: 0 }) === false &&
+    isWorldSnapshotShape("row") === false &&
+    isWorldSnapshotShape({ t: 0, jobs: 0, edges: 0, running: 0, completed: 0, failed: 0 }) === true,
+);
+
+const dlgLedger = readFileSync(path.join(ROOT, "src/components/workflow/world-health-dialog.tsx"), "utf8");
+ok(
+  "G15 the restore lands BEFORE the commit effect (declaration order IS the race law)",
+  dlgLedger.indexOf("readWorldLedgerStorage(store)") >= 0 &&
+    dlgLedger.indexOf("readWorldLedgerStorage(store)") < dlgLedger.indexOf("appendWorldSnapshot(h,"),
+);
+ok(
+  "G16 the write rides an effect, never render (the #13 law)",
+  !dlgLedger.includes("useMemo(() => writeWorldLedgerStorage") &&
+    /useEffect\(\(\) => \{\s*\n\s*if \(!restoredRef\.current \|\| history\.length === 0\) return;/.test(dlgLedger),
+);
+ok(
+  "G17 the write door stays shut until the restore pass (the clobber cure)",
+  dlgLedger.includes("restoredRef.current = true") &&
+    dlgLedger.includes("if (!restoredRef.current || history.length === 0) return;"),
+);
 
 console.log(`\n${pass}/${pass + fail} green`);
 if (fail > 0) process.exit(1);
