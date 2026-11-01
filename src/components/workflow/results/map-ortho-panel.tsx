@@ -574,6 +574,14 @@ function OrthoTile({
     setProbe((p) =>
       p ? { ...p, fx, fy } : { fx, fy, value: null, voxel: null, patch: undefined }
     );
+    probeAt(fx, fy);
+  };
+
+  // t1138 — the probe's own HAND, factored so the keyboard mirror rides
+  // the SAME wire: the line is instant above (local geometry), the value
+  // chases on this one trailing throttle — one cadence, two hands (the
+  // cursor's and the keyboard's), never a second clock.
+  const probeAt = (fx: number, fy: number) => {
     const now = Date.now();
     const remaining = PROBE_THROTTLE_MS - (now - lastProbeAt.current);
     if (probeTimer.current) clearTimeout(probeTimer.current);
@@ -887,6 +895,51 @@ function OrthoTile({
     onPick?.(fx, fy);
   };
 
+  // t1138 — the hover's KEYBOARD MIRROR: the probe and the pick were
+  // pointer-only verbs on this canvas. The canvas now takes focus and
+  // answers the same verbs on keys — the arrows nudge the probe one
+  // voxel in the plane (shift = the coarse ×10, the depth dial's own
+  // shape), Enter/Space commit the focus point (the click's own verb,
+  // the SAME onPick door), Escape clears the probe (the pointer-leave's
+  // mirror). ONE wire: the line and the chip ride exactly what the
+  // cursor rides (probeAt's shared trailing throttle included); the
+  // gate is the family's own gatekeeper (no ctrl/meta/alt — the t908
+  // B7 law); the canvas teaches exactly the keys it answers (the
+  // must-not-lie law's fifth application), and every handled key
+  // preventDefaults so the page keeps no double duty (the B5 law).
+  const axisDim = (ax: "x" | "y" | "z") => (dims ? dims[ax === "x" ? 0 : ax === "y" ? 1 : 2] : undefined);
+  const onCanvasKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return; // foreign combos keep their own duties
+    const hDim = axisDim(spec.hAxis);
+    const vDim = axisDim(spec.vAxis);
+    const mult = e.shiftKey ? 10 : 1; // the coarse ×10 — the depth dial's own shape
+    const nudge = (dh: number, dv: number) => {
+      const base = probe ?? { fx: 0.5, fy: 0.5 }; // no probe yet → the canvas's centre speaks first
+      const cx = Math.min(1, Math.max(0, base.fx + dh * mult));
+      const cy = Math.min(1, Math.max(0, base.fy + dv * mult));
+      // the line is instant; the value chases on the shared cadence
+      setProbe((p) => (p ? { ...p, fx: cx, fy: cy } : { fx: cx, fy: cy, value: null, voxel: null, patch: undefined }));
+      probeAt(cx, cy);
+    };
+    switch (e.key) {
+      case "ArrowLeft": e.preventDefault(); nudge(hDim ? -1 / hDim : -0.01, 0); break;
+      case "ArrowRight": e.preventDefault(); nudge(hDim ? 1 / hDim : 0.01, 0); break;
+      case "ArrowUp": e.preventDefault(); nudge(0, vDim ? -1 / vDim : -0.01); break;
+      case "ArrowDown": e.preventDefault(); nudge(0, vDim ? 1 / vDim : 0.01); break;
+      case "Enter":
+      case " ":
+        e.preventDefault();
+        if (probe) onPick?.(probe.fx, probe.fy);
+        break;
+      case "Escape":
+        e.preventDefault();
+        leaveProbe();
+        break;
+      default:
+        return; // unhandled keys keep the page's own duties
+    }
+  };
+
   // t1099 — the trace's HAND, the handlers: the grab (pointerdown within
   // the lib's pixel radius of the line), the slide (the lib's offset
   // solve at the pointer, throttled to ~120ms with a trailing word on
@@ -1065,10 +1118,14 @@ function OrthoTile({
       </div>
       <div
         className={cn(
-          "relative aspect-square cursor-crosshair",
+          "relative aspect-square cursor-crosshair focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
           traceRiding ? "cursor-grabbing" : traceHover && "cursor-grab"
         )}
+        tabIndex={0}
+        role="group"
+        aria-label={`${spec.plane} at ${readout} — density canvas: arrow keys move the density probe (shift for coarse steps), Enter moves the focus point, Escape dismisses the probe`}
         onClick={pickFocus}
+        onKeyDown={onCanvasKeyDown}
         onMouseMove={moveProbe}
         onMouseLeave={() => {
           tracePointerLeave();
@@ -1077,7 +1134,7 @@ function OrthoTile({
         onPointerDown={tracePointerDown}
         onPointerMove={tracePointerMove}
         onPointerUp={tracePointerUp}
-        title="Hover reads the density at the cursor · click to move the focus point — the sibling planes follow · drag the violet cut line to slide the cut · drag an endpoint to turn the cut"
+        title="Hover reads the density at the cursor · click to move the focus point — the sibling planes follow · drag the violet cut line to slide the cut · drag an endpoint to turn the cut · keyboard: arrows move the probe, Enter picks the focus, Escape dismisses"
       >
         <MrcImage
           src={src}
@@ -1129,6 +1186,7 @@ function OrthoTile({
             {probeText && (
               <div
                 data-canvas-ui="ortho-probe-readout"
+                aria-live="polite"
                 className="pointer-events-none absolute bottom-1 left-1 rounded border border-sky-500/30 bg-background/85 px-1.5 py-0.5 font-mono text-[9px] tabular-nums text-sky-300"
               >
                 {probeText}
