@@ -66,7 +66,7 @@ import { useActiveWorkspaceJobs, useWorkflowStore } from "@/lib/store";
 import {
   appendWorldSnapshot,
   clockWordsOf,
-  readWorldLedgerStorage,
+  readWorldLedgerTiers,
   snapshotOf,
   transitionWords,
   worldAgeWords,
@@ -77,7 +77,7 @@ import {
   worldLedgerText,
   worldTimelineBars,
   worldVitalsOf,
-  writeWorldLedgerStorage,
+  writeWorldLedgerTiers,
   type WorldSnapshot,
 } from "@/lib/world-vitals";
 import { STATUS_CHIP } from "@/lib/status-style"; // the world's own vocabulary, borrowed not reinvented
@@ -121,14 +121,17 @@ export function WorldHealthBoard() {
   // world's first read can append to it (declaration order IS the race
   // law — this effect runs before the commit effect below, so a restored
   // tail equal to the live world dedupes to NO transition: the t1132
-  // phantom 0→N cure, now across sessions). sessionStorage only — a new
-  // session starts a new story. The mount effect never runs on the
-  // server; the null-store caller is the SSR face.
+  // phantom 0→N cure, now across sessions). t1141 — the restore reads
+  // the TWO tiers through the lib's one father: the tab's own story
+  // (sessionStorage) wins; the machine's story (localStorage — it
+  // outlives the tab) fills an empty tab. The mount effect never runs on
+  // the server; the null-store caller is the SSR face.
   React.useEffect(() => {
-    const store = typeof window !== "undefined" ? window.sessionStorage : null;
-    const restored = readWorldLedgerStorage(store);
+    const session = typeof window !== "undefined" ? window.sessionStorage : null;
+    const local = typeof window !== "undefined" ? window.localStorage : null;
+    const restored = readWorldLedgerTiers(session, local);
     restoredRef.current = true;
-    if (restored.length > 0) setHistory(restored);
+    if (restored.rows.length > 0) setHistory(restored.rows);
   }, []);
 
   // The SAME numbers the footer counts — one truth, no re-derivation.
@@ -163,13 +166,17 @@ export function WorldHealthBoard() {
 
   // The ledger's PERSIST: the write rides an effect (never render — the
   // #13 law), only after the restore pass (restoredRef above), and an
-  // empty ledger is never written (absence is the storage's honest face;
-  // the write's false receipt — quota, privacy mode — degrades to the
-  // memory-only ledger this board already is).
+  // empty ledger is never written (absence is the storage's honest face).
+  // t1141 — the write goes THROUGH both tiers (the tab's memory and the
+  // machine's memory get byte-equal envelopes through the ONE writer);
+  // each tier keeps its own receipt and a refusal degrades that tier
+  // alone — the write's false receipt — quota, privacy mode — degrades
+  // to the memory-only ledger this board already is.
   React.useEffect(() => {
     if (!restoredRef.current || history.length === 0) return;
-    const store = typeof window !== "undefined" ? window.sessionStorage : null;
-    writeWorldLedgerStorage(store, history);
+    const session = typeof window !== "undefined" ? window.sessionStorage : null;
+    const local = typeof window !== "undefined" ? window.localStorage : null;
+    writeWorldLedgerTiers(session, local, history);
   }, [history]);
 
   // The breath's retirement: the flip resets when the dialog closes and

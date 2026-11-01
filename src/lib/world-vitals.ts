@@ -528,3 +528,78 @@ export function writeWorldLedgerStorage(
     return false;
   }
 }
+
+/* ---------------------------------------------------------------------- */
+/* t1141 — the ledger's DEEPER tier: the machine's memory beside the        */
+/* tab's.                                                                   */
+/*                                                                          */
+/* The t1135 slice made the ledger sessionStorage — the TAB's own memory.   */
+/* The survey (scripts/t1141-ledger-storage-survey.mjs, 10/10) measured     */
+/* the deeper tier BEFORE it was wired: the envelope at cap weighs 18,976 B  */
+/* against a 10 GiB origin quota (0.0002% — the tier's space cost is nil;   */
+/* a refusal is privacy-mode territory, not arithmetic), BOTH storages take */
+/* the envelope whole on the live origin, and localStorage holds zero       */
+/* cryoflow keys today (no collision). So the deeper tier is localStorage — */
+/* the MACHINE's memory: it outlives the tab, and a new tab's empty         */
+/* session tier fills from it.                                              */
+/*                                                                          */
+/* The tier laws:                                                           */
+/*   • ONE reader, ONE writer, ONE envelope — each tier composes the        */
+/*     t1135 fathers; a second envelope would be a second contract          */
+/*     wearing the first's name.                                            */
+/*   • The TAB's story wins: the session tier is the live story (its        */
+/*     writes are the newest); the local tier fills only an empty tab.      */
+/*   • A REFUSED TIER IS THAT TIER'S ABSENCE — a foreign version or a       */
+/*     half shape in either tier drops that tier whole (the same reader's   */
+/*     law) and never blinds the other tier's restore.                      */
+/*   • Write-through BOTH: every commit lands on both tiers; each tier      */
+/*     keeps its OWN receipt — a refusing tier degrades alone (the board    */
+/*     never sees the wound; the other tier keeps the memory).              */
+/*   • The machine tier is SHARED: two tabs of one origin are two writers   */
+/*     on one key — last commit wins, named honestly here and guarded by    */
+/*     the version law (an untrusted shape is dropped, never guessed).      */
+/* ---------------------------------------------------------------------- */
+
+export type WorldLedgerTier = "session" | "local" | "none";
+
+export interface WorldLedgerRestore {
+  rows: WorldSnapshot[];
+  tier: WorldLedgerTier;
+}
+
+/** The restore across the two tiers — the tab's own story wins; the
+ * machine's story fills an empty tab. Each tier rides the SAME reader
+ * (one father): a refusal in one tier is that tier's absence, not the
+ * restore's death. Pure — the stores are parameters; the SSR caller
+ * passes nulls; the tests construct fakes. */
+export function readWorldLedgerTiers(
+  session: Pick<Storage, "getItem"> | null,
+  local: Pick<Storage, "getItem"> | null,
+): WorldLedgerRestore {
+  const fromSession = readWorldLedgerStorage(session);
+  if (fromSession.length > 0) return { rows: fromSession, tier: "session" };
+  const fromLocal = readWorldLedgerStorage(local);
+  if (fromLocal.length > 0) return { rows: fromLocal, tier: "local" };
+  return { rows: [], tier: "none" };
+}
+
+export interface WorldLedgerWriteReceipt {
+  session: boolean;
+  local: boolean;
+}
+
+/** The write-through — every commit lands on BOTH tiers through the
+ * SAME writer (one father, one envelope: JSON.stringify is
+ * deterministic, so both tiers hold byte-equal memories). Each tier
+ * keeps its OWN receipt; a refusal (quota, privacy mode) degrades that
+ * tier alone and is never a throw. Pure — the stores are parameters. */
+export function writeWorldLedgerTiers(
+  session: Pick<Storage, "setItem"> | null,
+  local: Pick<Storage, "setItem"> | null,
+  history: WorldSnapshot[],
+): WorldLedgerWriteReceipt {
+  return {
+    session: writeWorldLedgerStorage(session, history),
+    local: writeWorldLedgerStorage(local, history),
+  };
+}
