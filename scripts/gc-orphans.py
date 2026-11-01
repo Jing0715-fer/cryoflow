@@ -19,9 +19,21 @@ What it collects:
 
 What it refuses to touch:
   - anything whose id8 tail belongs to a LIVE job (even if the entry looks
-    stale — the live roster is the only source of truth);
+    stale — the DB roster is the only source of truth);
   - anything NOT under data/relion/<project>/ (no glob escapes upward);
   - the quarantine itself (no recursive self-collection).
+
+t871 — the roster truth moved UP one layer: the old reader judged "dead"
+against /api/jobs, which is ACTIVE-POINTER-SCOPED (the old-world manifest's
+own warning: it "lies when another world is active"). Every restore that
+re-seeds a NON-active project (t521's Tutorial fixtures) re-added its state
+entries and the camera immediately slandered them as dead — and one
+`--apply` away lay a live project's state. The judge is now the DB roster
+(ALL projects, the same table the jobs sweep reads); the API read stays
+only as a fallback when the DB file is absent. Same asymmetry fixed in the
+dir scan: a non-active project's workdirs are now enumerated too (they
+were invisible before, an orphan-blind spot), while the _fixtures/
+micrographs seed-property blessing (t869) rides unchanged.
 
 Usage:
   python3 scripts/gc-orphans.py            # dry-run: print, touch nothing
@@ -30,6 +42,7 @@ Usage:
 import json
 import os
 import shutil
+import sqlite3
 import sys
 import time
 import urllib.request
@@ -38,6 +51,9 @@ BASE = "http://localhost:3000"
 PROJECT_ROOT = "/home/z/my-project/data/relion"
 STATE_PATH = "/home/z/my-project/data/engine-state.json"
 QUARANTINE = "/home/z/my-project/.qa-logs/gc-quarantine"
+# t377's law, applied to the tools: the shell env's DATABASE_URL is the
+# tool sandbox's TEMPLATE (custom.db) — hard-pin the canonical world db.
+DB_PATH = "/home/z/my-project/db/cryoflow.db"
 
 
 def http_json(path):
@@ -48,12 +64,35 @@ def http_json(path):
         return json.load(r)
 
 
+def db_roster():
+    """ALL jobs across ALL projects, straight from the world's own table.
+
+    Returns ({id: projectId} mapping, sorted) — the same ids/tails the
+    engine-state entries and workdir tails must answer to, without the
+    active pointer's scoping. Falls back to the scoped /api/jobs view
+    ONLY if the DB file is absent (an honest downgrade, printed).
+    """
+    if os.path.exists(DB_PATH):
+        conn = sqlite3.connect(DB_PATH)
+        try:
+            rows = conn.execute("SELECT id, projectId FROM Job").fetchall()
+        finally:
+            conn.close()
+        return {jid: pid for jid, pid in rows}, "db"
+    live = http_json("/api/jobs")["jobs"]
+    print("  (note: DB roster absent — fell back to the ACTIVE-SCOPED api view;")
+    print("   non-active projects' entries will read dead — re-run on the db world)")
+    return {j["id"]: j["projectId"] for j in live}, "api"
+
+
 def main():
     apply_mode = "--apply" in sys.argv
-    live = http_json("/api/jobs")["jobs"]
-    live_ids = {j["id"] for j in live}
-    live_tails = {j["id"][-8:] for j in live}
-    projects = {j["projectId"] for j in live}
+    roster, roster_src = db_roster()
+    live_ids = set(roster)
+    live_tails = {jid[-8:] for jid in live_ids}
+    projects = set(roster.values())
+    print(f"  roster source: {roster_src} ({len(live_ids)} jobs, "
+          f"{len(projects)} projects)")
 
     state = {}
     if os.path.exists(STATE_PATH):

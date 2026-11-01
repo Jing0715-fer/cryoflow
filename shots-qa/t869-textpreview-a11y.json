@@ -3,7 +3,7 @@
   "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder -> title (the t867 growth — the tree's own tooltip voice, the accessible-name spec's own last resort) — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
   "build": "dev@ec37c84ff38b",
   "worldMode": "dev",
-  "date": "2026-11-01T02:49:15.233Z",
+  "date": "2026-11-01T03:52:13.468Z",
   "chain": "clean room -> canvas -> ctffind card (plain door) -> Results tab (mousedown) -> Logs & reports rows -> run.out preview (focus lands) -> Esc -> run.err empty world (the honest empty) -> Files tab (mousedown) -> Preview doors -> text peek (t869 seat) -> star peek (t869 seat) -> Esc all -> world back",
   "doors": {
     "inspector": "plain pointerdown+pointerup on the card — the submitted law",
@@ -15,7 +15,7 @@
   },
   "host": {
     "name": "CTF Estimation 1",
-    "id": "cmvx39q4t0006q0049u66ivle",
+    "id": "cmvx9eise0006tve8thwezag3",
     "measured": true
   },
   "data": {
@@ -541,27 +541,27 @@
     {
       "label": "L logsFace face ride-drift law",
       "pass": true,
-      "detail": "arm 2 — world key moved (dev@71479abfe3d2 -> dev@ec37c84ff38b), drift +0 informational"
+      "detail": "arm 2′ — dev world (key dev@ec37c84ff38b), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
     },
     {
       "label": "L previewFace face ride-drift law",
       "pass": true,
-      "detail": "arm 2 — world key moved (dev@71479abfe3d2 -> dev@ec37c84ff38b), drift +0 informational"
+      "detail": "arm 2′ — dev world (key dev@ec37c84ff38b), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
     },
     {
       "label": "L emptyFace face ride-drift law",
       "pass": true,
-      "detail": "arm 2 — world key moved (dev@71479abfe3d2 -> dev@ec37c84ff38b), drift +0 informational"
+      "detail": "arm 2′ — dev world (key dev@ec37c84ff38b), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
     },
     {
       "label": "L filesFace face ride-drift law",
       "pass": true,
-      "detail": "arm 2 — world key moved (dev@71479abfe3d2 -> dev@ec37c84ff38b), drift +0 informational"
+      "detail": "arm 2′ — dev world (key dev@ec37c84ff38b), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
     },
     {
       "label": "L worldBack face ride-drift law",
       "pass": true,
-      "detail": "arm 2 — world key moved (dev@71479abfe3d2 -> dev@ec37c84ff38b), drift +0 informational"
+      "detail": "arm 2′ — dev world (key dev@ec37c84ff38b), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
     }
   ],
   "passed": 41,
@@ -570,9 +570,9 @@
   "verdict": "the text-preview face holds: the clean room held (the panel-closed boot — the t866 law), the logs face hosted 3 named text rows under the paper contract, the tail preview arrived TOPMOST with its heading read from the data and the focus landing in the named region (the t774 law), the empty file's world stayed honest (0 bytes, focus still lands, no false wound), the Files tab's second family rode the same brain WITH the t869 seats aboard (text-keymap + star-keymap measured live), and the world came back bit-for-bit",
   "driftLedger": {
     "prevFound": true,
-    "prevBuild": "dev@71479abfe3d2",
-    "prevDate": "2026-11-01T02:08:59.087Z",
-    "sameBuild": false,
+    "prevBuild": "dev@ec37c84ff38b",
+    "prevDate": "2026-11-01T02:49:15.233Z",
+    "sameBuild": true,
     "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
     "faces": {
       "logsFace": {

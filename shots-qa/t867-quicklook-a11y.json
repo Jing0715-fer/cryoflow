@@ -1,9 +1,9 @@
 {
   "instrument": "scripts/t867-quicklook-a11y.mjs",
   "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder -> title (the t867 growth — the tree's own tooltip voice, the accessible-name spec's own last resort) — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
-  "build": "dev@8c6059d1b8e6",
+  "build": "dev@ec37c84ff38b",
   "worldMode": "dev",
-  "date": "2026-11-01T01:50:30.860Z",
+  "date": "2026-11-01T03:51:32.730Z",
   "chain": "clean room -> canvas -> postprocess card (plain door) -> Results tab (mousedown) -> maps gallery -> Enlarge door -> quick-look dialog (topmost) -> histogram walk -> View-in-3D (text door) -> Mol* ortho panel -> oblique block -> Escape home -> extract card -> stack dialog -> slice + arrow + toggle walks -> worldBack + seed hygiene (one command)",
   "doors": {
     "inspector": "plain pointerdown+pointerup on the card — the submitted law",
@@ -15,11 +15,11 @@
   "host": {
     "map": {
       "name": "Post-process (tutorial)",
-      "id": "cmvx3baqp000nq0bx4l1tvava"
+      "id": "cmvx9evny000ytve8r1vixloz"
     },
     "stack": {
       "name": "Extract (tutorial)",
-      "id": "cmvx3bals0003q0bx0u86cjfb"
+      "id": "cmvx9evjn000etve84hzvk74s"
     },
     "measured": true
   },
@@ -844,7 +844,7 @@
     {
       "label": "V2 the Mol* dialog arrived and the ortho panel rode in (the map handoff)",
       "pass": true,
-      "detail": "dlgCount=3"
+      "detail": "dlgCount=2"
     },
     {
       "label": "V3 the ortho root is named (Orthogonal slice browser)",
@@ -1034,37 +1034,37 @@
     {
       "label": "L mapsGallery face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@8c6059d1b8e6), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+      "detail": "arm 2 — world key moved (dev@8c6059d1b8e6 -> dev@ec37c84ff38b), drift +0 informational"
     },
     {
       "label": "L quicklook face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@8c6059d1b8e6), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+      "detail": "arm 2 — world key moved (dev@8c6059d1b8e6 -> dev@ec37c84ff38b), drift +0 informational"
     },
     {
       "label": "L histogram face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@8c6059d1b8e6), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+      "detail": "arm 2 — world key moved (dev@8c6059d1b8e6 -> dev@ec37c84ff38b), drift +0 informational"
     },
     {
       "label": "L molOrtho face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@8c6059d1b8e6), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+      "detail": "arm 2 — world key moved (dev@8c6059d1b8e6 -> dev@ec37c84ff38b), drift +0 informational"
     },
     {
       "label": "L oblique face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@8c6059d1b8e6), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+      "detail": "arm 2 — world key moved (dev@8c6059d1b8e6 -> dev@ec37c84ff38b), drift +0 informational"
     },
     {
       "label": "L stack face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@8c6059d1b8e6), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+      "detail": "arm 2 — world key moved (dev@8c6059d1b8e6 -> dev@ec37c84ff38b), drift +0 informational"
     },
     {
       "label": "L worldBack face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@8c6059d1b8e6), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+      "detail": "arm 2 — world key moved (dev@8c6059d1b8e6 -> dev@ec37c84ff38b), drift +0 informational"
     }
   ],
   "passed": 71,
@@ -1074,8 +1074,8 @@
   "driftLedger": {
     "prevFound": true,
     "prevBuild": "dev@8c6059d1b8e6",
-    "prevDate": "2026-11-01T01:36:55.245Z",
-    "sameBuild": true,
+    "prevDate": "2026-11-01T01:50:30.860Z",
+    "sameBuild": false,
     "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
     "faces": {
       "mapsGallery": {
