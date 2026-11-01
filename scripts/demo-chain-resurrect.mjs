@@ -346,14 +346,25 @@ const toIdx = (() => {
 })();
 for (const [type, id] of ORDER.slice(fromIdx, toIdx)) {
   const before = await jobState(id);
+  // t872 — the UI's truth joins the judgment: the engine-state file is a
+  // PRIVATE ledger shared across world eras, and after the t872 world
+  // unification it said "done" for legs whose DB status the UI reads as
+  // idle (the t871 window completed them in cryoflow.db; custom.db froze
+  // mid-chain). A world whose UI says idle is not healed by its engine's
+  // private ledger — the skip requires the API's own status to agree.
+  const dto = await pollDto(id);
+  const uiDone = dto?.status === "completed";
   // filled = the record speaks AND the files are still on disk (the qa53
   // cleaner removes the healed FSC artifacts for qa55's gap world — a
-  // record whose files vanished must re-run, not skip)
+  // record whose files vanished must re-run, not skip) AND the UI agrees
   const filesOnDisk = before?.done && Object.values(before?.outputs ?? {}).every((p) => existsSync(p));
-  const filled = before?.done && before?.exitCode === 0 && Object.keys(before?.outputs ?? {}).length > 0 && filesOnDisk;
+  const filled = before?.done && before?.exitCode === 0 && Object.keys(before?.outputs ?? {}).length > 0 && filesOnDisk && uiDone;
   if (filled && !runAll) {
-    console.log(`  skip: ${type} already carries outputs (${Object.keys(before.outputs).join(", ")})`);
+    console.log(`  skip: ${type} already carries outputs (engine done · ui ${dto?.status})`);
     continue;
+  }
+  if (!filled && before?.done && !uiDone) {
+    console.log(`  re-run: ${type} — the engine's ledger says done but the UI reads ${dto?.status} (the t872 split-world lesson)`);
   }
   const body = NATIVE.has(type) ? undefined : {
     remote: { connectionId: CONN_ID, module: "relion/5.0.1", mode: "slurm" },

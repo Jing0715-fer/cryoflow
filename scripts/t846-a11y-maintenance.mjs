@@ -158,7 +158,18 @@ const settle = (what) => {
 };
 
 /* ---------- Face C: the canvas (the chain's root) ---------- */
-console.log("Face C — the workflow canvas (fresh load, sleep 3)");
+console.log("Face C — the workflow canvas (fresh load, sleep 3; the t866 clean room)");
+ab("open http://localhost:3000");
+sleep(3);
+// t872 — the t866 clean-room law lands on the sweep at last: the t157
+// session seed must be cleared and the boot demanded PANEL-CLOSED, or the
+// opening face carries the PREVIOUS ride's inspector echo (+12 controls —
+// the t866 lesson's own arithmetic) and M18's opening==restore comparison
+// compares two different worlds. The deep walks adopted this at t866; the
+// sweep's chain predates it and only now met a world where Face I actually
+// ARRIVES (the stale-status world never opened the inspector, so the
+// asymmetry stayed invisible for six windows).
+evalJson('(() => { localStorage.setItem("cryoflow.selectedJob.v1", ""); return "clean"; })()');
 ab("open http://localhost:3000");
 sleep(3);
 const c1 = evalJson(MEASURE);
@@ -213,6 +224,11 @@ ok("M17 Escape closed the palette", p2.hasDlg === false, `dlg=${p2.hasDlg}`);
 
 /* ---------- restore: back to the canvas ---------- */
 console.log("Restore — fresh load back to the canvas");
+// t872 — the W2 hygiene (the t866 law's world-back clause): Face I's
+// inspect() echoed the t157 seed; the restore face must film the world
+// WITHOUT the ride's own echo, or M18 compares the seed-carrying boot
+// against the clean opening.
+evalJson('(() => { localStorage.setItem("cryoflow.selectedJob.v1", ""); return "clean"; })()');
 ab("open http://localhost:3000");
 sleep(3);
 const r1 = evalJson(MEASURE);
