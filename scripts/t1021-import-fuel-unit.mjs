@@ -286,7 +286,7 @@ for (let i = 0; i < 10 && !worldAfter; i++) {
 }
 ok("the world as-left (15 jobs, nothing minted standing — the conn-mvwf4vla replant re-key)", worldAfter?.length === 15, `got ${worldAfter?.length}`);
 const dbBytes = statSync(path.join(ROOT, "db/cryoflow.db")).size;
-ok("the DB byte size held (the high-water — the t1097 re-key: the fresh t979 replant world's page-quantized size — the t1075 re-key's own precedent (155648→135168); the t1080 147456 died with the epoch; the WORLD stands 15 — the conn-mvwf4vla replant re-key; the page-quantized size held across the epoch)", dbBytes === 135168, `${dbBytes}`);
+ok("the DB byte size held (the high-water — the t1097 re-key: the fresh t979 replant world's page-quantized size — the t1075 re-key's own precedent (155648→135168); the t1142 re-key: the WorldLedger table's landing grew the high-water (135168→143360, two pages); the t1080 147456 died with the epoch; the WORLD stands 15 — the conn-mvwf4vla replant re-key; the page-quantized size held across the epoch)", dbBytes === 143360, `${dbBytes}`);
 
 /* ---------- the receipt ---------- */
 const verdict = fail === 0 ? "GREEN" : "RED";
