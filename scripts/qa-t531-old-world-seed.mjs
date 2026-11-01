@@ -479,8 +479,17 @@ function finishMrcHeader(header, nx, ny, nz, pixel, dmin, dmax, dmean) {
   return header;
 }
 
-/** A REAL stacked MRC: mode 2 float32, frame × frame × frames — small but
- *  every header word honest (the size check demands the bytes). */
+/** A REAL stacked MRC (t868): mode 2 float32, frame × frame × frames —
+ *  every frame its own phantom: a dark cryo particle (a NEGATIVE Gaussian
+ *  — the polarity the mock's real crops normalize to) on a near-zero
+ *  solvent floor with a deterministic noise term. The zero-filled stub
+ *  this replaces rendered "μ 0 · σ 0" histograms on every slice — the
+ *  quick-look's slice machine had nothing to command (the σ presets
+ *  honestly refused, the deed law's teeth waited); the class-averages
+ *  stack this writer also feeds rendered the t370 "black classes". Each
+ *  frame is a DIFFERENT distribution (the t287 law: a different image is
+ *  a different window). Deterministic LCG — the same stack every seed
+ *  run, byte-for-byte re-seedable. */
 function buildMrcStack(frame = 64, frames = EXTRACT_N) {
   const header = Buffer.alloc(1024);
   header.writeInt32LE(frame, 0);
@@ -488,7 +497,31 @@ function buildMrcStack(frame = 64, frames = EXTRACT_N) {
   header.writeInt32LE(frames, 8);
   header.writeInt32LE(2, 12); // mode = float32
   finishMrcHeader(header, frame, frame, frames, 1.77, 0, 0, 0);
-  return Buffer.concat([header, Buffer.alloc(frame * frame * 4 * frames)]);
+  const data = Buffer.alloc(frame * frame * 4 * frames);
+  let s = (0x9e3779b9 ^ frames) >>> 0;
+  const rand = () => {
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  for (let f = 0; f < frames; f++) {
+    const cx = frame * (0.35 + 0.3 * rand());
+    const cy = frame * (0.35 + 0.3 * rand());
+    const sigma = frame * (0.09 + 0.05 * rand());
+    const amp = -(2.2 + 1.6 * rand()); // the dark particle lands NEGATIVE
+    const off = f * frame * frame;
+    for (let y = 0; y < frame; y++) {
+      for (let x = 0; x < frame; x++) {
+        const dx = x - cx;
+        const dy = y - cy;
+        const g = amp * Math.exp(-(dx * dx + dy * dy) / (2 * sigma * sigma));
+        const n = (rand() - 0.5) * 0.18; // the solvent's noise floor
+        data.writeFloatLE(g + n, (off + y * frame + x) * 4);
+      }
+    }
+  }
+  return Buffer.concat([header, data]);
 }
 
 /** A single-image MRC (class averages): mode 2, 256×256×1. */
@@ -777,9 +810,9 @@ function filePlan() {
   // t660 — class3d speaks per-class volumes (run_itNNN_class00K.mrc —
   // the route's volume lane, iteration matching the run_it003_data.star
   // already planted here): three classes, three central-z planes.
-  plan.push([wd.class3d, "run_it003_class001.mrc", buildMrcSingle(64)]);
-  plan.push([wd.class3d, "run_it003_class002.mrc", buildMrcSingle(64)]);
-  plan.push([wd.class3d, "run_it003_class003.mrc", buildMrcSingle(64)]);
+  plan.push([wd.class3d, "run_it003_class001.mrc", buildMrcVolume(64)]);
+  plan.push([wd.class3d, "run_it003_class002.mrc", buildMrcVolume(64)]);
+  plan.push([wd.class3d, "run_it003_class003.mrc", buildMrcVolume(64)]);
   // t665 — the denoise wall's world leg: the index + ten DERIVED frames
   // (16×16 box average of the run's own real inputs — see the builders'
   // note). Files land in the denoise workdir root, the star names them

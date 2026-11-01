@@ -3,7 +3,7 @@
   "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder -> title (the t867 growth — the tree's own tooltip voice, the accessible-name spec's own last resort) — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
   "build": "dev@8c6059d1b8e6",
   "worldMode": "dev",
-  "date": "2026-11-01T01:36:55.245Z",
+  "date": "2026-11-01T01:50:30.860Z",
   "chain": "clean room -> canvas -> postprocess card (plain door) -> Results tab (mousedown) -> maps gallery -> Enlarge door -> quick-look dialog (topmost) -> histogram walk -> View-in-3D (text door) -> Mol* ortho panel -> oblique block -> Escape home -> extract card -> stack dialog -> slice + arrow + toggle walks -> worldBack + seed hygiene (one command)",
   "doors": {
     "inspector": "plain pointerdown+pointerup on the card — the submitted law",
@@ -658,7 +658,11 @@
         "slice 2 of 240",
         "slice 1 of 240"
       ],
-      "followWinStory": "still world — the honest refusal (no live slice in the tries: the all-zero stack)"
+      "followWinStory": [
+        "false",
+        "true",
+        "false"
+      ]
     },
     "worldBack": {
       "live": {
@@ -993,19 +997,19 @@
       "detail": "readout \"slice 1 of 240\""
     },
     {
-      "label": "S12b the degenerate world's refusal is HONEST (no pressable preset, each disabled with the degenerate marker)",
+      "label": "S12b the arm lifted a sigma preset into the window (the deed, read live)",
       "pass": true,
-      "detail": "presets=[{\"k\":\"1\",\"dis\":true,\"deg\":\"true\"},{\"k\":\"2\",\"dis\":true,\"deg\":\"true\"},{\"k\":\"3\",\"dis\":true,\"deg\":\"true\"},{\"k\":\"5\",\"dis\":true,\"deg\":\"true\"}]"
+      "detail": "preset=±1σ (stepped 0 slice(s))"
     },
     {
-      "label": "S13 the follow-window toggle is honestly disabled (no window to follow — the title says so)",
+      "label": "S13 the follow-window toggle's state flipped (read live — the armed walk)",
       "pass": true,
-      "detail": "toggleDisabled=true"
+      "detail": "aria-pressed false -> true"
     },
     {
-      "label": "S13b the flip is not demanded of a world that offers no command (recorded, not lied about)",
+      "label": "S13b the toggle walked home (the world's own state restored)",
       "pass": true,
-      "detail": "the still world: the deed law's teeth wait for a live stack"
+      "detail": "aria-pressed=false"
     },
     {
       "label": "S14 zero unnamed page-wide WITH the stack dialog up (the census's invariant)",
@@ -1070,7 +1074,7 @@
   "driftLedger": {
     "prevFound": true,
     "prevBuild": "dev@8c6059d1b8e6",
-    "prevDate": "2026-11-01T01:35:20.837Z",
+    "prevDate": "2026-11-01T01:36:55.245Z",
     "sameBuild": true,
     "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
     "faces": {
