@@ -50,14 +50,23 @@ if [ "$HAVE" != "$WANT" ]; then
   fi
 fi
 sleep 1
-# Task 183: absolute DATA_DIR — builds delete .next/standalone (the cwd)
+# Task 183: absolute DATA_DIR — builds delete .next/standalone (the cwd).
+# The absolute override is ALSO the symlink's replacement: the sandbox
+# refuses `ln -s` outright (the Task 177 lesson resurfaced live in t874 —
+# the rm+ln dance left .next/standalone/data MISSING and booted the server
+# blind), and the env override needs no link at all.
 export CRYOFLOW_DATA_DIR=/home/z/my-project/data
-# t407 — the two lanes must see the SAME world: dev-server.sh:43 exports
-# DATABASE_URL=file:$REPO_ROOT/db/cryoflow.db because .env's custom.db is
-# the TEMPLATE library (witnessed live: the standalone lane booted on the
-# 3-job seed while the healed 20-job world lived in cryoflow.db). The prod
-# lane rode whatever ambient env the sandbox had; pin it to the same file.
-export DATABASE_URL="file:/home/z/my-project/db/cryoflow.db"
+# t874 — THE DB LANE PASSTHROUGH (the t872 ruling, finally landed here):
+# the t407 hard pin (file:.../db/cryoflow.db) pre-dates the lane war's end
+# (t871's d2fd438 made the launchers passthrough — this file's pin was the
+# one that slipped). The 0-byte cryoflow.db answered 500 on /api/projects
+# (no Project table) while the healed 15-job world lived in custom.db —
+# witnessed live. The platform owns .env (the t872 ruling): respect an
+# ambient DATABASE_URL, else inject .env's own lane, else the old default.
+if [ -z "${DATABASE_URL:-}" ]; then
+  ENV_LANE=$(grep -m1 "^DATABASE_URL=" .env 2>/dev/null | sed 's/^DATABASE_URL=//' | tr -d '"' | tr -d "'" || true)
+  export DATABASE_URL="${ENV_LANE:-file:/home/z/my-project/db/custom.db}"
+fi
 export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--max-old-space-size=896"
 setsid bun run start >/dev/null 2>&1 < /dev/null &
 exit 0

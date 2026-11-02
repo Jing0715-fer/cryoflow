@@ -41,6 +41,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  onEscapeClose,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -510,9 +511,20 @@ function RunCompareDialog<R extends { name: string }>({
   const excludeTitle =
     excludePlan != null ? adoptionPlanTitle(excludePlan, nameA, nameB) : "";
 
+  // Escape must peel ONE layer: this dialog floats on top of the job
+  // inspector modal (t873's walk filmed the same law on its sibling
+  // fsc-compare via an inline consumer). Without a React-level consumer
+  // the document-level Radix listeners of BOTH roots see the same keydown
+  // and BOTH dismiss — the t874 walk caught the inspector behind dying
+  // with it (dialogs 2 → 0). The shared helper (preventDefault +
+  // stopPropagation + close) is the family dialect — remote-cluster /
+  // pipeline-script / hpc-sbatch wear it.
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
+      <DialogContent
+        className="flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl"
+        onKeyDown={onEscapeClose(() => onOpenChange(false))}
+      >
         <DialogHeader className="shrink-0 border-b px-6 pb-4 pt-6">
           <DialogTitle className="flex items-center gap-2 text-base">
             <GitCompareArrows className="size-4 text-primary" aria-hidden="true" />
