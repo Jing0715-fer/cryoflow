@@ -336,12 +336,9 @@ export function slurmHms(minutes: number): string {
   const h = Math.floor(m / 60);
   return `${String(h).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}:00`;
 }
-
-function hms(minutes: number): string {
-  const m = Math.max(1, Math.round(minutes));
-  const h = Math.floor(m / 60);
-  return `${String(h).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}:00`;
-}
+// t1153 — the private `hms` twin (byte-identical to slurmHms, born before
+// the export existed) is dead: the script builder's --time leg rides the
+// exported father. ONE birthplace, even inside one file.
 
 function shellQuote(a: string): string {
   if (/^[A-Za-z0-9_@%+=:,./-]+$/.test(a)) return a;
@@ -423,7 +420,7 @@ export async function buildSbatchForJob(args: {
   L.push(`#SBATCH --ntasks=${strategy.mode === "multi-gpu" ? strategy.gpus + 1 : 1}`);
   L.push(`#SBATCH --cpus-per-task=${threads}`);
   L.push(`#SBATCH --mem=${strategy.mode === "array" && strategy.gpus === 0 ? 16 : 64}G`);
-  if (profile.timeLimitMin > 0) L.push(`#SBATCH --time=${hms(profile.timeLimitMin)}`);
+  if (profile.timeLimitMin > 0) L.push(`#SBATCH --time=${slurmHms(profile.timeLimitMin)}`);
   if (strategy.gpus > 0 && profile.partition !== "none") {
     L.push(`#SBATCH --gres=gpu:${profile.gpuModel.toLowerCase()}:${strategy.gpus}`);
   }

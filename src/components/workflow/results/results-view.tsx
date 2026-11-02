@@ -57,6 +57,7 @@ import { Chip } from "@/components/ui/chip";
 import { toast } from "@/hooks/use-toast";
 import { downloadBlob } from "@/lib/download"; // t646 — one blob sink (this dance skipped attach + revoked same-tick)
 import { fmtBytes } from "@/lib/relion/disk-usage"; // t1152 — the byte word rides its ONE father (the local formatBytes dialect died: it had no GB branch, a 2.5 GB stack rendered "1536.0 MB" beside the inspector's "1.50 GB")
+import { fmtDuration } from "@/lib/duration"; // t1153 — the report's duration word rides its ONE father (the local fmtDur birth had no day face)
 import { buildFscSvg, fscMilestones, fscNyquist, fscTableMarkdown } from "@/lib/fsc-snapshot";
 import { buildProfileReportHtml } from "@/lib/report-html";
 import {
@@ -691,12 +692,11 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
         topazSection = block;
       }
 
-      const fmtDur = (s: number) =>
-        s >= 3600
-          ? `${Math.floor(s / 3600)}h ${Math.round((s % 3600) / 60)}m`
-          : s >= 60
-            ? `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`
-            : `${Math.round(s)}s`;
+      // t1153 — the report's duration word rides the ONE father (a local
+      // birth here had no day face: a 3-day run printed "72h 5m" in the
+      // report while the inspector said "3d 0h" for the same run). The
+      // father speaks ms; the report's rows carry seconds.
+      const fmtDur = (s: number) => fmtDuration(s * 1000);
       const textCount = data?.files.filter((f) => f.kind === "text").length ?? 0;
       const slug =
         job.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "job";

@@ -134,12 +134,19 @@ import { FindMarkedText, FIND_MARK_CLASS } from "./find-mark"; // t728 — the w
 const INSP_BASE_MS = 90;
 const INSP_STEP_MS = 24;
 
-/** " · 12.4 MB" for the staging phase line — "" when nothing staged yet. */
+/** " · 12.4 MB" for the staging phase line and the peak-memory chip —
+ *  "" when nothing staged yet (the ABSENCE word is this face's own; the
+ *  bytes ride the ONE father, t1153). This was the byte word's EIGHTH
+ *  birth, hiding under its own name — formatStagedBytes — which is why
+ *  the t1152 map (a name-hunt: `function fmtBytes(`) walked past it and
+ *  its KB whole-number dialect ("512 KB" on the same screen as the
+ *  outputs card's father word "512.0 KB") survived. The map's lesson is
+ *  now the law: births hide under different names — hunt by SHAPE (the
+ *  1024 arithmetic), not by name. */
 function formatStagedBytes(bytes?: number): string {
-  if (bytes == null || !Number.isFinite(bytes) || bytes <= 0) return "";
-  if (bytes >= 1024 ** 3) return ` · ${(bytes / 1024 ** 3).toFixed(1)} GB`;
-  if (bytes >= 1024 ** 2) return ` · ${(bytes / 1024 ** 2).toFixed(1)} MB`;
-  return ` · ${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return bytes == null || !Number.isFinite(bytes) || bytes <= 0
+    ? ""
+    : ` · ${fmtBytes(bytes)}`;
 }
 
 /** t269 — the time ledger's dialect: wall-clock ms spoken the way the ETA
