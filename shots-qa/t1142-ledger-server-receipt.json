@@ -1,0 +1,82 @@
+{
+  "walk": "t1142-ledger-server-tier",
+  "at": "2026-11-02T00:00:43.347265+00:00",
+  "window": "t1142 (cron 2026-11-02 07:35 +08:00, Job 362852)",
+  "feature": "the ledger's SERVER tier — the world's memory outlives the machine",
+  "cars": {
+    "feat": "7dacc4ec (lib fathers + schema + route + dialog wiring)",
+    "qa": "this car (the unit 47 pins + seat 83 + the db-size re-key)",
+    "chore": "receipts",
+    "docs": "the worklog entry"
+  },
+  "unit": {
+    "file": "scripts/t1142-world-ledger-server-unit.mjs",
+    "pins": 47,
+    "rides": "47/47 green x2 + exit-gate rides"
+  },
+  "census": {
+    "seats": 83,
+    "expectedTail": 47,
+    "rides": "83/83 zero RED x2 at open + 83/83 zero RED x2 on the committed tree (exit gate)"
+  },
+  "db": {
+    "before": 135168,
+    "after": 143360,
+    "delta": "+2 pages (the WorldLedger table's landing)",
+    "reKeyed": [
+      "t1021",
+      "t1022",
+      "t1023",
+      "t1024"
+    ],
+    "push": "prisma db push — non-destructive ADD TABLE, client regenerated (v6.19.2)"
+  },
+  "liveWalk": {
+    "tool": "agent-browser",
+    "boardFace": "15 jobs · 14 edges · β-Galactosidase Tutorial (demo) — the world gate's own words",
+    "honestEmpty": "no transitions yet + 1 sample in the ledger; NO Export chip (the honest-absence door)",
+    "console": "0 errors, 0 warnings",
+    "screenshot": "shots-qa/t1142-board-live-walk.png"
+  },
+  "buildAwareness": {
+    "servedBuildRoute": "GET /api/projects/[id]/world-ledger → 404 on the standing build (the build predates the tier — the build-aware instrument law: the route's live face re-queues for the next build-capable window)",
+    "queuedLiveRides": "the server tier's live ride joins the build-day queue (write-through three + the fill from the machine tier)"
+  },
+  "checks": [
+    {
+      "name": "push law at open",
+      "ok": true,
+      "note": "HEAD = origin = 9df1f2ef (the t1141 docs car), tree clean"
+    },
+    {
+      "name": "doctor at open + re-verify",
+      "ok": true,
+      "note": "CLEAN — one world, ghost-free, BINDING conn-mvy782td, phantom 404-holds; re-verified after the db push"
+    },
+    {
+      "name": "census at open",
+      "ok": true,
+      "note": "82/82 zero RED x2"
+    },
+    {
+      "name": "world gate",
+      "ok": true,
+      "note": "15 jobs · 15 done · 14 edges · db 135168→143360 (the re-key)"
+    },
+    {
+      "name": "dev lane",
+      "ok": true,
+      "note": ":3000 200 (standalone pid 20324) · mock :3022 echo ok"
+    },
+    {
+      "name": "tsc / eslint",
+      "ok": true,
+      "note": "0 / 0 on the three edited files + t1141 unit 25/25 regression"
+    },
+    {
+      "name": "smoke",
+      "ok": true,
+      "note": "byte-equal / parse round / refuse v2 / absent / fetch ok / fetch 404 absent / push ok / push throw-false — 8/8"
+    }
+  ]
+}
