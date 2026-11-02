@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { isLocalRequest } from "@/lib/http-guard";
-import { sanitizePresetShelf } from "@/lib/param-preset-sanitize";
+import { sanitizePresetShelf, PARAM_PRESET_SHELF_ID as SHELF_ID } from "@/lib/param-preset-sanitize";
 import { serverErrorMessage, serverErrorReply, badJsonReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
@@ -30,8 +30,9 @@ export const dynamic = "force-dynamic";
 // synced:true with an empty list ("the deletion is the truth — adopt
 // it"). Deleting the row on empty would erase that distinction and
 // resurrect deleted presets on the next reconcile.
-
-const SHELF_ID = "user-param-presets";
+// (t1149 — SHELF_ID now rides the sanitize lib's PARAM_PRESET_SHELF_ID:
+// one birthplace for the row's id, the agent tool's well imports the
+// same constant, no second literal for an epoch to drift.)
 
 export async function GET(request: Request) {
   if (!isLocalRequest(request)) {

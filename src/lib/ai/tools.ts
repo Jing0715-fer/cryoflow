@@ -161,6 +161,8 @@ import { readPathrefTarget } from "@/lib/relion/pathref";
 import { detectRelion, type RelionStatus } from "@/lib/relion/system";
 import { readDiagnostics, presentSystemDiagnostics, type DiagnosticsPayload } from "@/lib/diagnostics";
 import { presentWorldHealth, type WorldHealthToolResult } from "@/lib/ai/world-health-present";
+import { presentPresetShelf } from "@/lib/ai/preset-shelf-present";
+import { PARAM_PRESET_SHELF_ID } from "@/lib/param-preset-sanitize";
 import type { JobClock } from "@/lib/world-vitals";
 
 // t530 — the box's agent face lives in the pure diagnostics module (the
@@ -607,6 +609,23 @@ export const AI_TOOLS: ToolSchema[] = [
     parameters: { type: "object", properties: {}, additionalProperties: false },
   },
   {
+    name: "get_param_presets",
+    description:
+      "The USER'S OWN PARAMETER PRESETS in one read — the preset shelf (lib/user-param-presets' server mirror) " +
+      "as data, newest first: per preset the name, the job type, the knob count and the FULL spec-key snapshot's " +
+      "saved values. THE tool for 'what presets do I have / 我存过哪些预设 / 用我常用的参数 / my usual settings / " +
+      "which of my saved settings fit this job type / 把我调好的参数穿上去'. Cousins, not duplicates: " +
+      "list_job_types is the job-type roster (developer-written specs), get_job_params is ONE job's live params, " +
+      "this is the USER'S hand-tuned shelf — the same rows the inspector's save dialog, the palette's 'Add from " +
+      "your presets' group and the shelf dialog speak. Honest faces: a shelf never mirrored (no row on the " +
+      "server) says so; an emptied shelf is the deletion's truth, not a missing sync; a corrupt row says so " +
+      "instead of pretending empty. Read-only QUOTER: wear a preset through create_job or update_job's params " +
+      "(a FULL spec-key snapshot — every spec key replaced, legacy keys untouched); the type gate is structural " +
+      "(a preset of type X only lands on a type-X job). The shelf is the user's own, not the project's — it " +
+      "follows the user across browsers and projects. Zero knobs: the shelf is the shelf, not a filtered one.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
     name: "get_continue_sources",
     description:
       "A run's RESTART DOORS in one read — the inspector's 'Continue from here:' picker as data: every optimiser round the run can legally resume from, its own arc (self) and any upstream refinement's rounds. Per round: the iteration number, the optimiser.star path, whether EVERY sibling RELION reload is present (an incomplete round is shown but never a legal --continue target), and the CHECKPOINT — the newest complete self round, live tree over archived generations, the picker's own pick, never re-derived. Per source: the lane (a remote row's paths speak CLUSTER coordinates — a host shell would misread them) and the honest wounds (a source that could not be read carries its own error; a capped listing says it is a floor, not all). THE tool for '这个任务能从哪继续 / what can this run continue from / where's the newest checkpoint / which iteration would --iter resume'. Read-only LOCATOR: it names the doors — continue_run is the verb that opens one. The roster is the picker's own walk and the checkpoint is the picker's own pick: the Continue dialog drinks the same cup. One knob: the job id.",
@@ -1044,6 +1063,8 @@ export async function executeAiTool(
         return await getSystemDiagnostics(ctx);
       case "get_world_health":
         return await getWorldHealth(ctx);
+      case "get_param_presets":
+        return await getParamPresets();
       case "get_continue_sources":
         return await getContinueSources(ctx, args);
       case "get_storage_report":
@@ -3426,6 +3447,31 @@ async function getWorldHealth(ctx: AgentCtx): Promise<AiToolResult> {
     workspaceCount,
   });
   return spoken;
+}
+
+/* ---- get_param_presets ---------------------------------------------- */
+
+/** t1149 — the preset shelf's well: the row read by its ONE id (the
+ *  sanitize lib's PARAM_PRESET_SHELF_ID — the route's own birthplace,
+ *  imported, never a second literal), the bytes handed WHOLE to the
+ *  pure presenter. This well only feeds: no parsing (the JSON.parse
+ *  rides the presenter, the t715 whitelist is the ONE trust decision
+ *  and it lives in the presenter's path), no shape checks, no second
+ *  formatter. The shelf is the USER'S — one global row, NO project
+ *  scope: the read takes no projectId and no active-project guard
+ *  (the list_job_types precedent — a user's vocabulary outlives any
+ *  one pipeline). */
+async function getParamPresets(): Promise<AiToolResult> {
+  const row = await db.presetShelf.findUnique({
+    where: { id: PARAM_PRESET_SHELF_ID },
+    select: { data: true, updatedAt: true },
+  });
+  return presentPresetShelf({
+    rowExists: row != null,
+    raw: row?.data ?? null,
+    rowUpdatedAt: row?.updatedAt ? row.updatedAt.toISOString() : null,
+    knownTypes: JOB_TYPES.map((t) => ({ key: t.key, label: t.label })),
+  });
 }
 
 /* ---- get_continue_sources ------------------------------------------- */
