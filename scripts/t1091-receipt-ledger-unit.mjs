@@ -67,7 +67,11 @@ ok("A4 the receipt-less fallbacks are the card's OWN words (never invented sente
   ledger.includes('failed: "Run failed — check logs"') &&
   ledger.includes('pending: "Waiting for an upstream job"'));
 ok("A5 the running job's receipt is the world's own arithmetic (progress %, not a promise)",
-  ledger.includes("Running — ${Math.round(job.progress)}%"));
+  ledger.includes("Running — ${fmtProgressPct(job.progress)}") &&
+  ledger.includes('from "@/lib/progress-scale"'));
+  // t1154 re-key — the word's address moved: the receipt's progress word
+  // rides the scale father now (fmtProgressPct IS the world's own
+  // Math.round arithmetic, ONE birthplace — the t504 搬家不断律 precedent).
 ok("A6 the empty world prints nothing (a ledger of zero jobs is a printed lie)",
   ledger.includes("if (jobs.length === 0) return null;"));
 ok("A7 the ledger takes its OWN sheet (break-before: page — the map page stays exactly the map; the Task 72 contract restored)",
