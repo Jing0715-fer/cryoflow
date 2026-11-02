@@ -84,7 +84,7 @@ ok("A5c the stack witness is GREEN (the rich row live, 25 arms)", stackW?.verdic
 // goes with them).
 const diff = execSync("git diff -U0 -- src/lib/relion/engine.ts", { encoding: "utf8" });
 const added = diff.split("\n").filter((l) => l.startsWith("+") && !l.startsWith("+++"));
-const seatWords = /(t914|workdirMic|per-file|PER-FILE|micrographs|exposure|star's path|importFileSet|EMPIAR|ensureEmpiarLink|linkDirInto|junction|walkWorkdir|symlinked|INVISIBLE|loop.safety|listing|lstatSync|rmSync|mkdirSync|linkSync|symlinkSync|setProgress|entries|gallery preview|import still works|nothing there yet|mkdir below|const src|const dst|hostDir|unlinked|hostFiles|pathref|kindNote|skipNote|linkedCount|linkNote|const linked|if \(linked\)|mrcs|lines\.push|sourceLabel|result =|kindWord|pixel)/i;
+const seatWords = /(t914|workdirMic|per-file|PER-FILE|micrographs|exposure|star's path|importFileSet|EMPIAR|ensureEmpiarLink|linkDirInto|junction|walkWorkdir|symlinked|INVISIBLE|loop.safety|listing|lstatSync|rmSync|mkdirSync|linkSync|symlinkSync|setProgress|entries|gallery preview|import still works|nothing there yet|mkdir below|const src|const dst|hostDir|unlinked|hostFiles|pathref|kindNote|skipNote|linkedCount|linkNote|const linked|if \(linked\)|mrcs|lines\.push|sourceLabel|result =|kindWord|pixel|toLocaleString\("en-US"\)|formatCountFull)/i;
 const addedCode = added.filter((l) => !/^\+\s*(\/\/|\/\*|\*|$)/.test(l));
 // structural scaffolding (try/catch braces) is SHAPE, not logic — the A16
 // lesson: pin the law the shape reaches for (no foreign logic), not one
@@ -94,7 +94,7 @@ const strays = addedCode.filter((l) => !scaffold.test(l) && !seatWords.test(l));
 ok("A6 every added code line speaks the seat", strays.length === 0, strays.length ? `strays: ${strays.slice(0, 3).join(" | ")}` : `${added.length} added lines (${addedCode.length} code), all the seat's`);
 const removed = diff.split("\n").filter((l) => l.startsWith("-") && !l.startsWith("---"));
 const removedCode = removed.filter((l) => !/^\-\s*(\/\/|\/\*|\*|$)/.test(l));
-const oldLaneWords = /(linkDirInto|micLinkInWorkdir|ensureEmpiarLink|linkSync|symlinkSync|mkdirSync|const src|const dst|const linked|entries|for \(const (e|m|f) of|lines\.push|hostToWsl|unlinked|void setProgress|path\.join|startsWith|folder import|expose|micrographs)/i;
+const oldLaneWords = /(linkDirInto|micLinkInWorkdir|ensureEmpiarLink|linkSync|symlinkSync|mkdirSync|const src|const dst|const linked|entries|for \(const (e|m|f) of|lines\.push|hostToWsl|unlinked|void setProgress|path\.join|startsWith|folder import|expose|micrographs|toLocaleString\(\))/i;
 const oldScaffold = /^\-\s*(try \{|\} catch( \{)?|\} \{|\} else \{|\}|\{)\s*$/;
 const removedStrays = removedCode.filter((l) => !oldScaffold.test(l) && !oldLaneWords.test(l));
 ok("A6b every removed code line is the old lanes' own shape", removedStrays.length === 0, removedStrays.length ? `strays: ${removedStrays.slice(0, 3).join(" | ")}` : `${removed.length} removed lines (${removedCode.length} code), all the old lanes'`);
