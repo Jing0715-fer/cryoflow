@@ -57,6 +57,7 @@ import {
   sortNodesForDisplay,
   type SlurmNodeUsage,
 } from "@/lib/hpc/slurm-usage";
+import { formatCountFull } from "@/lib/result-counts"; // t1157 — the thousands word rides its ONE father (the locale pin lives in result-counts, the parser's own contract)
 
 /** What /api/remote/connections/[id]/usage answers (mirrored client side). */
 interface ClusterUsageResponse {
@@ -226,7 +227,7 @@ export function ClusterUsagePanel({
         return cpus > 0
           ? {
               tone: "enough" as const,
-              text: `Your ask: CPU only — pinned to ${pinnedRow.node}, ${cpus.toLocaleString()} cores free there.`,
+              text: `Your ask: CPU only — pinned to ${pinnedRow.node}, ${formatCountFull(cpus)} cores free there.`,
             }
           : {
               tone: "tight" as const,
@@ -263,7 +264,7 @@ export function ClusterUsagePanel({
       const cpus = target.reduce((a, n) => a + nodeFreeCpus(n), 0);
       return {
         tone: "enough" as const,
-        text: `Your ask: CPU only — ${cpus.toLocaleString()} cores free ${
+        text: `Your ask: CPU only — ${formatCountFull(cpus)} cores free ${
           partition ? `in ${partition}` : "across the cluster"
         }.`,
       };

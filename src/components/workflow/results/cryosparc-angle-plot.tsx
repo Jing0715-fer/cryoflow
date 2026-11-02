@@ -20,6 +20,7 @@ import { Compass, Globe2, RadioTower, Orbit, TriangleAlert, CheckCircle2 } from 
 import { cn } from "@/lib/utils";
 import { Chip } from "@/components/ui/chip";
 import { Mat3, matVec, plotSymmetryMatrices } from "@/lib/symmetry";
+import { formatCountFull } from "@/lib/result-counts"; // t1157 — the thousands word rides its ONE father (the locale pin lives in result-counts, the parser's own contract)
 
 export interface FibBin {
   x: number;
@@ -434,7 +435,7 @@ export function CryoSparcAnglePlot({
       <canvas
         ref={canvasRef}
         role="img"
-        aria-label={`Mollweide projection of ${total.toLocaleString()} particle orientations${symmetry ? `, ${symmetry} symmetry` : ""}`}
+        aria-label={`Mollweide projection of ${formatCountFull(total)} particle orientations${symmetry ? `, ${symmetry} symmetry` : ""}`}
         className="block select-none"
         onMouseMove={onMove}
         onMouseLeave={() => setHovered(null)}
@@ -500,7 +501,7 @@ export function CryoSparcAnglePlot({
         ) : null}
         <Chip size="sm" tone="muted" className="ml-auto">
           <RadioTower aria-hidden="true" />
-          {total.toLocaleString()} particles{iterLabel ? ` · ${iterLabel}` : ""}
+          {formatCountFull(total)} particles{iterLabel ? ` · ${iterLabel}` : ""}
         </Chip>
       </div>
 

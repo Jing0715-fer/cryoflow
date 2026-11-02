@@ -115,6 +115,7 @@ import {
 import type { JobDTO } from "@/lib/types";
 import { jobType, pourKindsOf, PORT_COLORS } from "@/lib/workflow"; // t764 — the kind vocabulary's TWENTY-FIFTH reader joins the storage board
 import { CleanupDialog } from "./cleanup-dialog";
+import { formatCountFull } from "@/lib/result-counts"; // t1157 — the thousands word rides its ONE father (the locale pin lives in result-counts, the parser's own contract)
 
 /** the route's response contract, mirrored client-side (the family keeps
  *  route types out of client imports — same shape as PicksBoardResponse) */
@@ -757,7 +758,7 @@ export default function StorageDialog({
                     {fmtBytes(data.totalBytes)}
                   </p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    {data.totalFiles.toLocaleString()} file{data.totalFiles === 1 ? "" : "s"} across{" "}
+                    {formatCountFull(data.totalFiles)} file{data.totalFiles === 1 ? "" : "s"} across{" "}
                     {data.jobs.length} run director{data.jobs.length === 1 ? "y" : "ies"}
                   </p>
                 </div>
@@ -1000,7 +1001,7 @@ export default function StorageDialog({
                                 {fmtBytes(job.bytes)}
                               </p>
                               <p className="text-[11px] text-muted-foreground">
-                                {job.files.toLocaleString()} file{job.files === 1 ? "" : "s"}
+                                {formatCountFull(job.files)} file{job.files === 1 ? "" : "s"}
                               </p>
                             </div>
                           </button>
@@ -1086,7 +1087,7 @@ export default function StorageDialog({
                         </span>
                       )}
                       <p className="text-sm tabular-nums text-muted-foreground">
-                        {fmtBytes(runLensRow.bytes)} · {runLensRow.files.toLocaleString()} file
+                        {fmtBytes(runLensRow.bytes)} · {formatCountFull(runLensRow.files)} file
                         {runLensRow.files === 1 ? "" : "s"}
                         {data && data.totalBytes > 0 && runLensRow.bytes > 0
                           ? ` · ${(runLensRow.bytes / data.totalBytes).toFixed(0)}% of the project`
@@ -1222,7 +1223,7 @@ export default function StorageDialog({
                       </>
                     ) : ledgerState === "unlisted" ? (
                       <p className="mt-2 rounded-md border border-dashed border-warning/40 bg-warning/[0.05] p-3 text-xs text-warning-700 dark:text-warning-300">
-                        {ledgerDiskFiles.toLocaleString()} file
+                        {formatCountFull(ledgerDiskFiles)} file
                         {ledgerDiskFiles === 1 ? "" : "s"} on disk
                         {runCatFilter ? " in this category" : ""} — but none made the walk's
                         whale ledger (it keeps the heaviest few per category). The run is NOT
@@ -1307,10 +1308,10 @@ export default function StorageDialog({
                         ? lensFiles.length === 0
                           ? "no files above zero bytes — the lens is empty"
                           : lensTotalFiles > lensFiles.length
-                            ? `the heaviest ${lensFiles.length} of ${lensTotalFiles.toLocaleString()} file${
+                            ? `the heaviest ${lensFiles.length} of ${formatCountFull(lensTotalFiles)} file${
                                 lensTotalFiles === 1 ? "" : "s"
                               } — the whales' whales`
-                            : `all ${lensTotalFiles.toLocaleString()} file${
+                            : `all ${formatCountFull(lensTotalFiles)} file${
                                 lensTotalFiles === 1 ? "" : "s"
                               } in this category`
                         : lensRuns.length === 0
@@ -1452,7 +1453,7 @@ export default function StorageDialog({
                                     {fmtBytes(r.catBytes)}
                                   </p>
                                   <p className="text-[11px] text-muted-foreground">
-                                    {r.catFiles.toLocaleString()} file{r.catFiles === 1 ? "" : "s"}
+                                    {formatCountFull(r.catFiles)} file{r.catFiles === 1 ? "" : "s"}
                                   </p>
                                 </div>
                               </button>

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { formatCountFull } from "@/lib/result-counts"; // t1157 — the thousands word rides its ONE father (the locale pin lives in result-counts, the parser's own contract)
 
 /**
  * CryoFlow — KPI sparkline (Dashboard KPI band + project cards).
@@ -104,7 +105,7 @@ export function KpiSparkline({
       ? iso
       : d.toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
   };
-  const fmtVal = (v: number) => `${v.toLocaleString()}${unit ? ` ${unit}` : ""}`;
+  const fmtVal = (v: number) => `${formatCountFull(v)}${unit ? ` ${unit}` : ""}`;
 
   const pointFromEvent = (e: React.PointerEvent<SVGSVGElement>) => {
     const rect = svgRef.current?.getBoundingClientRect();

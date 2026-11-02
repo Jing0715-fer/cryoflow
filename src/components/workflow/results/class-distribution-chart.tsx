@@ -13,6 +13,7 @@ import { useEffect, useMemo, useState } from "react";
 import { PieChart } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { httpErrorFrom } from "@/lib/http-error";
+import { formatCountFull } from "@/lib/result-counts"; // t1157 — the thousands word rides its ONE father (the locale pin lives in result-counts, the parser's own contract)
 
 interface ClassOccupancy {
   cls: number;
@@ -88,7 +89,7 @@ export function ClassDistributionChart({
           <PieChart className="h-3.5 w-3.5 text-teal-600" aria-hidden="true" />
           Class distribution
           <span className="font-normal text-muted-foreground/70">
-            ({classes.length} classes · {total.toLocaleString()} particles)
+            ({classes.length} classes · {formatCountFull(total)} particles)
           </span>
         </span>
         {best != null && (
@@ -125,7 +126,7 @@ export function ClassDistributionChart({
                   style={{ width: `${width}%` }}
                 />
                 <span className="absolute inset-y-0 left-1.5 flex items-center text-[9.5px] font-medium tabular-nums text-foreground/70 group-hover:text-foreground">
-                  {c.count.toLocaleString()} · {(c.fraction * 100).toFixed(1)}%
+                  {formatCountFull(c.count)} · {(c.fraction * 100).toFixed(1)}%
                 </span>
               </div>
             </div>

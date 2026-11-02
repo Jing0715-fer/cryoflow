@@ -40,6 +40,7 @@ import { cn } from "@/lib/utils";
 import { fmtPixel } from "@/lib/chart-rows"; // t1156 — the optics chip's sampling digits ride the pixel father (the RAW STAR float spoke "1.23666667 Å/px" beside the report's "1.24 Å / voxel" for the SAME particles)
 import { ChartErrorStrip } from "./chart-error-strip";
 import { MrcImage } from "./mrc-image";
+import { formatCountFull } from "@/lib/result-counts"; // t1157 — the thousands word rides its ONE father (the locale pin lives in result-counts, the parser's own contract)
 
 interface ParticleGroup {
   name: string;
@@ -186,7 +187,7 @@ function GroupSection({
             {group.name}
           </p>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            {chip(<>{group.count.toLocaleString()} particles</>)}
+            {chip(<>{formatCountFull(group.count)} particles</>)}
             {group.meanFom != null ? (
               <Chip size="sm" tone="muted" className={fomTone(group.meanFom)} title="Mean CTF figure of merit">
                 FOM {group.meanFom.toFixed(3)}
@@ -235,7 +236,7 @@ function GroupSection({
               <div className="mt-2 flex items-center justify-between">
                 <span className="text-[10px] tabular-nums text-muted-foreground">
                   {page.offset + 1}–{Math.min(page.offset + page.particles.length, page.total)} of{" "}
-                  {page.total.toLocaleString()}
+                  {formatCountFull(page.total)}
                 </span>
                 {/* t492 — a mid-paging blip keeps the old page (stale but
                     alive) and says so, instead of silently doing nothing */}
@@ -405,7 +406,7 @@ export function ParticleBrowser({
         {chip(
           <>
             <Layers className="mr-0.5 inline h-3 w-3 align-[-2px]" aria-hidden="true" />
-            {data.total.toLocaleString()} particles
+            {formatCountFull(data.total)} particles
           </>,
           "Total extracted particles across all micrograph stacks"
         )}

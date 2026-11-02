@@ -37,13 +37,14 @@ import { cn } from "@/lib/utils";
 import { useWorkflowStore } from "@/lib/store";
 import { EngineBuildRail } from "@/components/workflow/engine-guidance";
 import type { DiagnosticsClient } from "@/lib/types";
+import { formatCountFull } from "@/lib/result-counts"; // t1157 — the thousands word rides its ONE father (the locale pin lives in result-counts, the parser's own contract)
 
 /* ------------------------------------------------------------------ */
 /* primitives                                                          */
 /* ------------------------------------------------------------------ */
 
 const fmtMb = (mb: number) =>
-  mb >= 1024 ? `${(mb / 1024).toFixed(2)} GB` : `${mb.toLocaleString()} MB`;
+  mb >= 1024 ? `${(mb / 1024).toFixed(2)} GB` : `${formatCountFull(mb)} MB`;
 
 /** Verdict → (dot class, label) — the rail's color grammar. */
 function verdictTone(verdict: "healthy" | "watch" | "danger") {
@@ -388,7 +389,7 @@ export default function SystemDiagnosticsDialog({
                       className="rounded-md border bg-background px-2 py-1.5 text-center"
                     >
                       <p className="font-mono text-base font-semibold tabular-nums leading-tight text-foreground">
-                        {n.toLocaleString()}
+                        {formatCountFull(n)}
                       </p>
                       <p className="text-[9px] uppercase tracking-wide text-muted-foreground">
                         {label}

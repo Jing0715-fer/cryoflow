@@ -38,6 +38,7 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { useWorkflowStore } from "@/lib/store";
 import type { JobDTO, EdgeDTO } from "@/lib/types";
+import { formatCountFull } from "@/lib/result-counts"; // t1157 — the thousands word rides its ONE father (the locale pin lives in result-counts, the parser's own contract)
 
 const LIVE_TYPES = new Set(["class2d", "class3d", "refine3d", "initialmodel"]);
 
@@ -422,7 +423,7 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
           )}
           {data.total > 0 && (
             <span className="font-mono text-[10px] text-muted-foreground">
-              {data.total.toLocaleString()} particles assigned
+              {formatCountFull(data.total)} particles assigned
             </span>
           )}
           {running && (

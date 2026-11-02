@@ -59,6 +59,7 @@ import {
   type SweepRow,
 } from "@/lib/qc-report";
 import { MODEL_BADGE } from "./hpc-profiles-editor";
+import { formatCountFull } from "@/lib/result-counts"; // t1157 — the thousands word rides its ONE father (the locale pin lives in result-counts, the parser's own contract)
 
 interface SimBar {
   key: string; type: string; slurmId: string;
@@ -493,7 +494,7 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
 
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
                 <span>{sim.project.jobs} jobs · {sim.project.edges} deps</span>
-                <span>{sim.data.micrographs} micrographs · {sim.data.particles.toLocaleString()} particles</span>
+                <span>{sim.data.micrographs} micrographs · {formatCountFull(sim.data.particles)} particles</span>
                 {pendingEpisodes > 0 ? (
                   <span className="text-warning">
                     {pendingEpisodes} pending episode{pendingEpisodes === 1 ? "" : "s"} (Resources)

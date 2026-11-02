@@ -98,6 +98,7 @@ import { useAnchorParent } from "./anchor-parent";
 import { StarTable } from "./star-table";
 import { TextPreview } from "./text-preview"; // t779 — the tail preview's own home (the inspector Files tab is the second family)
 import { QuickHistSection } from "./density-histogram";
+import { formatCountFull } from "@/lib/result-counts"; // t1157 — the thousands word rides its ONE father (the locale pin lives in result-counts, the parser's own contract)
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -1221,7 +1222,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                   <span className="truncate font-mono text-[11px]">{f.label ?? f.name}</span>
                   {typeof f.rows === "number" && (
                     <span className="shrink-0 rounded-full border border-violet-600/25 bg-violet-600/10 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 dark:text-violet-300">
-                      {f.rows.toLocaleString()} rows
+                      {formatCountFull(f.rows)} rows
                     </span>
                   )}
                   <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
@@ -1895,7 +1896,7 @@ function ClassOccupancyStrip({ occ }: { occ: ClassOcc[] }) {
         <span
           key={c.cls}
           className="group/bar relative flex-1"
-          title={`Class ${c.cls}: ${c.count.toLocaleString()} particles (${(c.fraction * 100).toFixed(1)}%)`}
+          title={`Class ${c.cls}: ${formatCountFull(c.count)} particles (${(c.fraction * 100).toFixed(1)}%)`}
         >
           <span
             className={cn(

@@ -147,6 +147,7 @@ import type {
   AiSettingsResponse,
   AiSessionSummaryDto,
 } from "@/lib/ai/types";
+import { formatCountFull } from "@/lib/result-counts"; // t1157 — the thousands word rides its ONE father (the locale pin lives in result-counts, the parser's own contract)
 
 /* t999 — the wall faces' ONE MOUTH (the t997 voice's second road): the
  * keyboard road reads these words through aria-valuetext on focus; the
@@ -510,8 +511,8 @@ function ToolCard({ item }: { item: Extract<UiItem, { kind: "tool" }> }) {
                   and names the door that takes the rest. */}
               {detailTruncated && (
                 <p className="mt-1 text-[10px] text-muted-foreground/70">
-                  showing the first {detail.window.length.toLocaleString()} of{" "}
-                  {detail.full.length.toLocaleString()} characters — Copy takes all of it
+                  showing the first {formatCountFull(detail.window.length)} of{" "}
+                  {formatCountFull(detail.full.length)} characters — Copy takes all of it
                 </p>
               )}
             </div>

@@ -62,6 +62,7 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { formatCountFull } from "@/lib/result-counts"; // t1157 — the thousands word rides its ONE father (the locale pin lives in result-counts, the parser's own contract)
 
 interface ClassOccupancy {
   cls: number;
@@ -1141,7 +1142,7 @@ export function ClassGallery({
                 <div className="flex min-w-0 items-center justify-between gap-1 overflow-hidden whitespace-nowrap">
                   <span className="flex min-w-0 items-center gap-1 font-mono text-[10px] tabular-nums text-muted-foreground">
                     <Users className="size-2.5 shrink-0" aria-hidden="true" />
-                    <span className="truncate">{c.count.toLocaleString()}</span>
+                    <span className="truncate">{formatCountFull(c.count)}</span>
                   </span>
                   <span className="shrink-0 font-mono text-[10px] font-semibold tabular-nums">
                     {Math.round(c.fraction * 100)}%
@@ -1248,7 +1249,7 @@ export function ClassGallery({
           {isAuto ? `occupancy ≥ ${cutoff.toFixed(2)} × best` : `classes ${[...kept].sort((a, b) => a - b).join(", ") || "—"}`}
         </span>
         <span className="ml-auto rounded-md bg-teal-600/10 px-1.5 py-0.5 font-mono font-semibold tabular-nums text-teal-700 dark:text-teal-300">
-          {keptCount.toLocaleString()} / {total.toLocaleString()} particles
+          {formatCountFull(keptCount)} / {formatCountFull(total)} particles
           <span className="ml-1 font-normal opacity-70">
             ({total > 0 ? Math.round((100 * keptCount) / total) : 0}%)
           </span>
@@ -1429,7 +1430,7 @@ export function ClassGallery({
 
                 <span className="ml-auto flex items-center gap-1.5 font-mono text-xs tabular-nums text-muted-foreground">
                   <Users className="size-3" aria-hidden="true" />
-                  {zoomClass.count.toLocaleString()} particles
+                  {formatCountFull(zoomClass.count)} particles
                 </span>
 
                 <button

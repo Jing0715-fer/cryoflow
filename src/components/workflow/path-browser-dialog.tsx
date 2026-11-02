@@ -56,6 +56,7 @@ import { Chip } from "@/components/ui/chip";
 import { cn } from "@/lib/utils";
 import { BROWSER_LIST_MAX } from "@/lib/browse-caps";
 import { parseBrowserSeed, type BrowserMode } from "@/lib/browser-seed";
+import { formatCountFull } from "@/lib/result-counts"; // t1157 — the thousands word rides its ONE father (the locale pin lives in result-counts, the parser's own contract)
 
 interface BrowseEntry {
   name: string;
@@ -831,8 +832,8 @@ export function PathBrowserDialog({
                   <div className="px-2 pb-1 pt-2">
                     <p className="text-[10px] leading-relaxed text-muted-foreground">
                       {patternView
-                        ? `Preview capped at ${(data.entries?.length ?? BROWSER_LIST_MAX).toLocaleString()} matches — ${data.totalMatched?.toLocaleString() ?? "?"} files match in total (import takes them all).`
-                        : `Listing shows the first ${(data.entries?.length ?? BROWSER_LIST_MAX).toLocaleString()} of ${data.totalEntries?.toLocaleString() ?? "many"} entries.`}
+                        ? `Preview capped at ${formatCountFull(data.entries?.length ?? BROWSER_LIST_MAX)} matches — ${data.totalMatched?.toLocaleString("en-US") ?? "?"} files match in total (import takes them all).`
+                        : `Listing shows the first ${formatCountFull(data.entries?.length ?? BROWSER_LIST_MAX)} of ${data.totalEntries?.toLocaleString("en-US") ?? "many"} entries.`}
                     </p>
                     {!patternView && (
                       <Button

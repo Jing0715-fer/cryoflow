@@ -810,7 +810,7 @@ function LogConsole({
           </span>
         ) : null}
         <span className="text-[10px] text-zinc-600">
-          {mode === "full" ? `${totalLines.toLocaleString()} lines (full)` : `${lineCount} lines`}
+          {mode === "full" ? `${formatCountFull(totalLines)} lines (full)` : `${lineCount} lines`}
         </span>
         {matchCount != null ? (
           <span
@@ -822,7 +822,7 @@ function LogConsole({
             )}
             title={`${matchCount} of ${lineCount} lines match “${query.trim()}”`}
           >
-            {matchCount.toLocaleString()} / {lineCount.toLocaleString()} match
+            {formatCountFull(matchCount)} / {formatCountFull(lineCount)} match
           </span>
         ) : null}
         {mode === "tail" && truncated ? (
@@ -830,9 +830,9 @@ function LogConsole({
             type="button"
             onClick={() => setMode("full")}
             className="rounded-full bg-warning/15 px-2 py-0.5 text-[10px] font-medium text-warning-400 transition-colors hover:bg-warning/25 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            title={`Showing the last 600 of ${totalLines.toLocaleString()} lines — click to load the full log`}
+            title={`Showing the last 600 of ${formatCountFull(totalLines)} lines — click to load the full log`}
           >
-            +{(totalLines - lineCount).toLocaleString()} hidden — show full log
+            +{formatCountFull(totalLines - lineCount)} hidden — show full log
           </button>
         ) : null}
         {mode === "full" && truncated ? (
@@ -3074,7 +3074,7 @@ function FilesTab({
                             ? `${f.slices ?? "?"} images`
                             : `${f.slices ?? "?"}³ voxels`
                           : typeof f.rows === "number"
-                            ? `${f.rows.toLocaleString()} rows`
+                            ? `${formatCountFull(f.rows)} rows`
                             : "—"}
                       </td>
                       <td className="px-2 py-2 text-right font-mono text-[11px] tabular-nums text-muted-foreground">

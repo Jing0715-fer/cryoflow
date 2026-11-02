@@ -22,6 +22,7 @@
  */
 
 import type { CsvRow } from "@/lib/chart-export";
+import { formatCountFull } from "@/lib/result-counts"; // t1157 — the thousands word rides its ONE father (the locale pin lives in result-counts, the parser's own contract)
 
 /** the ledger's own kind vocabulary — the paper's words (the inspector's
  *  KIND_META reads its labels from HERE: one vocabulary, two faces). */
@@ -65,7 +66,7 @@ export const fileDetailsCell = (f: LedgerFile): string => {
       : `${f.slices ?? "?"}³ voxels`;
   }
   if (typeof f.rows === "number") {
-    return `${f.rows.toLocaleString()} rows`;
+    return `${formatCountFull(f.rows)} rows`;
   }
   return "—";
 };

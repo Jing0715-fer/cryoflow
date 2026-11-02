@@ -3058,7 +3058,7 @@ async function runImportRemoteLeg(
       clusterFiles = imgs;
       skipped = Math.max(0, res.total - imgs.length);
       phase(35);
-      if (res.truncated) note = ` · pattern matched ${res.total.toLocaleString()} files — import capped at ${REMOTE_IMPORT_MAX_ENTRIES.toLocaleString()} (narrow the pattern)`;
+      if (res.truncated) note = ` · pattern matched ${res.total.toLocaleString("en-US")} files — import capped at ${REMOTE_IMPORT_MAX_ENTRIES.toLocaleString("en-US")} (narrow the pattern)`;
     } else {
       // ---- 1. folder (or one pasted file) -------------------------------
       // t311 — same uncapped enumeration: a folder with 2,341 movies imports
@@ -3095,7 +3095,7 @@ async function runImportRemoteLeg(
         }
         clusterFiles = imgs;
         phase(35);
-        if (res.truncated) note = ` · folder holds ${res.total.toLocaleString()} entries — import capped at ${REMOTE_IMPORT_MAX_ENTRIES.toLocaleString()} (import a subfolder or pattern instead)`;
+        if (res.truncated) note = ` · folder holds ${res.total.toLocaleString("en-US")} entries — import capped at ${REMOTE_IMPORT_MAX_ENTRIES.toLocaleString("en-US")} (import a subfolder or pattern instead)`;
       }
     }
   } catch (e) {
@@ -3962,7 +3962,7 @@ async function runMapImportRemoteLeg(
   if (twinSize !== size) {
     return {
       ok: false,
-      error: `the copied map at ${twinPath} is ${twinSize.toLocaleString()} bytes but the source ${raw} is ${size.toLocaleString()} — the copy did not complete; run again`,
+      error: `the copied map at ${twinPath} is ${twinSize.toLocaleString("en-US")} bytes but the source ${raw} is ${size.toLocaleString("en-US")} — the copy did not complete; run again`,
     };
   }
 
@@ -3976,7 +3976,7 @@ async function runMapImportRemoteLeg(
     `CryoFlow engine-native map import (cluster lane) ${new Date().toISOString()}`,
     `source: ${raw} (cluster ${conn.name || conn.host})`,
     `header: ${dims} voxels · mode ${head.mode}${pixel > 0 ? ` · pixel ${pixel.toFixed(2)} Å` : ""}`,
-    `copy: cluster-side cp → ${twinPath} (verified ${twinSize.toLocaleString()} bytes — the map never left the cluster)`,
+    `copy: cluster-side cp → ${twinPath} (verified ${twinSize.toLocaleString("en-US")} bytes — the map never left the cluster)`,
     `output: ${twinPath} (cluster twin) · local path of record: ${localOut}`,
     result,
     "",
@@ -5034,7 +5034,7 @@ async function runCs2StarOnCluster(
       error: `the converter reported success but ${twinPath} did not verify on the cluster — run again (the .cs was not downloaded, the retry is cheap)`,
     };
   }
-  phase(`star written on the cluster: ${twinPath} (verified ${twinSize.toLocaleString()} bytes)`);
+  phase(`star written on the cluster: ${twinPath} (verified ${twinSize.toLocaleString("en-US")} bytes)`);
 
   const censusNote =
     conv.censusTotalMrc > conv.stacks.length
@@ -5072,7 +5072,7 @@ async function runCs2StarOnCluster(
     `particles: ${conv.particles} · referenced stacks: ${conv.stacks.length}${censusNote}`,
     `optics: ${opticsNote} · ${alignNote}${samplingSeg}`,
     conv.unmapped.length > 0 ? `unmapped fields: ${conv.unmapped.join(", ")}` : "",
-    `output: ${twinPath} (cluster) — written in place, verified ${twinSize.toLocaleString()} bytes · ${conv.durationSec}s on the cluster; no local mirror by design (downstream jobs read the twin)`,
+    `output: ${twinPath} (cluster) — written in place, verified ${twinSize.toLocaleString("en-US")} bytes · ${conv.durationSec}s on the cluster; no local mirror by design (downstream jobs read the twin)`,
     result,
     "",
   ]
@@ -5576,7 +5576,7 @@ async function runCs2StarNative(job: EngineJobRef): Promise<NativeResult> {
           `fix the cluster (check the login node's load, raise the cap in Remote clusters) and run again`,
       };
     }
-    phase(`star saved on the cluster: ${twinPath} (${starMb.toFixed(1)} MB, verified ${twinSize.toLocaleString()} bytes)`);
+    phase(`star saved on the cluster: ${twinPath} (${starMb.toFixed(1)} MB, verified ${twinSize.toLocaleString("en-US")} bytes)`);
 
     const opticsNote = `${f6(conv.optics.voltage)} kV · Cs ${f6(conv.optics.cs)} mm · ac ${f6(conv.optics.ac)} · pixel ${f6(conv.optics.angpix)} Å`;
     const alignNote =
@@ -6321,7 +6321,7 @@ async function runSelect2dNative(job: EngineJobRef, upstream: UpstreamRef[]): Pr
     rebaseParticleRefs(outLines.join("\n") + "\n", inStar, projectDirFor(job))
   );
   const keptClasses = classStats.filter((c) => c.kept).length;
-  const result = `${kept.toLocaleString()} of ${total.toLocaleString()} particles kept · ${keptClasses}/${classStats.length} classes (${mode})`;
+  const result = `${kept.toLocaleString("en-US")} of ${total.toLocaleString("en-US")} particles kept · ${keptClasses}/${classStats.length} classes (${mode})`;
   const logText = [
     `CryoFlow engine-native select2d ${new Date().toISOString()}`,
     ...(sourceNote
@@ -6451,7 +6451,7 @@ async function runSymexpandNative(job: EngineJobRef, upstream: UpstreamRef[]): P
     rebaseParticleRefs(outLines.join("\n") + "\n", inStar, projectDirFor(job))
   );
   const factor = matrices.length;
-  const result = `${total.toLocaleString()} × ${factor} = ${expanded.toLocaleString()} particles (${group}${group === "I" ? `/${icoSubset}` : ""})`;
+  const result = `${total.toLocaleString("en-US")} × ${factor} = ${expanded.toLocaleString("en-US")} particles (${group}${group === "I" ? `/${icoSubset}` : ""})`;
   const logText = [
     `CryoFlow engine-native symexpand ${new Date().toISOString()}`,
     `input:  ${inStar} (${total} particles)`,
@@ -6606,7 +6606,7 @@ async function runRebalanceNative(job: EngineJobRef, upstream: UpstreamRef[]): P
     ? `random (fallback — ${SCORE_LABELS[params.exclusionCriterion]} column absent)`
     : report.criterion;
   const result =
-    `${s.totalAfter.toLocaleString()} of ${s.totalBefore.toLocaleString()} particles kept · ` +
+    `${s.totalAfter.toLocaleString("en-US")} of ${s.totalBefore.toLocaleString("en-US")} particles kept · ` +
     `anisotropy ${s.anisotropyBefore.toFixed(2)}→${s.anisotropyAfter.toFixed(2)} · ` +
     `uniformity ${s.countUniformityBefore.toFixed(2)}→${s.countUniformityAfter.toFixed(2)}`;
   const logText = [
@@ -8605,7 +8605,7 @@ export function collectOutputs(type: string, workdir: string): { outputs: Record
             stackK != null && stackK > 0
               ? `${populated} of ${stackK} classes populated`
               : `${populated} ${populated === 1 ? "class" : "classes"} populated`;
-          result = `REAL: 2D classification finished — ${classPhrase} · ${dist.total.toLocaleString()} particles · top: ${top}`;
+          result = `REAL: 2D classification finished — ${classPhrase} · ${dist.total.toLocaleString("en-US")} particles · top: ${top}`;
         }
       }
       break;
@@ -8640,7 +8640,7 @@ export function collectOutputs(type: string, workdir: string): { outputs: Record
         const seeded = data ? countStarRows(data) : 0;
         result =
           seeded > 0
-            ? `REAL: de-novo 3D initial model generated · ${seeded.toLocaleString()} particles`
+            ? `REAL: de-novo 3D initial model generated · ${seeded.toLocaleString("en-US")} particles`
             : "REAL: de-novo 3D initial model generated";
       }
       break;
@@ -8693,7 +8693,7 @@ export function collectOutputs(type: string, workdir: string): { outputs: Record
         const refineLine =
           parseRefineResult(workdir) ?? result ?? `REAL: ${type === "class3d" ? "3D classification" : "3D refinement"} finished`;
         const refined = data ? countStarRows(data) : 0;
-        result = refined > 0 ? `${refineLine} · ${refined.toLocaleString()} particles` : refineLine;
+        result = refined > 0 ? `${refineLine} · ${refined.toLocaleString("en-US")} particles` : refineLine;
       }
       break;
     }
@@ -8748,7 +8748,7 @@ export function collectOutputs(type: string, workdir: string): { outputs: Record
         const polished = countStarRows(star);
         result =
           polished > 0
-            ? `REAL: Bayesian polishing finished — ${polished.toLocaleString()} particles polished`
+            ? `REAL: Bayesian polishing finished — ${polished.toLocaleString("en-US")} particles polished`
             : "REAL: Bayesian polishing finished";
       }
       break;
@@ -8761,7 +8761,7 @@ export function collectOutputs(type: string, workdir: string): { outputs: Record
         const refined = countStarRows(star);
         result =
           refined > 0
-            ? `REAL: CTF refinement finished — ${refined.toLocaleString()} particles`
+            ? `REAL: CTF refinement finished — ${refined.toLocaleString("en-US")} particles`
             : "REAL: CTF refinement finished";
       }
       break;
@@ -8802,7 +8802,7 @@ export function collectOutputs(type: string, workdir: string): { outputs: Record
         const written = countStarRows(star);
         result =
           written > 0
-            ? `REAL: ${type}: ${written.toLocaleString()} particles written`
+            ? `REAL: ${type}: ${written.toLocaleString("en-US")} particles written`
             : `REAL: ${type} particles written`;
       }
       break;

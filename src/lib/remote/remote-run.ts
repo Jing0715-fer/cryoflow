@@ -595,7 +595,7 @@ function remoteCountLead(
 ): string | null {
   const n = counts.rows;
   if (n == null) return null;
-  const fmt = n.toLocaleString();
+  const fmt = n.toLocaleString("en-US");
   switch (type) {
     case "extract":
       return `${fmt} particles extracted`;
@@ -4910,7 +4910,7 @@ export async function startRemoteJob(args: {
         if (natives.length === 0) continue;
         if (natives.length > RELINK_MAX) {
           return fail(
-            `the input STAR names ${natives.length.toLocaleString()} cluster-side files — over the ${RELINK_MAX.toLocaleString()}-link ceiling (a runaway STAR, or an import wider than the door accepts) — re-import a narrower set`,
+            `the input STAR names ${natives.length.toLocaleString("en-US")} cluster-side files — over the ${RELINK_MAX.toLocaleString("en-US")}-link ceiling (a runaway STAR, or an import wider than the door accepts) — re-import a narrower set`,
           );
         }
         const plan = planRelinks(natives, takenNames);

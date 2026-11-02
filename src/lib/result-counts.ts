@@ -119,7 +119,25 @@ export function formatCountCompact(n: number): string {
   return n.toLocaleString("en-US");
 }
 
-/** Full display form with thousands separators: 82000 → "82,000". */
+/**
+ * Full display form with thousands separators: 82000 → "82,000".
+ *
+ * t1157 — the THOUSANDS WORD's census (the NEW map's sixth vein): the
+ * father existed since t347 and the parser below DEPENDS on its
+ * dialect (`toNum` strips commas — a de-DE locale's "82.000" would
+ * parse as 82), yet 79 of the app's count faces spoke bare
+ * `toLocaleString()` — each inheriting whatever locale it ran under,
+ * the engine's result words (the parser's own INPUT) included. The
+ * codemod folded them in one pass: the engine's and remote-run's
+ * words pin "en-US" BY LITERAL (the t1152 voice boundary keeps the
+ * engine's dialect its own — the pin is not a voice change, it is the
+ * parser's contract made unilateral-proof), the UI/lib faces ride
+ * THIS father (the digits' one birthplace), and the shadcn chart base
+ * pins its own literal (the base stays self-contained). Kept bare BY
+ * DESIGN: every `new Date(...).toLocaleString()` — the date-time face
+ * is a DIFFERENT word riding the browser's locale on purpose; a
+ * separate census if it ever drifts.
+ */
 export function formatCountFull(n: number): string {
   return n.toLocaleString("en-US");
 }
