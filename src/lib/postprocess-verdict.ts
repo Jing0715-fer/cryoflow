@@ -1,4 +1,4 @@
-import { fmtAngstrom, fmtBFactor } from "@/lib/chart-rows"; // t1155 — the Å/Å² words ride their ONE fathers (the local fmt birth and the three sharpening words died the same day)
+import { fmtAngstrom, fmtBFactor, fmtPixel } from "@/lib/chart-rows"; // t1155 — the Å/Å² words ride their ONE fathers (the local fmt birth and the three sharpening words died the same day); t1156 — the sampling rate rides fmtPixel (the null angpix said "undefined Å/px" aloud)
 
 /**
  * CryoFlow — the postprocess verdict domain module (t457).
@@ -253,7 +253,7 @@ export function postprocessVerdictOf(
   if (nyquist != null && official < nyquist) {
     word = "beyond the box";
     detail =
-      `${fmtAngstrom(official)} is finer than the box edge (${fmtAngstrom(nyquist)} at ${angpix?.toFixed(2)} Å/px) — ` +
+      `${fmtAngstrom(official)} is finer than the box edge (${fmtAngstrom(nyquist)} at ${fmtPixel(angpix)} Å/px) — ` +
       `no honest postprocess can claim it; check the star's pixel size and the FSC table`;
   } else if (unmaskedCrossing == null) {
     word = "mask-carried";

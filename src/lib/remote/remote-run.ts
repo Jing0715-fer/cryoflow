@@ -5230,6 +5230,13 @@ export async function startRemoteJob(args: {
                 !cubic ? `non-cubic (${h.nx}×${h.ny}×${h.nz})` : refPx <= 0 ? "missing cell sizes in its header" : "anisotropic in its header"
               }) — RELION's own check decides (t365)`;
             } else if (pxOk && boxOk) {
+              // t1156 — these verification sentences keep toFixed(4) BY
+              // CONTRACT (the DIAGNOSTIC precision face, documented at the
+              // fmtPixel father in chart-rows): a MRC header division
+              // (cella/nx → 1.236666…) compared against a STAR-declared
+              // 4-decimal optics value needs exactly those digits on
+              // screen; the identity faces (map cards, chips, receipts)
+              // speak fmtPixel's 2-decimal grain, this sentence does not.
               refPrepNote = `reference verified in place — ${refBox}³ @ ${refPx.toFixed(4)} Å/px matches the particles' first optics group (t365)`;
             } else {
               // 方案 A: bring the REFERENCE to the particles' sampling —

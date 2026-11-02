@@ -62,6 +62,42 @@ export const fmtBFactor = (v: number | null | undefined): string =>
   v == null || !Number.isFinite(v) ? "?" : `${Math.round(v * 10) / 10} Å²`;
 
 /**
+ * t1156 — the PIXEL word's precision father (the sampling rate, Å per
+ * pixel/voxel — a different QUANTITY from the resolution Å above: this
+ * is the map's ruler, not its finest visible detail). The shape-hunt
+ * found the sampling rate wearing THREE precisions and NO father: the
+ * map cards rounded locally (toFixed(2)), the particle/gallery faces
+ * spoke the RAW STAR float unrounded (`1.23666667 Å/px` beside the
+ * report's `1.24 Å / voxel` for the SAME map), and the postprocess
+ * verdict interpolated `undefined` outright when its angpix was null
+ * ("at undefined Å/px"). The ONE grain: 2 decimals — the editor's own
+ * input step (workflow.ts's `step: 0.01` on every pixelSize param) is
+ * the identity's native grain, and the map-card family already agreed
+ * with it by luck. Junk → "?" (the fathers' shared junk face; the
+ * verdict's "undefined" sentence dies here).
+ *
+ * The father returns the NUMBER WORD ONLY — no unit — because the
+ * pixel word's UNITS are a DOCUMENTED FAMILY, not drift: "Å/px" on the
+ * diagnostics and receipts (remote-run's t365 verification sentences,
+ * the particle browser, the import dialog), "Å / voxel" on the map
+ * cards (the voxel is the map-profile's own word for the same ruler —
+ * file-ledger speaks "128³ voxels"), "Å" on the editor's param cup and
+ * the engine's map-import log (RELION's own GUI/log convention, the
+ * t1155 word-cup boundary). Each face keeps its unit; the DIGITS now
+ * have one birthplace.
+ *
+ * Kept at 4 decimals by contract (the DIAGNOSTIC precision face, not
+ * drift): remote-run's t365 verification sentences (×6) and the
+ * engine's stacks-vote line — those sentences exist to let a human
+ * compare an MRC-header division (cella/nz → 1.236666…) against a
+ * STAR-declared 4-decimal value, and 2 decimals would erase exactly
+ * the digit the comparison is for. That boundary is drawn in
+ * remote-run.ts beside the sentences themselves.
+ */
+export const fmtPixel = (v: number | null | undefined): string =>
+  v == null || !Number.isFinite(v) ? "?" : `${Math.round(v * 100) / 100}`;
+
+/**
  * t493 — the reported number's passport, compressed in ONE place. The
  * loader's reportedLabel ("RELION final resolution (masked, sharpened)"
  * / "RELION auto-refine estimate (smoothed FSC)") is written for

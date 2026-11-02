@@ -34,6 +34,7 @@ import { TypeIcon } from "./icons";
 import { MolViewer, type MolViewerTarget } from "./results/mol-viewer";
 import { useAnchorParent } from "./results/anchor-parent";
 import { formatStat, mapSourceNote } from "./results/results-view";
+import { fmtPixel } from "@/lib/chart-rows"; // t1156 — the sampling digits ride the pixel father (the unit word stays "Å / voxel" — the voxel is the map card's own voice)
 
 /** Minimal slice of the outputs listing the card needs. */
 interface RefFile {
@@ -273,7 +274,7 @@ export function ReferenceMapCard({ job, refPath }: { job: JobDTO; refPath: strin
             </span>
             {map.pixel > 0 && (
               <span className="rounded-full border border-teal-600/25 bg-teal-600/10 px-2 py-0.5 text-[10px] font-semibold text-teal-700 dark:text-teal-300">
-                {map.pixel.toFixed(2)} Å / voxel
+                {fmtPixel(map.pixel)} Å / voxel
               </span>
             )}
             <span className="rounded-full border border-border bg-muted/60 px-2 py-0.5 text-[10px] text-muted-foreground">

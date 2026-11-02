@@ -58,7 +58,7 @@ import { toast } from "@/hooks/use-toast";
 import { downloadBlob } from "@/lib/download"; // t646 — one blob sink (this dance skipped attach + revoked same-tick)
 import { fmtBytes } from "@/lib/relion/disk-usage"; // t1152 — the byte word rides its ONE father (the local formatBytes dialect died: it had no GB branch, a 2.5 GB stack rendered "1536.0 MB" beside the inspector's "1.50 GB")
 import { fmtDuration } from "@/lib/duration"; // t1153 — the report's duration word rides its ONE father (the local fmtDur birth had no day face)
-import { fmtAngstrom, fmtMicron, fmtBFactor } from "@/lib/chart-rows"; // t1155 — the Å/µm/Å² words ride their ONE fathers (the report's 2-decimal µm and hand-rolled 1-decimal Å drifted from the agent's fmtUm/fmtAng grains on the SAME quantities)
+import { fmtAngstrom, fmtMicron, fmtBFactor, fmtPixel } from "@/lib/chart-rows"; // t1155 — the Å/µm/Å² words ride their ONE fathers (the report's 2-decimal µm and hand-rolled 1-decimal Å drifted from the agent's fmtUm/fmtAng grains on the SAME quantities); t1156 — the map chip's sampling digits ride fmtPixel (the unit word stays "Å / voxel" — the map-profile's own voxel voice)
 import { buildFscSvg, fscMilestones, fscNyquist, fscTableMarkdown } from "@/lib/fsc-snapshot";
 import { buildProfileReportHtml } from "@/lib/report-html";
 import {
@@ -1767,7 +1767,7 @@ function MapIdentityCard({
         </span>
         {map.pixel > 0 && (
           <span className="rounded-full border border-running/25 bg-running/10 px-2 py-0.5 text-[10px] font-semibold text-running-700 dark:text-running-300">
-            {map.pixel.toFixed(2)} Å / voxel
+            {fmtPixel(map.pixel)} Å / voxel
           </span>
         )}
         <span className="rounded-full border border-border bg-muted/60 px-2 py-0.5 text-[10px] text-muted-foreground">

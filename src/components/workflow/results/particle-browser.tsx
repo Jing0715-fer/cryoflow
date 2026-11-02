@@ -37,6 +37,7 @@ import {
 import { Chip } from "@/components/ui/chip";
 import { useChartResource } from "@/lib/use-chart-resource";
 import { cn } from "@/lib/utils";
+import { fmtPixel } from "@/lib/chart-rows"; // t1156 — the optics chip's sampling digits ride the pixel father (the RAW STAR float spoke "1.23666667 Å/px" beside the report's "1.24 Å / voxel" for the SAME particles)
 import { ChartErrorStrip } from "./chart-error-strip";
 import { MrcImage } from "./mrc-image";
 
@@ -409,7 +410,7 @@ export function ParticleBrowser({
           "Total extracted particles across all micrograph stacks"
         )}
         {o.boxSize ? chip(<>{o.boxSize} px box</>) : null}
-        {o.pixelSize ? chip(<>@ {o.pixelSize} Å/px</>) : null}
+        {o.pixelSize ? chip(<>@ {fmtPixel(o.pixelSize)} Å/px</>) : null}
         {o.voltage ? chip(<>{Math.round(o.voltage)} kV</>) : null}
         {chip(<>{data.groups.length} micrographs</>)}
       </div>

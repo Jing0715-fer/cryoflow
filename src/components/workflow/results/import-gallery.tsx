@@ -64,6 +64,7 @@ import { cn } from "@/lib/utils";
 import { fmtBytes } from "@/lib/relion/disk-usage"; // t1152 — the byte word's one birthplace (the local unit-loop dialect died)
 import { GALLERY_FOCUS_TTL_MS, useWorkflowStore } from "@/lib/store";
 import { httpErrorFrom } from "@/lib/http-error";
+import { fmtPixel } from "@/lib/chart-rows"; // t1156 — the sampling digits ride the pixel father AND the unit word is ONE voice here (the StatChip said "1.24 Å" while this dialog said "1.24 Å/px" for the SAME optics row — "Å" alone is the resolution's word, the sampling rate says Å/px)
 import { Chip } from "@/components/ui/chip";
 import { MrcImage } from "./mrc-image";
 
@@ -377,7 +378,7 @@ export function ImportGallery({
           </button>
         ) : null}
         <div className="ml-auto flex flex-wrap gap-1">
-          <StatChip label="pixel" value={data.pixelSize != null ? `${data.pixelSize} Å` : null} />
+          <StatChip label="pixel" value={data.pixelSize != null ? `${fmtPixel(data.pixelSize)} Å/px` : null} />
           <StatChip label="HT" value={data.voltage != null ? `${data.voltage} kV` : null} />
           <StatChip label="Cs" value={data.sphericalAberration != null ? `${data.sphericalAberration} mm` : null} />
           <StatChip label="Q0" value={data.amplitudeContrast != null ? `${data.amplitudeContrast}` : null} />
@@ -468,7 +469,7 @@ export function ImportGallery({
                 </DialogTitle>
                 <DialogDescription className="tabular-nums">
                   {micrographs[selected].nx}×{micrographs[selected].ny} px · {formatBytes(micrographs[selected].size)}
-                  {data.pixelSize != null ? ` · ${data.pixelSize} Å/px` : ""}
+                  {data.pixelSize != null ? ` · ${fmtPixel(data.pixelSize)} Å/px` : ""}
                   {data.voltage != null ? ` · ${data.voltage} kV` : ""}
                   {micrographs.length > 1 ? " · ←/→ to walk" : ""}
                 </DialogDescription>

@@ -69,6 +69,8 @@ import { PipelineAnalytics } from "./pipeline-analytics";
 import { StatusBadge, estimateEta, formatEta, isSlurmQueued, trackEtaBaseline } from "./job-card";
 import { JobSearchLens } from "./job-search-lens";
 import { formatElapsed } from "@/lib/elapsed";
+import { ChartExportButtons } from "@/components/workflow/results/chart-export-buttons"; // t1032 — the roster's export doors (the paper's own cells leave as CSV/TSV)
+import { rosterRows } from "@/lib/roster-export"; // t1032 — the roster's data father: the SAME cells the rows speak, one formula, two surfaces
 import { fmtProgressPct, progressToFraction } from "@/lib/progress-scale"; // t1154 — the progress word AND the frame's one /100 ride their father (the t181 scale law's home)
 import { useNow } from "@/lib/use-now";
 import { walkTimeline } from "@/lib/timeline-walk"; // t686 — the roster drinks the same honest-window well
@@ -2592,6 +2594,24 @@ function ActiveProjectSpotlight({
               {chainWalk.chain.length === 1 ? "" : "s"}
             </button>
           ) : null}
+          {/* t1032 — the roster's export doors (the paper's own cells leave):
+              the CSV/TSV speak the SAME cells the rows render, newest-first,
+              via the lib's one formula. The ETA arm is injected at click time
+              (estimateEta reads client-only pace baselines — the lib stays
+              pure); the clock is the CLICK's now (the export's own moment).
+              A list owns no <svg> — png={false}, the PNG doors absent. */}
+          <ChartExportButtons
+            name="Job roster"
+            png={false}
+            getRows={() =>
+              rosterRows(rosterDisplay, {
+                workspaces,
+                now: Date.now(),
+                etaOf: (j) => estimateEta(j.id, j.startedAt, j.progress),
+              })
+            }
+            className="no-print ml-auto"
+          />
           <Button
             size="sm"
             variant="outline"

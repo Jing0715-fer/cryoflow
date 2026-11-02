@@ -53,6 +53,7 @@ import { parseClassNotes } from "@/lib/class-notes";
 import { useStatusNews } from "@/lib/use-status-news"; // t606 — the hook moved to lib: the news face now speaks at THREE distances (badge, floor, minimap dot)
 import { isStayReceipt, stayReceiptHead } from "@/lib/remote/stay-receipt";
 import { formatElapsed } from "@/lib/elapsed";
+import { formatEta } from "@/lib/elapsed"; // t1032 — the twins share ONE roof now (the ETA's second birth retired); this file re-exports it below so every "./job-card" call site stays put
 import { fmtProgressPct } from "@/lib/progress-scale"; // t1154 — the progress word rides its ONE father (the wire is 0–100; ×100 here was the 4200% bug's shape)
 import { useNow } from "@/lib/use-now";
 import { TypeIcon } from "./icons";
@@ -325,14 +326,7 @@ export function trackEtaBaseline(jobId: string, startedAt: string | null, progre
 }
 
 /** "~3h 5m" / "~12m" / "~45s" style compact ETA text. */
-export function formatEta(ms: number): string {
-  const s = Math.round(ms / 1000);
-  if (s < 90) return `~${s}s`;
-  const m = Math.round(s / 60);
-  if (m < 90) return `~${m}m`;
-  const h = Math.floor(m / 60);
-  return `~${h}h ${m % 60}m`;
-}
+export { formatEta }; // t1032 — the twin retired to lib/elapsed (beside its fact face); the re-export keeps every path AND this file's own call sites unchanged
 
 /** Hydration-safe "now" gate — ETA only renders after mount. */
 export function useMounted(): boolean {
