@@ -15,7 +15,7 @@
  * update on the VolumeRepresentation3D node so undo/history stays intact.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Axis3d, BookOpen, Bookmark, BoxSelect, Camera, Check, ClipboardCopy, CopyPlus, Download, FileJson, FilePlus2, FileText, FolderOpen, FolderPlus, Layers, Link2, Loader2, Mountain, Orbit, Pencil, Plus, RefreshCcw, RotateCw, ScanLine, Scissors, TriangleAlert, Upload, Video, X, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -37,6 +37,7 @@ import { canCopyImageToClipboard, copyViewerPng, drawFigureFooter, exportViewerP
 import { downloadBlob } from "@/lib/download";
 import { keptIntervalOf, normalizeInterval } from "@/lib/clip-interval"; // t905 — the slab seat: both clip languages answer to one interval editor
 import { OBLIQUE_SHEET_ANNOTATION, axisIndex, buildObliqueSheetMesh, densityWindow, dimAlong, obliqueAnchorVox, obliqueCutAnnotation, obliqueDepthVox, obliqueDepthVoice, obliqueNormal, obliqueOffsetPctVoice, obliqueSupportVox, sheetLegendOf, voxelAriaText, voxelAnnotation, voxelIndexOf, voxelIntervalReadout, voxelPlaneVoice, voxelSliderVoice, type SheetLegend, type SheetMeshArrays } from "@/lib/voxel-voice"; // t906/t907 — one honest voice: the slice family speaks the voxel address the ortho tiles speak, the oblique cut speaks its depth along its own normal; t1129 — the cut's face rides the lib's anchor word; t1130 — the face's geometry words (densityWindow, buildObliqueSheetMesh) ride the lib too (the t1122 patchBoxRect precedent: geometry the family shares lives where node can ride it); t1131 — the face's legend is MADE of the mesh arrays (sheetLegendOf), never a second ramp
+import { pushContourLevel, readContourHistory, writeContourHistory } from "@/lib/contour-history"; // t1147 — the σ door's memory: the levels the user SETTLED on for THIS map ride back on the next open (the persistence doctrine's own shape: versioned envelope, one off-shape row drops the whole memory, a refusing store degrades to false, absence never written)
 import { downloadText } from "@/lib/download";
 // t197: the profile QC report family moved to @/lib/qc-report — the session
 // QC report is its second consumer, and the lib is the one honest home
@@ -1225,6 +1226,27 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
   // slider's own restore bounds ([0.05, 10]), the sign follows the clicked
   // side of the mean, and the existing [sigma, sign] effect does the rest
   // (pump + STATE echo) — the chip and the cut line converge on their own.
+  /* ---------------- the σ door's memory (t1147) ---------------- */
+
+  // The levels the user SETTLED on for this map (a drag that never
+  // committed remembers nothing — the settle is the memory's unit).
+  // Restored per job on mount; written by the persist effect after real
+  // changes (never render — the #13 law rides the t1135 persist shape).
+  const [sigmaHistory, setSigmaHistory] = useState<number[]>([]);
+  const rememberSigma = useCallback((s: number) => {
+    if (!Number.isFinite(s)) return;
+    setSigmaHistory((prev) => pushContourLevel(prev, s));
+  }, []);
+  useEffect(() => {
+    // the restore face: this map's remembered levels ride back on open
+    setSigmaHistory(readContourHistory(window.localStorage, jobId));
+  }, [jobId]);
+  useEffect(() => {
+    // the persist face: write after real changes through the ONE father —
+    // an empty memory removes the key (absence is never written); a
+    // refusing store degrades to false (cosmetic memory, never a throw)
+    writeContourHistory(window.localStorage, jobId, sigmaHistory);
+  }, [sigmaHistory, jobId]);
   useEffect(() => {
     const onSigmaSet = (e: Event) => {
       const d = (e as CustomEvent<Partial<{ sigma: number; sign: number }>>).detail;
@@ -1233,6 +1255,9 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       const sg: 1 | -1 = d.sign === -1 ? -1 : 1;
       if (Math.abs(sigmaRef.current - s) > 1e-6) setSigma(s);
       if (signRef.current !== sg) setSign(sg);
+      // t1147 — the histogram pick IS a settle: the user chose this level
+      // BY EYE on the 2D strip — exactly the level worth remembering.
+      rememberSigma(s);
     };
     window.addEventListener(ORTHO_SIGMA_SET_EVENT, onSigmaSet);
     return () => window.removeEventListener(ORTHO_SIGMA_SET_EVENT, onSigmaSet);
@@ -1868,7 +1893,11 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
         const next = e.key === "]"
           ? Math.min(SIGMA_MAX, sigmaRef.current * 1.05)
           : Math.max(SIGMA_MIN, sigmaRef.current / 1.05);
-        setSigma(Math.round(next * 100) / 100);
+        const settled = Math.round(next * 100) / 100;
+        setSigma(settled);
+        // t1147 — a key tap is a settle: the level the user landed on
+        // rides the memory (a re-picked level moves to the front)
+        rememberSigma(settled);
       } else if (e.key === "f" || e.key === "F") {
         // t829 — polarity flip: the flip button's exact verb, on the keys
         e.preventDefault();
@@ -5766,7 +5795,12 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                   <button
                     key={p}
                     type="button"
-                    onClick={() => setSigma(p)}
+                    onClick={() => {
+                      setSigma(p);
+                      // t1147 — the canon is worth remembering too: a
+                      // preset pick is a settle on this map's memory
+                      rememberSigma(p);
+                    }}
                     aria-label={`Set contour to ${p} sigma`}
                     className={
                       "rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring " +
@@ -5848,10 +5882,65 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
               max={SIGMA_MAX}
               step={0.05}
               onValueChange={(v) => setSigma(v[0] ?? 2)}
+              onValueCommit={(v) => {
+                const s = v[0] ?? 2;
+                // t1147 — the drag's SETTLE remembers, never the drag:
+                // onValueChange rides every pixel, the commit is the
+                // user's landing (the memory's own unit)
+                rememberSigma(s);
+              }}
               aria-label="Isosurface contour level in sigma"
               title="Contour σ — [ / ] step the level from the keyboard, F flips the density side"
               className="mt-2.5"
             />
+            {/* t1147 — the σ door's memory: the levels the user SETTLED on
+                for THIS map, newest first, remembered across opens (the
+                honest-empty law: the row exists only when it has rows; the
+                forget door exists only beside a memory) */}
+            {sigmaHistory.length > 0 && (
+              <div
+                className="mt-1.5 flex flex-wrap items-center gap-1"
+                role="group"
+                aria-label="Recent contour levels remembered for this map"
+              >
+                <span
+                  className="font-mono text-[9px] uppercase tracking-wide text-muted-foreground"
+                  aria-hidden="true"
+                >
+                  recent
+                </span>
+                {sigmaHistory.map((l) => (
+                  <button
+                    key={l}
+                    type="button"
+                    onClick={() => {
+                      setSigma(l);
+                      rememberSigma(l);
+                    }}
+                    aria-pressed={Math.abs(sigma - l) < 0.001}
+                    aria-label={`Set contour to ${l} sigma (your recent level)`}
+                    title="Your recent level for this map — remembered across opens"
+                    className={
+                      "rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring " +
+                      (Math.abs(sigma - l) < 0.001
+                        ? "bg-cyan-600 text-white"
+                        : "bg-muted text-muted-foreground hover:bg-cyan-600/15 hover:text-cyan-700 dark:hover:text-cyan-300")
+                    }
+                  >
+                    {l}σ
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setSigmaHistory([])}
+                  aria-label="Forget the remembered contour levels"
+                  title="Forget this map's remembered levels (the presets and the slider stay)"
+                  className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-warning/15 hover:text-warning-700 dark:hover:text-warning-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  <X className="h-3 w-3" aria-hidden="true" />
+                </button>
+              </div>
+            )}
             {/* cross-section panel — controls row + density landscape (t189) */}
             {sliceOn && (
               <div className="mt-2.5 space-y-1.5 rounded-lg border border-cyan-600/25 bg-cyan-600/5 px-2.5 py-2">
