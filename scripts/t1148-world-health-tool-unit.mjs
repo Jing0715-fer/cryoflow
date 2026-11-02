@@ -267,7 +267,7 @@ const schemaStart = toolsSrc.indexOf('name: "get_world_health"');
 const schemaEnd = toolsSrc.indexOf('name: "get_continue_sources"', schemaStart);
 const schemaSlice = schemaStart > -1 && schemaEnd > schemaStart ? toolsSrc.slice(schemaStart, schemaEnd) : "";
 const wellStart = toolsSrc.indexOf("async function getWorldHealth");
-const wellEnd = toolsSrc.indexOf("/* ---- get_continue_sources", wellStart);
+const wellEnd = toolsSrc.indexOf("/* ---- get_param_presets", wellStart); // t1149 re-key: the preset shelf's section now sits between this well and get_continue_sources — the slice bounds to THIS well's own bytes, the `=== 2` toISOString pin's meaning unchanged
 const wellSlice = wellStart > -1 && wellEnd > wellStart ? toolsSrc.slice(wellStart, wellEnd) : "";
 
 ok("B1 the tool is registered with ZERO knobs (the walk is the board's walk)",
