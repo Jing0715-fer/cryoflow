@@ -174,6 +174,35 @@ export function templateCycleError(payload: {
   return `Template edges form a cycle: ${formatCyclePath(cycle, nameOf)}`;
 }
 
+/**
+ * t1150 — THE COUNTS FATHER for the shelf's LIST face: parse one stored
+ * payload and read its shape's size ({ jobCount, edgeCount }) plus
+ * whether the bytes parsed at all. ONE birthplace for the arithmetic —
+ * the GET list route and the agent's template-shelf presenter both
+ * speak these counts, and two parsers of the same blob are how the
+ * shelf's own numbers drift apart (the re-key chore class's law,
+ * applied to arithmetic). A corrupt payload reads as 0 · 0 and stays
+ * LISTED (the route's own law: keep it listed — deletable — but honest
+ * about the counts); the parsed flag lets the agent's face say
+ * "corrupt" instead of inferring it from the zeros.
+ */
+export function templateCountsOf(raw: string): {
+  jobCount: number;
+  edgeCount: number;
+  parsed: boolean;
+} {
+  try {
+    const parsed = JSON.parse(raw) as CustomTemplatePayload;
+    return {
+      jobCount: Array.isArray(parsed.jobs) ? parsed.jobs.length : 0,
+      edgeCount: Array.isArray(parsed.edges) ? parsed.edges.length : 0,
+      parsed: true,
+    };
+  } catch {
+    return { jobCount: 0, edgeCount: 0, parsed: false };
+  }
+}
+
 /** Task 130 — the export-ALL container: one file, every template. */
 export interface TemplateBundleFile {
   format: string;

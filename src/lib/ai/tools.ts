@@ -162,6 +162,7 @@ import { detectRelion, type RelionStatus } from "@/lib/relion/system";
 import { readDiagnostics, presentSystemDiagnostics, type DiagnosticsPayload } from "@/lib/diagnostics";
 import { presentWorldHealth, type WorldHealthToolResult } from "@/lib/ai/world-health-present";
 import { presentPresetShelf } from "@/lib/ai/preset-shelf-present";
+import { presentTemplateShelf } from "@/lib/ai/template-shelf-present";
 import { PARAM_PRESET_SHELF_ID } from "@/lib/param-preset-sanitize";
 import type { JobClock } from "@/lib/world-vitals";
 
@@ -626,6 +627,26 @@ export const AI_TOOLS: ToolSchema[] = [
     parameters: { type: "object", properties: {}, additionalProperties: false },
   },
   {
+    name: "get_custom_templates",
+    description:
+      "The USER'S OWN SAVED WORKFLOW TEMPLATES in one read — the custom-template shelf (the canvas's save flow, " +
+      "the shelf dialog's rows) as data, newest first: per template the name, the job count, the wire count and " +
+      "the saved date. THE tool for 'what templates have I saved / 我存过哪些模板 / 用我存的那个模板 / which of " +
+      "my saved shapes fits here / 把我存的流程铺出来'. A template is a SHAPE the user wired by hand — jobs, " +
+      "relative positions, params and internal wires snapshotted as saved; the details travel on the apply door " +
+      "only (the list stays light — the route's own law). Cousins, not duplicates: get_param_presets is the " +
+      "user's PARAM shelf (per-job values); build_pipeline builds a NEW chain and can never quote a saved shape; " +
+      "list_job_types is the job-type roster. Honest faces: an emptied shelf is the deletion's truth, not a " +
+      "missing sync; a corrupt row stays listed with 0 · 0 counts and says so — quote nothing from it. " +
+      "Read-only QUOTER: the shape's ONLY writer is the shelf dialog's one-click apply (the route's own PUT — " +
+      "it mints fresh rows below the workspace's content, numbered in the project's RELION sequence, wired " +
+      "exactly as saved, ports re-validated); NEVER re-mint a saved shape through build_pipeline or create_job — " +
+      "a chain rebuild drifts from the saved wiring's ports and the saved placement. The shelf is the ACTIVE " +
+      "PROJECT's, not the user's global one — it does not follow the user across projects (the param presets' " +
+      "cousin line). Zero knobs: the shelf is the shelf, not a filtered one.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
     name: "get_continue_sources",
     description:
       "A run's RESTART DOORS in one read — the inspector's 'Continue from here:' picker as data: every optimiser round the run can legally resume from, its own arc (self) and any upstream refinement's rounds. Per round: the iteration number, the optimiser.star path, whether EVERY sibling RELION reload is present (an incomplete round is shown but never a legal --continue target), and the CHECKPOINT — the newest complete self round, live tree over archived generations, the picker's own pick, never re-derived. Per source: the lane (a remote row's paths speak CLUSTER coordinates — a host shell would misread them) and the honest wounds (a source that could not be read carries its own error; a capped listing says it is a floor, not all). THE tool for '这个任务能从哪继续 / what can this run continue from / where's the newest checkpoint / which iteration would --iter resume'. Read-only LOCATOR: it names the doors — continue_run is the verb that opens one. The roster is the picker's own walk and the checkpoint is the picker's own pick: the Continue dialog drinks the same cup. One knob: the job id.",
@@ -1065,6 +1086,8 @@ export async function executeAiTool(
         return await getWorldHealth(ctx);
       case "get_param_presets":
         return await getParamPresets();
+      case "get_custom_templates":
+        return await getCustomTemplates(ctx);
       case "get_continue_sources":
         return await getContinueSources(ctx, args);
       case "get_storage_report":
@@ -3471,6 +3494,33 @@ async function getParamPresets(): Promise<AiToolResult> {
     raw: row?.data ?? null,
     rowUpdatedAt: row?.updatedAt ? row.updatedAt.toISOString() : null,
     knownTypes: JOB_TYPES.map((t) => ({ key: t.key, label: t.label })),
+  });
+}
+
+/* ---- get_custom_templates -------------------------------------------- */
+
+/** t1150 — the template shelf's well: the project's stored rows read with
+ *  the GET list route's OWN query (same where, same desc order, same
+ *  select), the rows handed WHOLE to the pure presenter. This well only
+ *  feeds: no parsing (the JSON.parse rides the counts father,
+ *  templateCountsOf — the route and the presenter speak the SAME
+ *  arithmetic), no sorting in JS (the display order is pinned in the
+ *  presenter), no second gate. The shelf is the ACTIVE PROJECT's — the
+ *  route's own scope (where: projectId) rides unchanged; unlike the
+ *  user's param presets it does NOT follow the user across projects. */
+async function getCustomTemplates(ctx: AgentCtx): Promise<AiToolResult> {
+  const rows = await db.customTemplate.findMany({
+    where: { projectId: ctx.projectId },
+    orderBy: [{ createdAt: "desc" }],
+    select: { id: true, name: true, payload: true, createdAt: true },
+  });
+  return presentTemplateShelf({
+    rows: rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      payload: r.payload,
+      createdAt: r.createdAt.toISOString(),
+    })),
   });
 }
 

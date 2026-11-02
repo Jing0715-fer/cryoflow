@@ -7,6 +7,7 @@ import { persistPortEdge, portsValid } from "@/lib/edge-ports";
 import {
   MAX_TEMPLATE_PAYLOAD_BYTES,
   templateCycleError,
+  templateCountsOf,
   validateTemplatePayload,
 } from "@/lib/template-io";
 import { serverErrorReply } from "@/lib/server-error";
@@ -170,21 +171,17 @@ export async function GET(request: NextRequest) {
       orderBy: [{ createdAt: "desc" }],
       select: { id: true, name: true, payload: true, createdAt: true },
     });
+    // t1150 — the counts ride the ONE father (templateCountsOf) — the
+    // agent's template-shelf presenter speaks the SAME arithmetic; two
+    // parsers of the same blob are how the shelf's numbers drift apart.
+    // The response shape is byte-equal to the pre-father face.
     const templates: CustomTemplateSummary[] = rows.map((r) => {
-      let jobCount = 0;
-      let edgeCount = 0;
-      try {
-        const parsed = JSON.parse(r.payload) as CustomTemplatePayload;
-        jobCount = Array.isArray(parsed.jobs) ? parsed.jobs.length : 0;
-        edgeCount = Array.isArray(parsed.edges) ? parsed.edges.length : 0;
-      } catch {
-        // corrupt row — keep it listed (deletable) but honest about counts
-      }
+      const counts = templateCountsOf(r.payload);
       return {
         id: r.id,
         name: r.name,
-        jobCount,
-        edgeCount,
+        jobCount: counts.jobCount,
+        edgeCount: counts.edgeCount,
         createdAt: r.createdAt.toISOString(),
       };
     });
