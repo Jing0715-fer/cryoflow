@@ -98,6 +98,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { loadUserParamPresets, addUserParamPreset, deleteUserParamPreset, presetsForType, snapshotSpecParams, countEffectiveDiffs, reconcileUserParamPresets, USER_PARAM_PRESETS_EVENT, type UserParamPreset } from "@/lib/user-param-presets";
 import { diagnoseFailureLines, diagnoseFailureLog, type LogFinding } from "@/lib/log-diagnosis";
 import { fmtAgo, fmtClock, fmtDuration } from "@/lib/duration";
+import { fmtBytes } from "@/lib/relion/disk-usage"; // t1152 — the byte word rides its ONE father (the local formatBytes twin died)
 import { readJobJournal, type JobJournalKind } from "@/lib/job-journal";
 import { JOURNAL_KIND_FACE } from "./journal-kind-face";
 import { planSubtreeRun } from "@/lib/subtree-run";
@@ -243,15 +244,10 @@ interface OutputsResponse {
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
 
-function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-}
-
 // fmtDuration / fmtClock / fmtAgo live in @/lib/duration (Task 123) —
-// the pipeline timeline prints the same labels, one source serves both
+// the pipeline timeline prints the same labels, one source serves both;
+// fmtBytes lives in @/lib/relion/disk-usage (t1152) — the byte word's one
+// birthplace, the same law's second vein
 
 const SUBMITTED = new Set(["running", "completed", "failed"]);
 
@@ -3074,7 +3070,7 @@ function FilesTab({
                             : "—"}
                       </td>
                       <td className="px-2 py-2 text-right font-mono text-[11px] tabular-nums text-muted-foreground">
-                        {formatBytes(f.size)}
+                        {fmtBytes(f.size)}
                       </td>
                       <td className="px-2 py-2 text-right">
                         {/* t779 — the peek door: textual rows preview in-app.
@@ -3239,7 +3235,7 @@ function FilesTab({
       {data ? (
         <p className="hidden px-1 pb-1 text-[10px] tabular-nums text-muted-foreground print:block">
           {data.files.length} {data.files.length === 1 ? "file" : "files"} on disk · total{" "}
-          {formatBytes(data.files.reduce((s, f) => s + (f.size ?? 0), 0))}
+          {fmtBytes(data.files.reduce((s, f) => s + (f.size ?? 0), 0))}
         </p>
       ) : null}
     </div>

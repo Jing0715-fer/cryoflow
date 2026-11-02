@@ -29,7 +29,7 @@ import { toast } from "@/hooks/use-toast";
 import { PENDING_SHARE_KEY, PENDING_VIEW_KEY, SAVED_VIEWS_CHANGED_EVENT, SHARE_PAYLOAD_MAX, SharePayload, decodeSharePayload, encodeSharePayload } from "@/lib/view-link";
 import { ORTHO_SLICE_EVENT, ORTHO_SLICE_STATE_EVENT, ORTHO_CLIP_STATE_EVENT, ORTHO_FOCUS_EVENT, ORTHO_FOCUS_RESTORE_EVENT, ORTHO_SIGMA_STATE_EVENT, ORTHO_SIGMA_REQUEST_EVENT, ORTHO_SIGMA_SET_EVENT, OBLIQUE_VIEW_EVENT, OBLIQUE_CLIP_EVENT, OBLIQUE_CLIP_STATE_EVENT, OBLIQUE_SHEET_EVENT, OBLIQUE_SHEET_LEGEND_EVENT, OBLIQUE_SHEET_LEGEND_HOVER_EVENT, OBLIQUE_VERB_EVENT, ORTHO_CAMERA_REQUEST_EVENT, ORTHO_CAMERA_STATE_EVENT, OrthoCameraStateDetail, ObliqueVerbDetail } from "./map-ortho-panel";
 import { useWorkflowStore } from "@/lib/store";
-import { fmtBytes } from "@/lib/canvas-export";
+import { fmtBytes } from "@/lib/relion/disk-usage"; // t1152 — the byte word rides its ONE father (canvas-export's dialect died in the census; the viewer's export toasts now speak the app's one byte word)
 import { encodeGifFrames } from "@/lib/gif-export";
 import { sanitizeMrcHeader } from "@/lib/mrc-axis";
 import { sceneFitChoice, FIT_PATIENCE } from "@/lib/camera-fit"; // t1145 — the camera-fit door's decision core (the unit runs the brain; the mol*-touching hands stay in the embed)

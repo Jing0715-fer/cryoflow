@@ -61,7 +61,8 @@ import { pendingWirePath } from "@/lib/edge-geom";
 import { CanvasFindBar } from "./canvas-find-bar";
 import { jobMatchWhy, jobMatchesFind, type MatchWhy } from "@/lib/job-match"; // t653 — one matcher, three consumers, one home; t655 — the why rides the same lib
 import { CanvasFunnelDoor } from "./canvas-funnel-door";
-import { copyCanvasPng, exportCanvasPng, fmtBytes } from "@/lib/canvas-export";
+import { copyCanvasPng, exportCanvasPng } from "@/lib/canvas-export";
+import { fmtBytes } from "@/lib/relion/disk-usage"; // t1152 — the byte word rides its ONE father (canvas-export's own KB-0-decimals no-GB dialect died in the census)
 import {
   buildWorkflowFile,
   downloadWorkflowJson,

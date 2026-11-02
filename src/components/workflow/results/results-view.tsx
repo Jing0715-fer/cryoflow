@@ -56,6 +56,7 @@ import { Kbd } from "@/components/ui/kbd"; // t831 — the quick-look's keymap s
 import { Chip } from "@/components/ui/chip";
 import { toast } from "@/hooks/use-toast";
 import { downloadBlob } from "@/lib/download"; // t646 — one blob sink (this dance skipped attach + revoked same-tick)
+import { fmtBytes } from "@/lib/relion/disk-usage"; // t1152 — the byte word rides its ONE father (the local formatBytes dialect died: it had no GB branch, a 2.5 GB stack rendered "1536.0 MB" beside the inspector's "1.50 GB")
 import { buildFscSvg, fscMilestones, fscNyquist, fscTableMarkdown } from "@/lib/fsc-snapshot";
 import { buildProfileReportHtml } from "@/lib/report-html";
 import {
@@ -155,11 +156,10 @@ interface LoadError {
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
 
-function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-}
+// formatBytes lived here once (t1152's census): KB one decimal, MB one
+// decimal, NO GB branch — the same file the inspector called "1.50 GB"
+// rendered "1536.0 MB". The byte word's one birthplace is
+// @/lib/relion/disk-usage's fmtBytes; every size below speaks it.
 
 function fileUrl(jobId: string, file: OutputFile, extra: string): string {
   return `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(file.path)}${extra}`;
@@ -1212,7 +1212,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                     </span>
                   )}
                   <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
-                    {formatBytes(f.size)}
+                    {fmtBytes(f.size)}
                   </span>
                 </button>
               </li>
@@ -1242,7 +1242,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                     <span className="truncate">{f.label ?? f.name}</span>
                     <ExternalLink className="ml-auto h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />
                     <span className="shrink-0 text-[10px] text-muted-foreground">
-                      {formatBytes(f.size)}
+                      {fmtBytes(f.size)}
                     </span>
                   </a>
                 </li>
@@ -1259,7 +1259,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                     <ScrollText className="h-3.5 w-3.5 shrink-0 text-warning-600" aria-hidden="true" />
                     <span className="truncate font-mono text-[11px]">{f.name}</span>
                     <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
-                      {formatBytes(f.size)}
+                      {fmtBytes(f.size)}
                     </span>
                   </button>
                 </li>
@@ -1369,7 +1369,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                   <span className="min-w-0 truncate">{imageFile.label ?? imageFile.name}</span>
                 </DialogTitle>
                 <DialogDescription className="break-all font-mono text-[11px]">
-                  {imageFile.path} · {formatBytes(imageFile.size)}
+                  {imageFile.path} · {fmtBytes(imageFile.size)}
                 </DialogDescription>
               </DialogHeader>
               <div
@@ -2164,8 +2164,8 @@ function MrcGallery({
               </p>
               <p className="truncate text-[9px] text-muted-foreground">
                 {f.name.toLowerCase().endsWith(".mrcs")
-                  ? `${f.slices ?? "?"} imgs · ${formatBytes(f.size)}`
-                  : `${f.slices ?? 1}³ · ${formatBytes(f.size)}`}
+                  ? `${f.slices ?? "?"} imgs · ${fmtBytes(f.size)}`
+                  : `${f.slices ?? 1}³ · ${fmtBytes(f.size)}`}
               </p>
               {/* class-average stacks get the per-class occupancy strip
                   (bars pair with the montage tiles above, class order) */}
@@ -2243,11 +2243,11 @@ function RemoteFileTile({
             onClick={() => setFetching(true)}
             className="flex aspect-square w-full flex-col items-center justify-center gap-1 rounded-md border border-border/50 bg-muted/40 text-muted-foreground transition-colors hover:border-running/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             aria-label={`Fetch ${file.label ?? file.name} from the cluster and preview it`}
-            title={`Fetch & preview — pulls ${formatBytes(file.size)} from the cluster over SSH, then renders it (stays on this machine afterwards)`}
+            title={`Fetch & preview — pulls ${fmtBytes(file.size)} from the cluster over SSH, then renders it (stays on this machine afterwards)`}
             data-canvas-ui="remote-fetch-preview"
           >
             <CloudDownload className="size-5" aria-hidden="true" />
-            <span className="text-[10px] font-semibold tabular-nums">{formatBytes(file.size)}</span>
+            <span className="text-[10px] font-semibold tabular-nums">{fmtBytes(file.size)}</span>
             <span className="px-1.5 text-center text-[9px] leading-tight text-muted-foreground/80">
               not synced — click to fetch over SSH
             </span>
@@ -2800,7 +2800,7 @@ function RemoteBatchBar({
           {total} file{total === 1 ? "" : "s"} still on cluster
         </span>
         <span className="text-[10px] text-muted-foreground tabular-nums">
-          {formatBytes(totalBytes)} total — fetched files stay on this machine
+          {fmtBytes(totalBytes)} total — fetched files stay on this machine
         </span>
         <span className="ml-auto flex items-center gap-1.5">
           {running ? (

@@ -61,6 +61,7 @@ import {
   onEscapeClose,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { fmtBytes } from "@/lib/relion/disk-usage"; // t1152 — the byte word's one birthplace (the local unit-loop dialect died)
 import { GALLERY_FOCUS_TTL_MS, useWorkflowStore } from "@/lib/store";
 import { httpErrorFrom } from "@/lib/http-error";
 import { Chip } from "@/components/ui/chip";
@@ -101,17 +102,11 @@ interface MicrographsResponse {
   cluster?: ClusterInfo;
 }
 
-function formatBytes(bytes: number): string {
-  if (bytes <= 0) return "—";
-  const units = ["B", "KB", "MB", "GB"];
-  let v = bytes;
-  let i = 0;
-  while (v >= 1024 && i < units.length - 1) {
-    v /= 1024;
-    i++;
-  }
-  return `${v.toFixed(v >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
-}
+/** t1152 — the byte word rides its ONE father (@/lib/relion/disk-usage's
+ *  fmtBytes — the unit-loop dialect with its whole-number shortcuts died
+ *  in the census); this face keeps only its ABSENCE word: a size ≤ 0 is
+ *  an UNKNOWN size (the star's rows may not carry one at all), not "0 B". */
+const formatBytes = (bytes: number): string => (bytes > 0 ? fmtBytes(bytes) : "—");
 
 /** t657 — measured bytes per pixel (size ÷ nx·ny): the per-frame storage
  *  density the compare panes can line up side by side. It is a MEASUREMENT,

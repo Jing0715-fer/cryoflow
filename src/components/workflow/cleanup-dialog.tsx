@@ -76,14 +76,8 @@ import {
 import { toast } from "@/hooks/use-toast";
 import type { CleanupHistoryEntry } from "@/lib/relion/cleanup-history";
 import type { JobDTO } from "@/lib/types";
+import { fmtBytes } from "@/lib/relion/disk-usage"; // t1152 — the byte word rides its ONE father (the local twin died: this dialog's dialect was the father's birthplace)
 import { jobType, pourKindsOf, PORT_COLORS } from "@/lib/workflow"; // t767 — the kind vocabulary's TWENTY-SEVENTH reader joins the cleanup dialog
-
-function fmtBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-}
 
 interface CleanupDialogProps {
   job: JobDTO;
