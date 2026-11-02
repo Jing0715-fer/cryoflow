@@ -78,6 +78,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { CARD_W, CARD_H, PORT_COLORS, outputKindOf } from "@/lib/workflow"; // t743 — one well: the map's wires drink where the canvas drinks
 import { capturePointer } from "@/lib/pointer";
 import { cn } from "@/lib/utils";
+import { fmtProgressPct } from "@/lib/progress-scale"; // t1154 — the minimap title's progress word rides its ONE father (the wire is 0–100)
 import { STATUS_HEX, statusWord } from "@/lib/status-style";
 import { compactStayReceipt } from "@/lib/remote/stay-receipt";
 import { jobMatchesFind } from "@/lib/job-match"; // t653 — one matcher, three consumers, one home
@@ -186,7 +187,7 @@ function MinimapDot({
       strokeOpacity={inMulti ? 0.45 : 1}
       strokeWidth={s}
     >
-      <title>{`${job.name} — ${job.status}${job.status === "running" ? ` (${Math.round(job.progress)}%)` : job.result ? ` · ${compactStayReceipt(job.result, job.remoteRemaining?.remaining)}` : ""}${findHit || selDoor ? " · click to jump" : ""}`}</title>
+      <title>{`${job.name} — ${job.status}${job.status === "running" ? ` (${fmtProgressPct(job.progress)})` : job.result ? ` · ${compactStayReceipt(job.result, job.remoteRemaining?.remaining)}` : ""}${findHit || selDoor ? " · click to jump" : ""}`}</title>
       {job.status === "running" && !dimmed && !findDim && !chainDim && (
         <animate
           attributeName="opacity"

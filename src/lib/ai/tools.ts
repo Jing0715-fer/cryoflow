@@ -40,6 +40,7 @@ import { readCleanupHistory, type CleanupHistoryEntry } from "@/lib/relion/clean
 import type { CleanupExecuteResult, CleanupPlan, CleanupSidePlan } from "@/lib/hpc/cleanup";
 import { computeStorageReport, type StorageResponse } from "@/lib/relion/storage-report";
 import { fmtDuration } from "@/lib/duration";
+import { fmtProgressPct } from "@/lib/progress-scale";
 import { walkTimeline, timelineLedger, timelineSharePct } from "@/lib/timeline-walk";
 import { getActiveProject, projectRemoteTarget } from "@/lib/projects";
 import {
@@ -2423,7 +2424,10 @@ async function waitForJobs(ctx: AgentCtx, args: Record<string, unknown>): Promis
   const stillUnsettled = report.filter((r) => r.status === "running" || r.status === "pending");
   const allSettled = stillUnsettled.length === 0;
   const lines = report.map(
-    (r) => `${r.name}: ${r.status}${r.status === "running" ? ` (${Math.round(r.progress * 100)}%)` : r.result ? ` — ${r.result}` : ""}`
+    // t1154 — the wire IS 0–100 (the t181 scale law's father): ×100 here was
+    // the 4200% bug's third life — the agent quoted "(progress 4200%)" for a
+    // 42% run while every screen face spoke the column correctly.
+    (r) => `${r.name}: ${r.status}${r.status === "running" ? ` (${fmtProgressPct(r.progress)})` : r.result ? ` — ${r.result}` : ""}`
   );
   return {
     ok: true,
@@ -2569,7 +2573,7 @@ async function runJobTool(ctx: AgentCtx, args: Record<string, unknown>): Promise
   const job = await findJobInProject(jobId, ctx.projectId);
   if (!job) return { ok: false, summary: `Job not found: ${jobId}` };
   if (job.status === "running") {
-    return { ok: false, summary: `${job.name} is already running (progress ${(job.progress * 100).toFixed(0)}%)` };
+    return { ok: false, summary: `${job.name} is already running (progress ${fmtProgressPct(job.progress)})` };
   }
   if (job.linkedJobId) {
     return { ok: false, summary: `${job.name} is a soft link — run its original instead` };
@@ -2652,7 +2656,7 @@ async function continueRunTool(ctx: AgentCtx, args: Record<string, unknown>): Pr
     return { ok: false, summary: `Job not found: ${jobId} — get_workflow_state lists the canvas's ids` };
   }
   if (job.status === "running") {
-    return { ok: false, summary: `${job.name} is already running (progress ${(job.progress * 100).toFixed(0)}%) — a continue resumes a SETTLED run; let it finish or stop it first` };
+    return { ok: false, summary: `${job.name} is already running (progress ${fmtProgressPct(job.progress)}) — a continue resumes a SETTLED run; let it finish or stop it first` };
   }
   if (job.linkedJobId) {
     return { ok: false, summary: `${job.name} is a soft link — continue its original instead` };

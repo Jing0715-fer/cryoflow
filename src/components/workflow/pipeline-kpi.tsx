@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { useWorkflowStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { fmtProgressPct } from "@/lib/progress-scale"; // t1154 — the KPI's progress word rides its ONE father (the wire is 0–100)
 
 interface ResResponse {
   current: number | null;
@@ -299,7 +300,7 @@ export function PipelineKpi() {
         <span className={kpiCollapsed ? "max-w-[72px] truncate" : "max-w-[120px] truncate"}>
           {rj.name}
         </span>
-        <span className="tabular-nums">{Math.round(rj.progress ?? 0)}%</span>
+        <span className="tabular-nums">{fmtProgressPct(rj.progress ?? 0)}</span>
       </KpiItem>
     );
   }

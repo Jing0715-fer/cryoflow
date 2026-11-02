@@ -53,6 +53,7 @@ import { parseClassNotes } from "@/lib/class-notes";
 import { useStatusNews } from "@/lib/use-status-news"; // t606 — the hook moved to lib: the news face now speaks at THREE distances (badge, floor, minimap dot)
 import { isStayReceipt, stayReceiptHead } from "@/lib/remote/stay-receipt";
 import { formatElapsed } from "@/lib/elapsed";
+import { fmtProgressPct } from "@/lib/progress-scale"; // t1154 — the progress word rides its ONE father (the wire is 0–100; ×100 here was the 4200% bug's shape)
 import { useNow } from "@/lib/use-now";
 import { TypeIcon } from "./icons";
 import { Badge } from "@/components/ui/badge";
@@ -1337,7 +1338,7 @@ function JobCardPreview({
                 className="text-[10px] font-semibold tabular-nums text-running"
               >
                 {elapsedText ? `${elapsedText} elapsed · ` : ""}
-                {Math.round(job.progress)}%
+                {fmtProgressPct(job.progress)}%
                 {etaText ? ` · ${etaText} left` : ""}
               </span>
             )
@@ -2654,14 +2655,14 @@ export const JobCard = React.memo(function JobCard({
                   {etaText ? (
                     <span
                       className="shrink-0 text-[9.5px] font-medium tabular-nums text-running"
-                      title={`Progress ${Math.round(job.progress)}% — ${etaText} remaining (estimate from current pace)`}
+                      title={`Progress ${fmtProgressPct(job.progress)}% — ${etaText} remaining (estimate from current pace)`}
                     >
                       <span aria-hidden="true" className="text-muted-foreground">· </span>
                       {etaText}
                     </span>
                   ) : (
                     <span className="w-7 shrink-0 text-right text-[9.5px] font-semibold tabular-nums text-muted-foreground">
-                      {Math.round(job.progress)}%
+                      {fmtProgressPct(job.progress)}%
                     </span>
                   )}
                 </div>

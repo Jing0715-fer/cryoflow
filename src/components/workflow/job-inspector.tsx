@@ -99,6 +99,7 @@ import { loadUserParamPresets, addUserParamPreset, deleteUserParamPreset, preset
 import { diagnoseFailureLines, diagnoseFailureLog, type LogFinding } from "@/lib/log-diagnosis";
 import { fmtAgo, fmtClock, fmtDuration } from "@/lib/duration";
 import { fmtBytes } from "@/lib/relion/disk-usage"; // t1152 — the byte word rides its ONE father (the local formatBytes twin died)
+import { fmtProgressPct } from "@/lib/progress-scale"; // t1154 — the progress word rides its ONE father (the wire is 0–100)
 import { readJobJournal, type JobJournalKind } from "@/lib/job-journal";
 import { JOURNAL_KIND_FACE } from "./journal-kind-face";
 import { planSubtreeRun } from "@/lib/subtree-run";
@@ -1206,7 +1207,7 @@ function Timeline({ job }: { job: JobDTO }) {
             ? "Completed"
             : "Failed"
           : "Pending",
-      value: running ? (queued ? "—" : `${Math.round(job.progress)}%`) : finished ? fmtDuration(duration) : "—",
+      value: running ? (queued ? "—" : fmtProgressPct(job.progress)) : finished ? fmtDuration(duration) : "—",
       sub:
         running && duration > 0
           ? formatElapsed(duration) + (queued ? " in queue" : " elapsed")
@@ -4316,7 +4317,7 @@ function InspectorHeader({
         <div className="flex items-center gap-3">
           <Progress value={job.progress} className="h-1.5 flex-1 overflow-hidden" />
           <span className="w-10 shrink-0 text-right font-mono text-[11px] font-semibold tabular-nums text-running">
-            {Math.round(job.progress)}%
+            {fmtProgressPct(job.progress)}
           </span>
           {eta != null && (
             <span

@@ -1,6 +1,7 @@
 import { displayResult } from "@/components/workflow/job-card";
 import type { JobDTO } from "@/lib/types";
 import { jobType } from "@/lib/workflow";
+import { fmtProgressPct } from "@/lib/progress-scale"; // t1154 — the paper ledger's progress word rides its ONE father (the wire is 0–100)
 
 /**
  * t1091 — the paper RECEIPT LEDGER, the canvas snapshot's second voice.
@@ -68,7 +69,7 @@ function ledgerReceipt(job: JobDTO): string {
   return (
     displayResult(job.result) ??
     (job.status === "running"
-      ? `Running — ${Math.round(job.progress)}%`
+      ? `Running — ${fmtProgressPct(job.progress)}`
       : STATUS_FALLBACK[job.status] ?? job.status)
   );
 }

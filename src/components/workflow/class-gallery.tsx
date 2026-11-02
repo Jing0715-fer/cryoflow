@@ -66,6 +66,12 @@ import {
 interface ClassOccupancy {
   cls: number;
   count: number;
+  /** The class's share of particles, 0–1. The screen word is integer-grain
+   *  (Math.round — compact chips); the agent tools' word is one-decimal
+   *  (toFixed(1) — the model's precision). Two grains of ONE claim, drawn
+   *  at their own births — t1154's census names this boundary so a future
+   *  hunter doesn't mistake the grain for drift (the duration map's
+   *  lesson: a dialect is another claim, not another error). */
   fraction: number;
 }
 

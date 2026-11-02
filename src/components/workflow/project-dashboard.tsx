@@ -69,6 +69,7 @@ import { PipelineAnalytics } from "./pipeline-analytics";
 import { StatusBadge, estimateEta, formatEta, isSlurmQueued, trackEtaBaseline } from "./job-card";
 import { JobSearchLens } from "./job-search-lens";
 import { formatElapsed } from "@/lib/elapsed";
+import { fmtProgressPct, progressToFraction } from "@/lib/progress-scale"; // t1154 — the progress word AND the frame's one /100 ride their father (the t181 scale law's home)
 import { useNow } from "@/lib/use-now";
 import { walkTimeline } from "@/lib/timeline-walk"; // t686 — the roster drinks the same honest-window well
 import { criticalPath } from "@/lib/critical-path"; // t686 — the walk the lens family speaks, now on the survey face
@@ -1370,7 +1371,7 @@ function StageChip({
   const receipt = compactStayReceipt(job.result ?? "", job.remoteRemaining?.remaining);
   const chipStatusScreen =
     job.status === "running"
-      ? `${Math.round(job.progress)}%${eta != null ? ` · ${formatEta(eta)}` : ""}`
+      ? `${fmtProgressPct(job.progress)}${eta != null ? ` · ${formatEta(eta)}` : ""}`
       : job.status === "completed"
         ? receipt.slice(0, 26) || "done"
         : job.status;
@@ -1652,7 +1653,7 @@ function JobRow({
             <span className="mt-1 flex items-center gap-2">
               <Progress value={job.progress} className="h-1 flex-1 overflow-hidden" />
               <span className="shrink-0 text-[10px] font-semibold tabular-nums text-running">
-                {Math.round(job.progress)}%
+                {fmtProgressPct(job.progress)}
                 {rowElapsed > 0 ? (
                   <span data-testid="row-elapsed"> · {formatElapsed(rowElapsed)}</span>
                 ) : null}
@@ -1748,9 +1749,11 @@ interface RecentJob {
 /** One wire→internal translation point: divide the 0–100 wire scale down
  *  to the fraction the feed machinery speaks. Every fetch frame passes
  *  through here before it touches state — a value that skips this maps to
- *  "4200%" labels and a bar pinned at full width. */
+ *  "4200%" labels and a bar pinned at full width. t1154 — the /100 itself
+ *  rides the father (progressToFraction): the app's ONE division, so the
+ *  frame cannot drift from the scale contract it exists to enforce. */
 const toFractionFrame = (jobs: RecentJob[]): RecentJob[] =>
-  jobs.map((j) => ({ ...j, progress: j.progress / 100 }));
+  jobs.map((j) => ({ ...j, progress: progressToFraction(j.progress) }));
 
 /** Tiny progress-history sparkline for a running feed row — answers "is it
  *  actually moving or quietly stalled" at a glance, without opening the
@@ -2014,7 +2017,7 @@ function RecentActivityFeed({ activeProjectId }: { activeProjectId: string | nul
                   ) : j.status === "running" && (
                     <span
                       className="mt-1 flex items-center gap-1.5"
-                      aria-label={`Progress ${Math.round(j.progress * 100)}%`}
+                      aria-label={`Progress ${fmtProgressPct(j.progress * 100)}`}
                     >
                       <span className="h-[3px] min-w-0 flex-1 overflow-hidden rounded-full bg-muted">
                         <span
@@ -2024,7 +2027,7 @@ function RecentActivityFeed({ activeProjectId }: { activeProjectId: string | nul
                       </span>
                       <ProgressSparkline values={hist.get(j.id) ?? []} samples={(hist.get(j.id) ?? []).length} />
                       <span className="w-7 shrink-0 text-right font-mono text-[9px] tabular-nums text-muted-foreground">
-                        {Math.round(j.progress * 100)}%
+                        {fmtProgressPct(j.progress * 100)}
                       </span>
                     </span>
                   )}
