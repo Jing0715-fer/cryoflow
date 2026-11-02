@@ -1,0 +1,143 @@
+{
+  "instrument": "t873-compare-dialogs-a11y",
+  "worldMode": "build",
+  "build": "r8GOxh-ymcGX-2mJMCj9w",
+  "date": "2026-11-02T04:49:48.312Z",
+  "faces": {
+    "arrival": {
+      "nDialogs": 2,
+      "badge": "1/6"
+    },
+    "rows": {
+      "n": 5,
+      "jumps": 4,
+      "pours": [
+        "pours volume",
+        "pours particles, references2d",
+        "pours volume",
+        "pours particles, volume",
+        "pours particles, volume, halfmap"
+      ],
+      "res": [
+        "7.78 Å",
+        "",
+        "",
+        "",
+        ""
+      ]
+    },
+    "chart": {
+      "lines": 1,
+      "refLines": 2
+    },
+    "pick": {
+      "badge": "2/6",
+      "lines": 2,
+      "res": "7.08 Å"
+    },
+    "params": {
+      "heads": [
+        "Parameterparameter",
+        "Post-process (tutorial)",
+        "3D Refine (tutorial)"
+      ],
+      "bodyRows": 74
+    },
+    "escape": {
+      "before": 2,
+      "after": 1
+    },
+    "restore": {
+      "badge": "2/6",
+      "legendN": 2
+    },
+    "world": {
+      "btns": 144,
+      "jobs": 15
+    }
+  },
+  "ledger": {
+    "arrival": {
+      "arm": "arm 3",
+      "ok": true,
+      "drift": 0,
+      "identical": true,
+      "moved": {
+        "lens": [],
+        "world": []
+      }
+    },
+    "chart": {
+      "arm": "arm 3",
+      "ok": true,
+      "drift": 0,
+      "identical": true,
+      "moved": {
+        "lens": [],
+        "world": []
+      }
+    },
+    "escape": {
+      "arm": "arm 3",
+      "ok": true,
+      "drift": 0,
+      "identical": true,
+      "moved": {
+        "lens": [],
+        "world": []
+      }
+    },
+    "params": {
+      "arm": "arm 3",
+      "ok": true,
+      "drift": 0,
+      "identical": true,
+      "moved": {
+        "lens": [],
+        "world": []
+      }
+    },
+    "pick": {
+      "arm": "arm 3",
+      "ok": true,
+      "drift": 0,
+      "identical": true,
+      "moved": {
+        "lens": [],
+        "world": []
+      }
+    },
+    "restore": {
+      "arm": "arm 3",
+      "ok": true,
+      "drift": 0,
+      "identical": true,
+      "moved": {
+        "lens": [],
+        "world": []
+      }
+    },
+    "rows": {
+      "arm": "arm 3",
+      "ok": true,
+      "drift": 0,
+      "identical": true,
+      "moved": {
+        "lens": [],
+        "world": []
+      }
+    },
+    "world": {
+      "arm": "arm 3",
+      "ok": true,
+      "drift": 0,
+      "identical": true,
+      "moved": {
+        "lens": [],
+        "world": []
+      }
+    }
+  },
+  "pass": 46,
+  "fail": 0
+}
