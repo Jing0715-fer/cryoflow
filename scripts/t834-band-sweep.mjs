@@ -21,10 +21,11 @@
  *   - the middle tier's internals at xl/2xl (midKids: the two triggers,
  *     the 2000px counters, the 2xl lens chip) and the PROJECT TRIGGER'S
  *     FLOOR BEHAVIOR — at the exact xl boundary the trigger rides its
- *     130px min-width floor while its wrapper yields below it, and the
- *     overflow PAINTS 2.7px into the RELION chip's box (the t510
- *     residue, filmed and pinned in section D — the fix window's
- *     ratchet: land the fix, move the pin);
+ *     130px min-width floor while its wrapper yields below it. The
+ *     overflow's GEOMETRY is still 2.7px into the RELION chip's box,
+ *     but since t871 the PAINT is clipped (the t510 residue's fix,
+ *     option (a) overflow-hidden, landed on the wrapper — the fix
+ *     window's ratchet executed: the pin moved to the clipped truth);
  *   - horizontal overflow (scrollWidth vs innerWidth).
  *
  * Section E (t836): the t510 residue's ZONE FORMALIZATION — the t835
@@ -54,12 +55,15 @@
  * the stack; hit-testing respects overflow clipping, so the fix's flip
  * is a per-width measured delta) and the wrapper's computed overflow-x
  * (the fix's own fingerprint, watched in reverse). New assertions:
- *   - E9: the TRIGGER is in the stack at every PAINTED width (the paint
- *     is real across the zone, not just at the D4 pin's 1280);
- *   - E10: overflow-x 'visible' at every awake zone width — when the
- *     fix lands, E10 goes red FIRST and names the ratchet to flip.
- * The pre-fix rows ride the receipt with the stack aboard, so the
- * post-fix world is compared per-width against filmed truth.
+ *   - E9 (POST-FIX FORM, flipped t871): the TRIGGER is ABSENT from the
+ *     stack at every geometrically-overlapping width — the paint is
+ *     clipped across the zone, not just at the D4 pin's 1280;
+ *   - E10 (POST-FIX FORM, flipped t871): overflow-x 'hidden' at every
+ *     awake zone width — the fix's fingerprint PRESENT. Pre-fix, this
+ *     asserted 'visible' and went red first when the src moved; the
+ *     red served its purpose (the fix landed and the ratchet flipped).
+ * The pre-fix rows ride the historical receipts with the stack aboard,
+ * so the post-fix world is compared per-width against filmed truth.
  *
  * The receipt lands in shots-qa/t834-band-sweep.json (provenance: the
  * world key — build id on build days, dev@src-hash otherwise, t859).
@@ -261,7 +265,7 @@ if (rows[1280] && rows[1280].midKids) {
   const ps = rows[1280].ps;
   ok(ps && ps.trigW === 130, `D2 1280 the project trigger rides its 130px name-worthy floor — got ${ps && ps.trigW}`);
   ok(ps && ps.wrapW < 130, `D3 1280 its wrapper yields below the floor (${ps && ps.wrapW}px, the min-w-0 shock absorber)`);
-  ok(ps && ps.overlap === 2.7, `D4 1280 THE T510 RESIDUE: the trigger paints ${ps && ps.overlap}px into the RELION chip's box (pinned; the fix window moves this to ≤ 0)`);
+  ok(ps && ps.overlap === 2.7, `D4 1280 the T510 residue's geometry, CLIPPED TRUTH (fixed t871): the rects still overlap ${ps && ps.overlap}px (option (a) changes the paint, not the layout) but the wrapper's overflow-hidden clips the paint — the trigger no longer lands in the RELION chip's box (E8/E9 carry the measured delta)`);
 } else {
   fail++;
   console.log("  ✗ D* 1280 the middle tier witness is missing (midKids null) — the instrument cannot see the squeeze");
@@ -337,36 +341,40 @@ ok(
   zone[1280] &&
     typeof zone[1280].paintAt === "string" &&
     zone[1280].paintAt.startsWith("CHIP") &&
-    zone[1280].chipBg === "rgba(0, 0, 0, 0)",
-  `E8 the PAINT WITNESS: in-band topmost = CHIP (${zone[1280] && zone[1280].paintAt}), bg transparent (${zone[1280] && zone[1280].chipBg}) — the edge paint shows through, the chip owns the click`
+    zone[1280].chipBg === "rgba(0, 0, 0, 0)" &&
+    zone[1280].wrapOverflowX === "hidden",
+  `E8 the PAINT WITNESS + the FIX's FINGERPRINT (t871): in-band topmost = CHIP (${zone[1280] && zone[1280].paintAt}), bg transparent (${zone[1280] && zone[1280].chipBg}), wrapper overflow-x ${zone[1280] && zone[1280].wrapOverflowX} — nothing paints into the chip's box now, the chip owns the click`
 );
-// E9 — the STACK witness, permanent (the t841 growth): at every PAINTED
-// width (overlap > 0) the trigger is IN the band's hit stack — the
-// paint is real across the whole zone, not just at the D4 pin's 1280.
-// Hit-testing respects overflow clipping, so the fix window's flip is a
-// per-width MEASURED delta: each painted row loses the trigger.
+// E9 — the STACK witness, POST-FIX FORM (the t841 growth, flipped t871):
+// at every geometrically-overlapping width (overlap > 0 — the rects
+// never moved) the trigger is ABSENT from the band's hit stack —
+// hit-testing respects overflow clipping, so the fix's per-width
+// measured delta is: each formerly-painted row LOST the trigger. The
+// pre-fix receipts filmed the trigger IN the stack at every one of
+// these widths; this pin is that delta, held forever.
 const painted = ZW.filter((w) => zOv(w) !== null && zOv(w) > 0);
-const stackFull =
+const stackClipped =
   painted.length > 0 &&
   painted.every(
-    (w) => zone[w].stack && zone[w].stack.some((s) => String(s).startsWith("TRIGGER"))
+    (w) => zone[w].stack && !zone[w].stack.some((s) => String(s).startsWith("TRIGGER"))
   );
 ok(
-  stackFull,
-  `E9 the STACK witness at every painted width (${painted.join(",")}): the TRIGGER is in the band's hit stack — the paint is real across the zone, the fix's flip will be a per-width measured delta`
+  stackClipped,
+  `E9 the CLIPPED STACK at every geometric-overlap width (${painted.join(",")}): the TRIGGER is ABSENT from the band's hit stack — the paint is clipped across the zone (the pre-fix receipts filmed it present at every one of these widths; this pin IS the fix's per-width delta)`
 );
-// E10 — the fix's FINGERPRINT, watched in reverse: the wrapper's
-// computed overflow-x is 'visible' at every awake zone width. The build
-// day's one-line fix flips it to 'hidden' — E10 goes red FIRST and
-// names the ratchet to flip (D4's narration to the clipped truth, E8's
-// fingerprint, E9's per-width delta), so the sweep can never be
-// silently outlived by the src.
+// E10 — the fix's FINGERPRINT, POST-FIX FORM (watched in reverse until
+// t871): the wrapper's computed overflow-x is 'hidden' at every awake
+// zone width. Pre-fix this asserted 'visible' and went red the moment
+// the src moved — the red named the ratchet (D4's narration, E8's
+// fingerprint, E9's per-width delta), the fix landed, the pin flipped.
+// From here E10 guards the FIX itself: if the class is ever removed,
+// E10 goes red first and names the residue's return.
 const midRows = ZW.filter((w) => zone[w] && zone[w].mid === true);
-const ovxVisible =
-  midRows.length > 0 && midRows.every((w) => zone[w].wrapOverflowX === "visible");
+const ovxHidden =
+  midRows.length > 0 && midRows.every((w) => zone[w].wrapOverflowX === "hidden");
 ok(
-  ovxVisible,
-  `E10 the fix's fingerprint ABSENT: overflow-x 'visible' at all ${midRows.length} awake zone widths — when the fix lands this goes red first and names the ratchet to flip`
+  ovxHidden,
+  `E10 the fix's fingerprint PRESENT: overflow-x 'hidden' at all ${midRows.length} awake zone widths — the t871 fix guards its own truth (if the class is ever removed this goes red first and names the residue's return)`
 );
 
 /* ---------- G — the far edge (the t852 growth): the band layer's first

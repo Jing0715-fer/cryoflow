@@ -205,7 +205,7 @@ sleep(1);
 const p1 = settle("the palette");
 ok("M14 palette arrived: dialog + cmdk input", p1.hasDlg && p1.ip && !!p1.ip.ph, `placeholder="${p1.ip ? p1.ip.ph : "?"}"`);
 ok("M15 palette zero unnamed (page-wide)", p1.pageUnnamed === 0, `unnamed=${p1.pageUnnamed}`);
-ok("M16 palette floor holds (census 150) + observation #2", p1.pageBtns >= 150 && p1.ip && p1.ip.ph === "Jump to a job, add a type, run an action…" && !p1.ip.aria, `live=${p1.pageBtns} (drift +${p1.pageBtns - 150}) the input's name rides the placeholder`);
+ok("M16 palette floor holds (census 148, re-pinned t871) + observation #2", p1.pageBtns >= 148 && p1.ip && p1.ip.ph === "Jump to a job, add a type, run an action…" && !p1.ip.aria, `live=${p1.pageBtns} (drift +${p1.pageBtns - 148}) the input's name rides the placeholder`); // t871 re-pin: the restored world rides custom.db + the healed 15-node chain — the palette's command list is world-sized (the census world counted 150, this world speaks 148; the floor rides the receipt's provenance, arm-3 guards the stability)
 evalJson(ESC);
 sleep(1);
 const p2 = evalJson(MEASURE);

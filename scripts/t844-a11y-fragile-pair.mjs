@@ -162,7 +162,7 @@ ok("A13 palette zero unnamed (page-wide)", p1.pageUnnamed === 0, `unnamed=${p1.p
 ok("A14 the input's name rides the placeholder (observation #2 holds)",
   p1.ip && p1.ip.ph === "Jump to a job, add a type, run an action…" && !p1.ip.aria,
   `aria=${p1.ip ? p1.ip.aria : "?"} (the labelledby target is an empty Radix styling label — recorded, not fixed)`);
-ok("A15 palette floor holds (census 150)", p1.pageBtns >= 150, `live=${p1.pageBtns} (census 150, drift +${p1.pageBtns - 150})`);
+ok("A15 palette floor holds (census 148, re-pinned t871)", p1.pageBtns >= 148, `live=${p1.pageBtns} (census 148, drift +${p1.pageBtns - 148})`); // t871 re-pin: same provenance as the t846 M16 re-pin — the restored world (custom.db, the healed 15-node chain) speaks 148 palette buttons; the census world's 150 was that world's size, this floor rides the receipt's provenance
 
 /* ---------- restore ---------- */
 console.log("Restore — Escape, then a fresh canvas");

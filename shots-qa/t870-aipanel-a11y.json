@@ -1,9 +1,9 @@
 {
   "instrument": "scripts/t870-aipanel-a11y.mjs",
   "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder -> title (the t867 growth — the tree's own tooltip voice, the accessible-name spec's own last resort) — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
-  "build": "dev@ec37c84ff38b",
-  "worldMode": "dev",
-  "date": "2026-11-01T02:47:19.234Z",
+  "build": "r8GOxh-ymcGX-2mJMCj9w",
+  "worldMode": "build",
+  "date": "2026-11-02T04:01:58.421Z",
   "chain": "clean room -> canvas -> AI launcher -> panel (non-modal companion) -> empty face (suggestions + send refusal + drawer's honest empty) -> store seeded (reset-door discovery, pre-walk truth noted) -> rehydrated transcript (copy door, tool cards, filter row, keymap seat) -> 失败 chip -> 全部 -> history drawer (row from data, three doors, delete reveal) -> search filter + no-match -> Esc veto (search layer) -> Esc peel (window) -> store restored (net zero) -> reopened empty -> canvas back",
   "doors": {
     "panel": "click the header launcher (aria-label 'AI assistant')",
@@ -16,7 +16,7 @@
   },
   "seed": {
     "store": "/home/z/my-project/data/ai-assistant.json",
-    "resetSessionId": "ai-mvx8b48s-2fuqsc",
+    "resetSessionId": "ai-mvyqf10c-cyirqx",
     "preWalkTruth": "absence",
     "restored": true,
     "note": "the seeded conversation AND the discovery reset's empty session were both erased — the store returned to its pre-walk truth"
@@ -34,7 +34,7 @@
     {
       "label": "O2 the canvas is calm and named (the census's invariant)",
       "pass": true,
-      "detail": "btns=153 — zero unnamed anywhere"
+      "detail": "btns=144 — zero unnamed anywhere"
     },
     {
       "label": "P1 the launcher clicked (aria-label names the door)",
@@ -49,7 +49,7 @@
     {
       "label": "P3 zero unnamed page-wide WITH the panel up (the census's invariant)",
       "pass": true,
-      "detail": "page btns=161 panel btns=8"
+      "detail": "page btns=152 panel btns=8"
     },
     {
       "label": "P4 the transcript region speaks its name, its tab stop and its aliveness (the t799 law)",
@@ -134,7 +134,7 @@
     {
       "label": "T8 zero unnamed page-wide WITH the full transcript up (the census's invariant)",
       "pass": true,
-      "detail": "page btns=166 panel btns=13"
+      "detail": "page btns=157 panel btns=13"
     },
     {
       "label": "T9 two settled rides bit-identical (the t836 law)",
@@ -209,7 +209,7 @@
     {
       "label": "W3 the world unharmed (canvas count == the opening count, zero unnamed, no dialogs)",
       "pass": true,
-      "detail": "btns=153 (opening 153)"
+      "detail": "btns=144 (opening 144)"
     },
     {
       "label": "W4 the ride leaves no session seed (the t157 two-way door's honest none)",
@@ -219,27 +219,27 @@
     {
       "label": "L canvasFace face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@ec37c84ff38b), same-key ride drift +null informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause) — the moved fields named: lens [aiUnWho, chips, kbd, rowDoors, sugNames, url]; world [aiBtns, aiCompanion, aiLabel, aiModal, aiPanel, aiUnnamed, altless, bucketToday, copyDoors, copyOpacity, copyText, copyTitle, ctrls, delOpacity, dlgCount, emptyHead, filterRow, followChip, hasDlg, histEmptyLine, histNoMatch, histOpen, histRows, histSearchName, imgPending, imgs, keymap, keymapWord, logLabel, logLive, logTab, pageBtns, pageUnnamed, panelOpen, rowBadge, rowTitle, sendDisabled, shimmer, suggestions, toolFail, toolOk, toolToggles, turns, unCtrls, userBubbles]"
+      "detail": "arm 2 — world key moved (dev@ec37c84ff38b -> r8GOxh-ymcGX-2mJMCj9w), drift +null informational"
     },
     {
       "label": "L emptyFace face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@ec37c84ff38b), same-key ride drift +null informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause) — the moved fields named: lens [aiLabel, aiModal, aiUnWho, chips, kbd, logLabel, logLive, logTab, rowDoors, sugNames, url]; world [aiBtns, aiCompanion, aiPanel, aiUnnamed, altless, bucketToday, copyDoors, copyOpacity, copyText, copyTitle, ctrls, delOpacity, dlgCount, emptyHead, filterRow, followChip, hasDlg, histEmptyLine, histNoMatch, histOpen, histRows, histSearchName, imgPending, imgs, keymap, keymapWord, pageBtns, pageUnnamed, panelOpen, rowBadge, rowTitle, sendDisabled, shimmer, suggestions, toolFail, toolOk, toolToggles, turns, unCtrls, userBubbles]"
+      "detail": "arm 2 — world key moved (dev@ec37c84ff38b -> r8GOxh-ymcGX-2mJMCj9w), drift +null informational"
     },
     {
       "label": "L transcriptFace face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@ec37c84ff38b), same-key ride drift +null informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause) — the moved fields named: lens [aiLabel, aiModal, aiUnWho, copyOpacity, copyText, copyTitle, kbd, logLabel, logLive, logTab, rowDoors, sugNames, url]; world [aiBtns, aiCompanion, aiPanel, aiUnnamed, altless, bucketToday, chips, copyDoors, ctrls, delOpacity, dlgCount, emptyHead, filterRow, followChip, hasDlg, histEmptyLine, histNoMatch, histOpen, histRows, histSearchName, imgPending, imgs, keymap, keymapWord, pageBtns, pageUnnamed, panelOpen, rowBadge, rowTitle, sendDisabled, shimmer, suggestions, toolFail, toolOk, toolToggles, turns, unCtrls, userBubbles]"
+      "detail": "arm 2 — world key moved (dev@ec37c84ff38b -> r8GOxh-ymcGX-2mJMCj9w), drift +null informational"
     },
     {
       "label": "L historyFace face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@ec37c84ff38b), same-key ride drift +null informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause) — the moved fields named: lens [aiLabel, aiModal, aiUnWho, copyOpacity, copyText, copyTitle, delOpacity, histSearchName, kbd, logLabel, logLive, logTab, rowDoors, rowTitle, sugNames, url]; world [aiBtns, aiCompanion, aiPanel, aiUnnamed, altless, bucketToday, chips, copyDoors, ctrls, dlgCount, emptyHead, filterRow, followChip, hasDlg, histEmptyLine, histNoMatch, histOpen, histRows, imgPending, imgs, keymap, keymapWord, pageBtns, pageUnnamed, panelOpen, rowBadge, sendDisabled, shimmer, suggestions, toolFail, toolOk, toolToggles, turns, unCtrls, userBubbles]"
+      "detail": "arm 2 — world key moved (dev@ec37c84ff38b -> r8GOxh-ymcGX-2mJMCj9w), drift +null informational"
     },
     {
       "label": "L worldBack face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@ec37c84ff38b), same-key ride drift +null informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause) — the moved fields named: lens [aiUnWho, chips, kbd, rowDoors, sugNames, url]; world [aiBtns, aiCompanion, aiLabel, aiModal, aiPanel, aiUnnamed, altless, bucketToday, copyDoors, copyOpacity, copyText, copyTitle, ctrls, delOpacity, dlgCount, emptyHead, filterRow, followChip, hasDlg, histEmptyLine, histNoMatch, histOpen, histRows, histSearchName, imgPending, imgs, keymap, keymapWord, logLabel, logLive, logTab, pageBtns, pageUnnamed, panelOpen, rowBadge, rowTitle, sendDisabled, shimmer, suggestions, toolFail, toolOk, toolToggles, turns, unCtrls, userBubbles]"
+      "detail": "arm 2 — world key moved (dev@ec37c84ff38b -> r8GOxh-ymcGX-2mJMCj9w), drift +null informational"
     }
   ],
   "passed": 43,
@@ -249,13 +249,13 @@
   "driftLedger": {
     "prevFound": true,
     "prevBuild": "dev@ec37c84ff38b",
-    "prevDate": "2026-11-01T02:44:44.663Z",
-    "sameBuild": true,
+    "prevDate": "2026-11-01T02:47:19.234Z",
+    "sameBuild": false,
     "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
     "faces": {
       "canvasFace": {
         "prev": null,
-        "live": 153,
+        "live": 144,
         "drift": null,
         "identical": false,
         "moved": {
@@ -318,7 +318,7 @@
       },
       "emptyFace": {
         "prev": null,
-        "live": 161,
+        "live": 152,
         "drift": null,
         "identical": false,
         "moved": {
@@ -381,7 +381,7 @@
       },
       "transcriptFace": {
         "prev": null,
-        "live": 166,
+        "live": 157,
         "drift": null,
         "identical": false,
         "moved": {
@@ -444,7 +444,7 @@
       },
       "historyFace": {
         "prev": null,
-        "live": 170,
+        "live": 161,
         "drift": null,
         "identical": false,
         "moved": {
@@ -507,7 +507,7 @@
       },
       "worldBack": {
         "prev": null,
-        "live": 153,
+        "live": 144,
         "drift": null,
         "identical": false,
         "moved": {
@@ -573,7 +573,7 @@
   "faces": {
     "canvasFace": {
       "prev": null,
-      "live": 153,
+      "live": 144,
       "drift": null,
       "identical": false,
       "moved": {
@@ -636,7 +636,7 @@
     },
     "emptyFace": {
       "prev": null,
-      "live": 161,
+      "live": 152,
       "drift": null,
       "identical": false,
       "moved": {
@@ -699,7 +699,7 @@
     },
     "transcriptFace": {
       "prev": null,
-      "live": 166,
+      "live": 157,
       "drift": null,
       "identical": false,
       "moved": {
@@ -762,7 +762,7 @@
     },
     "historyFace": {
       "prev": null,
-      "live": 170,
+      "live": 161,
       "drift": null,
       "identical": false,
       "moved": {
@@ -825,7 +825,7 @@
     },
     "worldBack": {
       "prev": null,
-      "live": 153,
+      "live": 144,
       "drift": null,
       "identical": false,
       "moved": {
