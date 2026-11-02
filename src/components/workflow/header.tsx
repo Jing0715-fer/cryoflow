@@ -114,7 +114,18 @@ function ProjectSwitcher() {
     // is only a preference). Without the chain the trigger refuses below
     // 275px and paints over the actions cluster; with it the value
     // ellipsises and the row degrades gracefully.
-    <div className="flex min-w-0 items-center gap-1.5">
+    // t871 — THE T510 RESIDUE'S FIX (option (a), the decision table's
+    // THE-fix, pre-flighted twice: t839's clone rehearsal + t840's
+    // per-option filming). overflow-hidden lands on the wrapper: at the
+    // exact xl boundary the trigger still rides its 130px floor while the
+    // wrapper yields to 115.3 (the geometry holds exactly — 2.7 / 130 /
+    // 115.3 before = after), but the 2.7px edge paint is CLIPPED — the
+    // trigger leaves the band's hit stack (hit-testing respects overflow
+    // clipping), the RELION chip's box is no longer painted into, and
+    // the chip keeps the click. The sweep's ratchet flipped with it:
+    // D4's narration, E8's fingerprint, E9's per-width delta, E10's
+    // green (scripts/t834-band-sweep.mjs, docs/band-audit.md).
+    <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
       <Select value={project?.id ?? ""} onValueChange={onChange}>
         <SelectTrigger
           // t510 — tiered width: 170 at xl (1280–1535, where the row's

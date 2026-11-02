@@ -68,11 +68,16 @@ sleep 1
 # this cap, three witnesses in the t402 window) needs ~1792MB of V8 heap
 # to compile the home graph; 896 dies with "Ineffective mark-compacts".
 export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--max-old-space-size=${DEV_HEAP_MB:-896}"
-# t377 — HARD overrides: the sandbox tool environment itself exports a
-# TEMPLATE DATABASE_URL (my-project's custom.db); `${VAR:-…}` passthrough
-# would poison Prisma into a User/Post-only database. These two are always
-# pinned to THIS repo's own paths.
-export DATABASE_URL="file:$REPO_ROOT/db/cryoflow.db"
+# t377 — the DB lane: the sandbox tool environment exports a TEMPLATE
+# DATABASE_URL, so t377 pinned THIS repo's own path unconditionally. That
+# pin guarded an era when custom.db was a User/Post-only template — the
+# era is over (t872's ruling: the platform owns .env, and booting
+# custom.db is a LEGAL lane; t871 witness: custom.db carries the full
+# 8/8 schema while the pinned cryoflow.db sat empty — the prod lane 500'd
+# on "no Project table" until this passthrough landed). The pin becomes
+# a DEFAULT: a preset DATABASE_URL (the platform's .env choice) rides;
+# with nothing preset, this repo's own cryoflow.db boots.
+export DATABASE_URL="${DATABASE_URL:-file:$REPO_ROOT/db/cryoflow.db}"
 export CRYOFLOW_DATA_DIR="$REPO_ROOT/data"
 export CRYOFLOW_TRUST_GATEWAY=1
 # t402 — spawn under NODE explicitly: `bunx next` / `bun next` make BUN the

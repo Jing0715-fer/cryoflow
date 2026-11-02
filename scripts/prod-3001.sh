@@ -48,7 +48,7 @@ for i in 1 2 3 4 5; do
   kill -9 "$pid" 2>/dev/null
   sleep 1
 done
-export DATABASE_URL="file:/home/z/my-project/db/cryoflow.db"
+export DATABASE_URL="${DATABASE_URL:-file:/home/z/my-project/db/cryoflow.db}"
 export CRYOFLOW_DATA_DIR="/home/z/my-project/data"
 export RELION_HOME="/home/z/relion-install"
 export RELION_CTFFIND_EXECUTABLE="/home/z/ctffind-4.1.14/bin/ctffind"
