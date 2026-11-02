@@ -251,14 +251,19 @@ export function WorldHealthBoard() {
   // freezes mid-breath cannot be told apart from a hung one. t1140: the
   // jobs' own ages (the oldest running, the oldest waiting) ride the
   // SAME tick — a second clock would be a drift (the one-clock law).
-  const hasAgeableJobs = vitals.running > 0 || vitals.pending > 0;
+  // t1143: the completions' own ages (the Fresh row) join the
+  // disjunction — the gate EXTENDS, no second ticker is born.
+  const hasAgeableJobs =
+    vitals.running > 0 || vitals.pending > 0 || vitals.completed > 0;
   const now = useNow(open && ((lastT !== null && history.length > 1) || hasAgeableJobs));
   const ageWords = lastT !== null && now > 0 ? worldAgeWords(now - lastT) : null;
   const oldestWords = history.length > 1 && now > 0 ? worldAgeWords(now - history[0].t) : null;
 
-  // t1140 — the jobs' own facts (the last failure NAMED, the oldest
-  // running's age, the queue's oldest wait): the SAME now both faces
-  // ride, the ONE father supplies every word.
+  // t1140 + t1143 — the jobs' own facts (the last failure NAMED, the
+  // oldest running's age — now JUDGED against the world's own median
+  // pace, the queue's oldest wait, the newest completion, the longest
+  // run): the SAME now every face rides, the ONE father supplies every
+  // word.
   const jobRows = React.useMemo(() => worldJobRows(jobs, now), [jobs, now]);
 
   const onCopy = async () => {
@@ -424,14 +429,17 @@ export function WorldHealthBoard() {
           ))}
         </ul>
 
-        {/* ---- the jobs' own facts (t1140): the last failure NAMED, the
-             oldest running's age, the queue's oldest wait — a row exists
-             only when its fact exists (silence is the honest absence). ---- */}
+        {/* ---- the jobs' own facts (t1140) + the completions' own words
+             (t1143): the last failure NAMED, the oldest running's age
+             (judged against the world's own median pace), the queue's
+             oldest wait, the newest completion, the longest run — a row
+             exists only when its fact exists (silence is the honest
+             absence). ---- */}
         {jobRows.length > 0 && (
           <ul
             data-testid="world-health-job-rows"
             className="grid gap-1.5 rounded-md border bg-muted/30 p-2.5 text-xs"
-            aria-label="Job health facts — the last failure named, the oldest running job's age, the queue's oldest wait"
+            aria-label="Job health facts — the last failure named, the oldest running job's age, the queue's oldest wait, the newest completion, the longest run"
           >
             {jobRows.map((r) => (
               <li key={r.key} className="flex items-start gap-2">

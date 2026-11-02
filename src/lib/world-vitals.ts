@@ -261,6 +261,19 @@ export function worldHealthRows(
 }
 
 /* ---------------------------------------------------------------------- */
+/* t1143 — the completions' own words (the verdicts' NEXT half): the        */
+/* census COUNTS a finished run; the row DATES it and WEIGHS it. The        */
+/* newest completion speaks Fresh; the longest run speaks Marathon; and     */
+/* the completions' own median duration is the world's OWN pace — the       */
+/* oldest run is judged against IT (never an invented constant). The        */
+/* judgment errs late, never early: a median from fewer than three          */
+/* completions is a rumor (the row keeps the honest fact shape), the even   */
+/* count takes the lower middle, and the line is crossed only STRICTLY.     */
+/* The waiting row stays an honest fact — JobClock cannot reconstruct a     */
+/* time-to-start, and a verdict without evidence is a lie wearing a badge.  */
+/* ---------------------------------------------------------------------- */
+
+/* ---------------------------------------------------------------------- */
 /* t1140 — the jobs' own health face: the board's verdicts above are the    */
 /* ENGINE's and the PIPELINE's; the JOBS' own facts speak here.             */
 /*                                                                          */
@@ -275,13 +288,17 @@ export function worldHealthRows(
 /* ---------------------------------------------------------------------- */
 
 /** The narrow clock face the rows need — STRUCTURAL: the store's JobDTO
- * satisfies it, the tests construct fakes, the lib imports nothing. */
+ * satisfies it, the tests construct fakes, the lib imports nothing.
+ * t1143 — `duration` is the engine's real elapsed ms (JobDTO carries it;
+ * a fake may omit it — the row derives from the stamps instead, never
+ * invents). */
 export interface JobClock {
   name: string;
   status: string;
   result: string | null;
   startedAt: string | null;
   updatedAt: string;
+  duration?: number | null;
 }
 
 /** An ISO stamp → its ms, or null when the stamp is absent or unreadable
@@ -291,6 +308,23 @@ function clockMsOf(iso: string | null): number | null {
   const t = new Date(iso).getTime();
   return Number.isFinite(t) ? t : null;
 }
+
+/** A completed run's own length — the engine's real elapsed ms when the
+ * DTO carries it, else the stamps' own span; unreadable → null (never a
+ * guessed duration wearing a sentence). */
+function durationMsOf(j: JobClock): number | null {
+  const d = j.duration;
+  if (d != null && Number.isFinite(d) && d > 0) return d;
+  const a = clockMsOf(j.startedAt);
+  const b = clockMsOf(j.updatedAt);
+  return a != null && b != null && b > a ? b - a : null;
+}
+
+/** The judgment's floor — a median from fewer than three completions is
+ * a rumor, not a pace. */
+const PACE_MEDIAN_FLOOR = 3;
+/** The judgment's line — twice the world's own median pace. */
+const PACE_JUDGE_FACTOR = 2;
 
 /** The failure words' clip — a long result speaks its first breath, not
  * its whole body (the row is a nameplate, not a log). */
@@ -308,6 +342,27 @@ export function worldJobRows(jobs: JobClock[], now: number): HealthRow[] {
     const t = clockMsOf(j.updatedAt);
     if (t != null && t >= lastFailMs) { lastFailMs = t; lastFail = j; }
   }
+
+  // t1143 — the completions' own scan (BEFORE the verdicts: the pace
+  // judgment rides the durations this scan collects). Ties fall to the
+  // array's last — the >= law, the same determinism the failure scan
+  // speaks.
+  let fresh: JobClock | null = null;
+  let freshMs = 0;
+  let marathon: JobClock | null = null;
+  let marathonMs = 0;
+  const durations: number[] = [];
+  for (const j of jobs) {
+    if (j.status !== "completed") continue;
+    const t = clockMsOf(j.updatedAt);
+    if (t != null && t >= freshMs) { freshMs = t; fresh = j; }
+    const d = durationMsOf(j);
+    if (d != null) {
+      durations.push(d);
+      if (d >= marathonMs) { marathonMs = d; marathon = j; }
+    }
+  }
+
   if (lastFail) {
     const words = (lastFail.result ?? "").replace(/\s+/g, " ").trim();
     rows.push({
@@ -329,11 +384,27 @@ export function worldJobRows(jobs: JobClock[], now: number): HealthRow[] {
     if (t != null && (oldestRunMs == null || t < oldestRunMs)) oldestRunMs = t;
   }
   if (oldestRunMs != null && now > oldestRunMs) {
+    // t1143 — the verdicts' NEXT half: the completions' own median is
+    // the world's own pace; a run that strictly outlasts twice the
+    // median has earned the board's warn face (a verdict the count
+    // alone could not speak). Fewer than three completions is a rumor
+    // — the row keeps the honest fact shape; the even count takes the
+    // lower middle (the judgment errs late, never early).
+    let pace = "";
+    let judged = false;
+    if (durations.length >= PACE_MEDIAN_FLOOR) {
+      const sorted = [...durations].sort((a, b) => a - b);
+      const median = sorted[Math.floor((sorted.length - 1) / 2)];
+      if (now - oldestRunMs > PACE_JUDGE_FACTOR * median) {
+        judged = true;
+        pace = `; outlasted the usual run (median ${worldAgeWords(median)})`;
+      }
+    }
     rows.push({
       key: "oldest-running",
       label: "Working now",
-      ok: true,
-      detail: `${runningCount} running — the oldest started ${worldAgeWords(now - oldestRunMs)} ago`,
+      ok: !judged,
+      detail: `${runningCount} running — the oldest started ${worldAgeWords(now - oldestRunMs)} ago${pace}`,
     });
   }
 
@@ -355,6 +426,27 @@ export function worldJobRows(jobs: JobClock[], now: number): HealthRow[] {
       label: "Waiting",
       ok: true,
       detail: `${pendingCount} pending — the oldest waited ${worldAgeWords(now - oldestWaitMs)}`,
+    });
+  }
+
+  // t1143 — the completions' own words (the achievements speak LAST:
+  // the failure first, the work now, the queue's patience, then the
+  // finished runs' own dated and weighed story).
+  if (fresh && now > freshMs) {
+    const d = durationMsOf(fresh);
+    rows.push({
+      key: "fresh-completion",
+      label: "Fresh",
+      ok: true,
+      detail: `${fresh.name} finished ${worldAgeWords(now - freshMs)} ago${d != null ? ` · ran ${worldAgeWords(d)}` : ""}`,
+    });
+  }
+  if (marathon) {
+    rows.push({
+      key: "marathon",
+      label: "Marathon",
+      ok: true,
+      detail: `${marathon.name} ran the longest — ${worldAgeWords(marathonMs)}`,
     });
   }
 
