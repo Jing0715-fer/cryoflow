@@ -1,0 +1,125 @@
+{
+  "instrument": "t874-run-compare-a11y",
+  "worldMode": "build",
+  "build": "r8GOxh-ymcGX-2mJMCj9w",
+  "date": "2026-11-02T05:34:54.303Z",
+  "faces": {
+    "arrival": {
+      "nDialogs": 2,
+      "heading": "Class A/B — Occupancy share"
+    },
+    "pickers": {
+      "a": "2D Classification (tutorial) (this run)",
+      "b": "3D Classification (tutorial) · Main"
+    },
+    "verdict": {
+      "unpairedA": "46",
+      "median": "+22.9%",
+      "pairs": 4
+    },
+    "scatter": {
+      "syms": 4,
+      "ref": 1
+    },
+    "adoption": {
+      "title": "All 1 downstream wire(s) refused — cycle",
+      "opens": 2
+    },
+    "sameRun": {
+      "held": 4,
+      "selectGone": true
+    },
+    "escape": {
+      "after": 0
+    },
+    "world": {
+      "btns": 144,
+      "jobs": 15
+    }
+  },
+  "ledger": {
+    "adoption": {
+      "arm": "arm 3",
+      "ok": true,
+      "drift": 0,
+      "identical": true,
+      "moved": {
+        "lens": [],
+        "world": []
+      }
+    },
+    "arrival": {
+      "arm": "arm 3",
+      "ok": true,
+      "drift": 0,
+      "identical": true,
+      "moved": {
+        "lens": [],
+        "world": []
+      }
+    },
+    "escape": {
+      "arm": "arm 3",
+      "ok": true,
+      "drift": 0,
+      "identical": true,
+      "moved": {
+        "lens": [],
+        "world": []
+      }
+    },
+    "pickers": {
+      "arm": "arm 3",
+      "ok": true,
+      "drift": 0,
+      "identical": true,
+      "moved": {
+        "lens": [],
+        "world": []
+      }
+    },
+    "sameRun": {
+      "arm": "arm 3",
+      "ok": true,
+      "drift": 0,
+      "identical": true,
+      "moved": {
+        "lens": [],
+        "world": []
+      }
+    },
+    "scatter": {
+      "arm": "arm 3",
+      "ok": true,
+      "drift": 0,
+      "identical": true,
+      "moved": {
+        "lens": [],
+        "world": []
+      }
+    },
+    "verdict": {
+      "arm": "arm 3",
+      "ok": true,
+      "drift": 0,
+      "identical": true,
+      "moved": {
+        "lens": [],
+        "world": []
+      }
+    },
+    "world": {
+      "arm": "arm 3",
+      "ok": true,
+      "drift": 0,
+      "identical": true,
+      "moved": {
+        "lens": [],
+        "world": []
+      }
+    }
+  },
+  "escapeDisease": "RECORDED (pre-fix build — the fix is in src, the t875 build-day ride turns this face green)",
+  "pass": 33,
+  "fail": 1
+}
