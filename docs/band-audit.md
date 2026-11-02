@@ -8,7 +8,8 @@ filmed the middle tier's squeeze live; the t837 font-metrics probe derived
 the last text constants (the wordmark's 142, the tab labels' 120) and the
 t838 box derivation closed the family (the lens chip's 90). This page
 is what all of them now agree on — the numbers, the laws that produce them,
-and the one residue still on the books.*
+and the one residue that was on the books (FIXED t871 — see the residue
+section's closing stamp).*
 
 ## The six bands and their truth
 
@@ -74,14 +75,32 @@ audit's purpose is that price being visible BEFORE the seat ships.
 actions cluster never shrinks (`shrink-0`); the left row is the shock
 absorber. A band that cannot fit a seat must not show it.
 
-## The residue on the books (t835, zone formalized t836)
+## The residue — ON THE RECORD, FIXED (t871; filmed t835, zone formalized t836)
+
+**The fix stamp (t871, the first build day the t820 law allowed).** Option
+(a) landed: `overflow-hidden` on the PS wrapper (the ProjectSwitcher root,
+one className — `src/components/workflow/header.tsx`). The t839/t840
+pre-flighted pricing held live: the geometry is untouched (2.7 / 130 /
+115.3 before = after — the rects never moved), the PAINT is clipped (the
+trigger left the band's `elementsFromPoint` stack at every formerly-painted
+width), the chip keeps the click, and the band's edges never moved. The
+sweep's ratchet executed as designed: D4's narration flipped to the clipped
+truth (the geometric 2.7 stays, the stack loses the trigger), E8 grew the
+wrapper's computed `overflow-x: hidden` fingerprint, E9 flipped to the
+per-width CLIPPED-stack delta, E10 flipped from watched-in-reverse to
+guarding the fix itself. The receipts: `shots-qa/t834-band-sweep.json`
+(world of the fix day) against the pre-fix receipts that filmed the
+residue's whole life. The residue's story is closed on the record.
+
+The historical account (what the residue was, while it lived):
 
 The t510 budget arithmetic ("626 ≤ 650 at xl") predates the right cluster's
 growth — the budget at 1280 is **608** today, the natural row **746**. The
 squeeze engages, and at the exact xl boundary the project trigger holds its
-130px floor while its wrapper yields to 115.3: the overflow paints **2.7px
-into the RELION chip's box**. Pinned as the sweep's D4 assertion; the fix
-window lands the fix and moves the pin — red until then.
+130px floor while its wrapper yields to 115.3: the overflow painted **2.7px
+into the RELION chip's box** (now clipped — the fix stamp above). Pinned as
+the sweep's D4 assertion; the fix window landed the fix and moved the pin to
+the clipped truth — **closed t871**.
 
 The zone, measured in 1px steps and pinned (the sweep's section E, 54/54):
 
