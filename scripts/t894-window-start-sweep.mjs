@@ -44,6 +44,7 @@
 
 import { readFileSync, writeFileSync, renameSync, existsSync } from "fs";
 import { execSync } from "child_process";
+import { resolveClusterConnId, clusterBindingVerdict, MOCK_CLUSTER_SPEC } from "./cluster-conn.mjs";
 
 const ROOT = "/home/z/my-project";
 const REGISTRY = `${ROOT}/data/projects.json`;
@@ -278,21 +279,33 @@ if (ghosts.length > 0) {
 /* t979 bind law's own verb — the app validates and writes its own pen).    */
 /* ---------------------------------------------------------------------- */
 
-const CLUSTER_CONN = "conn-mvy782td"; // the world's one Cluster (host 127.0.0.1:3022) — the epoch re-key chain: conn-mv6a23lx died with the t1075 16-world's db (t1125's re-key) → conn-mvwf4vla died with the t1135 fork-landing replant (the rollback ate the epoch world; the t418 healer minted the fresh connection) → conn-mvy782td
+/* t1146 — the connection resolves by IDENTITY, not by a hardcoded id.     */
+/* The epoch re-key chain (archaeology — the constant's old burdens):       */
+/*   conn-mv6a23lx died with the t1075 16-world's db (t1125's re-key) →     */
+/*   conn-mvwf4vla died with the t1135 fork-landing replant (the rollback   */
+/*   ate the epoch world; the t418 healer minted the fresh connection) →    */
+/*   conn-mvy782td died with the t1146 recycle (the boot's thin world was   */
+/*   re-healed; the healer minted conn-mvz6i8yv) → NO FURTHER RE-KEYS:      */
+/*   the id is an accident of minting; the IDENTITY (MOCK_CLUSTER_SPEC —    */
+/*   the healer's own creation spec, the mock Slurm listener on the         */
+/*   loopback) is the world's actual fact. An epoch that changes the        */
+/*   IDENTITY edits the spec in ONE place; the t1146 seat REDs if the       */
+/*   instruments drift apart.                                              */
 const CONN_REGISTRY = `${ROOT}/data/remote-connections.json`;
 
 const connRegistry = existsSync(CONN_REGISTRY) ? JSON.parse(readFileSync(CONN_REGISTRY, "utf8")) : [];
 const connList = Array.isArray(connRegistry) ? connRegistry : (connRegistry.connections ?? []);
-const clusterKnown = connList.some((c) => c && c.id === CLUSTER_CONN);
+const CLUSTER_CONN = resolveClusterConnId(connList, MOCK_CLUSTER_SPEC);
 
 const activeBinding = registry.projects?.[active]?.remote?.connectionId ?? null;
-if (activeBinding === CLUSTER_CONN) {
-  receipt(`BINDING: "${active}" → ${CLUSTER_CONN} (sound)`);
-} else if (!clusterKnown) {
-  finding(`BINDING: the Cluster connection ${CLUSTER_CONN} is itself missing from the connections registry — the world's remote lane has no anchor; re-plant before riding remote`);
+const verdict = clusterBindingVerdict(activeBinding, CLUSTER_CONN);
+if (verdict === "sound") {
+  receipt(`BINDING: "${active}" → ${CLUSTER_CONN} (sound — resolved by identity ${MOCK_CLUSTER_SPEC.name} @ ${MOCK_CLUSTER_SPEC.host}:${MOCK_CLUSTER_SPEC.port})`);
+} else if (verdict === "unplanted") {
+  finding(`BINDING: the connections registry plants no ${MOCK_CLUSTER_SPEC.name} @ ${MOCK_CLUSTER_SPEC.host}:${MOCK_CLUSTER_SPEC.port} — the world's remote lane has no anchor; re-plant before riding remote`);
 } else {
   finding(
-    `BINDING STOMPED: active project "${active}" holds remote=${JSON.stringify(activeBinding)} (want ${CLUSTER_CONN}) — the untracked FILE registry was rewritten behind the world's back`
+    `BINDING STOMPED: active project "${active}" holds remote=${JSON.stringify(activeBinding)} (want ${CLUSTER_CONN} — the world's ${MOCK_CLUSTER_SPEC.name} @ ${MOCK_CLUSTER_SPEC.host}:${MOCK_CLUSTER_SPEC.port}) — the untracked FILE registry was rewritten behind the world's back`
   );
   if (!REPORT_ONLY && !NO_ALIGN) {
     const res = await fetch(`${ORIGIN}/api/projects/${active}`, {
