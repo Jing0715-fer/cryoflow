@@ -58,6 +58,7 @@ import { toast } from "@/hooks/use-toast";
 import { downloadBlob } from "@/lib/download"; // t646 — one blob sink (this dance skipped attach + revoked same-tick)
 import { fmtBytes } from "@/lib/relion/disk-usage"; // t1152 — the byte word rides its ONE father (the local formatBytes dialect died: it had no GB branch, a 2.5 GB stack rendered "1536.0 MB" beside the inspector's "1.50 GB")
 import { fmtDuration } from "@/lib/duration"; // t1153 — the report's duration word rides its ONE father (the local fmtDur birth had no day face)
+import { fmtAngstrom, fmtMicron, fmtBFactor } from "@/lib/chart-rows"; // t1155 — the Å/µm/Å² words ride their ONE fathers (the report's 2-decimal µm and hand-rolled 1-decimal Å drifted from the agent's fmtUm/fmtAng grains on the SAME quantities)
 import { buildFscSvg, fscMilestones, fscNyquist, fscTableMarkdown } from "@/lib/fsc-snapshot";
 import { buildProfileReportHtml } from "@/lib/report-html";
 import {
@@ -505,25 +506,28 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
       ]);
       const fsc = found.fsc;
 
-      // Resolution lines — each earns its place by arriving
+      // Resolution lines — each earns its place by arriving. t1155 — the
+      // Å word rides its ONE father (the report's word face speaks the
+      // same 1-decimal the agent's summary speaks; the DATA tables keep
+      // their own grain — data faces are not words).
       const resLines: string[] = [];
       if (fsc?.resolutionAt143 != null)
-        resLines.push(`FSC 0.143 resolution: **${fsc.resolutionAt143.toFixed(2)} Å**`);
+        resLines.push(`FSC 0.143 resolution: **${fmtAngstrom(fsc.resolutionAt143)}**`);
       if (fsc?.resolutionAt05 != null)
-        resLines.push(`FSC 0.5 (half-bit) resolution: **${fsc.resolutionAt05.toFixed(2)} Å**`);
+        resLines.push(`FSC 0.5 (half-bit) resolution: **${fmtAngstrom(fsc.resolutionAt05)}**`);
       if (fsc?.reportedResolution != null)
         resLines.push(
-          `RELION reported: **${fsc.reportedResolution.toFixed(2)} Å**${
+          `RELION reported: **${fmtAngstrom(fsc.reportedResolution)}**${
             fsc.reportedLabel ? ` — ${fsc.reportedLabel}` : ""
           }`
         );
       const nyq = fsc ? fscNyquist(fsc.shells) : null;
       if (nyq != null && Number.isFinite(nyq))
-        resLines.push(`Box Nyquist limit (2 × pixel size): **${nyq.toFixed(2)} Å**`);
+        resLines.push(`Box Nyquist limit (2 × pixel size): **${fmtAngstrom(nyq)}**`);
       const res = found.res;
       if (res && (res.current != null || res.best != null)) {
-        const cur = res.current != null ? `${res.current.toFixed(2)} Å` : "—";
-        const best = res.best != null ? `${res.best.toFixed(2)} Å` : "—";
+        const cur = res.current != null ? fmtAngstrom(res.current) : "—";
+        const best = res.best != null ? fmtAngstrom(res.best) : "—";
         resLines.push(`Refinement resolution: current **${cur}**, best **${best}**`);
       }
 
@@ -546,7 +550,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
         if (table) block.push(table, "");
         if (png) {
           const lastPt = res.points[res.points.length - 1];
-          block.push(`![Resolution progress — ${lastPt.resolution.toFixed(2)} Å at iteration ${lastPt.iteration} for ${job.name}](${png})`, "");
+          block.push(`![Resolution progress — ${fmtAngstrom(lastPt.resolution)} at iteration ${lastPt.iteration} for ${job.name}](${png})`, "");
         } else {
           block.push("_Curve snapshot unavailable in this browser — the table above is the full data._", "");
         }
@@ -572,7 +576,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
         if (src) block.push(src, "");
         if (table) block.push(table, "");
         if (png) {
-          block.push(`![FSC curve${fsc.resolutionAt143 != null ? ` — ${fsc.resolutionAt143.toFixed(2)} Å` : ""} for ${job.name}](${png})`, "");
+          block.push(`![FSC curve${fsc.resolutionAt143 != null ? ` — ${fmtAngstrom(fsc.resolutionAt143)}` : ""} for ${job.name}](${png})`, "");
         } else {
           block.push("_Curve snapshot unavailable in this browser — the table above is the full data._", "");
         }
@@ -591,7 +595,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
           if (gPts.length >= 4) {
             const block: string[] = ["## Guinier plot", ""];
             if (g.bfactor != null)
-              block.push(`Applied B-factor: **${Number(g.bfactor).toFixed(1)} Å²**`, "");
+              block.push(`Applied B-factor: **${fmtBFactor(Number(g.bfactor))}**`, ""); // t1155 — the fourth B-factor birth rides its father
             const table = guinierTableMarkdown(gPts);
             if (table) block.push(table, "");
             const png = await snapshot(
@@ -617,7 +621,13 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
         const s = ctf.summary;
         if (s)
           block.push(
-            `${s.count} micrographs — mean defocus **${s.meanDefocus.toFixed(2)} µm**, astigmatism ≤ **${s.maxAstigmatism.toFixed(2)} µm**${s.worstResolution > 0 ? `, worst fit **${s.worstResolution.toFixed(1)} Å**` : ""}${s.meanFom > 0 ? `, mean FOM **${s.meanFom.toFixed(3)}**` : ""}.`,
+            // t1155 — the µm/Å words ride their fathers (the agent's CTF
+            // summary speaks fmtUm's 3-decimal µm and fmtAng's 1-decimal Å;
+            // this report line drifted at 2/1-decimal by hand). The FOM is
+            // a dimensionless quality metric — the 2-decimal grain is the
+            // majority dialect (the agent's summary and the chart rows
+            // both speak it); the report's 3-decimal outlier follows.
+            `${s.count} micrographs — mean defocus **${fmtMicron(s.meanDefocus)}**, astigmatism ≤ **${fmtMicron(s.maxAstigmatism)}**${s.worstResolution > 0 ? `, worst fit **${fmtAngstrom(s.worstResolution)}**` : ""}${s.meanFom > 0 ? `, mean FOM **${s.meanFom.toFixed(2)}**` : ""}.`,
             ""
           );
         const table = ctfTableMarkdown(ctf.micrographs);
@@ -639,7 +649,10 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
         const s = motion.summary;
         if (s)
           block.push(
-            `${s.count} micrographs — mean drift **${s.meanTotal.toFixed(1)} Å** (early ${s.meanEarly.toFixed(1)} / late ${s.meanLate.toFixed(1)})${s.worstName ? `, worst **${s.worstName}** at **${s.maxTotal.toFixed(1)} Å**` : ""}. Bars sort worst-first: teal = early frames (stage settling), amber = late frames (beam-induced).`,
+            // t1155 — the drift words ride the Å father (the agent's motion
+            // summary speaks fmtAng for the same quantities; the report's
+            // hand toFixed(1) drifted from it only at the float quirks).
+            `${s.count} micrographs — mean drift **${fmtAngstrom(s.meanTotal)}** (early ${fmtAngstrom(s.meanEarly)} / late ${fmtAngstrom(s.meanLate)})${s.worstName ? `, worst **${s.worstName}** at **${fmtAngstrom(s.maxTotal)}**` : ""}. Bars sort worst-first: teal = early frames (stage settling), amber = late frames (beam-induced).`,
             ""
           );
         const table = motionTableMarkdown(motion.micrographs);

@@ -628,6 +628,11 @@ export default function StorageDialog({
   const jobs = data ? sortJobs(data.jobs, jobSort) : [];
   const maxBytes = jobs.length > 0 ? Math.max(...jobs.map((j) => j.bytes), 1) : 1;
   const totalBytes = data?.totalBytes ?? 0;
+  // t1155 — the category chips' OWN share claim: a CATEGORY's share of the
+  // project total (the lens lib's shares are a RUN's share of total and a
+  // SLICE's share of its run — different subjects, different denominators;
+  // per the duration map's lesson a dialect is another claim, not another
+  // error). One grain across the family: the integer toFixed(0) word.
   const catList = data
     ? STORAGE_CATEGORIES.map((meta) => ({
         ...meta,

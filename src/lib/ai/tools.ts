@@ -134,7 +134,7 @@ import {
   loadTopazTraining,
   ChartJobNotFound,
 } from "@/lib/chart-data";
-import { fmtAngstrom, fmtMicron, reportedPassport } from "@/lib/chart-rows";
+import { fmtAngstrom, fmtMicron, fmtBFactor, reportedPassport } from "@/lib/chart-rows";
 // t501 — the agent reads the landscape: the inventory's OWN arithmetic
 // (peak/agreement/weakest/delta), the walk's OWN constants, the listing's
 // OWN well — imports all, no second derivation anywhere.
@@ -3940,7 +3940,7 @@ async function getJobCurves(
       if (d.points.length > 0) {
         spoken.push(
           `Guinier ${d.points.length} pts` +
-            (d.bfactor != null ? `, B-factor ${d.bfactor.toFixed(1)} Å² (used for sharpening)` : "")
+            (d.bfactor != null ? `, B-factor ${fmtBFactor(d.bfactor)} (used for sharpening)` : "")
         );
         curves.push({
           kind: "guinier",
@@ -4563,7 +4563,7 @@ export async function judge2dClasses(
   const table = stats.classes
     .map(
       (c) =>
-        `class ${c.cls}: ${(c.fraction * 100).toFixed(1)}% (${c.count} particles)${c.resolution != null ? `, estimated resolution ${c.resolution} Å` : ", resolution unknown"}`
+        `class ${c.cls}: ${(c.fraction * 100).toFixed(1)}% (${c.count} particles)${c.resolution != null ? `, estimated resolution ${fmtAng(c.resolution)}` : ", resolution unknown"}`
     )
     .join("\n");
   // t508 — the rubric, in full. The thin one-line criteria let the vision
@@ -4579,7 +4579,7 @@ export async function judge2dClasses(
   // by the evidence the image actually holds.
   const globalResLine =
     stats.globalResolution != null
-      ? ` The run's current resolution estimate (global, gold-standard): ${stats.globalResolution} Å.`
+      ? ` The run's current resolution estimate (global, gold-standard): ${fmtAng(stats.globalResolution)}.`
       : "";
   const prompt = `You are a senior cryo-EM scientist judging 2D class averages from a RELION 2D classification (iteration ${stats.iteration ?? "?"}, ${stats.total} particles total, ${sheet.rendered} classes shown in the image, left-to-right / top-to-bottom order = class number).${globalResLine}
 
@@ -4752,7 +4752,7 @@ OUTPUT — return ONE JSON object and NOTHING else: no preamble, no markdown fen
   const fewerClasses = Math.max(2, Math.floor(classTotal / 2));
   // t550 — the global resolution rides the summary: "every class unknown"
   // reads as a data problem when the run itself knows exactly where it stands
-  const globalNote = stats.globalResolution != null ? ` · run at ${stats.globalResolution} Å (global)` : "";
+  const globalNote = stats.globalResolution != null ? ` · run at ${fmtAng(stats.globalResolution)} (global)` : "";
   return {
     ok: true,
     summary: `Judged ${verdict?.classes.length ?? stats.classes.length} classes of ${job.name} (iteration ${stats.iteration ?? "?"}): ${keepCount} keep / ${maybeCount} maybe${zeroKeep ? " — NO class merits a selection (zero-keep verdict)" : ""}${confirmNote}${globalNote} — ${truncate(verdict?.advice ?? analysis, 300)}`,
