@@ -391,25 +391,31 @@ const doctorSrc = readFileSync(
   "utf8"
 );
 
-// D1 — the witness receipts exist (sound + stomped + healed)
+// D1 — the witness receipts exist (sound + stomped + healed); t1146's
+// identity resolution speaks the sound receipt's PROVENANCE (the door
+// names the identity it resolved, not just the id it found)
 ok(
-  "D1 doctor receipts — BINDING sound / STOMPED / HEALED all spoken",
-  doctorSrc.includes('BINDING: "${active}" → ${CLUSTER_CONN} (sound)') &&
+  "D1 doctor receipts — BINDING sound (identity-provenanced) / STOMPED / HEALED all spoken",
+  doctorSrc.includes('BINDING: "${active}" → ${CLUSTER_CONN} (sound — resolved by identity') &&
     doctorSrc.includes("BINDING STOMPED:") &&
     doctorSrc.includes("BINDING HEALED:")
 );
 
-// D2 — the cluster is named, not guessed (the epoch re-key chain:
-// conn-mv6a23lx died with the t1075 16-world's db — t1125's re-key;
-// conn-mvwf4vla died with the t1135 fork-landing replant — the t418
-// healer minted the fresh connection; t1135 taught the pin the MEANING
-// its own comment always claimed: the pin rides the STRUCTURE, not the
-// epoch's id — whichever connection the epoch replanted, the doctor
-// must name a real registry-shaped id as its one Cluster, and the next
-// replant stops paying this pin's re-key tax).
+// D2 — the Cluster is resolved by IDENTITY, not pinned by hand (the
+// epoch re-key chain: conn-mv6a23lx died with the t1075 16-world's db —
+// t1125's re-key; conn-mvwf4vla died with the t1135 fork-landing replant
+// — the t418 healer minted the fresh connection; conn-mvy782td died with
+// the t1146 recycle; t1135 taught the pin the MEANING its own comment
+// always claimed, and t1146 RETIRED the tax entirely: the doctor imports
+// the cluster-conn fathers and resolves the world's one Cluster by the
+// healer's own creation spec (MOCK_CLUSTER_SPEC) — a hardcoded conn- id
+// in the doctor is now the DISEASE this pin convicts, and an epoch that
+// changes the IDENTITY edits the spec in ONE place (scripts/cluster-conn.mjs)).
 ok(
-  "D2 the Cluster is named — CLUSTER_CONN pins a registry-shaped epoch id",
-  /const CLUSTER_CONN = "conn-[a-z0-9]+";/.test(doctorSrc)
+  "D2 the Cluster is resolved by IDENTITY — the fathers in, no hardcoded conn- id remains",
+  doctorSrc.includes("resolveClusterConnId(connList, MOCK_CLUSTER_SPEC)") &&
+    doctorSrc.includes('from "./cluster-conn.mjs"') &&
+    !/const CLUSTER_CONN\s*=\s*"conn-/.test(doctorSrc)
 );
 
 // D3 — the heal rides the honest PATCH door (the t979 bind law's verb)
