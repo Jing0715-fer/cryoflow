@@ -245,14 +245,20 @@ ok(panel.includes("onPointerEnter={() => hoverSheetBand(i)}") && panel.includes(
   "G3 each swatch speaks its band index on enter; leaving the ROW (not a swatch — sliding across swatch gaps must not flicker the 3D highlight) speaks the honest null");
 ok(embed.includes("obliqueSheetLegendHoverRef.current(typeof d?.band === \"number\" ? d.band : null)") && embed.includes("obliqueSheetLegendHoverRef.current = applyObliqueSheetLegendHover"),
   "G4 the embed's listener rides the ref law (the t1131 cure's own shape — E's law, third carrier)");
-ok(embed.includes("if (band === null || !Number.isFinite(band) || band < 0)") && embed.includes("lm.clearHighlights()") && embed.includes("if (!shape || band >= shape.groupCount) return"),
-  "G5 the refusal family — null/negative clears, a stale key (no node, or a band past groupCount) paints NOTHING rather than the wrong band");
-ok(embed.includes("kit.ShapeGroup.Loci(shape, [{ ids: int.OrderedSet.ofSortedArray([band]), instance: 0 }])") && embed.includes("plugin?.managers?.interaction?.lociHighlights"),
-  "G6 the highlight rides the mol* 5.11 verbs — ShapeGroup.Loci (the group-loci address the canvas's own picking speaks) into lociHighlights.highlight, the manager's existence guarded");
+ok(embed.includes("if (band === null || !Number.isFinite(band) || band < 0)") && embed.includes("lm.clearHighlights()") && embed.includes("if (!shape || typeof shape.groupCount !== \"number\" || band >= shape.groupCount) return"),
+  "G5 the refusal family, t1144 RE-KEY — null/negative clears, a stale key (no node, or a band past the REAL shape's groupCount — the lazy provider's `.data` unwrapped first) paints NOTHING rather than the wrong band");
+ok(embed.includes("kit.ShapeGroup.Loci(shape, [{ ids: int.OrderedSet.ofSortedArray([band]), instance: 0 }])") && embed.includes("plugin?.managers?.interactivity?.lociHighlights") && !embed.includes("managers?.interaction?"),
+  "G6 the highlight rides the mol* 5.11 verbs, t1144 RE-KEY — ShapeGroup.Loci (the group-loci address the canvas's own picking speaks) into lociHighlights.highlight; the manager's REAL name is `interactivity` (the live probe's own census — there is NO `interaction` manager; the old dead optional chain bailed the applier on EVERY hover)");
+ok(embed.includes("addProvider(markProvider") && embed.includes("plugin.canvas3d.mark(current, action)") && !embed.includes("removeProvider(markProvider"),
+  "G9 the MARK provider (t1144's root cure) — the t201 amputation took `representation-highlight-loci` (the ONLY stock mark-provider registrant) out with the throwing structure observers, so every highlight landed on an EMPTY provider list and was born dead; the embed registers its OWN bridge — registered in the plugin's OWN creation effect (after the plugin exists — the race-free home) and dying with the plugin's own dispose (the managers are plugin-owned; no listener-effect race, no stale re-adds) — no hover observer resurrected, the t201 disease does not return");
+ok(embed.includes("plugin.canvas3d.mark(current, action)"),
+  "G10 the carrier contract — the provider passes the WHOLE {loci, repr} object (applyMark destructures it; a bare loci would arrive as {repr: undefined, loci: undefined} and every repr's mark would refuse the ghost)");
 ok(panel.includes("A pointer instrument") && panel.includes("no focus, no tabIndex"),
   "G7 the hover is a pointer instrument (the minimap's precedent, named in the strip's own comment — the keyboard mirror is a named later knife, not an accident of absence)");
 ok(embed.includes("ShapeGroup: shape.ShapeGroup") && embed.includes('import("molstar/lib/mol-data/int")'),
   "G8 the kit carries the address word (ShapeGroup) and the OrderedSet rides its own lazy import (the embed's dynamic-import doctrine)");
+ok(embed.includes("(sheetCell.obj?.data as { data?: unknown } | null | undefined)?.data"),
+  "G11 the lazy shape unwrap (t1144) — the transform's obj.data is the LAZY shape provider ({label, data, params, getShape, geometryUtils}); the REAL Shape (groupCount · getColor · geometry) lives one `.data` deeper — the old read took groupCount off the provider (undefined) and the Loci addressed the provider, not the shape");
 
 console.log(`\n${fail === 0 ? "ALL GREEN" : "RED"} — t1131 sheet-legend unit: ${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);
