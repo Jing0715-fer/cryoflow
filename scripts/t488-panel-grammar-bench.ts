@@ -306,11 +306,16 @@ ok(
 
 /* ---------------- T6 the live well ---------------- */
 section("T6 — fixture jobs: the strip's numbers ARE the tool's numbers");
+// t1155 — the generation-proof lookup: the hardcoded projectId
+// (cmukrk2yy…) belonged to an older world generation and rotted the
+// live well into a permanent skip; the world holds exactly one ctffind
+// and one motioncorr — find them by TYPE, wherever the generations
+// move them.
 const ctfJob = await db.job.findFirst({
-  where: { type: "ctffind", projectId: "cmukrk2yy0000rjobryvy0pzu" },
+  where: { type: "ctffind" },
 });
 const mcJob = await db.job.findFirst({
-  where: { type: "motioncorr", projectId: "cmukrk2yy0000rjobryvy0pzu" },
+  where: { type: "motioncorr" },
 });
 if (ctfJob && mcJob) {
   const d = await loadCtf(ctfJob.id);
