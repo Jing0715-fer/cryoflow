@@ -143,14 +143,42 @@ export function defaultProfiles(): SlurmProfile[] {
 }
 
 export function loadProfiles(): SlurmProfile[] {
+  return loadProfilesVerdict().profiles;
+}
+
+/**
+ * t1151 — THE VERDICT FATHER under loadProfiles: the SAME read with the
+ * honest faces made speakable. loadProfiles' fall-through was SILENT —
+ * a corrupt registry masqueraded as the house defaults and no reader
+ * could tell never-tuned from corrupt from persisted (the t753 law:
+ * the unknown-able is shown, never hidden). ONE birthplace: loadProfiles
+ * rides this father (its return is byte-equal to the pre-father face —
+ * `.profiles`), and the agent's hpc-profile presenter drinks the verdict
+ * so the three faces each get their own word. No second loader is born.
+ */
+export interface ProfilesVerdict {
+  profiles: SlurmProfile[];
+  /** False = no hpc-profiles.json on this server — the rows ARE the
+   *  house defaults (example hosts included). */
+  persisted: boolean;
+  /** True = the saved registry could not be read or parsed — the house
+   *  defaults answer until the next save. */
+  corrupt: boolean;
+}
+
+export function loadProfilesVerdict(): ProfilesVerdict {
   try {
     if (existsSync(PROFILE_FILE)) {
-      return JSON.parse(readFileSync(PROFILE_FILE, "utf8")) as SlurmProfile[];
+      return {
+        profiles: JSON.parse(readFileSync(PROFILE_FILE, "utf8")) as SlurmProfile[],
+        persisted: true,
+        corrupt: false,
+      };
     }
   } catch {
-    /* fall through to defaults */
+    return { profiles: defaultProfiles(), persisted: true, corrupt: true };
   }
-  return defaultProfiles();
+  return { profiles: defaultProfiles(), persisted: false, corrupt: false };
 }
 
 export function saveProfiles(profiles: SlurmProfile[]): void {

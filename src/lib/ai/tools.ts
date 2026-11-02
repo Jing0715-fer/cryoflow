@@ -163,6 +163,8 @@ import { readDiagnostics, presentSystemDiagnostics, type DiagnosticsPayload } fr
 import { presentWorldHealth, type WorldHealthToolResult } from "@/lib/ai/world-health-present";
 import { presentPresetShelf } from "@/lib/ai/preset-shelf-present";
 import { presentTemplateShelf } from "@/lib/ai/template-shelf-present";
+import { presentHpcProfiles } from "@/lib/ai/hpc-profile-present";
+import { loadProfilesVerdict } from "@/lib/hpc/slurm";
 import { PARAM_PRESET_SHELF_ID } from "@/lib/param-preset-sanitize";
 import type { JobClock } from "@/lib/world-vitals";
 
@@ -647,6 +649,24 @@ export const AI_TOOLS: ToolSchema[] = [
     parameters: { type: "object", properties: {}, additionalProperties: false },
   },
   {
+    name: "get_hpc_profiles",
+    description:
+      "The HPC PROFILE REGISTRY in one read — the cluster profiles editor's own rows as data: per profile the " +
+    "display name, the login host (null = submits locally), the Slurm partition, QoS, account, the time limit " +
+    "in minutes, the node count, GPUs per node, the GPU model, the RELION home, the cluster data root, the " +
+    "ctffind binary, the environment preparation lines byte for byte, the array throttle (%N) and the simulator " +
+    "speed. THE tool for '什么分区 / which partition or queue / how many GPUs does my cluster get / 我的 profile " +
+    "是什么配置 / what walltime / which account / 用哪个 profile 跑'. Honest faces: a registry never saved speaks " +
+    "the HOUSE DEFAULTS — two of them carry .example.org hosts and are EXAMPLES, never a reachable target; a " +
+    "corrupt registry says so and quotes nothing as the user's tuning; an emptied registry is the deletion's " +
+    "truth. Cousins, not duplicates: list_clusters is the connections' roster (probe truth, RELION modules, " +
+    "dispatch résumés) and the real remote lane rides the CONNECTION's own Slurm settings — this is the sbatch " +
+    "TRANSLATION vocabulary the dry-run door wears. Read-only QUOTER: the sbatch dry-run door translates ONE " +
+    "job's script onto ONE profile by id; the agent never writes a profile. The registry is the SERVER's — it " +
+    "speaks across projects and browsers. Zero knobs: the registry is the registry, not a filtered one.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
     name: "get_continue_sources",
     description:
       "A run's RESTART DOORS in one read — the inspector's 'Continue from here:' picker as data: every optimiser round the run can legally resume from, its own arc (self) and any upstream refinement's rounds. Per round: the iteration number, the optimiser.star path, whether EVERY sibling RELION reload is present (an incomplete round is shown but never a legal --continue target), and the CHECKPOINT — the newest complete self round, live tree over archived generations, the picker's own pick, never re-derived. Per source: the lane (a remote row's paths speak CLUSTER coordinates — a host shell would misread them) and the honest wounds (a source that could not be read carries its own error; a capped listing says it is a floor, not all). THE tool for '这个任务能从哪继续 / what can this run continue from / where's the newest checkpoint / which iteration would --iter resume'. Read-only LOCATOR: it names the doors — continue_run is the verb that opens one. The roster is the picker's own walk and the checkpoint is the picker's own pick: the Continue dialog drinks the same cup. One knob: the job id.",
@@ -1088,6 +1108,8 @@ export async function executeAiTool(
         return await getParamPresets();
       case "get_custom_templates":
         return await getCustomTemplates(ctx);
+      case "get_hpc_profiles":
+        return await getHpcProfiles();
       case "get_continue_sources":
         return await getContinueSources(ctx, args);
       case "get_storage_report":
@@ -3521,6 +3543,24 @@ async function getCustomTemplates(ctx: AgentCtx): Promise<AiToolResult> {
       payload: r.payload,
       createdAt: r.createdAt.toISOString(),
     })),
+  });
+}
+
+/* ---- get_hpc_profiles ------------------------------------------------ */
+
+/** t1151 — the profile registry's well: the verdict father's read (the
+ *  lib's OWN loader — loadProfiles rides loadProfilesVerdict, so the
+ *  route and this well drink the same bytes; no second loader is born),
+ *  the rows handed WHOLE to the pure presenter. This well only feeds:
+ *  no parsing, no sorting, no second gate. The registry is the
+ *  SERVER's — one global file, no project scope, no user scope (the
+ *  list_job_types precedent). */
+async function getHpcProfiles(): Promise<AiToolResult> {
+  const verdict = loadProfilesVerdict();
+  return presentHpcProfiles({
+    persisted: verdict.persisted,
+    corrupt: verdict.corrupt,
+    profiles: verdict.profiles,
   });
 }
 
