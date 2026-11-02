@@ -160,6 +160,8 @@ import { resolveInsideJobWorkdir } from "@/lib/relion/jobfile";
 import { readPathrefTarget } from "@/lib/relion/pathref";
 import { detectRelion, type RelionStatus } from "@/lib/relion/system";
 import { readDiagnostics, presentSystemDiagnostics, type DiagnosticsPayload } from "@/lib/diagnostics";
+import { presentWorldHealth, type WorldHealthToolResult } from "@/lib/ai/world-health-present";
+import type { JobClock } from "@/lib/world-vitals";
 
 // t530 — the box's agent face lives in the pure diagnostics module (the
 // bench's node lane imports the presenter without dragging this world);
@@ -599,6 +601,12 @@ export const AI_TOOLS: ToolSchema[] = [
     parameters: { type: "object", properties: {}, additionalProperties: false },
   },
   {
+    name: "get_world_health",
+    description:
+      "The WORLD'S HEALTH BOARD in one read — the World health dialog's own rows as data, byte for byte, never a re-derivation: the census (jobs / edges / running / completed / failed / pending / idle), the engine + pipeline verdicts (RELION found and how it executes, binaries and externals present, failures counted, wiring coherence) and the jobs' OWN face (the last failure named in the run's own first words, the oldest running's age with the pace judgment — the completions' own median is the line, never an invented constant —, the oldest waiting's patience, and the Fresh and Marathon completions dated and weighed). THE tool for 'how is the pipeline doing / 管道最近怎么样 / 最近怎么样 / what failed recently / why is this run slow / has anything finished / is the engine ready / 这个会话健康吗'. Cousins, not duplicates: get_workflow_state is the raw roster (positions, params, result lines), get_system_diagnostics is the BOX (memory, disk, build provenance), get_session_timeline is the TIME (honest windows), this is the BOARD (the verdicts and the rows). Scope: the whole project's roster — every workspace's jobs in one read (the client dialog reads the active workspace's; a one-workspace project agrees row for row, a multi-workspace project gets the scope note in the summary). Polite engine read: it drinks the same cached probe the header serves (fresh-while-revalidate; a thrown probe leaves the engine row as the board's own honest absence, and the annex says so). Zero knobs: the walk is the board's walk, not a filtered one.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
     name: "get_continue_sources",
     description:
       "A run's RESTART DOORS in one read — the inspector's 'Continue from here:' picker as data: every optimiser round the run can legally resume from, its own arc (self) and any upstream refinement's rounds. Per round: the iteration number, the optimiser.star path, whether EVERY sibling RELION reload is present (an incomplete round is shown but never a legal --continue target), and the CHECKPOINT — the newest complete self round, live tree over archived generations, the picker's own pick, never re-derived. Per source: the lane (a remote row's paths speak CLUSTER coordinates — a host shell would misread them) and the honest wounds (a source that could not be read carries its own error; a capped listing says it is a floor, not all). THE tool for '这个任务能从哪继续 / what can this run continue from / where's the newest checkpoint / which iteration would --iter resume'. Read-only LOCATOR: it names the doors — continue_run is the verb that opens one. The roster is the picker's own walk and the checkpoint is the picker's own pick: the Continue dialog drinks the same cup. One knob: the job id.",
@@ -1034,6 +1042,8 @@ export async function executeAiTool(
         return await getEnvironmentReport(ctx);
       case "get_system_diagnostics":
         return await getSystemDiagnostics(ctx);
+      case "get_world_health":
+        return await getWorldHealth(ctx);
       case "get_continue_sources":
         return await getContinueSources(ctx, args);
       case "get_storage_report":
@@ -3371,6 +3381,51 @@ async function getSystemDiagnostics(_ctx: AgentCtx): Promise<AiToolResult> {
     payload = null;
   }
   return presentSystemDiagnostics(payload);
+}
+
+/* ---- get_world_health ----------------------------------------------- */
+
+/** t1148 — the health board's well: the roster from the db (the WHOLE
+ *  project — every workspace; the server cannot know the client's
+ *  active workspace, and the presenter says so when it matters), the
+ *  wires, and the engine's polite read. The fathers do every verdict —
+ *  this well only feeds them (no status counting, no second formatter:
+ *  the presenter's own law). A thrown probe is the engine row's honest
+ *  absence (the same cup get_environment_report drinks, same refusal
+ *  to force: the forced re-probe is the Re-detect button's job). */
+async function getWorldHealth(ctx: AgentCtx): Promise<AiToolResult> {
+  const active = await getActiveProject();
+  if (!active) return { ok: false, summary: "No active project" };
+  const [jobs, edges] = await Promise.all([
+    db.job.findMany({ where: { projectId: ctx.projectId }, orderBy: { createdAt: "asc" } }),
+    db.edge.findMany({ where: { projectId: ctx.projectId }, select: { id: true } }),
+  ]);
+  let engine: RelionStatus | null = null;
+  let probeFailed = false;
+  try {
+    engine = await detectRelion();
+  } catch {
+    probeFailed = true;
+  }
+  const clocks: JobClock[] = jobs.map((j) => ({
+    name: j.name,
+    status: j.status,
+    result: j.result,
+    startedAt: j.startedAt ? j.startedAt.toISOString() : null,
+    updatedAt: j.updatedAt.toISOString(),
+    duration: j.duration,
+  }));
+  const workspaceCount = new Set(jobs.map((j) => j.workspaceId ?? "null")).size;
+  const spoken: WorldHealthToolResult = presentWorldHealth({
+    projectName: active.project.name,
+    jobs: clocks,
+    edges,
+    engine,
+    engineProbeFailed: probeFailed,
+    now: Date.now(),
+    workspaceCount,
+  });
+  return spoken;
 }
 
 /* ---- get_continue_sources ------------------------------------------- */
