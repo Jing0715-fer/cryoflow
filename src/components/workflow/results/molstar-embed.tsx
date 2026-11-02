@@ -898,6 +898,28 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
         // volume grid transform when verifying clip/slice plane math).
         (window as unknown as { __molstar?: unknown }).__molstar = plugin;
 
+        // t1144 — the MARK provider. The t201 amputation kept the viewer's
+        // behaviors to the camera/axis/snapshot set; `representation-highlight-loci`
+        // (the ONLY stock behavior that registers a mark provider — the bridge
+        // from lociHighlights.highlight to canvas3d.mark) went out with the
+        // throwing structure observers, so every highlight the legend-hover
+        // applier ever requested landed on an EMPTY provider list:
+        // lm.highlight ran, nothing ever marked, zero pixels — the highlight
+        // was born dead on this viewer. This provider is the bridge,
+        // registered HERE (after the plugin exists — the race-free home) and
+        // scoped to THIS applier's marks: it fires on legend-hover highlights,
+        // never on pointer moves (no hover observer is resurrected — the t201
+        // disease does not return). The provider list dies with the plugin's
+        // own dispose (the managers are plugin-owned).
+        const markProvider = (current: Parameters<typeof plugin.canvas3d.mark>[0], action: Parameters<typeof plugin.canvas3d.mark>[1]) => {
+          if (!plugin.canvas3d) return;
+          // the contract passes the WHOLE {loci, repr} carrier — applyMark
+          // destructures it; a bare loci would arrive as {repr: undefined,
+          // loci: undefined} and every repr's mark would refuse the ghost
+          plugin.canvas3d.mark(current, action);
+        };
+        plugin.managers.interactivity.lociHighlights?.addProvider(markProvider as never);
+
         // fetch the raw map bytes through the (path-checked) outputs API.
         // Retry with backoff: in dev, Turbopack compiles the route on first
         // hit and a request can transiently fail mid-compile — an instant
@@ -4995,7 +5017,13 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
   // shape — the listener never goes stale across re-renders).
   const applyObliqueSheetLegendHover = async (band: number | null) => {
     const plugin = pluginRef.current;
-    const lm = plugin?.managers?.interaction?.lociHighlights;
+    // t1144 — the manager's real name in mol* 5.11 is `interactivity` (the
+    // live probe's own census: managers = structure · volume ·
+    // interactivity · camera · … — there is NO `interaction` manager). The
+    // old read was a dead optional chain: `lm` came back undefined on
+    // EVERY hover and the applier bailed silently at this first guard —
+    // the t1136 cell-address cure sat unexercised behind a broken door.
+    const lm = plugin?.managers?.interactivity?.lociHighlights;
     if (!plugin || !lm) return;
     if (band === null || !Number.isFinite(band) || band < 0) {
       lm.clearHighlights();
@@ -5020,8 +5048,17 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       }
     }
     if (!sheetCell) return; // no face on the scene — a ghost key paints nothing
-    const shape = sheetCell.obj?.data as { groupCount: number } | undefined;
-    if (!shape || band >= shape.groupCount) return; // the stale-key bound
+    // t1144 — the transform's obj.data is the LAZY shape provider
+    // ({label, data, params, getShape, geometryUtils}); the REAL Shape
+    // (groupCount · getColor · geometry…) lives one `.data` deeper. The
+    // old read took groupCount off the provider — undefined — and the
+    // Loci addressed the provider, not the shape: even with the right
+    // manager the paint had no address to land on.
+    const shape = (sheetCell.obj?.data as { data?: unknown } | null | undefined)?.data as
+      | { groupCount: number }
+      | null
+      | undefined;
+    if (!shape || typeof shape.groupCount !== "number" || band >= shape.groupCount) return; // the stale-key bound
     const kit = await ensureSheetKit();
     const int = await import("molstar/lib/mol-data/int");
     lm.highlight({
