@@ -1,0 +1,73 @@
+{
+ "walk": "t1143-completions-own-words",
+ "at": "2026-11-02T00:55:00+00:00",
+ "window": "t1143 (cron 2026-11-02 08:05 +08:00, Job 362852)",
+ "feature": "the completions' own words — the health board's per-job verdicts' NEXT half (the t1134 pool's remaining slice): Fresh (the newest completion DATED), Marathon (the longest run WEIGHED), and the PACE JUDGMENT (the completions' own median duration is the world's OWN pace — the oldest run strictly outlasting twice the median earns the warn face)",
+ "cars": {
+  "feat": "the lib fathers + the dialog's gate extension",
+  "qa": "the t1140 seat re-key 19→35 (the C band 16 pins + A8/B1/B5 re-keyed) + the census annotation",
+  "chore": "receipts",
+  "docs": "the worklog entry"
+ },
+ "unit": {
+  "file": "scripts/t1140-world-job-rows-unit.mjs",
+  "pins": 35,
+  "rides": "35/35 green x2 (after the pin-shape cures — see the tautology lesson below)"
+ },
+ "census": {
+  "seats": 83,
+  "seat81": "t1140-world-job-rows-unit 19→35 (the t1143 re-key)",
+  "rides": "83/83 zero RED x2 at open (pre-work) → the OOM death mid-ride-1 of the qa sequence → revival → 83/83 zero RED x2 (post-revival) → exit gate on the committed tree"
+ },
+ "lib": {
+  "file": "src/lib/world-vitals.ts",
+  "additions": [
+   "JobClock.duration?: number | null (STRUCTURAL — JobDTO satisfies it, fakes may omit it; the row derives from the stamps instead, never invents)",
+   "durationMsOf — the engine's real elapsed ms when the DTO carries it, else the stamps' own span; unreadable → null",
+   "PACE_MEDIAN_FLOOR = 3 — a median from fewer than three completions is a rumor, not a pace",
+   "PACE_JUDGE_FACTOR = 2 — the judgment's line, twice the world's own median pace",
+   "the completions' scan (before the verdicts — the pace judgment rides the durations it collects); ties fall to the array's last (the >= law)",
+   "the fresh-completion row (label Fresh, ok true) — 'X finished 9m 00s ago · ran 1m 00s'; a future finish stamp is clock skew (the row steps aside); an unreadable duration speaks no 'ran' words",
+   "the marathon row (label Marathon, ok true) — 'X ran the longest — 7m 00s'",
+   "the pace judgment on the oldest-running row — ok flips to false and the detail gains '; outlasted the usual run (median 3m 20s)' when the age strictly exceeds 2x the lower-middle median"
+  ]
+ },
+ "dialog": {
+  "file": "src/components/workflow/world-health-dialog.tsx",
+  "changes": [
+   "hasAgeableJobs extends its disjunction to completed>0 (the Fresh age rides the SAME useNow tick — the gate EXTENDS, no second ticker is born)",
+   "the aria-label teaches the new faces (the newest completion, the longest run)",
+   "the list's comment names the t1143 faces"
+  ]
+ },
+ "laws": [
+  "THE WORLD'S OWN PACE — the verdict rides the completions' own median (derived from the data, the mesh's 2-98 stretch precedent), never an invented constant",
+  "the judgment errs late, never early — the floor 3, the even count's lower middle, the line STRICT (exactly 2x is not outlasted)",
+  "a verdict without evidence is a lie wearing a badge — the waiting row stays an honest fact (JobClock cannot reconstruct a time-to-start)",
+  "the one-clock law, extended — the gate's disjunction grows, no second ticker is born",
+  "the cascade-RED law re-ridden — the census's first post-re-key ride OOM-killed the standalone (dmesg: global OOM, task bun, anon-rss 2.7GB); the t911/t1021/t1022 REDs were the death's echo and evaporated with the revival"
+ ],
+ "instrumentLessons": [
+  "the pin-shape lesson (the tautology-pin law's cousin): C1 and A8's first drafts expected ONE row from a single completed run — but one run speaks TWICE (dated AND weighed); the fixtures' expectations were wrong, not the lib; rewritten BEFORE the green was claimed"
+ ],
+ "revival": {
+  "conviction": "dmesg — global OOM, task bun, pid 31650, anon-rss 2701400kB",
+  "cure": "scripts/start-prod.sh (the same last-green build, BUILD_ID jjPoxa8nia2HhYASjIKoN unchanged — the t1143 delta stays the worklog's word)",
+  "verified": "doctor CLEAN (one world, ghost-free, BINDING conn-mvy782td sound, phantom 404-holds) + the world gate 15 jobs · 15 done · 14 edges unmoved + mock echo ok BEFORE the re-ride",
+  "nohupOrphanLaw": "the first nohup+direct-bun boot died between tool calls; the start-prod.sh foreground run survived (the t1134 law re-ridden)"
+ },
+ "checks": [
+  {"name": "push law at open", "ok": true, "note": "HEAD = origin = eb13d540 (the t1142 docs car), tree clean"},
+  {"name": "doctor at open", "ok": true, "note": "CLEAN — one world, ghost-free, BINDING conn-mvy782td, phantom 404-holds; the session's shell poison DATABASE_URL=custom.db flagged and dodged"},
+  {"name": "census at open", "ok": true, "note": "83/83 zero RED x2"},
+  {"name": "world gate", "ok": true, "note": "15 jobs · 15 done · 14 edges · db 143360 (the t1142 re-key's own number)"},
+  {"name": "lanes", "ok": true, "note": ":3000 200 (standalone) · mock :3022 echo ok · avail ~704MB at open → non-build day"},
+  {"name": "tsc / eslint", "ok": true, "note": "0 / 0 on the lib + the dialog"},
+  {"name": "unit", "ok": true, "note": "35/35 green x2 after the pin-shape cures"},
+  {"name": "census post-re-key", "ok": true, "note": "83/83 zero RED x2 after the revival (ride-1's trio RED convicted as the OOM cascade)"}
+ ],
+ "queuedLiveRides": "the completions' own words join the build-day queue: the board's second list on a live world (the Fresh + Marathon rows on the seed world's 15 completions; the pace judgment needs a slow run to speak)",
+ "buildAwareness": {
+  "servedBuild": "BUILD_ID jjPoxa8nia2HhYASjIKoN — the standing build predates the t1143 faces; the dialog's new rows are unbaked (the non-build-day shape)"
+ }
+}
