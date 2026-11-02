@@ -32,6 +32,7 @@ import { useWorkflowStore } from "@/lib/store";
 import { fmtBytes } from "@/lib/canvas-export";
 import { encodeGifFrames } from "@/lib/gif-export";
 import { sanitizeMrcHeader } from "@/lib/mrc-axis";
+import { sceneFitChoice, FIT_PATIENCE } from "@/lib/camera-fit"; // t1145 — the camera-fit door's decision core (the unit runs the brain; the mol*-touching hands stay in the embed)
 import { canCopyImageToClipboard, copyViewerPng, drawFigureFooter, exportViewerPng, figureFooterHeightPx, figureTitleMeta, viewerFileSlug, viewerFileTimestamp } from "@/lib/viewer-export";
 import { downloadBlob } from "@/lib/download";
 import { keptIntervalOf, normalizeInterval } from "@/lib/clip-interval"; // t905 — the slab seat: both clip languages answer to one interval editor
@@ -175,6 +176,65 @@ type MolPlugin = any;
 const PRESETS = [1, 2, 3, 5];
 const SIGMA_MIN = 0.5;
 const SIGMA_MAX = 10;
+
+/* t1145 — the camera-fit door. The init fit read the scene ONCE, 300 ms
+ * after the commit; the isosurface geometry bakes async, so in a small
+ * strip viewport the first read can legitimately be radius 0 (nothing
+ * visible YET) — and the old code then fell to Camera.Reset, whose
+ * default pose has no opinion about the scene's actual extent. The map
+ * + sheet stayed invisible behind the CONTOUR overlay and never spoke
+ * again (the t1144 verdict: "the camera radius collapsed to 0"). The
+ * door now has PATIENCE (bounded retries on a short beat — the bake
+ * lands while we wait), a FALLBACK CHAIN (the visible sphere → the
+ * whole-scene sphere, which the map DATA fills even before the surface
+ * bakes → Reset last), and a FACE (the Fit button + the V key, so the
+ * user can re-ask at any time instead of living with a collapsed frame).
+ * The decision core (sceneFitChoice) lives in lib/camera-fit.ts — the
+ * unit runs the brain for real; only the mol*-touching hands stay here. */
+
+/** frame the camera on the scene: patience first, then the fallback
+ *  chain. Returns WHERE the camera landed ("visible" = the visible
+ *  sphere, "whole" = the whole-scene sphere, "reset" = the stock pose,
+ *  "gone" = the plugin left mid-fit). Cosmetic by contract — every
+ *  failure path stays silent; a lost fit must never become a toast. */
+async function fitSceneCamera(
+  plugin: MolPlugin,
+  opts: { beats?: number; beatMs?: number; disposed?: () => boolean } = {},
+): Promise<"visible" | "whole" | "reset" | "gone"> {
+  const c3d = plugin?.canvas3d;
+  if (!c3d) return "gone";
+  const beats = Math.max(1, opts.beats ?? 1);
+  const beatMs = Math.max(0, opts.beatMs ?? 200);
+  const { PluginCommands } = await import("molstar/lib/mol-plugin/commands");
+  const frame = (
+    sphere: { center: number[]; radius: number } | null | undefined,
+  ): boolean => {
+    if (!sphere) return false;
+    const c = sphere.center;
+    if (!Array.isArray(c) || c.length < 3 || !c.every((n) => Number.isFinite(n))) return false;
+    return sceneFitChoice(sphere.radius, null) === "visible";
+  };
+  const focus = async (sphere: { center: number[]; radius: number }, which: "visible" | "whole") => {
+    // frame slightly tighter than the full bounding sphere so the density
+    // fills more of the viewport (the t906-era ×0.7, floor 1 — never zero)
+    const snapshot = c3d.camera.getFocus(sphere.center, Math.max(sphere.radius * 0.7, 1));
+    await PluginCommands.Camera.SetSnapshot(plugin, { snapshot });
+    return which;
+  };
+  for (let i = 0; i < beats; i++) {
+    if (opts.disposed?.()) return "gone";
+    const visible = c3d.scene?.boundingSphereVisible;
+    if (frame(visible)) return await focus(visible, "visible");
+    // the whole-scene sphere does not need the surface to have baked —
+    // the parsed volume's data box fills it. Only worth ONE visit: it
+    // cannot grow between beats, so no patience is spent on it.
+    const whole = c3d.scene?.boundingSphere;
+    if (whole && frame(whole)) return await focus(whole, "whole");
+    if (i < beats - 1) await new Promise((r) => setTimeout(r, beatMs));
+  }
+  await PluginCommands.Camera.Reset(plugin, {});
+  return "reset";
+}
 
 /** overlay surface colors, in assignment order (distinct from the main
  *  map's orange and from each other; readable on both themes). The
@@ -1063,28 +1123,15 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
           /* readout-only */
         }
 
-        // frame the map: focus on the visible scene's bounding sphere
-        // (non-blocking — camera framing is cosmetic)
+        // frame the map: t1145's camera-fit door — patience (the isosurface
+        // geometry bakes async; a small viewport's first read can be radius
+        // 0) + the fallback chain (visible sphere → whole-scene sphere →
+        // Reset). Non-blocking — camera framing is cosmetic.
         void (async () => {
           try {
             await new Promise((r) => setTimeout(r, 300));
-            const c3d = plugin?.canvas3d;
-            if (!c3d || disposed) return;
-            const { PluginCommands } = await import("molstar/lib/mol-plugin/commands");
-            const sphere = c3d.scene?.boundingSphereVisible ?? c3d.scene?.boundingSphere;
-            if (
-              sphere &&
-              sphere.radius > 0 &&
-              Array.isArray(sphere.center) &&
-              Number.isFinite(sphere.center[0])
-            ) {
-              // frame slightly tighter than the full bounding box so the
-              // density fills more of the viewport
-              const snapshot = c3d.camera.getFocus(sphere.center, Math.max(sphere.radius * 0.7, 1));
-              await PluginCommands.Camera.SetSnapshot(plugin, { snapshot });
-            } else {
-              await PluginCommands.Camera.Reset(plugin, {});
-            }
+            if (disposed) return;
+            await fitSceneCamera(plugin, { ...FIT_PATIENCE.init, disposed: () => disposed });
           } catch {
             /* camera framing is cosmetic */
           }
@@ -1796,6 +1843,12 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       } else if (e.key === "0") {
         e.preventDefault();
         resetCamera();
+      } else if (e.key === "v" || e.key === "V") {
+        // t1145 — the fit door's keyboard face: re-frame the camera on the
+        // scene's actual extent (patience included — a fresh surface may
+        // still be baking). The button beside Reset speaks the same verb.
+        e.preventDefault();
+        void fitSceneCamera(pluginRef.current, FIT_PATIENCE.verb).catch(() => {});
       } else if (e.key === "b" || e.key === "B") {
         // quick-save: the whole point of a good angle is that it shows up
         // unannounced — B freezes it before it drifts, no naming detour
@@ -7396,6 +7449,23 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
               </p>
             </PopoverContent>
           </Popover>
+          {/* t1145 — the camera-fit door's button face: re-frame on the
+              scene's actual extent. The init fit has patience + a fallback
+              chain (visible → whole-scene → Reset), but surfaces bake
+              async and slices/clips change what is visible — the user can
+              always re-ask. V key says the same verb. */}
+          <Button
+            variant="secondary"
+            size="icon"
+            className="size-8 rounded-lg shadow-sm"
+            onClick={() => {
+              void fitSceneCamera(pluginRef.current, FIT_PATIENCE.verb).catch(() => {});
+            }}
+            aria-label="Fit view to the density — frame the camera on the scene's extent"
+            title="Fit view (V) — re-frame the camera on the scene: waits briefly for a fresh surface, falls back to the whole-scene sphere when everything is sliced away"
+          >
+            <ZoomIn className="size-4" />
+          </Button>
           <Button
             variant="secondary"
             size="icon"
@@ -7460,7 +7530,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                 </span>
               </button>
               <p className="border-t px-1 pb-0.5 pt-1.5 text-[10px] leading-tight text-muted-foreground">
-                Keys 1–6 / 0 work too — swing to an axis, zoom stays put. Press B to quick-save the current angle.
+                Keys 1–6 / 0 work too — swing to an axis, zoom stays put. V re-frames on the scene (fit); B quick-saves the current angle.
               </p>
             </PopoverContent>
           </Popover>
