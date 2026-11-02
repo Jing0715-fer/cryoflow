@@ -69,6 +69,14 @@ function ok(name, cond, extra) {
   }
 }
 
+// t1153 — the shape-hunt law's own tooling: the drift words live in the
+// census comments (the t1152 doctrine), so a name-hunt that reads whole
+// files will always hit the COMMENTS that narrate the hunt. Strip them
+// first — the law hunts CODE, and the comments are where the words go to
+// be remembered, not where they are born.
+const stripComments = (s) =>
+  s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+
 /* ---------- A — the father run FOR REAL ---------- */
 console.log("A — the father run FOR REAL");
 
@@ -129,8 +137,16 @@ ok("B11 the pre-existing client reader never moved (storage-dialog)",
     /fmtBytes,\s*\n/.test(storageDialogSrc));
 ok("B12 the t518 voice law holds in tools.ts — fmtBytes the only bytes",
   toolsSrc.includes('import { fmtBytes } from "@/lib/relion/disk-usage"'));
-ok("B13 no local definition survives in ANY of the seven faces",
-  !/function fmtBytes\(/.test(cleanupSrc + inspectorSrc + resultsSrc + gallerySrc + canvasSrc + molstarSrc + canvasExportSrc));
+ok("B13 no local definition survives in ANY of the seven faces (comments stripped — the census words live there)",
+  !/function fmtBytes\(/.test(stripComments(cleanupSrc + inspectorSrc + resultsSrc + gallerySrc + canvasSrc + molstarSrc + canvasExportSrc)));
+ok("B14 the EIGHTH face came home (t1153) — formatStagedBytes rides the father",
+  /function formatStagedBytes\(bytes\?: number\): string \{\n  return bytes == null \|\| !Number\.isFinite\(bytes\) \|\| bytes <= 0\n    \? ""\n    : ` · \$\{fmtBytes\(bytes\)\}`;\n\}/.test(inspectorSrc),
+  "the staging line + the peak-memory chip must speak the father's word");
+ok("B15 the shape-hunt law — no 1024 display arithmetic left in the inspector (comments stripped)",
+  !/bytes >= 1024 \*\* 3|bytes >= 1024 \*\* 2/.test(stripComments(inspectorSrc)),
+  "births hide under different names — hunt by the arithmetic, never only by the name");
+ok("B16 the father's census carries the eighth birth, dated",
+  fatherSrc.includes("the EIGHTH birth") && fatherSrc.includes("2026-11-02 (t1153)"));
 
 /* ---------- C — the doctrine ---------- */
 console.log("C — the doctrine");
