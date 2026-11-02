@@ -214,10 +214,10 @@ ok("A11 the face speaks dates, never an age verdict (no Fresh, no Marathon)",
 console.log("B — the well and the schema, source-pinned (the file's own bytes)");
 
 const schemaStart = toolsSrc.indexOf('name: "get_param_presets"');
-const schemaEnd = toolsSrc.indexOf('name: "get_continue_sources"', schemaStart);
+const schemaEnd = toolsSrc.indexOf('name: "get_custom_templates"', schemaStart); // t1150 boundary re-key — the anchor names its OWN neighbor (the t1149 law)
 const schemaSlice = schemaStart > -1 && schemaEnd > schemaStart ? toolsSrc.slice(schemaStart, schemaEnd) : "";
 const wellStart = toolsSrc.indexOf("async function getParamPresets");
-const wellEnd = toolsSrc.indexOf("/* ---- get_continue_sources", wellStart);
+const wellEnd = toolsSrc.indexOf("/* ---- get_custom_templates", wellStart); // t1150 boundary re-key — the anchor names its OWN neighbor (the t1149 law)
 const wellSlice = wellStart > -1 && wellEnd > wellStart ? toolsSrc.slice(wellStart, wellEnd) : "";
 
 ok("B1 the tool is registered with ZERO knobs (the shelf is the shelf)",
