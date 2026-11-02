@@ -126,10 +126,10 @@ ok("B7 the CTF report line rides the fathers — µm 3-decimal, Å 1-decimal, th
 ok("B8 the chart's annotation words ride the father — the labels match the axis they sit on",
   snapshotsSrc.includes("label: `best ${fmtAngstrom(best.resolution)}`") &&
     snapshotsSrc.includes("label: `current ${fmtAngstrom(last.resolution)}`"));
-ok("B9 the postprocess verdict's local fmt birth is DEAD — the verdict faces ride the father",
+ok("B9 the postprocess verdict's local fmt birth is DEAD — the verdict faces ride the father (t1156 re-key: the sampling rate's slot rides fmtPixel now — the raw angpix?.toFixed(2) said \"undefined Å/px\" aloud when angpix was null, the t1156 pixel father's junk face speaks \"?\" instead)",
   !/const fmt = \(v: number\)/.test(verdictSrc) &&
     verdictSrc.includes("${fmtAngstrom(official)} final (masked, corrected)") &&
-    verdictSrc.includes("${fmtAngstrom(nyquist)} at ${angpix?.toFixed(2)} Å/px"));
+    verdictSrc.includes("${fmtAngstrom(nyquist)} at ${fmtPixel(angpix)} Å/px"));
 ok("B10 the sharpening weather report rides the B-factor father — three words, one birthplace",
   verdictSrc.includes("a gentle ${fmtBFactor(bfactor)}") &&
     verdictSrc.includes("a strong ${fmtBFactor(bfactor)}") &&

@@ -1,0 +1,142 @@
+{
+  "instrument": "scripts/t876-live-autolive.mjs",
+  "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder -> title (the t867 growth — the tree's own tooltip voice, the accessible-name spec's own last resort) — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
+  "build": "dev@6db11acaa94a",
+  "worldMode": "dev",
+  "date": "2026-11-01T08:59:26.048Z",
+  "chain": "A probe resolved+created+wired → B run issued + running window caught → C FILM A autolive present → D completion + FSC route → E FILM B the flip → W world back at 16",
+  "doors": {
+    "probe": "the live probe refine3d created via POST /api/jobs, wired rebalance → probe, run with the mock cluster's remote body",
+    "film": "the probe's own FSC compare overlay (the autolive band live)"
+  },
+  "verdict": "the autolive face is filmed at last: a live probe refine3d was born through the product's own doors (created, wired from rebalance, run on the mock cluster), its running window was caught by polling, and the overlay — the probe's own or the canonical's — showed the pulsing live band while a picked job ran; the completion flipped the band to the quiet indexed count on the same door; the FSC route speaks for the probe; the world closed at 16 completed",
+  "checks": [
+    {
+      "label": "A1 the demo project resolved",
+      "pass": true,
+      "detail": "β-Galactosidase Tutorial (demo)"
+    },
+    {
+      "label": "A2 the canonical rebalance found",
+      "pass": true,
+      "detail": "uxji2z"
+    },
+    {
+      "label": "A3 the probe resolved (a previous ride's)",
+      "pass": true,
+      "detail": "fj37wi"
+    },
+    {
+      "label": "A4 the spine edge already in place",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "A5 the probe's window widened (50 fixed iterations)",
+      "pass": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "label": "O1 the canvas arrives named",
+      "pass": true,
+      "detail": "btns=150 (the 16th card's world)"
+    },
+    {
+      "label": "B1 the Mock Cluster connection resolved",
+      "pass": true,
+      "detail": "conn-mvxd1fwg"
+    },
+    {
+      "label": "B2 the run issued",
+      "pass": true,
+      "detail": "HTTP 200 (waiting: not-ready)"
+    },
+    {
+      "label": "B3 the running window caught (the job's own truth)",
+      "pass": true,
+      "detail": "status=running"
+    },
+    {
+      "label": "C1 the probe's own overlay carried the band",
+      "pass": true,
+      "detail": "door=probe-own"
+    },
+    {
+      "label": "C2 THE AUTOLIVE PRESENT while a picked job runs",
+      "pass": true,
+      "detail": "text=\"Live — curves for the running job refresh every 12 s; the badge flips \""
+    },
+    {
+      "label": "C3 the freshness strip in its live dress",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "C4 the world's running truth named in the same breath",
+      "pass": true,
+      "detail": "the band's own claim: \"Live — curves for the running job refres\""
+    },
+    {
+      "label": "C5 the film's face fully named",
+      "pass": true,
+      "detail": "unnamed=0 unCtrls=0"
+    },
+    {
+      "label": "C6 Escape peeled the overlay — the inspector survives",
+      "pass": true,
+      "detail": "dlgs=1"
+    },
+    {
+      "label": "D1 the probe completed",
+      "pass": true,
+      "detail": "status=completed"
+    },
+    {
+      "label": "D2 the probe's FSC route speaks",
+      "pass": true,
+      "detail": "HTTP 200 shells=26"
+    },
+    {
+      "label": "E1 the overlay reopened on the same door",
+      "pass": true,
+      "detail": "door=probe-own rows=6"
+    },
+    {
+      "label": "E2 THE FLIP — the autolive honestly absent",
+      "pass": true,
+      "detail": "index line=\"6 curves indexed\""
+    },
+    {
+      "label": "E3 the indexed count speaks",
+      "pass": true,
+      "detail": "line=\"6 curves indexed\""
+    },
+    {
+      "label": "E4 the probe's own row in the candidate list",
+      "pass": true,
+      "detail": "probeRow=true rows=6"
+    },
+    {
+      "label": "E5 the completed face fully named",
+      "pass": true,
+      "detail": "unnamed=0 unCtrls=0"
+    },
+    {
+      "label": "W1 every dialog closed",
+      "pass": true,
+      "detail": "dlgs=0"
+    },
+    {
+      "label": "W2 the canvas back at its own count",
+      "pass": true,
+      "detail": "open=150 back=150"
+    },
+    {
+      "label": "W3 the world's census speaks the new truth",
+      "pass": true,
+      "detail": "16 completed — the probe is part of the world now"
+    }
+  ],
+  "passed": 25,
+  "failed": 0
+}

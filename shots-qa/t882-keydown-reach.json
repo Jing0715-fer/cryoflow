@@ -1,0 +1,88 @@
+{
+  "instrument": "scripts/t882-keydown-reach.mjs",
+  "build": "dev@ec37c84ff38b",
+  "worldMode": "dev",
+  "date": "2026-11-01T14:46:23.301Z",
+  "verdict": "PORTAL KEYDOWN REACHES: the real hand moved the palette selection — React's keydown dispatch reaches portal content; the prior epoch's 'portal keydown is dead' claim was the instrument's early read (P2) | F1 the consumer's fate: DEAD-or-unproven in the clean state (no preventDefault rode the body dispatch; Radix's document-capture path is the closer)",
+  "findings": [
+    {
+      "k": "R cards dressed",
+      "v": 3
+    },
+    {
+      "k": "R topology",
+      "v": {
+        "docMarker": true,
+        "htmlMarker": false,
+        "bodyMarker": true,
+        "rootContainer": "DOCUMENT(nodeType9)",
+        "rootHops": 105
+      }
+    },
+    {
+      "k": "K palette opened",
+      "v": {
+        "open": true,
+        "items": 85,
+        "sel": "job Import Movies 1 import Import Movies / Micrographs / Particles idle",
+        "inputFocused": true
+      }
+    },
+    {
+      "k": "K after REAL ArrowDown",
+      "v": {
+        "open": true,
+        "items": 85,
+        "sel": "job Motion Correction 1 motioncorr Motion Correction idle",
+        "inputFocused": true
+      }
+    },
+    {
+      "k": "K after REAL Escape",
+      "v": {
+        "open": false,
+        "dlgN": 0
+      }
+    },
+    {
+      "k": "P2 armed",
+      "v": {
+        "armed": true,
+        "selBefore": "job Import Movies 1 import Import Movies / Micrographs / Particles idle",
+        "inputFocused": true
+      }
+    },
+    {
+      "k": "P2 synthetic ArrowDown fired (same-eval read)",
+      "v": {
+        "sent": true,
+        "selSameEval": "job Import Movies 1 import Import Movies / Micrographs / Particles idle",
+        "witness": {
+          "cap": 1,
+          "capKey": "ArrowDown",
+          "bub": 1,
+          "defPrev": true
+        }
+      }
+    },
+    {
+      "k": "P2 post-eval read",
+      "v": {
+        "selPostEval": "job Motion Correction 1 motioncorr Motion Correction idle",
+        "witness": {
+          "cap": 1,
+          "capKey": "ArrowDown",
+          "bub": 1,
+          "defPrev": true
+        }
+      }
+    },
+    {
+      "k": "F1 cards dressed",
+      "v": 3
+    }
+  ],
+  "checks": 9,
+  "passed": 6,
+  "failed": 0
+}

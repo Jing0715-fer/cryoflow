@@ -1,0 +1,127 @@
+{
+  "instrument": "t874-run-compare-a11y",
+  "worldMode": "dev",
+  "build": "dev@063181dae529",
+  "date": "2026-11-02T06:22:01.673Z",
+  "faces": {
+    "arrival": {
+      "nDialogs": 2,
+      "heading": "Class A/B — Occupancy share"
+    },
+    "pickers": {
+      "a": "2D Classification (tutorial) (this run)",
+      "b": "3D Classification (tutorial) · Main"
+    },
+    "verdict": {
+      "unpairedA": "46",
+      "median": "+22.9%",
+      "pairs": 4
+    },
+    "scatter": {
+      "syms": 4,
+      "ref": 1
+    },
+    "adoption": {
+      "title": "All 1 downstream wire(s) refused — cycle",
+      "opens": 2
+    },
+    "sameRun": {
+      "held": 4,
+      "selectGone": true
+    },
+    "escape": {
+      "after": 1
+    },
+    "world": {
+      "btns": 144,
+      "jobs": 15
+    }
+  },
+  "ledger": {
+    "adoption": {
+      "arm": "arm 2",
+      "ok": true,
+      "drift": 0,
+      "identical": true,
+      "moved": {
+        "lens": [],
+        "world": []
+      }
+    },
+    "arrival": {
+      "arm": "arm 2",
+      "ok": true,
+      "drift": 0,
+      "identical": true,
+      "moved": {
+        "lens": [],
+        "world": []
+      }
+    },
+    "escape": {
+      "arm": "arm 2",
+      "ok": true,
+      "drift": 1,
+      "identical": false,
+      "moved": {
+        "lens": [],
+        "world": [
+          "after"
+        ]
+      }
+    },
+    "pickers": {
+      "arm": "arm 2",
+      "ok": true,
+      "drift": 0,
+      "identical": true,
+      "moved": {
+        "lens": [],
+        "world": []
+      }
+    },
+    "sameRun": {
+      "arm": "arm 2",
+      "ok": true,
+      "drift": 0,
+      "identical": true,
+      "moved": {
+        "lens": [],
+        "world": []
+      }
+    },
+    "scatter": {
+      "arm": "arm 2",
+      "ok": true,
+      "drift": 0,
+      "identical": true,
+      "moved": {
+        "lens": [],
+        "world": []
+      }
+    },
+    "verdict": {
+      "arm": "arm 2",
+      "ok": true,
+      "drift": 0,
+      "identical": true,
+      "moved": {
+        "lens": [],
+        "world": []
+      }
+    },
+    "world": {
+      "arm": "arm 2",
+      "ok": true,
+      "drift": 0,
+      "identical": true,
+      "moved": {
+        "lens": [],
+        "world": []
+      }
+    }
+  },
+  "escapeDisease": "FIXED on this build",
+  "pass": 34,
+  "fail": 0
+}

@@ -1,0 +1,13 @@
+Job,Curve,Verdict
+CTF Estimation 1,CTF fit,6 micrographs · mean defocus 1.348 µm · worst fit 4.4 Å (mic_003.mrc)
+Motion Correction 1,Motion drift,6 micrographs · mean drift 2.6 Å · worst 3.1 Å (mic_004.mrc) — early-frames dominate (the stage settles late)
+Post-process (tutorial),FSC,"FSC 0.143 at 7.8 Å (0.5 at 10.5 Å) · reported 7.8 Å — final resolution (masked, sharpened)"
+Post-process (tutorial),Guinier,Guinier 24 pts · B-factor -62.4 Å² (used for sharpening) · covers 7.1–169.0 Å · sharpened curve in plot
+3D Refine (tutorial),FSC,FSC 0.143 at 7.1 Å (0.5 at 9.6 Å) · reported 7.1 Å — auto-refine estimate (smoothed FSC)
+3D Refine (tutorial),Angular distribution,5672 particles · 95/288 bins · ×3.9 — fairly even · hottest r18/t0
+3D Classification (tutorial),FSC,FSC 0.143 at 3.7 Å (0.5 at 5 Å) · reported 3.7 Å — auto-refine estimate (smoothed FSC)
+3D Classification (tutorial),Angular distribution,96 particles · 89/288 bins · ×1.9 — fairly even · hottest r6/t0
+Initial Model (tutorial),FSC,FSC 0.143 at 3.2 Å (0.5 at 4.3 Å) · reported 3.2 Å — auto-refine estimate (smoothed FSC)
+Initial Model (tutorial),Angular distribution,96 particles · 89/288 bins · ×1.9 — fairly even · hottest r6/t0
+2D Classification (tutorial),FSC,FSC 0.143 at 3.2 Å (0.5 at 4.3 Å) · reported 3.2 Å — auto-refine estimate (smoothed FSC)
+2D Classification (tutorial),Angular distribution,96 particles · 89/288 bins · ×1.9 — fairly even · hottest r6/t0

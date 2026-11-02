@@ -1,0 +1,141 @@
+{
+  "instrument": "t870-section-tool",
+  "when": "2026-10-13T20:25:25.257Z",
+  "ride": {
+    "job": "cmv6wl2ls000uu99xqvlodopd",
+    "map": "run_class001.mrc"
+  },
+  "world": {
+    "glVerdictOr": false,
+    "glAbsentThrows": 2,
+    "realErrors": []
+  },
+  "pass": 31,
+  "fail": 0,
+  "checks": [
+    {
+      "pass": true,
+      "label": "A the refine3d job exists and completed"
+    },
+    {
+      "pass": true,
+      "label": "A the map renders as a PNG"
+    },
+    {
+      "pass": true,
+      "label": "B the final map's tile is on the Results tab"
+    },
+    {
+      "pass": true,
+      "label": "B the image dialog carries the 3D relay"
+    },
+    {
+      "pass": true,
+      "label": "B the Mol* embed's toolbar is up (clipBox rides the state graph, GL or not)"
+    },
+    {
+      "pass": true,
+      "label": "B the Clip toggle is named"
+    },
+    {
+      "pass": true,
+      "label": "B the Clip toggle is ON"
+    },
+    {
+      "pass": true,
+      "label": "B the section-box promote button is up (slider language)"
+    },
+    {
+      "pass": true,
+      "label": "B the export label speaks the full box"
+    },
+    {
+      "pass": true,
+      "label": "B the X slider thumb is named"
+    },
+    {
+      "pass": true,
+      "label": "B the X readout speaks 80% from the keyboard walk"
+    },
+    {
+      "pass": true,
+      "label": "C the section editor replaces the sliders"
+    },
+    {
+      "pass": true,
+      "label": "C the header speaks the live box"
+    },
+    {
+      "pass": true,
+      "label": "C the X row inherits the slider language's resolved interval"
+    },
+    {
+      "pass": true,
+      "label": "C the Y/Z rows speak their uncut truth"
+    },
+    {
+      "pass": true,
+      "label": "C six thumbs, one name each"
+    },
+    {
+      "pass": true,
+      "label": "C the export label follows the kept box"
+    },
+    {
+      "pass": true,
+      "label": "D the X low bound walks from the keyboard (5%)"
+    },
+    {
+      "pass": true,
+      "label": "D the export label re-speaks the box"
+    },
+    {
+      "pass": true,
+      "label": "D (world-gated) the guide's effect deps carry the section mirror — an edit re-projects the wireframe"
+    },
+    {
+      "pass": true,
+      "label": "E the 0.02 minimum span holds under the high thumb's drive"
+    },
+    {
+      "pass": true,
+      "label": "F the reset returns X to the full box"
+    },
+    {
+      "pass": true,
+      "label": "F the all-full editors re-label the export to the full box"
+    },
+    {
+      "pass": true,
+      "label": "G the release retires the editors"
+    },
+    {
+      "pass": true,
+      "label": "G the toggle speaks OFF (the whole panel stood down)"
+    },
+    {
+      "pass": true,
+      "label": "G the slider language returns through the toggle"
+    },
+    {
+      "pass": true,
+      "label": "G the re-promote re-opens the editors (live origin)"
+    },
+    {
+      "pass": true,
+      "label": "G the fresh editors hold the whole box"
+    },
+    {
+      "pass": true,
+      "label": "H the promote button carries its own name"
+    },
+    {
+      "pass": true,
+      "label": "H zero unnamed controls inside the editor"
+    },
+    {
+      "pass": true,
+      "label": "I real JS errors 0"
+    }
+  ]
+}

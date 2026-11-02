@@ -1,0 +1,26 @@
+{
+  "at": "2026-10-18T07:07:15.810Z",
+  "swept": [],
+  "keptCount": 13,
+  "kept": [
+    "cmvbjl6060000srlis2ai5mb3/autopick_a1gbc6xk",
+    "cmvbjl6060000srlis2ai5mb3/class2d_46lkfgpq",
+    "cmvbjl6060000srlis2ai5mb3/class3d_g7jbyk63",
+    "cmvbjl6060000srlis2ai5mb3/ctffind_mxmf8jum",
+    "cmvbjl6060000srlis2ai5mb3/extract_rnjjp9yr",
+    "cmvbjl6060000srlis2ai5mb3/import_q77uq52z",
+    "cmvbjl6060000srlis2ai5mb3/initialmodel_s0bx0t07",
+    "cmvbjl6060000srlis2ai5mb3/maskcreate_z3ik0pmj",
+    "cmvbjl6060000srlis2ai5mb3/motioncorr_1vdd3im1",
+    "cmvbjl6060000srlis2ai5mb3/postprocess_ekbbn220",
+    "cmvbjl6060000srlis2ai5mb3/rebalance_irpvma87",
+    "cmvbjl6060000srlis2ai5mb3/refine3d_xxe3896f",
+    "cmvbjl6060000srlis2ai5mb3/select_nlu3ijj8"
+  ],
+  "skippedCount": 1,
+  "skipped": [
+    "cmvbjl6060000srlis2ai5mb3/micrographs"
+  ],
+  "orphansLeft": 0,
+  "liveJobs": 15
+}

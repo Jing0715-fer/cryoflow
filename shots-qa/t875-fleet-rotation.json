@@ -1,0 +1,35 @@
+{
+  "instrument": "scripts/t875-fleet-rotation.mjs",
+  "build": "dev@8b65320b3087",
+  "worldMode": "dev",
+  "date": "2026-11-01T14:02:45.972Z",
+  "law": "the fleet re-rides on rotation rather than opening new rooms (the t874 verdict — the rotation's first full circuit closed)",
+  "gate": {
+    "instrument": "scripts/t846-a11y-maintenance.mjs",
+    "receiptDate": "2026-11-01T13:23:58.105Z",
+    "ridesSeparately": "the receipt-first convention — the gate rides first, alone"
+  },
+  "roster": [
+    "t877"
+  ],
+  "mode": "slice (--only t877)",
+  "rides": [
+    {
+      "id": "t877",
+      "script": "scripts/t877-rescan-live-world.mjs",
+      "room": "the rescan's live world (the strip's manual half, born from a RUNNING seed)",
+      "exit": 1,
+      "seconds": 160,
+      "receipt": {
+        "passed": 45,
+        "failed": 1,
+        "date": "2026-11-01T14:02:45.928Z",
+        "build": "dev@8b65320b3087"
+      },
+      "ok": false
+    }
+  ],
+  "green": 0,
+  "total": 1,
+  "verdict": "1 of 1 rides RED — the rotation's re-ride found a moved face; call the census's own instruments before any UI work"
+}

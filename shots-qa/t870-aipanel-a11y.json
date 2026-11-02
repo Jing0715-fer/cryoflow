@@ -1,0 +1,890 @@
+{
+  "instrument": "scripts/t870-aipanel-a11y.mjs",
+  "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder -> title (the t867 growth — the tree's own tooltip voice, the accessible-name spec's own last resort) — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
+  "build": "r8GOxh-ymcGX-2mJMCj9w",
+  "worldMode": "build",
+  "date": "2026-11-02T04:01:58.421Z",
+  "chain": "clean room -> canvas -> AI launcher -> panel (non-modal companion) -> empty face (suggestions + send refusal + drawer's honest empty) -> store seeded (reset-door discovery, pre-walk truth noted) -> rehydrated transcript (copy door, tool cards, filter row, keymap seat) -> 失败 chip -> 全部 -> history drawer (row from data, three doors, delete reveal) -> search filter + no-match -> Esc veto (search layer) -> Esc peel (window) -> store restored (net zero) -> reopened empty -> canvas back",
+  "doors": {
+    "panel": "click the header launcher (aria-label 'AI assistant')",
+    "drawer": "the header's Session history toggle (aria-expanded speaks)",
+    "filter": "the Transcript-filter chips (aria-pressed)",
+    "copyDoor": "button[aria-label='Copy reply'] — icon-only, hover/focus/touch reveal",
+    "search": "[data-session-search] — the controlled input through its native setter",
+    "esc": "Escape — layer 1 the live-query veto, layer 2 the window peel",
+    "store": "data/ai-assistant.json — the reset door discovered it, the pre-walk truth came back"
+  },
+  "seed": {
+    "store": "/home/z/my-project/data/ai-assistant.json",
+    "resetSessionId": "ai-mvyqf10c-cyirqx",
+    "preWalkTruth": "absence",
+    "restored": true,
+    "note": "the seeded conversation AND the discovery reset's empty session were both erased — the store returned to its pre-walk truth"
+  },
+  "revealLaw": {
+    "measured": "rest opacity 0 (desktop idle), focus-within opacity 1 — the keyboard voice",
+    "contract": "max-sm:opacity-100 — the touch voice rides in code (headless viewport is desktop; the touch voice is asserted by the class, recorded honestly as not-measured)"
+  },
+  "checks": [
+    {
+      "label": "O1 the boot is a clean room (the t157 seed cleared, both panels closed)",
+      "pass": true,
+      "detail": "jobPanel=false aiPanel=false"
+    },
+    {
+      "label": "O2 the canvas is calm and named (the census's invariant)",
+      "pass": true,
+      "detail": "btns=144 — zero unnamed anywhere"
+    },
+    {
+      "label": "P1 the launcher clicked (aria-label names the door)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "P2 the panel arrived as an honest non-modal companion (role=dialog, aria-modal=false, the t501 marks)",
+      "pass": true,
+      "detail": "label=\"AI 助手\" modal=false companion=true"
+    },
+    {
+      "label": "P3 zero unnamed page-wide WITH the panel up (the census's invariant)",
+      "pass": true,
+      "detail": "page btns=152 panel btns=8"
+    },
+    {
+      "label": "P4 the transcript region speaks its name, its tab stop and its aliveness (the t799 law)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "P5 the keymap seat is aboard in the empty world (ai-keymap, Kbd Esc, the word form)",
+      "pass": true,
+      "detail": "kbd=\"Esc\""
+    },
+    {
+      "label": "E1 the empty state speaks its heading",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "E2 the suggestion doors are named by their own text (the content IS the name)",
+      "pass": true,
+      "detail": "doors=[\"帮我搭一个完整的 SPA 流程：导入\",\"分析 2D 分类结果，结合分辨率推荐\",\"画布上现在有哪些任务？下一步该跑什么\"]"
+    },
+    {
+      "label": "E3 the composer is named and the send door refuses honestly while empty",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "E4 the history drawer opened through its own toggle (the arrival, waited for)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "E5 the drawer is empty and says so (the honest none — the search box only renders once sessions exist)",
+      "pass": true,
+      "detail": "rows=0 searchBox=absent (honest — nothing to search)"
+    },
+    {
+      "label": "E6 the drawer closed through its own toggle (the live measure says so)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "S1 the seed rehydrated: the assistant turn arrived WITH its copy door",
+      "pass": true,
+      "detail": "turns=1 copyDoors=1"
+    },
+    {
+      "label": "T1 the user bubble is the seed's own world (the transcript named, a user turn aboard)",
+      "pass": true,
+      "detail": "userBubbles=1"
+    },
+    {
+      "label": "T2 THE COPY DOOR: named, titled, icon-only (the compact form, the ToolCard locate dialect)",
+      "pass": true,
+      "detail": "doors=1 title=\"Copy reply\" visibleText=\"\""
+    },
+    {
+      "label": "T3 the reveal law, voice 1+2: hidden at rest, FOCUS reveals (opacity 0 -> 1)",
+      "pass": true,
+      "detail": "rest=0 focused->1"
+    },
+    {
+      "label": "T4 three tool cards speak their verdicts (2 ok + 1 failed)",
+      "pass": true,
+      "detail": "ok=2 fail=1"
+    },
+    {
+      "label": "T5 the filter row lit: 全部/工具/失败 with the seed's own counts (1 user + 1 assistant + 3 tool = 5), pressed states honest",
+      "pass": true,
+      "detail": "chips=[\"全部 · 5\",\"工具 · 3\",\"失败 · 1\"]"
+    },
+    {
+      "label": "T6 the keymap seat rides the transcript world too",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "T7 the composer's follow-up chip present (ONE chip, never a wall)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "T8 zero unnamed page-wide WITH the full transcript up (the census's invariant)",
+      "pass": true,
+      "detail": "page btns=157 panel btns=13"
+    },
+    {
+      "label": "T9 two settled rides bit-identical (the t836 law)",
+      "pass": true,
+      "detail": "bit-for-bit"
+    },
+    {
+      "label": "F1 the 失败 chip clicked",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "F2 the chip's pressed state flipped and ONLY the failed card remains",
+      "pass": true,
+      "detail": "visible cards=1 (fail=1)"
+    },
+    {
+      "label": "F3 全部 restores the whole transcript (3 cards back, pressed honest)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "H1 the row arrived titled from the DATA, the 当前 badge on the active row, the search named (it renders once sessions exist)",
+      "pass": true,
+      "detail": "row=\"当前t870 — 复制门与键位座位的见证刚刚·5 条消息3\" search=\"搜索历史会话\""
+    },
+    {
+      "label": "H2 the drawer speaks the session's recency — the 今天 bucket in the grouped worlds, the row's own wall-clock word (刚刚) in the flat one (flatSessions: one bucket renders flat)",
+      "pass": true,
+      "detail": "bucket=false rowTime=刚刚"
+    },
+    {
+      "label": "H3 the three row doors are named by the session's own name (删除/重命名/导出)",
+      "pass": true,
+      "detail": "doors=[\"当前t870 — 复制门与键位座\",\"删除会话：t870 — 复制门与\",\"重命名会话：t870 — 复制门\",\"导出会话：t870 — 复制门与\"]"
+    },
+    {
+      "label": "H4 the delete door's reveal law (the same three-voice dialect as the copy door): hidden at rest, focus reveals",
+      "pass": true,
+      "detail": "rest=0 focused->1"
+    },
+    {
+      "label": "H5 the search filters live (the seeded title survives its own query)",
+      "pass": true,
+      "detail": "query=\"t870\" rows=1"
+    },
+    {
+      "label": "H6 the no-match world is honest (没有匹配 spoken, zero rows)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "H7 the FIRST Esc is the search's veto: the query clears, the panel and the drawer stay (the t430 layer)",
+      "pass": true,
+      "detail": "panel=true drawer=true"
+    },
+    {
+      "label": "H8 the SECOND Esc closes the window (the keymap seat's own teaching, delivered)",
+      "pass": true,
+      "detail": "panel=false"
+    },
+    {
+      "label": "W1 the store restored to its pre-walk truth (the seeded conversation AND the discovery reset's residue erased — net zero)",
+      "pass": true,
+      "detail": "absence restored (the file is gone)"
+    },
+    {
+      "label": "W2 the reopened panel is EMPTY again (no seed residue, no reset residue — the honest empty)",
+      "pass": true,
+      "detail": "turns=0 copyDoors=0"
+    },
+    {
+      "label": "W3 the world unharmed (canvas count == the opening count, zero unnamed, no dialogs)",
+      "pass": true,
+      "detail": "btns=144 (opening 144)"
+    },
+    {
+      "label": "W4 the ride leaves no session seed (the t157 two-way door's honest none)",
+      "pass": true,
+      "detail": "seed=\"\""
+    },
+    {
+      "label": "L canvasFace face ride-drift law",
+      "pass": true,
+      "detail": "arm 2 — world key moved (dev@ec37c84ff38b -> r8GOxh-ymcGX-2mJMCj9w), drift +null informational"
+    },
+    {
+      "label": "L emptyFace face ride-drift law",
+      "pass": true,
+      "detail": "arm 2 — world key moved (dev@ec37c84ff38b -> r8GOxh-ymcGX-2mJMCj9w), drift +null informational"
+    },
+    {
+      "label": "L transcriptFace face ride-drift law",
+      "pass": true,
+      "detail": "arm 2 — world key moved (dev@ec37c84ff38b -> r8GOxh-ymcGX-2mJMCj9w), drift +null informational"
+    },
+    {
+      "label": "L historyFace face ride-drift law",
+      "pass": true,
+      "detail": "arm 2 — world key moved (dev@ec37c84ff38b -> r8GOxh-ymcGX-2mJMCj9w), drift +null informational"
+    },
+    {
+      "label": "L worldBack face ride-drift law",
+      "pass": true,
+      "detail": "arm 2 — world key moved (dev@ec37c84ff38b -> r8GOxh-ymcGX-2mJMCj9w), drift +null informational"
+    }
+  ],
+  "passed": 43,
+  "failed": 0,
+  "total": 43,
+  "verdict": "the AI conversation face holds: the clean room held, the panel arrived as the honest non-modal companion, the empty face refused to send while empty, the seeded transcript hosted the user's own words with THE COPY DOOR measured live (hidden at rest, focus reveals — named, titled, icon-only), three tool cards spoke their verdicts under a filter row whose pressed states stayed honest, the keymap seat rode every world, the history drawer titled its row from the data with the three row doors named and the delete door obeying the same reveal law, the layered Esc was witnessed live (the search veto, then the window peel), and the store came back to its pre-walk truth with the panel reopening to its own honest empty",
+  "driftLedger": {
+    "prevFound": true,
+    "prevBuild": "dev@ec37c84ff38b",
+    "prevDate": "2026-11-01T02:47:19.234Z",
+    "sameBuild": false,
+    "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
+    "faces": {
+      "canvasFace": {
+        "prev": null,
+        "live": 144,
+        "drift": null,
+        "identical": false,
+        "moved": {
+          "lens": [
+            "aiUnWho",
+            "chips",
+            "kbd",
+            "rowDoors",
+            "sugNames",
+            "url"
+          ],
+          "world": [
+            "aiBtns",
+            "aiCompanion",
+            "aiLabel",
+            "aiModal",
+            "aiPanel",
+            "aiUnnamed",
+            "altless",
+            "bucketToday",
+            "copyDoors",
+            "copyOpacity",
+            "copyText",
+            "copyTitle",
+            "ctrls",
+            "delOpacity",
+            "dlgCount",
+            "emptyHead",
+            "filterRow",
+            "followChip",
+            "hasDlg",
+            "histEmptyLine",
+            "histNoMatch",
+            "histOpen",
+            "histRows",
+            "histSearchName",
+            "imgPending",
+            "imgs",
+            "keymap",
+            "keymapWord",
+            "logLabel",
+            "logLive",
+            "logTab",
+            "pageBtns",
+            "pageUnnamed",
+            "panelOpen",
+            "rowBadge",
+            "rowTitle",
+            "sendDisabled",
+            "shimmer",
+            "suggestions",
+            "toolFail",
+            "toolOk",
+            "toolToggles",
+            "turns",
+            "unCtrls",
+            "userBubbles"
+          ]
+        }
+      },
+      "emptyFace": {
+        "prev": null,
+        "live": 152,
+        "drift": null,
+        "identical": false,
+        "moved": {
+          "lens": [
+            "aiLabel",
+            "aiModal",
+            "aiUnWho",
+            "chips",
+            "kbd",
+            "logLabel",
+            "logLive",
+            "logTab",
+            "rowDoors",
+            "sugNames",
+            "url"
+          ],
+          "world": [
+            "aiBtns",
+            "aiCompanion",
+            "aiPanel",
+            "aiUnnamed",
+            "altless",
+            "bucketToday",
+            "copyDoors",
+            "copyOpacity",
+            "copyText",
+            "copyTitle",
+            "ctrls",
+            "delOpacity",
+            "dlgCount",
+            "emptyHead",
+            "filterRow",
+            "followChip",
+            "hasDlg",
+            "histEmptyLine",
+            "histNoMatch",
+            "histOpen",
+            "histRows",
+            "histSearchName",
+            "imgPending",
+            "imgs",
+            "keymap",
+            "keymapWord",
+            "pageBtns",
+            "pageUnnamed",
+            "panelOpen",
+            "rowBadge",
+            "rowTitle",
+            "sendDisabled",
+            "shimmer",
+            "suggestions",
+            "toolFail",
+            "toolOk",
+            "toolToggles",
+            "turns",
+            "unCtrls",
+            "userBubbles"
+          ]
+        }
+      },
+      "transcriptFace": {
+        "prev": null,
+        "live": 157,
+        "drift": null,
+        "identical": false,
+        "moved": {
+          "lens": [
+            "aiLabel",
+            "aiModal",
+            "aiUnWho",
+            "copyOpacity",
+            "copyText",
+            "copyTitle",
+            "kbd",
+            "logLabel",
+            "logLive",
+            "logTab",
+            "rowDoors",
+            "sugNames",
+            "url"
+          ],
+          "world": [
+            "aiBtns",
+            "aiCompanion",
+            "aiPanel",
+            "aiUnnamed",
+            "altless",
+            "bucketToday",
+            "chips",
+            "copyDoors",
+            "ctrls",
+            "delOpacity",
+            "dlgCount",
+            "emptyHead",
+            "filterRow",
+            "followChip",
+            "hasDlg",
+            "histEmptyLine",
+            "histNoMatch",
+            "histOpen",
+            "histRows",
+            "histSearchName",
+            "imgPending",
+            "imgs",
+            "keymap",
+            "keymapWord",
+            "pageBtns",
+            "pageUnnamed",
+            "panelOpen",
+            "rowBadge",
+            "rowTitle",
+            "sendDisabled",
+            "shimmer",
+            "suggestions",
+            "toolFail",
+            "toolOk",
+            "toolToggles",
+            "turns",
+            "unCtrls",
+            "userBubbles"
+          ]
+        }
+      },
+      "historyFace": {
+        "prev": null,
+        "live": 161,
+        "drift": null,
+        "identical": false,
+        "moved": {
+          "lens": [
+            "aiLabel",
+            "aiModal",
+            "aiUnWho",
+            "copyOpacity",
+            "copyText",
+            "copyTitle",
+            "delOpacity",
+            "histSearchName",
+            "kbd",
+            "logLabel",
+            "logLive",
+            "logTab",
+            "rowDoors",
+            "rowTitle",
+            "sugNames",
+            "url"
+          ],
+          "world": [
+            "aiBtns",
+            "aiCompanion",
+            "aiPanel",
+            "aiUnnamed",
+            "altless",
+            "bucketToday",
+            "chips",
+            "copyDoors",
+            "ctrls",
+            "dlgCount",
+            "emptyHead",
+            "filterRow",
+            "followChip",
+            "hasDlg",
+            "histEmptyLine",
+            "histNoMatch",
+            "histOpen",
+            "histRows",
+            "imgPending",
+            "imgs",
+            "keymap",
+            "keymapWord",
+            "pageBtns",
+            "pageUnnamed",
+            "panelOpen",
+            "rowBadge",
+            "sendDisabled",
+            "shimmer",
+            "suggestions",
+            "toolFail",
+            "toolOk",
+            "toolToggles",
+            "turns",
+            "unCtrls",
+            "userBubbles"
+          ]
+        }
+      },
+      "worldBack": {
+        "prev": null,
+        "live": 144,
+        "drift": null,
+        "identical": false,
+        "moved": {
+          "lens": [
+            "aiUnWho",
+            "chips",
+            "kbd",
+            "rowDoors",
+            "sugNames",
+            "url"
+          ],
+          "world": [
+            "aiBtns",
+            "aiCompanion",
+            "aiLabel",
+            "aiModal",
+            "aiPanel",
+            "aiUnnamed",
+            "altless",
+            "bucketToday",
+            "copyDoors",
+            "copyOpacity",
+            "copyText",
+            "copyTitle",
+            "ctrls",
+            "delOpacity",
+            "dlgCount",
+            "emptyHead",
+            "filterRow",
+            "followChip",
+            "hasDlg",
+            "histEmptyLine",
+            "histNoMatch",
+            "histOpen",
+            "histRows",
+            "histSearchName",
+            "imgPending",
+            "imgs",
+            "keymap",
+            "keymapWord",
+            "logLabel",
+            "logLive",
+            "logTab",
+            "pageBtns",
+            "pageUnnamed",
+            "panelOpen",
+            "rowBadge",
+            "rowTitle",
+            "sendDisabled",
+            "shimmer",
+            "suggestions",
+            "toolFail",
+            "toolOk",
+            "toolToggles",
+            "turns",
+            "unCtrls",
+            "userBubbles"
+          ]
+        }
+      }
+    }
+  },
+  "faces": {
+    "canvasFace": {
+      "prev": null,
+      "live": 144,
+      "drift": null,
+      "identical": false,
+      "moved": {
+        "lens": [
+          "aiUnWho",
+          "chips",
+          "kbd",
+          "rowDoors",
+          "sugNames",
+          "url"
+        ],
+        "world": [
+          "aiBtns",
+          "aiCompanion",
+          "aiLabel",
+          "aiModal",
+          "aiPanel",
+          "aiUnnamed",
+          "altless",
+          "bucketToday",
+          "copyDoors",
+          "copyOpacity",
+          "copyText",
+          "copyTitle",
+          "ctrls",
+          "delOpacity",
+          "dlgCount",
+          "emptyHead",
+          "filterRow",
+          "followChip",
+          "hasDlg",
+          "histEmptyLine",
+          "histNoMatch",
+          "histOpen",
+          "histRows",
+          "histSearchName",
+          "imgPending",
+          "imgs",
+          "keymap",
+          "keymapWord",
+          "logLabel",
+          "logLive",
+          "logTab",
+          "pageBtns",
+          "pageUnnamed",
+          "panelOpen",
+          "rowBadge",
+          "rowTitle",
+          "sendDisabled",
+          "shimmer",
+          "suggestions",
+          "toolFail",
+          "toolOk",
+          "toolToggles",
+          "turns",
+          "unCtrls",
+          "userBubbles"
+        ]
+      }
+    },
+    "emptyFace": {
+      "prev": null,
+      "live": 152,
+      "drift": null,
+      "identical": false,
+      "moved": {
+        "lens": [
+          "aiLabel",
+          "aiModal",
+          "aiUnWho",
+          "chips",
+          "kbd",
+          "logLabel",
+          "logLive",
+          "logTab",
+          "rowDoors",
+          "sugNames",
+          "url"
+        ],
+        "world": [
+          "aiBtns",
+          "aiCompanion",
+          "aiPanel",
+          "aiUnnamed",
+          "altless",
+          "bucketToday",
+          "copyDoors",
+          "copyOpacity",
+          "copyText",
+          "copyTitle",
+          "ctrls",
+          "delOpacity",
+          "dlgCount",
+          "emptyHead",
+          "filterRow",
+          "followChip",
+          "hasDlg",
+          "histEmptyLine",
+          "histNoMatch",
+          "histOpen",
+          "histRows",
+          "histSearchName",
+          "imgPending",
+          "imgs",
+          "keymap",
+          "keymapWord",
+          "pageBtns",
+          "pageUnnamed",
+          "panelOpen",
+          "rowBadge",
+          "rowTitle",
+          "sendDisabled",
+          "shimmer",
+          "suggestions",
+          "toolFail",
+          "toolOk",
+          "toolToggles",
+          "turns",
+          "unCtrls",
+          "userBubbles"
+        ]
+      }
+    },
+    "transcriptFace": {
+      "prev": null,
+      "live": 157,
+      "drift": null,
+      "identical": false,
+      "moved": {
+        "lens": [
+          "aiLabel",
+          "aiModal",
+          "aiUnWho",
+          "copyOpacity",
+          "copyText",
+          "copyTitle",
+          "kbd",
+          "logLabel",
+          "logLive",
+          "logTab",
+          "rowDoors",
+          "sugNames",
+          "url"
+        ],
+        "world": [
+          "aiBtns",
+          "aiCompanion",
+          "aiPanel",
+          "aiUnnamed",
+          "altless",
+          "bucketToday",
+          "chips",
+          "copyDoors",
+          "ctrls",
+          "delOpacity",
+          "dlgCount",
+          "emptyHead",
+          "filterRow",
+          "followChip",
+          "hasDlg",
+          "histEmptyLine",
+          "histNoMatch",
+          "histOpen",
+          "histRows",
+          "histSearchName",
+          "imgPending",
+          "imgs",
+          "keymap",
+          "keymapWord",
+          "pageBtns",
+          "pageUnnamed",
+          "panelOpen",
+          "rowBadge",
+          "rowTitle",
+          "sendDisabled",
+          "shimmer",
+          "suggestions",
+          "toolFail",
+          "toolOk",
+          "toolToggles",
+          "turns",
+          "unCtrls",
+          "userBubbles"
+        ]
+      }
+    },
+    "historyFace": {
+      "prev": null,
+      "live": 161,
+      "drift": null,
+      "identical": false,
+      "moved": {
+        "lens": [
+          "aiLabel",
+          "aiModal",
+          "aiUnWho",
+          "copyOpacity",
+          "copyText",
+          "copyTitle",
+          "delOpacity",
+          "histSearchName",
+          "kbd",
+          "logLabel",
+          "logLive",
+          "logTab",
+          "rowDoors",
+          "rowTitle",
+          "sugNames",
+          "url"
+        ],
+        "world": [
+          "aiBtns",
+          "aiCompanion",
+          "aiPanel",
+          "aiUnnamed",
+          "altless",
+          "bucketToday",
+          "chips",
+          "copyDoors",
+          "ctrls",
+          "dlgCount",
+          "emptyHead",
+          "filterRow",
+          "followChip",
+          "hasDlg",
+          "histEmptyLine",
+          "histNoMatch",
+          "histOpen",
+          "histRows",
+          "imgPending",
+          "imgs",
+          "keymap",
+          "keymapWord",
+          "pageBtns",
+          "pageUnnamed",
+          "panelOpen",
+          "rowBadge",
+          "sendDisabled",
+          "shimmer",
+          "suggestions",
+          "toolFail",
+          "toolOk",
+          "toolToggles",
+          "turns",
+          "unCtrls",
+          "userBubbles"
+        ]
+      }
+    },
+    "worldBack": {
+      "prev": null,
+      "live": 144,
+      "drift": null,
+      "identical": false,
+      "moved": {
+        "lens": [
+          "aiUnWho",
+          "chips",
+          "kbd",
+          "rowDoors",
+          "sugNames",
+          "url"
+        ],
+        "world": [
+          "aiBtns",
+          "aiCompanion",
+          "aiLabel",
+          "aiModal",
+          "aiPanel",
+          "aiUnnamed",
+          "altless",
+          "bucketToday",
+          "copyDoors",
+          "copyOpacity",
+          "copyText",
+          "copyTitle",
+          "ctrls",
+          "delOpacity",
+          "dlgCount",
+          "emptyHead",
+          "filterRow",
+          "followChip",
+          "hasDlg",
+          "histEmptyLine",
+          "histNoMatch",
+          "histOpen",
+          "histRows",
+          "histSearchName",
+          "imgPending",
+          "imgs",
+          "keymap",
+          "keymapWord",
+          "logLabel",
+          "logLive",
+          "logTab",
+          "pageBtns",
+          "pageUnnamed",
+          "panelOpen",
+          "rowBadge",
+          "rowTitle",
+          "sendDisabled",
+          "shimmer",
+          "suggestions",
+          "toolFail",
+          "toolOk",
+          "toolToggles",
+          "turns",
+          "unCtrls",
+          "userBubbles"
+        ]
+      }
+    }
+  }
+}

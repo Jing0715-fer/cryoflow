@@ -1,0 +1,686 @@
+{
+  "instrument": "scripts/t867-quick-look-a11y.mjs",
+  "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
+  "build": "dev@c4c3735897dd",
+  "worldMode": "dev",
+  "date": "2026-10-14T01:20:21.162Z",
+  "chain": "clean room -> canvas -> refine3d card (plain door) -> Results tab (mousedown) -> MrcGallery (tiles + roving) -> ArrowRight walk -> Enter -> map dialog (topmost) -> Escape -> stack dialog (.mrcs face, slice cursor) -> Escape -> worldBack + seed hygiene (one command)",
+  "doors": {
+    "inspector": "plain pointerdown+pointerup on the refine3d card — the submitted law",
+    "resultsTab": "mousedown on the Results tab — the t863 Radix law",
+    "mapDialog": "Enter on the focused tile — the t777 door lineage",
+    "stackDialog": "click the stack tile — the .mrcs face",
+    "close": "Escape — the keymap seat's own teaching"
+  },
+  "host": {
+    "name": "3D Refine (tutorial)",
+    "id": "cmv79wm3z000uusbutpdpbijl",
+    "measured": true
+  },
+  "openingCanvas": 144,
+  "faces": {
+    "gallery": {
+      "live": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 289,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 14,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgHeadTop": "3D Refine (tutorial) — job inspector3D R",
+        "dlgCount": 1,
+        "act": "in-dialog",
+        "actTab": "Results",
+        "shimmer": 0,
+        "tiles": 10,
+        "roving": 1,
+        "chips": [
+          {
+            "t": "final · it",
+            "p": "true"
+          },
+          {
+            "t": "it012",
+            "p": "false"
+          },
+          {
+            "t": "it011",
+            "p": "false"
+          },
+          {
+            "t": "it010",
+            "p": "false"
+          },
+          {
+            "t": "it009",
+            "p": "false"
+          },
+          {
+            "t": "it008",
+            "p": "false"
+          },
+          {
+            "t": "it007",
+            "p": "false"
+          },
+          {
+            "t": "it006",
+            "p": "false"
+          },
+          {
+            "t": "it005",
+            "p": "false"
+          },
+          {
+            "t": "it004",
+            "p": "false"
+          },
+          {
+            "t": "it003",
+            "p": "false"
+          },
+          {
+            "t": "it002",
+            "p": "false"
+          },
+          {
+            "t": "it001",
+            "p": "false"
+          },
+          {
+            "t": "it000",
+            "p": "false"
+          },
+          {
+            "t": "all 77",
+            "p": "false"
+          }
+        ],
+        "regionNamed": false,
+        "regionLabel": null,
+        "regionTabindex": null,
+        "keymap": false,
+        "door3dNamed": false,
+        "door3dText": null,
+        "slicePrev": false,
+        "sliceNext": false,
+        "sliceRangeNamed": false,
+        "sliceReadout": "",
+        "followWinPressed": null
+      }
+    },
+    "quickLook": {
+      "live": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 292,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 15,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgHeadTop": "Class 2 map (iter 12)",
+        "dlgCount": 2,
+        "act": "in-dialog",
+        "actTab": null,
+        "shimmer": 0,
+        "tiles": 10,
+        "roving": 1,
+        "chips": [
+          {
+            "t": "final · it",
+            "p": "true"
+          },
+          {
+            "t": "it012",
+            "p": "false"
+          },
+          {
+            "t": "it011",
+            "p": "false"
+          },
+          {
+            "t": "it010",
+            "p": "false"
+          },
+          {
+            "t": "it009",
+            "p": "false"
+          },
+          {
+            "t": "it008",
+            "p": "false"
+          },
+          {
+            "t": "it007",
+            "p": "false"
+          },
+          {
+            "t": "it006",
+            "p": "false"
+          },
+          {
+            "t": "it005",
+            "p": "false"
+          },
+          {
+            "t": "it004",
+            "p": "false"
+          },
+          {
+            "t": "it003",
+            "p": "false"
+          },
+          {
+            "t": "it002",
+            "p": "false"
+          },
+          {
+            "t": "it001",
+            "p": "false"
+          },
+          {
+            "t": "it000",
+            "p": "false"
+          },
+          {
+            "t": "all 77",
+            "p": "false"
+          }
+        ],
+        "regionNamed": true,
+        "regionLabel": "Map and stack preview — the image, its window controls, and ",
+        "regionTabindex": "0",
+        "keymap": true,
+        "door3dNamed": true,
+        "door3dText": "View in 3D (Mol*)",
+        "slicePrev": false,
+        "sliceNext": false,
+        "sliceRangeNamed": false,
+        "sliceReadout": "",
+        "followWinPressed": null
+      },
+      "secondRide": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 292,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 15,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgHeadTop": "Class 2 map (iter 12)",
+        "dlgCount": 2,
+        "act": "in-dialog",
+        "actTab": null,
+        "shimmer": 0,
+        "tiles": 10,
+        "roving": 1,
+        "chips": [
+          {
+            "t": "final · it",
+            "p": "true"
+          },
+          {
+            "t": "it012",
+            "p": "false"
+          },
+          {
+            "t": "it011",
+            "p": "false"
+          },
+          {
+            "t": "it010",
+            "p": "false"
+          },
+          {
+            "t": "it009",
+            "p": "false"
+          },
+          {
+            "t": "it008",
+            "p": "false"
+          },
+          {
+            "t": "it007",
+            "p": "false"
+          },
+          {
+            "t": "it006",
+            "p": "false"
+          },
+          {
+            "t": "it005",
+            "p": "false"
+          },
+          {
+            "t": "it004",
+            "p": "false"
+          },
+          {
+            "t": "it003",
+            "p": "false"
+          },
+          {
+            "t": "it002",
+            "p": "false"
+          },
+          {
+            "t": "it001",
+            "p": "false"
+          },
+          {
+            "t": "it000",
+            "p": "false"
+          },
+          {
+            "t": "all 77",
+            "p": "false"
+          }
+        ],
+        "regionNamed": true,
+        "regionLabel": "Map and stack preview — the image, its window controls, and ",
+        "regionTabindex": "0",
+        "keymap": true,
+        "door3dNamed": true,
+        "door3dText": "View in 3D (Mol*)",
+        "slicePrev": false,
+        "sliceNext": false,
+        "sliceRangeNamed": false,
+        "sliceReadout": "",
+        "followWinPressed": null
+      },
+      "stackFace": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 294,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 3,
+        "unCtrls": 0,
+        "imgs": 16,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgHeadTop": "Stack run_classes.mrcs",
+        "dlgCount": 2,
+        "act": "in-dialog",
+        "actTab": null,
+        "shimmer": 0,
+        "tiles": 10,
+        "roving": 1,
+        "chips": [
+          {
+            "t": "final · it",
+            "p": "true"
+          },
+          {
+            "t": "it012",
+            "p": "false"
+          },
+          {
+            "t": "it011",
+            "p": "false"
+          },
+          {
+            "t": "it010",
+            "p": "false"
+          },
+          {
+            "t": "it009",
+            "p": "false"
+          },
+          {
+            "t": "it008",
+            "p": "false"
+          },
+          {
+            "t": "it007",
+            "p": "false"
+          },
+          {
+            "t": "it006",
+            "p": "false"
+          },
+          {
+            "t": "it005",
+            "p": "false"
+          },
+          {
+            "t": "it004",
+            "p": "false"
+          },
+          {
+            "t": "it003",
+            "p": "false"
+          },
+          {
+            "t": "it002",
+            "p": "false"
+          },
+          {
+            "t": "it001",
+            "p": "false"
+          },
+          {
+            "t": "it000",
+            "p": "false"
+          },
+          {
+            "t": "all 77",
+            "p": "false"
+          }
+        ],
+        "regionNamed": true,
+        "regionLabel": "Map and stack preview — the image, its window controls, and ",
+        "regionTabindex": "0",
+        "keymap": true,
+        "door3dNamed": false,
+        "door3dText": null,
+        "slicePrev": true,
+        "sliceNext": true,
+        "sliceRangeNamed": true,
+        "sliceReadout": "slice 1 of 3",
+        "followWinPressed": "false"
+      },
+      "cursorWalk": [
+        "slice 1 of 3",
+        "slice 2 of 3",
+        "slice 1 of 3"
+      ]
+    },
+    "worldBack": {
+      "live": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 144,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": false,
+        "dlgHeadTop": null,
+        "dlgCount": 0,
+        "act": "BODY",
+        "actTab": "Catalog",
+        "shimmer": 0,
+        "tiles": 0,
+        "roving": 0,
+        "chips": [],
+        "regionNamed": false,
+        "regionLabel": null,
+        "regionTabindex": null,
+        "keymap": false,
+        "door3dNamed": false,
+        "door3dText": null,
+        "slicePrev": false,
+        "sliceNext": false,
+        "sliceRangeNamed": false,
+        "sliceReadout": null,
+        "followWinPressed": null
+      }
+    }
+  },
+  "checks": [
+    {
+      "label": "O0 the boot is a clean room (the t157 seed cleared, the panel closed)",
+      "pass": true,
+      "detail": "panelOpen=false"
+    },
+    {
+      "label": "O1 the canvas is calm and named (the census's invariant)",
+      "pass": true,
+      "detail": "btns=144 — zero unnamed anywhere"
+    },
+    {
+      "label": "G1 the card's plain door opened the inspector (the submitted law)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "G2 the inspector arrived (a dialog aboard)",
+      "pass": true,
+      "detail": "dlgCount=1"
+    },
+    {
+      "label": "G3 the Results tab switched through the MOUSEDOWN door (the t863 Radix law)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "G4 the active tab speaks Results",
+      "pass": true,
+      "detail": "actTab=Results"
+    },
+    {
+      "label": "G5 the gallery hosts tiles, each named (the 'Enlarge …' text IS the door's name)",
+      "pass": true,
+      "detail": "tiles=10"
+    },
+    {
+      "label": "G6 the roving law holds: exactly ONE tile in the tab order (the t777 third sibling)",
+      "pass": true,
+      "detail": "roving=1 of 10"
+    },
+    {
+      "label": "G7 the round chips speak their state (aria-pressed on final/it/all)",
+      "pass": true,
+      "detail": "chips=[{\"t\":\"final · it\",\"p\":\"true\"},{\"t\":\"it012\",\"p\":\"false\"},{\"t\":\"it011\",\"p\":\"false\"},{\"t\":\"it010\",\"p\":\"false\"},{\"t\":\"it009\",\"p\":\"false\"},{\"t\":\"it008\",\"p\":\"false\"},{\"t\":\"it007\",\"p\":\"false\"},{\"t\":\"it006\",\"p\":\"false\"},{\"t\":\"it005\",\"p\":\"false\"},{\"t\":\"it004\",\"p\":\"false\"},{\"t\":\"it003\",\"p\":\"false\"},{\"t\":\"it002\",\"p\":\"false\"},{\"t\":\"it001\",\"p\":\"false\"},{\"t\":\"it000\",\"p\":\"false\"},{\"t\":\"all 77\",\"p\":\"false\"}]"
+    },
+    {
+      "label": "G8 zero unnamed page-wide WITH the gallery up (the census's invariant)",
+      "pass": true,
+      "detail": "btns=289 ctrls=2"
+    },
+    {
+      "label": "R1 the anchor tile took focus (the derived anchor's seat)",
+      "pass": true,
+      "detail": "tile=run_it012_class001.mrc"
+    },
+    {
+      "label": "R2 ArrowRight moved focus to a NEIGHBORING tile (the geometric law)",
+      "pass": true,
+      "detail": "from=…it012_class001.mrc to=…it012_class002.mrc"
+    },
+    {
+      "label": "R3 the roving anchor followed the focus (still exactly one tile in the tab order)",
+      "pass": true,
+      "detail": "roving=1"
+    },
+    {
+      "label": "R4 Enter enlarged the focused tile (the door lineage: arrows never enlarge)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "R5 the quick-look arrived as the TOPMOST layer (the t865 nested-portal lesson)",
+      "pass": true,
+      "detail": "dlgCount=2"
+    },
+    {
+      "label": "Q1 the dialog's heading is the file's label, read from the TOPMOST layer",
+      "pass": true,
+      "detail": "head=\"Class 2 map (iter 12)\""
+    },
+    {
+      "label": "Q2 the region is named (the t809 house dialect's own label)",
+      "pass": true,
+      "detail": "label=\"Map and stack preview — the image, its window controls, and \""
+    },
+    {
+      "label": "Q3 the region keeps its keyboard door (tabIndex 0 — the ground is focusable)",
+      "pass": true,
+      "detail": "tabindex=0"
+    },
+    {
+      "label": "Q4 the 'View in 3D (Mol*)' door is present and named (measured, never clicked)",
+      "pass": true,
+      "detail": "door=\"View in 3D (Mol*)\""
+    },
+    {
+      "label": "Q5 the t831 keymap seat is aboard (quick-keymap — the family's third seat)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "Q6 the map face carries no slice cursor (a map has no stack to step — the mode gate)",
+      "pass": true,
+      "detail": "prev=false next=false"
+    },
+    {
+      "label": "Q7 zero unnamed page-wide WITH the quick-look up (the census's invariant)",
+      "pass": true,
+      "detail": "btns=292 ctrls=2"
+    },
+    {
+      "label": "Q8 two settled rides bit-identical (the t836 law, the t860 settle)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "K1 Escape closed the quick-look (the keymap seat's own teaching, delivered)",
+      "pass": true,
+      "detail": "dlgCount 2 -> 1"
+    },
+    {
+      "label": "K2 the inspector remains, zero unnamed (the census's invariant after the close)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "S1 a stack tile's click door opened the dialog (the .mrcs face)",
+      "pass": true,
+      "detail": "label=\"Enlarge Stack run_classes.mrcs\""
+    },
+    {
+      "label": "S2 the slice cursor is aboard: prev/next doors + the named range input",
+      "pass": true,
+      "detail": "prev=true range=true"
+    },
+    {
+      "label": "S3 the readout speaks the cursor (slice N of M)",
+      "pass": true,
+      "detail": "readout=\"slice 1 of 3\""
+    },
+    {
+      "label": "S4 the follow-window toggle carries its aria-pressed machine (the t288 law)",
+      "pass": true,
+      "detail": "aria-pressed=false"
+    },
+    {
+      "label": "S5 the stack's keymap teaches the slice step (the mode-gated chips)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "S6 zero unnamed page-wide WITH the stack dialog up (the census's invariant)",
+      "pass": true,
+      "detail": "btns=294 ctrls=3"
+    },
+    {
+      "label": "S7 Next stepped the cursor (the readout followed)",
+      "pass": true,
+      "detail": "\"slice 1 of 3\" -> \"slice 2 of 3\""
+    },
+    {
+      "label": "S8 Prev stepped the cursor back (the readout returned)",
+      "pass": true,
+      "detail": "readout=\"slice 1 of 3\""
+    },
+    {
+      "label": "W1 the world unharmed (canvas count == the opening count, zero unnamed)",
+      "pass": true,
+      "detail": "btns=144 (opening 144)"
+    },
+    {
+      "label": "W2 the ride leaves no session seed (the t157 two-way door's honest none — the t866 lesson rides every page)",
+      "pass": true,
+      "detail": "seed=\"\""
+    },
+    {
+      "label": "L gallery face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L quickLook face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +3 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause) — the moved fields named: lens [actTab, dlgHeadTop, door3dText, regionLabel, regionTabindex]; world [dlgCount, door3dNamed, imgs, keymap, pageBtns, regionNamed]"
+    },
+    {
+      "label": "L worldBack face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    }
+  ],
+  "passed": 38,
+  "failed": 0,
+  "total": 38,
+  "verdict": "the quick-look face holds: the clean room held (the panel-closed boot — the t866 law), the refine3d inspector's Results tab hosts the MrcGallery with 10 named tiles and the roving law's one seat, the round chips speak their aria-pressed states, ArrowRight moved the focus and the anchor followed (the t777 geometric law), Enter enlarged (the door lineage), the map dialog arrived as the TOPMOST layer with the file's label and the named region (tabIndex 0), the 'View in 3D (Mol*)' door present and named but never clicked, the stack dialog's slice cursor walked next -> prev with the readout following, the follow-window toggle carries its aria-pressed machine, the t831 keymap seat taught its keys, zero unnamed on every face, two settled rides bit-identical, the world back bit-for-bit (144 == 144), and the ride left no session seed — the ledger aboard from birth (three faces, the shared law)",
+  "driftLedger": {
+    "prevFound": true,
+    "prevBuild": "dev@c4c3735897dd",
+    "prevDate": "2026-10-14T01:18:17.164Z",
+    "sameBuild": true,
+    "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
+    "faces": {
+      "gallery": {
+        "prev": 289,
+        "live": 289,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "quickLook": {
+        "prev": 289,
+        "live": 292,
+        "drift": 3,
+        "identical": false,
+        "moved": {
+          "lens": [
+            "actTab",
+            "dlgHeadTop",
+            "door3dText",
+            "regionLabel",
+            "regionTabindex"
+          ],
+          "world": [
+            "dlgCount",
+            "door3dNamed",
+            "imgs",
+            "keymap",
+            "pageBtns",
+            "regionNamed"
+          ]
+        }
+      },
+      "worldBack": {
+        "prev": 144,
+        "live": 144,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      }
+    }
+  }
+}

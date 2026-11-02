@@ -1,0 +1,8 @@
+Job,Main map,Volumes,Peak,Δ winner,Agreement r,Weakest
+Post-process (tutorial),Sharpened map,2,0.0%,+0.0,1.00,Q1 (1.00)
+3D Refine (tutorial),run_class001,63,1.6%,+1.6,1.00,Q1 (0.99)
+3D Classification (tutorial),run_class001,160,0.0%,+0.0,0.98,Q2 (0.94)
+Import Movies 1,Micrograph mic_001,24,0.0%,+0.0,0.00,Q3 (-0.00)
+Mask Create (tutorial),Mask,1,49.2%,+49.2,-0.75,Q2 (-0.97)
+Initial Model (tutorial),run_class001,112,1.6%,+1.6,1.00,Q1 (0.99)
+2D Classification (tutorial),run_class001,223,1.6%,+1.6,1.00,Q1 (0.99)

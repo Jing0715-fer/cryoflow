@@ -1,0 +1,119 @@
+{
+  "task": "t885b",
+  "window": "cron 2026-11-02 16:05:38 +08:00 (trace 1a07549302235a99-cron-agent-loop-202611021605)",
+  "purpose": "the wrap-zero mystery CLOSED — two artifacts quantified (staleness: mirror replaced on commits; frozen: sloppy-eval wraps are silent no-ops), the call counted through a frozen-safe clone, the dispatch path stack captured",
+  "census": {
+    "els": 4088,
+    "pkSuffixes": [
+      "3bo97anttg"
+    ],
+    "fkSuffixes": [
+      "3bo97anttg"
+    ],
+    "carriers": 201,
+    "frozenCarriers": 201
+  },
+  "arm": {
+    "armed": true,
+    "pk": "__reactProps$i3bo97anttg",
+    "fk": "__reactFiber$i3bo97anttg",
+    "rootPropsFrozen": true,
+    "hadKeyDown": true
+  },
+  "settle": {
+    "sets": 2,
+    "mirrorReads": 2,
+    "clones": 1
+  },
+  "fire": {
+    "fired": true,
+    "target": "BUTTON:fsc-compare-rescan"
+  },
+  "landed": 500,
+  "read": {
+    "sets": 4,
+    "mirrorReads": 10,
+    "calls": 1,
+    "clones": 3,
+    "stack": "    at counting (<anonymous>:1:756) <<     at executeDispatch (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:10314:13) <<     at runWithFiberInDEV (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:965:74) <<     at processDispatchQueue (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:10340:41) <<     at http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:10615:13 <<     at batchedUpdates$1 (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2253:44)"
+  },
+  "checks": [
+    {
+      "label": "C1 the world dressed bare (clean baseline)",
+      "pass": true,
+      "detail": "dlgs=0 btns=168"
+    },
+    {
+      "label": "C1b the autolive key is absent (the door will open by click, not memory)",
+      "pass": true,
+      "detail": "autolive=null"
+    },
+    {
+      "label": "C2 the workflow canvas holds the cards",
+      "pass": true,
+      "detail": "cards=15"
+    },
+    {
+      "label": "C3 the inspector arrived",
+      "pass": true,
+      "detail": "heads=[3D Refine (tutorial) — job inspector3D R]"
+    },
+    {
+      "label": "C4 the fsc door mounted",
+      "pass": true,
+      "detail": "tab={\"found\":true,\"selected\":true}"
+    },
+    {
+      "label": "C5 the fsc dialog floats over the inspector",
+      "pass": true,
+      "detail": "dlgs=2"
+    },
+    {
+      "label": "C6 one react-dom copy owns the document",
+      "pass": true,
+      "detail": "pk=1 fk=1"
+    },
+    {
+      "label": "C7 ARTIFACT (b) QUANTIFIED: the carriers' props objects are frozen (sloppy-eval wraps are silent no-ops)",
+      "pass": true,
+      "detail": "frozen 201/201"
+    },
+    {
+      "label": "C8 the frozen-safe trap armed on the fsc root",
+      "pass": true,
+      "detail": "pk=__reactProps$i3bo97anttg rootPropsFrozen=true"
+    },
+    {
+      "label": "C9 ARTIFACT (a) QUANTIFIED: the mirror was replaced since the arm (commits mint fresh props)",
+      "pass": true,
+      "detail": "sets=2 (pre-fire mirrorReads=2, clones=1)"
+    },
+    {
+      "label": "C10 the Escape fired",
+      "pass": true,
+      "detail": "target=BUTTON:fsc-compare-rescan"
+    },
+    {
+      "label": "C11 the peel landed (behaviour preserved through the clone)",
+      "pass": true,
+      "detail": "atMs=500"
+    },
+    {
+      "label": "C12 THE SURFACE (re-confirmed): the dispatch read the element's mirror",
+      "pass": true,
+      "detail": "mirrorReads=10"
+    },
+    {
+      "label": "C13 THE CALL COUNTED: the dispatched listener was the clone's counting wrapper",
+      "pass": true,
+      "detail": "calls=1 stack=captured"
+    },
+    {
+      "label": "C14 the world restored bare",
+      "pass": true,
+      "detail": "dlgs=0 btns=168"
+    }
+  ],
+  "pass": 15,
+  "fail": 0
+}

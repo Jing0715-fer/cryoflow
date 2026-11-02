@@ -1,0 +1,487 @@
+{
+  "instrument": "scripts/t874-profiles-editor-a11y.mjs",
+  "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder -> title (the t867 growth — the tree's own tooltip voice, the accessible-name spec's own last resort) — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
+  "build": "dev@8b65320b3087",
+  "worldMode": "dev",
+  "date": "2026-11-01T13:55:28.950Z",
+  "chain": "O0 clean canvas + carrier census → PB three-deep doors → PE editor deep face → PX interaction film (save round-trip, duplicate, two-step delete, unsent deaths) → ES escape ladder at three deep → W world back + registry fingerprint",
+  "doors": {
+    "editor": "class2d job card (pointer trio) → the inspector's More-job-tools wrench → tools-sbatch-item → the sbatch dialog's Manage-cluster-profiles trigger",
+    "layers": "inspector (1) → sbatch dialog (2) → profiles editor (3) — the rotation's deepest stack yet"
+  },
+  "verdict": "the profiles dialog's interior holds: the three-deep door stack opened (card → tools menu → sbatch dialog → the editor); the registry list named with exactly one pressed item; the named keyboard region, all five section titles, all sixteen named controls, the GPU combobox, the read-only pair and the five numeric clamps spoke the server's contract; the dirty dot, the save flash and the round-trip told the response-is-truth law (a save of the truth changed nothing); the duplicate and the confirmed delete lived client-side and DIED unsent on close; the two-step delete's honest timer un-asked its own question; Escape peeled one layer at a time down a THREE-deep stack, each parent surviving; and the canvas and the server registry came back byte-for-byte",
+  "driftLedger": {
+    "prevFound": true,
+    "prevBuild": "dev@8b65320b3087",
+    "prevDate": "2026-11-01T13:54:10.959Z",
+    "sameBuild": true,
+    "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
+    "faces": {
+      "canvasFace": {
+        "prev": 150,
+        "live": 150,
+        "drift": 0,
+        "identical": false,
+        "moved": {
+          "lens": [
+            "dlgHeads",
+            "edCtrlNames",
+            "edItemNames",
+            "edPressed",
+            "edStatus",
+            "unWho",
+            "url"
+          ],
+          "world": [
+            "altless",
+            "ctrls",
+            "dlgCount",
+            "edAddDis",
+            "edComboName",
+            "edCombos",
+            "edCount",
+            "edCtrlsN",
+            "edDelLabel",
+            "edDelText",
+            "edDupDis",
+            "edItems",
+            "edListName",
+            "edNumClamped",
+            "edOpen",
+            "edReadonly",
+            "edRegionName",
+            "edRegionTab",
+            "edSections",
+            "edSubmitting",
+            "edTitle",
+            "edUnnamedN",
+            "imgPending",
+            "imgs",
+            "pageUnnamed",
+            "sbEditorTrigger",
+            "sbOpen",
+            "sbProfileSel",
+            "sbRegionName",
+            "unCtrls"
+          ]
+        }
+      },
+      "editorFace": {
+        "prev": 88,
+        "live": 10,
+        "drift": -78,
+        "identical": false,
+        "moved": {
+          "lens": [
+            "edCount",
+            "edTitle"
+          ],
+          "world": [
+            "altless",
+            "edAddDis",
+            "edCombos",
+            "edCtrlsN",
+            "edDupDis",
+            "edItems",
+            "edNumClamped",
+            "edOpen",
+            "edPressed",
+            "edReadonly",
+            "edSections",
+            "edUnnamedN",
+            "pageBtns",
+            "pageUnnamed",
+            "unCtrls"
+          ]
+        }
+      },
+      "sbatchFace": {
+        "prev": 6,
+        "live": 6,
+        "drift": 0,
+        "identical": false,
+        "moved": {
+          "lens": [
+            "sbRegionName"
+          ],
+          "world": [
+            "altless",
+            "pageUnnamed",
+            "sbEditorTrigger",
+            "sbOpen",
+            "sbProfileSel",
+            "unCtrls"
+          ]
+        }
+      },
+      "worldBack": {
+        "prev": 150,
+        "live": 150,
+        "drift": 0,
+        "identical": false,
+        "moved": {
+          "lens": [
+            "dlgHeads",
+            "edCtrlNames",
+            "edItemNames",
+            "edPressed",
+            "edStatus",
+            "unWho",
+            "url"
+          ],
+          "world": [
+            "altless",
+            "ctrls",
+            "dlgCount",
+            "edAddDis",
+            "edComboName",
+            "edCombos",
+            "edCount",
+            "edCtrlsN",
+            "edDelLabel",
+            "edDelText",
+            "edDupDis",
+            "edItems",
+            "edListName",
+            "edNumClamped",
+            "edOpen",
+            "edReadonly",
+            "edRegionName",
+            "edRegionTab",
+            "edSections",
+            "edSubmitting",
+            "edTitle",
+            "edUnnamedN",
+            "imgPending",
+            "imgs",
+            "pageUnnamed",
+            "sbEditorTrigger",
+            "sbOpen",
+            "sbProfileSel",
+            "sbRegionName",
+            "unCtrls"
+          ]
+        }
+      }
+    }
+  },
+  "checks": [
+    {
+      "label": "O1 canvas arrives and stays named",
+      "pass": true,
+      "detail": "btns=150 dlgs=0"
+    },
+    {
+      "label": "O2 canvas zero unnamed buttons",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "O3 canvas zero unnamed form controls",
+      "pass": true,
+      "detail": "unCtrls=0/2"
+    },
+    {
+      "label": "O4 canvas zero alt-less imgs",
+      "pass": true,
+      "detail": "imgs=0"
+    },
+    {
+      "label": "O5 the family's client-side carrier census is ZERO",
+      "pass": true,
+      "detail": "the registry lives server-side — nothing to clear, filmed honestly"
+    },
+    {
+      "label": "O6 the server registry fingerprint taken",
+      "pass": true,
+      "detail": "bytes=1490"
+    },
+    {
+      "label": "P1 the class2d card clicked (pointer trio)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "P2 the inspector arrived",
+      "pass": true,
+      "detail": "heads=2D Classification (tutorial) — job inspector"
+    },
+    {
+      "label": "P3 the wrench opened the tools menu",
+      "pass": true,
+      "detail": "aria-label=\"More job tools\""
+    },
+    {
+      "label": "P4 the tools item clicked",
+      "pass": true,
+      "detail": "data-testid=tools-sbatch-item — the t757 menu home"
+    },
+    {
+      "label": "P5 the sbatch dialog arrived (layer 2)",
+      "pass": true,
+      "detail": "heads=2D Classification (tutorial) — job inspector / Slurm submission · …"
+    },
+    {
+      "label": "P6 the sbatch workspace is a named region",
+      "pass": true,
+      "detail": "aria-label=\"Slurm sbatch workspace — the profile row, the generated scri\""
+    },
+    {
+      "label": "P7 the cluster-profile picker named",
+      "pass": true,
+      "detail": "combobox aria-label=\"Cluster profile\""
+    },
+    {
+      "label": "P8 the profiles trigger aboard the sbatch dialog",
+      "pass": true,
+      "detail": "aria-label=\"Manage cluster profiles\""
+    },
+    {
+      "label": "P9 the profiles trigger clicked",
+      "pass": true,
+      "detail": "aria-label=\"Manage cluster profiles\""
+    },
+    {
+      "label": "P10 the editor dialog arrived (layer 3)",
+      "pass": true,
+      "detail": "heads=2D Classification (tutorial) — job inspector / Slurm submission · … / Cluster profiles3 / 8submitting with: slurm-"
+    },
+    {
+      "label": "P11 all THREE layers stacked",
+      "pass": true,
+      "detail": "dlgs=3 (inspector + sbatch + editor)"
+    },
+    {
+      "label": "E1 the title speaks the domain and the budget",
+      "pass": true,
+      "detail": "title=\"Cluster profiles3 / 8submitting with: slurm-\" count=3 / 8"
+    },
+    {
+      "label": "E2 the submitting badge rides (the parent's active profile)",
+      "pass": true,
+      "detail": "activeId flows from the sbatch select"
+    },
+    {
+      "label": "E3 the registry list is a named list",
+      "pass": true,
+      "detail": "aria-label=\"Profile list\""
+    },
+    {
+      "label": "E4 registry items with EXACTLY ONE pressed",
+      "pass": true,
+      "detail": "items=3 pressed=[true,false,false]"
+    },
+    {
+      "label": "E5 the Add door honest (enabled under the cap)",
+      "pass": true,
+      "detail": "add disabled=false"
+    },
+    {
+      "label": "E6 the Duplicate door named and honest",
+      "pass": true,
+      "detail": "aria-label=\"Duplicate selected profile\" dis=false"
+    },
+    {
+      "label": "E7 the editor is a named KEYBOARD region (t804's house)",
+      "pass": true,
+      "detail": "tabindex=0"
+    },
+    {
+      "label": "E8 all five section titles aboard",
+      "pass": true,
+      "detail": "identity=true connection=true resources=true paths=true env=true"
+    },
+    {
+      "label": "E9 every form control named (the full 16)",
+      "pass": true,
+      "detail": "controls=16 missing=none"
+    },
+    {
+      "label": "E10 zero unnamed controls in the editor",
+      "pass": true,
+      "detail": "edUnnamed=0 pageUnnamed=0"
+    },
+    {
+      "label": "E11 the GPU model combobox named",
+      "pass": true,
+      "detail": "combos=1 name=\"GPU model\""
+    },
+    {
+      "label": "E12 the read-only pair honest (id + pinned localRoot)",
+      "pass": true,
+      "detail": "readOnly=2 — the server owns both names"
+    },
+    {
+      "label": "E13 the numeric clamps ride the server's contract",
+      "pass": true,
+      "detail": "clamped=5/5 (time/nodes/gpus/array/sim)"
+    },
+    {
+      "label": "E14 the delete door speaks its current truth",
+      "pass": true,
+      "detail": "label=\"Delete profile\" text=\"Delete\""
+    },
+    {
+      "label": "E15 no status speaking while clean",
+      "pass": true,
+      "detail": "statuses=[]"
+    },
+    {
+      "label": "E16 the editor face is fully named",
+      "pass": true,
+      "detail": "unnamed=0 unCtrls=0 altless=0"
+    },
+    {
+      "label": "X1 the second profile clicked",
+      "pass": true,
+      "detail": "name=\"Slurm GPU cluster (example: 4×\""
+    },
+    {
+      "label": "X2 aria-pressed flipped to the picked item",
+      "pass": true,
+      "detail": "pressed=[false,true,false]"
+    },
+    {
+      "label": "X3 the name patched through the native setter",
+      "pass": true,
+      "detail": "old=\"Slurm GPU cluster (example: 4×A100 partition)\""
+    },
+    {
+      "label": "X4 the dirty dot speaks (role=status)",
+      "pass": true,
+      "detail": "statuses=[\"unsaved edits\"]"
+    },
+    {
+      "label": "X5 the name reverted — the walk saves only the truth",
+      "pass": true,
+      "detail": "value=\"Slurm GPU cluster (example: 4×A100 partition)\""
+    },
+    {
+      "label": "X6 Save to server clicked",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "X7 the flash says the server's view is shown",
+      "pass": true,
+      "detail": "statuses=[\"Saved — server view shown\"]"
+    },
+    {
+      "label": "X8 the round-trip cleared the dirty state",
+      "pass": true,
+      "detail": "statuses=[\"Saved — server view shown\"]"
+    },
+    {
+      "label": "X9 Duplicate clicked",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "X10 the count grew client-side",
+      "pass": true,
+      "detail": "items=3 → 4 (cap badge 4 / 8)"
+    },
+    {
+      "label": "X11 the clone is selected and named a copy",
+      "pass": true,
+      "detail": "pressed=[false,false,true,false] names=Local workstation (thi | Slurm GPU cluster (exa | Slurm GPU cluster (exa | Slurm H100 hub (2×8 GP"
+    },
+    {
+      "label": "X12 close WITHOUT save — the sbatch survives beneath",
+      "pass": true,
+      "detail": "dlgs=2"
+    },
+    {
+      "label": "X13 the unsent clone DIED — the server's truth returned",
+      "pass": true,
+      "detail": "items=3 (was 4 client-side)"
+    },
+    {
+      "label": "X14 the count badge back at the registry's truth",
+      "pass": true,
+      "detail": "count=3 / 8"
+    },
+    {
+      "label": "X15 the delete door armed (first click)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "X16 the armed door speaks its question",
+      "pass": true,
+      "detail": "label=\"Confirm delete profile\""
+    },
+    {
+      "label": "X17 the honest timer reverted the arm (3s)",
+      "pass": true,
+      "detail": "text=\"Delete\" — a question that un-asks itself"
+    },
+    {
+      "label": "X18 arm → confirm deleted client-side",
+      "pass": true,
+      "detail": "items=3 → 2"
+    },
+    {
+      "label": "X19 the unsent delete DIED too — the registry restored",
+      "pass": true,
+      "detail": "items=3"
+    },
+    {
+      "label": "S1 Escape peeled ONE layer — the editor only",
+      "pass": true,
+      "detail": "dlgs=2 heads=2D Classification (tutorial) — job inspector / Slurm submission · 2D Classification (tutori"
+    },
+    {
+      "label": "S2 Escape peeled the second layer — the inspector survives",
+      "pass": true,
+      "detail": "dlgs=1 heads=2D Classification (tutorial) — job inspector"
+    },
+    {
+      "label": "S3 the inspector closed through its own door",
+      "pass": true,
+      "detail": "dlgs=0"
+    },
+    {
+      "label": "W1 every dialog closed",
+      "pass": true,
+      "detail": "dlgs=0"
+    },
+    {
+      "label": "W2 the canvas bit-for-bit",
+      "pass": true,
+      "detail": "open=150 back=150 (drift 0)"
+    },
+    {
+      "label": "W3 the world still fully named",
+      "pass": true,
+      "detail": "unnamed=0"
+    },
+    {
+      "label": "W4 the server registry byte-for-byte the opening's",
+      "pass": true,
+      "detail": "fp0=1490B fp1=1490B identical"
+    },
+    {
+      "label": "L canvasFace face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@8b65320b3087), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause) — the moved fields named: lens [dlgHeads, edCtrlNames, edItemNames, edPressed, edStatus, unWho, url]; world [altless, ctrls, dlgCount, edAddDis, edComboName, edCombos, edCount, edCtrlsN, edDelLabel, edDelText, edDupDis, edItems, edListName, edNumClamped, edOpen, edReadonly, edRegionName, edRegionTab, edSections, edSubmitting, edTitle, edUnnamedN, imgPending, imgs, pageUnnamed, sbEditorTrigger, sbOpen, sbProfileSel, sbRegionName, unCtrls]"
+    },
+    {
+      "label": "L editorFace face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@8b65320b3087), same-key ride drift -78 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause) — the moved fields named: lens [edCount, edTitle]; world [altless, edAddDis, edCombos, edCtrlsN, edDupDis, edItems, edNumClamped, edOpen, edPressed, edReadonly, edSections, edUnnamedN, pageBtns, pageUnnamed, unCtrls]"
+    },
+    {
+      "label": "L sbatchFace face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@8b65320b3087), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause) — the moved fields named: lens [sbRegionName]; world [altless, pageUnnamed, sbEditorTrigger, sbOpen, sbProfileSel, unCtrls]"
+    },
+    {
+      "label": "L worldBack face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@8b65320b3087), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause) — the moved fields named: lens [dlgHeads, edCtrlNames, edItemNames, edPressed, edStatus, unWho, url]; world [altless, ctrls, dlgCount, edAddDis, edComboName, edCombos, edCount, edCtrlsN, edDelLabel, edDelText, edDupDis, edItems, edListName, edNumClamped, edOpen, edReadonly, edRegionName, edRegionTab, edSections, edSubmitting, edTitle, edUnnamedN, imgPending, imgs, pageUnnamed, sbEditorTrigger, sbOpen, sbProfileSel, sbRegionName, unCtrls]"
+    }
+  ],
+  "passed": 63,
+  "failed": 0
+}

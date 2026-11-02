@@ -1,0 +1,81 @@
+{
+  "instrument": "t872-template-presets-a11y",
+  "worldMode": "build",
+  "build": "r8GOxh-ymcGX-2mJMCj9w",
+  "date": "2026-11-02T04:16:39.515Z",
+  "faces": {
+    "arrival": {
+      "heading": "Scaffold standard SPA pipeline",
+      "dlgBtns": 11
+    },
+    "cards": {
+      "n": 3,
+      "labels": [
+        "Quick passK=10",
+        "StandardJob-sp",
+        "Deep passK=50 "
+      ]
+    },
+    "form": {
+      "fields": [
+        {
+          "id": "tpl-class2d-k",
+          "lbl": 1,
+          "min": "1",
+          "max": "200"
+        },
+        {
+          "id": "tpl-class2d-iters",
+          "lbl": 1,
+          "min": "1",
+          "max": "50"
+        },
+        {
+          "id": "tpl-im-k",
+          "lbl": 1,
+          "min": "1",
+          "max": "20"
+        },
+        {
+          "id": "tpl-inihigh",
+          "lbl": 1,
+          "min": "5",
+          "max": "60"
+        }
+      ],
+      "swChecked": "false",
+      "cbAria": "Symmetry point group"
+    },
+    "doors": {
+      "imports": 2,
+      "resetTitle": "Return all knobs to the job-spec defaults"
+    },
+    "restore": {
+      "btns": 144,
+      "jobs": 15
+    }
+  },
+  "ledger": {
+    "prev": null,
+    "live": null,
+    "drift": null,
+    "identical": false,
+    "moved": {
+      "lens": [
+        "prevBuild"
+      ],
+      "world": [
+        "arrival",
+        "cards",
+        "doors",
+        "form",
+        "prev",
+        "prevFound",
+        "restore",
+        "sameBuild"
+      ]
+    }
+  },
+  "pass": 26,
+  "fail": 0
+}
