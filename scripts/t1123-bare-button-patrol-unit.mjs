@@ -240,7 +240,7 @@ ok("E3 globals carries the card-lift focus outline law", globalsT.includes(".car
 }
 
 // ---------------- band F: census shape ----------------
-// 62 files carry raw <button> substrings; 297 REAL raw opening tags live
+// 62 files carry raw <button> substrings; 299 REAL raw opening tags live
 // in them (plus 4 prose mentions inside comments, which are not tags).
 // Every real tag rides a ring: file-level mint, a Chip-interactive
 // rider, or a variable whose definition speaks focus-visible — the
@@ -256,8 +256,8 @@ for (const f of rawButtonFiles) {
   tags += m.length;
   if (t.includes("focus-visible:ring") || riderEvidence(t)) fileRingedTags += m.length;
 }
-ok("F2 301 raw <button occurrences (297 real tags + 4 prose; +1 the t1129 sheet face toggle — the cut block's fourth verb; +1 the t1132 legend copy chip — the key's ⧉ beside the strip)", tags === 301, `got ${tags}`);
-ok("F3 every raw occurrence sits in a ringed or rider file", fileRingedTags === 301, `got ${fileRingedTags}/301`);
+ok("F2 303 raw <button occurrences (299 real tags + 4 prose; +1 the t1129 sheet face toggle — the cut block's fourth verb; +1 the t1132 legend copy chip — the key's ⧉ beside the strip; +2 the t1147 σ memory's doors — the recent-level chips and the forget door beside the slider, both ringed, the row honest-empty)", tags === 303, `got ${tags}`);
+ok("F3 every raw occurrence sits in a ringed or rider file", fileRingedTags === 303, `got ${fileRingedTags}/303`);
 
 // ---------------- band G: the per-button auditor gate ----------------
 const { execFileSync } = await import("node:child_process");
