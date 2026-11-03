@@ -530,6 +530,44 @@ async function cmdProbe(snapPath) {
   emit({ verdict: "FRESH", red: false, ...base }, 0);
 }
 
+/**
+ * Vacuum (t1164): the world's byte-half hygiene, a command of its own.
+ * ANY ride through the product doors (create, delete, the seeder, the
+ * smoke sentinel's take-home) leaves SQLite freelist pages the deletes
+ * never return — and the page-quantized db size is a PINNED face (the
+ * t1021 fuel family asserts 143360 across the epochs). t1163 taught
+ * restore to compact what it rebuilds; t1164 generalizes: every
+ * world-CHANGING rider compacts what IT moved — qa63's tail runs this
+ * as the byte-half of its no-trace contract, and a window that moved
+ * the world by hand runs it at close. Idempotent, cheap (a 143KB
+ * file), and honest about what it found.
+ */
+async function cmdVacuum() {
+  const before = (() => {
+    try {
+      return execSync(`stat -c %s "${DB_URL.replace("file:", "")}"`).toString().trim();
+    } catch {
+      return "?";
+    }
+  })();
+  const prisma = openClient(DB_URL);
+  try {
+    await prisma.$executeRawUnsafe("VACUUM");
+  } finally {
+    await prisma.$disconnect();
+  }
+  const after = (() => {
+    try {
+      return execSync(`stat -c %s "${DB_URL.replace("file:", "")}"`).toString().trim();
+    } catch {
+      return "?";
+    }
+  })();
+  console.log(
+    `world-snapshot: vacuum ${DB_URL.replace(/file:.*\//, "file:…/")} — ${before} → ${after} bytes${before === after ? " (already compact)" : " (the freelist returned)"}`,
+  );
+}
+
 const cmd = process.argv[2] || "export";
 const arg = process.argv[3];
 if (cmd === "export") await cmdExport(arg || DEFAULT_OUT);
@@ -537,9 +575,10 @@ else if (cmd === "restore") await cmdRestore(arg || DEFAULT_OUT);
 else if (cmd === "selftest") await cmdSelftest();
 else if (cmd === "doctor") await cmdDoctor(arg || DEFAULT_OUT);
 else if (cmd === "probe") await cmdProbe(arg || DEFAULT_OUT);
+else if (cmd === "vacuum") await cmdVacuum();
 else {
   console.error(
-    "usage: world-snapshot.mjs export|restore|selftest|doctor|probe [path]",
+    "usage: world-snapshot.mjs export|restore|selftest|doctor|probe|vacuum [path]",
   );
   process.exit(1);
 }
