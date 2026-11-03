@@ -1,0 +1,45 @@
+{
+  "task": "t1171",
+  "title": "the second-tier sweep — the 2026-10-13 tier walked clean, and the audit becomes a standing instrument",
+  "at": "2026-11-03T16:20:00Z",
+  "window": "2026-11-03 cron Job 362852, trace …-cron-202611032357",
+  "the_method": "t1168's, continued: the route tree sorted by last-touch git date (68 doors total: 12 @2026-10-10 audited in t1168 · 20 @2026-10-13 this window · the rest younger), the tier walked line by line (2202 lines), the known bug classes grepped across every door",
+  "the_tier": [
+    "activity/heatmap", "ai/chat", "ai/judge-worker", "ai/models", "ai/providers/health",
+    "ai/sessions/[id]", "ai/sessions", "ai/settings", "diagnostics",
+    "jobs/[id]/cleanup", "jobs/[id]/continue-sources", "jobs/[id]/denoise-pairs", "jobs/[id]/funnel",
+    "jobs/[id]/iterations/image", "jobs/[id]/iterations", "jobs/[id]/iterations/sheet",
+    "jobs/[id]/outputs/remote-remaining", "jobs/[id]/outputs/sync", "jobs/[id]/resolution-arc",
+    "remote/connections/[id]/browse"
+  ],
+  "the_verdict": {
+    "clean": true,
+    "guards": "isLocalRequest ×20/20",
+    "whole_file_reads": "zero (the t1168 bounded-read law holds in the tier; the one split(\"\\n\") rides SSH stdout, bounded by nature)",
+    "json_doors": "6 doors, 6 guarded (badJsonReply or .catch(() => ({})))",
+    "n_plus_one": "none (all loops over pre-fetched, selected rows or ≤8 manifest-verified paths)",
+    "named_survivors_already_cured": "resolution-arc rides the statcache (t903's #7 cure, verified at cachedFileCompute); browse is the hardened #5 door (control chars rejected, single-quoted inert paths, listing only, REMOTE_MAX_ENTRIES ceiling)",
+    "lib_wells_checked": "convergence-rows (all parses ride cachedFileCompute — statSync-gated), ai/sessions store (MAX_SESSIONS=20 · MAX_MESSAGE_CHARS=24k · tool calls 80 — bounded by construction, a convenience cache not an archive)"
+  },
+  "the_ledger_closure": {
+    "task13_stage_summary": "ALL FIVE CLOSED",
+    "#5_fs_browse": "hardened (guard + Host pin + virtual-fs + NUL check + count mode) — t1168 confirmed, t1171 pins the remote twin's listing-only law",
+    "#6_#14_pathref_star": "t903 canonical marker + t1169's ONE gate pathrefHatchApplies (seat 108)",
+    "#7_chart_full_reads": "t903 statcache + t1168 head ladder (seats 107/109 territory)",
+    "#8_particles_bfs": "batched per t904 (seat 1101)",
+    "#13_useMemo_localStorage_write": "cured (every setItem in src rides a useEffect, t638's one-echo law) — confirmed this window by source read and pinned by seat 111's balanced-paren scanner (0 render-phase writers across 11 useMemo+setItem files)"
+  },
+  "c_units": {
+    "seat_111": "scripts/t1171-second-tier-sweep-unit.mjs — 10/10 green (A0 the tier is the audit's 20 files · A1 the guard ×20 · B1 zero whole-file reads · B2 zero unguarded json doors · C1 no localStorage write inside any useMemo · C2 the t638 gesture-end echo · D1/D2/D3 browse's listing-only law)",
+    "enrollment": "census seat 111 (lane 0, bare node), arrays 111/111/111, bash -n green, header names the seat and the ledger closure"
+  },
+  "live_rides": {
+    "certification_census": "111/111 GREEN · 0 RED (one call: boot → six live seats → kill → 105 serverless seats; the t1170 whale cure held — the warmup's receipt named five API routes, no \"/\")",
+    "tsc_eslint": "no src changes this window (scripts + census only) — the t1170 certification's 0 · 0 stands unchanged"
+  },
+  "judge_lines": [
+    "「干净收据不是栅栏」: a clean audit that changes nothing is a receipt, not a fence — the tier's truth became pins so the next drift flaps at a census seat instead of living quietly",
+    "「台账要亲手闭」: a legacy item marked 'known issue' for windows is a debt compounding in silence — #13 was one source-read away from closure; the ledger is now fully closed and every closure has its pin",
+    "「名单即契约」: the seat pins the tier by name — a file that moves, renames, or joins the tier unguarded makes the seat speak"
+  ]
+}
