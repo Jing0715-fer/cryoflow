@@ -205,6 +205,12 @@ if curl -s -o /dev/null -m 2 -H "Origin: http://localhost:3000" http://localhost
   echo "census: an external server is already up — riding it for the live-leg seats (not mine to kill)"
 else
   echo "census: booting the dev server for the live-leg seats (the canonical launcher, heap cap and all)"
+  # the zombie-tab neuter (t1172 — the whale's third mouth): the browser
+  # daemon's tab may sit on the canvas from a QA window — at boot its HMR
+  # reconnect fires a full reload and the whale compiles (~3 GB) while the
+  # live seats run; the box tips and the fuel family dies. about:blank
+  # first — best-effort, the census stays green where agent-browser is absent.
+  agent-browser open about:blank > /dev/null 2>&1 || true
   setsid nohup bash dev-server.sh > /tmp/census-dev-server.log 2>&1 &
   SERVER_MINE=1
   for _ in $(seq 1 120); do

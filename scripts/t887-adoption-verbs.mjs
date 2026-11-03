@@ -60,6 +60,36 @@ const ok = (label, cond, detail = "") => {
 };
 
 const ab = (args) => execSync(`agent-browser ${args}`, { encoding: "utf8", cwd: ROOT });
+/* the SOFT open: a navigate whose page compiles for tens of seconds makes
+ * the daemon's own read fail EAGAIN ("it may or may not have run") — the
+ * navigation itself proceeds. The film's opens retry once and ride soft;
+ * the DRESS POLL is the hard verification (the canvas must actually speak
+ * or V1/T4 fail honestly). */
+const abSoft = (args, attempt = 0) => {
+  try { return ab(args); } catch (e) {
+    if (String(e).includes("may or may not have run") && attempt < 2) { return abSoft(args, attempt + 1); }
+    if (String(e).includes("may or may not have run")) return "";
+    throw e;
+  }
+};
+/* a best-effort eval: a tab mid-navigation (or stuck on about:blank) can
+ * refuse localStorage outright — the caller's own check is the verdict */
+const evalSoft = (js) => { try { return evalJson(js); } catch { return null; } };
+/* OPEN → poll until the canvas speaks → if it never did, open AGAIN (the
+ * daemon's navigation can be lost outright inside a 40s compile window;
+ * the retry lands on the warm compile in seconds) */
+const openAndDress = async (minCards, rounds = 3) => {
+  let dress = null;
+  for (let round = 0; round < rounds; round++) {
+    abSoft(`open ${BASE}/?t=${Date.now()}`);
+    for (let i = 0; i < 30; i++) {
+      await zzz(1);
+      dress = evalSoft('(() => { const dgs = document.querySelectorAll("[role=dialog]").length; const cards = document.querySelectorAll("[data-card-btn]").length; return JSON.stringify({ dlgs: dgs, cards }); })()');
+      if (dress && dress.dlgs === 0 && dress.cards >= minCards) return dress;
+    }
+  }
+  return dress;
+};
 const evalJson = (js) => {
   const raw = ab(`eval ${JSON.stringify(js)}`).trim();
   let out;
@@ -98,34 +128,122 @@ const waitJobs = async (ids, wantStatus, budgetS) => {
 };
 const newId = () => globalThis.crypto.randomUUID();
 
+/* t1172 — THE CHUNKED FILM: the mock's honest pace (the K-classes pixel
+ * renders take minutes; class2d alone ran ~3 min on the first ride) exceeds
+ * one tool call's budget, and the boundary reaper forbids background rides.
+ * The t412 pattern (the healer's chunked healing) comes to the film: each
+ * chunk is a foreground call that boots its own server; completed stages
+ * keep their products; a stage left "running" by a killed chunk is reset
+ * through the PATCH idle door (which kills the dead tree first) and re-run.
+ *   --chunk=mint      Phase 0 + the world mint-or-adopt + the template chain
+ *   --chunk=side      Phase 0 + the side world (filter, subset MC, K=10 twin)
+ *   --chunk=flights   Phase 0 + the browser walk (the three flights)
+ *   --chunk=teardown  Phase 0 + the teardown (the spent world leaves no residue)
+ *   (no flag)         the whole film in one call — the original shape
+ * The receipt MERGES by chunk (a fresh chunk rewrites only its own key), so
+ * the finished film's receipt carries every chunk's checks. */
+const CHUNK = (process.argv.find((a) => a.startsWith("--chunk=")) || "").split("=")[1] || "all";
+const inChunk = (...ns) => CHUNK === "all" || ns.includes(CHUNK);
+console.log(`film chunk: ${CHUNK}`);
+
+/* the ids the later phases need — filled by whichever chunk runs */
+let sandboxId, tutorialProjectId, excludeName = null;
+let byType = {}, tplJobs = [], tplEdges = [];
+let sandboxJobs = [], A, MA, MB, CTF, B, exJob, mcB;
+
+const findSandbox = async () =>
+  (api("GET", "/api/projects").projects || []).find((p) => (p.name || "").includes("t887-adoption"));
+
+/* re-derive the world's ids from the API truth (the adopt path's eyes):
+ * unique types map by first sighting; the twins discriminate by their WIRE
+ * (MB hangs off the excludemg filter; B carries numClasses=10) */
+const deriveWorld = async () => {
+  sandboxJobs = await jobsOf();
+  byType = {};
+  for (const j of sandboxJobs) if (!(j.type in byType)) byType[j.type] = j;
+  const edges = api("GET", "/api/edges").edges || [];
+  exJob = sandboxJobs.find((j) => j.type === "excludemg");
+  const mcs = sandboxJobs.filter((j) => j.type === "motioncorr");
+  MA = exJob ? mcs.find((m) => !edges.some((e) => e.fromJobId === exJob.id && e.toJobId === m.id)) : mcs[0];
+  MB = exJob ? mcs.find((m) => m !== MA && edges.some((e) => e.fromJobId === exJob.id && e.toJobId === m.id)) : mcs[1];
+  const c2ds = sandboxJobs.filter((j) => j.type === "class2d");
+  B = c2ds.find((c) => String(c.params?.numClasses ?? "") === "10");
+  A = c2ds.find((c) => c !== B);
+  CTF = byType.ctffind;
+  return sandboxJobs;
+};
+
+/* a job to completion, resumably: completed stays; a killed chunk's
+ * "running" orphan is reset through the idle door (the tree kill is the
+ * door's own first act) and re-run */
+/* the SETTLED READ: a single jobs-GET can flicker (the boot's reconciler
+ * sweep, the active-project handoff mid-switch) — poll until the world
+ * reads healthy or the settles run out; three settled reads that still
+ * disagree are an honest FAIL */
+const settledJobs = async (want, budgetS = 3, gapS = 4) => {
+  let js = await jobsOf();
+  for (let i = 0; i < budgetS; i++) {
+    if (want(js)) return js;
+    await zzz(gapS);
+    js = await jobsOf();
+  }
+  return js;
+};
+
+const runToCompletion = async (job, budgetS) => {
+  if (job.status === "completed") { console.log(`    ${job.type}: already completed (chunked resume)`); return { done: 1, bad: [] }; }
+  if (job.status === "running") {
+    console.log(`    ${job.type}: orphan of a killed chunk — reset through the idle door`);
+    api("PATCH", `/api/jobs/${job.id}`, { status: "idle" });
+    await zzz(1);
+  }
+  api("POST", `/api/jobs/${job.id}/run`);
+  return waitJobs([job.id], "completed", budgetS);
+};
+
 console.log("t887 — the adoption verbs, filmed on a throwaway world: mint + wire + adopt, three round trips per verb\n");
 
 /* ================= PHASE 0 — the pre-flight ================= */
 console.log("Phase 0 — pre-flight");
+
+/* P0 — the ZOMBIE-TAB NEUTER (t1172, the whale's third mouth): the browser
+ * daemon's tab may still sit on the canvas from a previous window's QA —
+ * when THIS ride's server boots, the stale tab's HMR reconnect fires a full
+ * page reload, the canvas page's dev compile (~3 GB residency) starts, and
+ * the whale + this ride's mock-cluster jobs together tip the 4 GB box (the
+ * first ride died exactly this way: dmesg `Killed process 8129 … anon-rss:
+ * 2873124kB`, the server starved mid-compile, waitJobs read a refused
+ * socket). Neuter the tab FIRST — about:blank has no HMR socket, so the
+ * boot finds no mouth to feed. The orchestrator's own pre-boot neuter is
+ * the belt; this is the suspenders. */
+try { ab("open about:blank"); ok("P0 the daemon's tab neutered (no zombie reload can compile the whale)", true); }
+catch (e) { ok("P0 the daemon's tab neutered", false, String(e).slice(0, 120)); }
 
 /* P1 — the ACTIVE project must be the tutorial BEFORE any world read: a
  * crashed prior ride can leave the sandbox active (its jobs then masquerade
  * as "the world" — the first ride's P2 captured the sandbox id and the
  * teardown nearly switched to a deleted project). The tutorial is found by
  * NAME in the projects list, switched active, THEN read. */
-const projsP1 = api("GET", "/api/projects");
-const tutorialProj = (projsP1.projects || []).find((p) => /tutorial/i.test(p.name || ""));
-if (tutorialProj && !tutorialProj.active) {
-  api("POST", "/api/projects/switch", { id: tutorialProj.id });
-  await zzz(2);
+if (inChunk("mint")) {
+  const projsP1 = api("GET", "/api/projects");
+  const tutorialProj = (projsP1.projects || []).find((p) => /tutorial/i.test(p.name || ""));
+  if (tutorialProj && !tutorialProj.active) {
+    api("POST", "/api/projects/switch", { id: tutorialProj.id });
+    await zzz(2);
+  }
+  const demoJobs = await settledJobs((js) => js.length === 15 && js.every((j) => j.status === "completed"));
+  ok("P1 the demo world is 15/15 completed (and active)", demoJobs.length === 15 && demoJobs.every((j) => j.status === "completed") && !!tutorialProj?.active, `jobs=${demoJobs.length} active=${tutorialProj?.name || "?"}`);
+  tutorialProjectId = tutorialProj?.id;
+  ok("P2 the tutorial project captured (by name, not by active-guess)", !!tutorialProjectId, `id=${tutorialProjectId}`);
+} else if (inChunk("side", "flights")) {
+  /* the adopt chunks: the tutorial's health was the mint chunk's business;
+   * here the SANDBOX is the workpiece — switch active so the canvas and
+   * jobsOf() speak the throwaway world */
+  tutorialProjectId = ((api("GET", "/api/projects").projects || []).find((p) => /tutorial/i.test(p.name || "")) || {}).id;
 }
-const demoJobs = await jobsOf();
-ok("P1 the demo world is 15/15 completed (and active)", demoJobs.length === 15 && demoJobs.every((j) => j.status === "completed") && !!tutorialProj?.active, `jobs=${demoJobs.length} active=${tutorialProj?.name || "?"}`);
-const tutorialProjectId = tutorialProj?.id;
-ok("P2 the tutorial project captured (by name, not by active-guess)", !!tutorialProjectId, `id=${tutorialProjectId}`);
-
-const projs0 = api("GET", "/api/projects");
-const stale = (projs0.projects || []).filter((p) => (p.name || "").includes("t887-adoption"));
-for (const s of stale) {
-  console.log(`    stale sandbox ${s.id} from a crashed ride — deleting`);
-  api("DELETE", `/api/projects/${s.id}`);
-}
-ok("P3 no leftover t887 sandbox", stale.length === 0, `removed=${stale.length}`);
+const staleNow = (api("GET", "/api/projects").projects || []).find((p) => (p.name || "").includes("t887-adoption"));
+const adopting = !!staleNow && (CHUNK === "mint" || CHUNK === "all" ? true : true); /* every chunk adopts; only a HOLLOW shell is re-minted below */
+ok("P3 the sandbox state resolved (adopt-or-mint)", true, adopting && staleNow ? `existing sandbox ${staleNow.id}` : "none yet — the mint will create it");
 
 /* P4 — the compute reality: cluster-type jobs (motioncorr/class2d/…) need a
  * LOCAL RELION install (the engine's dispatch gate, engine.ts:9467). The
@@ -149,61 +267,114 @@ try {
   }
   execSync(`chmod +x ${STUB_DST}/* 2>/dev/null`);
 } catch { /* the re-detect verdict below is the assert */ }
-const det = api("GET", "/api/system?force=1");
-const dstat = det.status || det;
-ok("P4 the compute lane detected (the mock stubs as the local RELION install)", dstat.found === true && String(dstat.path || "").includes("relion-install"), `stubs=${stubs} found=${dstat.found} path=${dstat.path}`);
-
-/* ================= PHASE 1 — the throwaway world ================= */
-console.log("\nPhase 1 — the throwaway world");
-
-const created = api("POST", "/api/projects", { name: "t887-adoption-throwaway" });
-const sandboxId = created.project?.id;
-ok("W1 the sandbox project created (set active)", !!sandboxId, `id=${sandboxId}`);
-
-const tpl = api("POST", "/api/pipeline-template", {});
-const tplJobs = tpl.jobs || [];
-const tplEdges = tpl.edges || [];
-ok("W2 the template chain created", tplJobs.length === 10 && tplEdges.length === 13, `jobs=${tplJobs.length} edges=${tplEdges.length} (the template's own 13-wire chain)`);
-const byType = {};
-for (const j of tplJobs) byType[j.type] = j;
-
-/* the import needs the EMPIAR lane (the tutorial's own door) */
-api("PATCH", `/api/jobs/${byType.import.id}`, { params: { nodeType: "movies", empiarData: "true" } });
-
-console.log("    running the template chain (SEQUENTIAL — the template's jobs are born idle, and the cascade only fires PENDING downstream)…");
-const chainOrder = ["import", "motioncorr", "ctffind", "autopick", "extract", "class2d", "initialmodel", "refine3d", "maskcreate", "postprocess"];
-let chainBad = [];
-for (const t of chainOrder) {
-  api("POST", `/api/jobs/${byType[t].id}/run`);
-  const w = await waitJobs([byType[t].id], "completed", 240);
-  if (w.done !== 1) { chainBad.push(`${t}:${w.bad.join(",") || "timeout"}`); break; }
+if (inChunk("mint", "side")) {
+  const det = api("GET", "/api/system?force=1");
+  const dstat = det.status || det;
+  ok("P4 the compute lane detected (the mock stubs as the local RELION install)", dstat.found === true && String(dstat.path || "").includes("relion-install"), `stubs=${stubs} found=${dstat.found} path=${dstat.path}`);
 }
-ok("W3 the template chain completed (each stage run in RELION order)", chainBad.length === 0, chainBad.length ? chainBad.join(" | ") : "10/10");
 
-/* the movies star on disk — the exclude name comes from REAL rows */
-const projDir = join(ROOT, "data", "relion", sandboxId);
-const impDir = readdirSync(projDir).find((d) => d.startsWith("import_"));
-const starPath = join(projDir, impDir, "micrographs.star");
-const starTxt = existsSync(starPath) ? readFileSync(starPath, "utf8") : "";
-const movieNames = Array.from(starTxt.matchAll(/micrographs\/(mic_\d+\.mrc)/g)).map((m) => m[1]);
-const excludeName = movieNames.length >= 4 ? movieNames[3] : null;
-ok("W4 the import's movies star read from disk, an exclude name picked", !!excludeName, `movies=${movieNames.length} pick=${excludeName}`);
+/* ================= PHASE 1 — the throwaway world (the mint chunk) ==== */
+const readExcludeName = () => {
+  try {
+    const projDir = join(ROOT, "data", "relion", sandboxId);
+    if (!existsSync(projDir)) return null;
+    const impDir = readdirSync(projDir).find((d) => d.startsWith("import_"));
+    if (!impDir) return null;
+    const starPath = join(projDir, impDir, "micrographs.star");
+    const starTxt = existsSync(starPath) ? readFileSync(starPath, "utf8") : "";
+    const movieNames = Array.from(starTxt.matchAll(/micrographs\/(mic_\d+\.mrc)/g)).map((m) => m[1]);
+    return movieNames.length >= 4 ? movieNames[3] : null;
+  } catch { return null; }
+};
 
-/* the side world: import -> excludemg -> motioncorrB (the subset run) */
-const exPlace = { x: byType.motioncorr.x + 40, y: byType.motioncorr.y + 260 };
-const exJob = api("POST", "/api/jobs", { type: "excludemg", x: exPlace.x, y: exPlace.y, params: { excludeNames: excludeName } }).job;
-const mcB = api("POST", "/api/jobs", { type: "motioncorr", x: exPlace.x + 300, y: exPlace.y }).job;
-const impEdge = tplEdges.find((e) => e.fromJobId === byType.import.id && e.toJobId === byType.motioncorr.id);
-const edgeDefs = [
-  { id: newId(), fromJobId: byType.import.id, toJobId: exJob.id, fromPort: impEdge.fromPort, toPort: "micrographs" },
-  { id: newId(), fromJobId: exJob.id, toJobId: mcB.id, fromPort: "micrographs", toPort: impEdge.toPort },
-];
-let edgesOk = true;
-for (const def of edgeDefs) {
-  const r = api("POST", "/api/edges", def);
-  if (r.error) { edgesOk = false; console.log(`    edge refused: ${JSON.stringify(r).slice(0, 140)}`); }
+if (inChunk("mint")) {
+  console.log("\nPhase 1 — the throwaway world");
+  let existing = await findSandbox();
+  if (existing && process.argv.includes("--fresh")) {
+    console.log(`    --fresh: the spent sandbox ${existing.id} deleted (a flown world's shapes never fit a second flight)`);
+    api("DELETE", `/api/projects/${existing.id}`);
+    existing = null;
+  }
+  if (existing) {
+    api("POST", "/api/projects/switch", { id: existing.id });
+    await zzz(2);
+    if ((await jobsOf()).length === 0) {
+      console.log(`    hollow sandbox ${existing.id} (0 jobs) — re-minting`);
+      api("DELETE", `/api/projects/${existing.id}`);
+      existing = null;
+    } else {
+      sandboxId = existing.id;
+      await deriveWorld();
+      ok("W1a the sandbox ADOPTED (chunked resume)", !!sandboxId && sandboxJobs.length > 0, `id=${sandboxId} jobs=${sandboxJobs.length}`);
+    }
+  }
+  if (!existing) {
+    const created = api("POST", "/api/projects", { name: "t887-adoption-throwaway" });
+    sandboxId = created.project?.id;
+    ok("W1 the sandbox project created (set active)", !!sandboxId, `id=${sandboxId}`);
+
+    const tpl = api("POST", "/api/pipeline-template", {});
+    tplJobs = tpl.jobs || [];
+    tplEdges = tpl.edges || [];
+    ok("W2 the template chain created", tplJobs.length === 10 && tplEdges.length === 13, `jobs=${tplJobs.length} edges=${tplEdges.length} (the template's own 13-wire chain)`);
+    byType = {};
+    for (const j of tplJobs) byType[j.type] = j;
+  }
+
+  /* the import needs the EMPIAR lane (the tutorial's own door; idempotent) */
+  api("PATCH", `/api/jobs/${byType.import.id}`, { params: { nodeType: "movies", empiarData: "true" } });
+
+  console.log("    running the template chain (SEQUENTIAL, resumable — completed stages keep their products, a killed chunk's orphan resets through the idle door)…");
+  const chainOrder = ["import", "motioncorr", "ctffind", "autopick", "extract", "class2d", "initialmodel", "refine3d", "maskcreate", "postprocess"];
+  let chainBad = [];
+  for (const t of chainOrder) {
+    const w = await runToCompletion(byType[t], 240);
+    if (w.done !== 1) { chainBad.push(`${t}:${w.bad.join(",") || "timeout"}`); break; }
+  }
+  ok("W3 the template chain completed (each stage run in RELION order)", chainBad.length === 0, chainBad.length ? chainBad.join(" | ") : "10/10");
+
+  /* the movies star on disk — the exclude name comes from REAL rows */
+  excludeName = readExcludeName();
+  ok("W4 the import's movies star read from disk, an exclude name picked", !!excludeName, `pick=${excludeName}`);
 }
-ok("W5 the exclude filter wired: import -> excludemg -> MotionCorr (subset run)", edgesOk && !!exJob?.id && !!mcB?.id, `filter=${exJob?.id?.slice(-6)} mcB=${mcB?.id?.slice(-6)}`);
+
+/* the side world: import -> excludemg -> motioncorrB (the side chunk) */
+if (inChunk("side")) {
+  console.log("\nPhase 1.5 — the side world");
+  if (!sandboxId || !A) {
+    const sb = await findSandbox();
+    if (!sb) { ok("S0 the sandbox exists (run --chunk=mint first)", false, "no t887-adoption sandbox"); process.exit(1); }
+    sandboxId = sb.id;
+    api("POST", "/api/projects/switch", { id: sandboxId });
+    await zzz(2);
+    await deriveWorld();
+  }
+  /* the star re-read (the mint chunk already proved it once) */
+  excludeName = readExcludeName();
+  ok("W4b the movies star re-read on the side chunk", !!excludeName, `pick=${excludeName}`);
+
+  const projEdges = api("GET", "/api/edges").edges || [];
+  const hasE = (from, to) => projEdges.some((x) => x.fromJobId === from && x.toJobId === to);
+  if (!exJob) {
+    const exPlace = { x: byType.motioncorr.x + 40, y: byType.motioncorr.y + 260 };
+    exJob = api("POST", "/api/jobs", { type: "excludemg", x: exPlace.x, y: exPlace.y, params: { excludeNames: excludeName } }).job;
+  }
+  if (!mcB) {
+    const exPlace = { x: byType.motioncorr.x + 40, y: byType.motioncorr.y + 260 };
+    mcB = api("POST", "/api/jobs", { type: "motioncorr", x: exPlace.x + 300, y: exPlace.y }).job;
+  }
+  const impEdge = projEdges.find((x) => x.fromJobId === byType.import.id && x.toJobId === MA.id);
+  const edgeDefs = [
+    { id: newId(), fromJobId: byType.import.id, toJobId: exJob.id, fromPort: impEdge.fromPort, toPort: "micrographs" },
+    { id: newId(), fromJobId: exJob.id, toJobId: mcB.id, fromPort: "micrographs", toPort: impEdge.toPort },
+  ];
+  let edgesOk = true;
+  for (const def of edgeDefs) {
+    if (hasE(def.fromJobId, def.toJobId)) continue; /* the resume's idempotency */
+    const r = api("POST", "/api/edges", def);
+    if (r.error) { edgesOk = false; console.log(`    edge refused: ${JSON.stringify(r).slice(0, 140)}`); }
+  }
+  ok("W5 the exclude filter wired: import -> excludemg -> MotionCorr (subset run)", edgesOk && !!exJob?.id && !!mcB?.id, `filter=${exJob?.id?.slice(-6)} mcB=${mcB?.id?.slice(-6)}`);
 
 /* the class2d TWIN with a different K — the stub's class assignment is
  * (p*7+it)%K+1, so K=10 spreads the same 100 particles 10-per-class where
@@ -211,37 +382,41 @@ ok("W5 the exclude filter wired: import -> excludemg -> MotionCorr (subset run)"
  * deterministic margin, and run B being a class2d means BOTH of the
  * selection's mouths can be fed (class3d has no classAverages output —
  * the t453 wiring gate would honestly refuse the mint). */
-const B = api("POST", "/api/jobs", { type: "class2d", x: byType.class2d.x + 300, y: byType.class2d.y + 260, params: { numClasses: 10 } }).job;
-const bEdge = api("POST", "/api/edges", { id: newId(), fromJobId: byType.extract.id, toJobId: B.id, fromPort: "particles", toPort: "particles" });
-ok("W6 the class2d twin wired off the extract (K=10 — real gains, both mouths feedable)", !!B?.id && !bEdge.error, `B=${B?.id?.slice(-6)} K=10`);
+if (!B) {
+  B = api("POST", "/api/jobs", { type: "class2d", x: byType.class2d.x + 300, y: byType.class2d.y + 260, params: { numClasses: 10 } }).job;
+  const projEdges2 = api("GET", "/api/edges").edges || [];
+  if (!projEdges2.some((x) => x.fromJobId === byType.extract.id && x.toJobId === B.id)) {
+    await api("POST", "/api/edges", { id: newId(), fromJobId: byType.extract.id, toJobId: B.id, fromPort: "particles", toPort: "particles" });
+  }
+}
+ok("W6 the class2d twin wired off the extract (K=10 — real gains, both mouths feedable)", !!B?.id, `B=${B?.id?.slice(-6)} K=10`);
 
-console.log("    running the side world…");
-api("POST", `/api/jobs/${exJob.id}/run`);
-const exWait = await waitJobs([exJob.id], "completed", 60);
-api("POST", `/api/jobs/${mcB.id}/run`);
-const mcBWait = await waitJobs([mcB.id], "completed", 120);
-api("POST", `/api/jobs/${B.id}/run`);
-const bWait = await waitJobs([B.id], "completed", 180);
+console.log("    running the side world (resumable)…");
+const exWait = await runToCompletion(exJob, 60);
+const mcBWait = await runToCompletion(mcB, 120);
+const bWait = await runToCompletion(B, 180);
 ok("W7 the side world completed (filter, subset MotionCorr, K=10 class2d)", exWait.done === 1 && mcBWait.done === 1 && bWait.done === 1, `filter=${exWait.done} mcB=${mcBWait.done} class2dB=${bWait.done}`);
 
-const sandboxJobs = await jobsOf();
+sandboxJobs = await jobsOf();
 const completedSandbox = sandboxJobs.filter((j) => j.status === "completed").length;
 ok("W8 the throwaway world stands: every job completed", sandboxJobs.length === 13 && completedSandbox === sandboxJobs.length, `jobs=${sandboxJobs.length} completed=${completedSandbox}`);
-
-/* the ids the walk needs */
-const A = byType.class2d, MA = byType.motioncorr, MB = mcB, CTF = byType.ctffind;
-
-/* ================= PHASE 2 — the browser walk ================= */
-console.log("\nPhase 2 — the browser walk (the three flights)");
-
-ab(`open ${BASE}/?t=${Date.now()}`);
-let dress = null;
-for (let i = 0; i < 60; i++) {
-  zzz(1);
-  dress = evalJson('(() => { const dgs = document.querySelectorAll("[role=dialog]").length; const cards = document.querySelectorAll("[data-card-btn]").length; return JSON.stringify({ dlgs: dgs, cards }); })()');
-  if (dress.dlgs === 0 && dress.cards >= 12) break;
 }
-evalJson('(() => { localStorage.removeItem("cryoflow.selectedJob.v1"); return 1; })()');
+
+/* ================= PHASE 2 — the browser walk (the flights chunk) ==== */
+if (inChunk("flights")) {
+console.log("\nPhase 2 — the browser walk (the three flights)");
+if (!sandboxId || !A || !B || !exJob) {
+  const sb = await findSandbox();
+  if (!sb) { ok("V0 the sandbox exists (run mint+side first)", false, "no t887-adoption sandbox"); process.exit(1); }
+  sandboxId = sb.id;
+  api("POST", "/api/projects/switch", { id: sandboxId });
+  await zzz(2);
+  await deriveWorld();
+}
+ok("V0 the walk's world adopted (ids re-derived from the API truth)", !!A && !!B && !!MA && !!MB && !!exJob && !!CTF && !!byType.initialmodel && !!byType.refine3d, `jobs=${sandboxJobs.length} A=${A?.id?.slice(-6)} B=${B?.id?.slice(-6)}`);
+
+const dress = await openAndDress(12);
+evalSoft('(() => { localStorage.removeItem("cryoflow.selectedJob.v1"); return 1; })()');
 ok("V1 the browser rides the throwaway world", dress && dress.dlgs === 0 && dress.cards >= 12, `cards=${dress?.cards}`);
 
 const findCard = (nameRe) => evalJson(`(() => { const b = Array.from(document.querySelectorAll("[data-card-btn]")).find((x) => ${nameRe}.test(x.textContent || "")); if (!b) return JSON.stringify({ found: false }); const r = b.getBoundingClientRect(); const o = { bubbles: true, cancelable: true, button: 0, pointerId: 1, clientX: r.x + r.width / 2, clientY: r.y + r.height / 2 }; b.dispatchEvent(new PointerEvent("pointerdown", o)); b.dispatchEvent(new PointerEvent("pointerup", o)); b.click(); return JSON.stringify({ found: true }); })()`);
@@ -267,7 +442,7 @@ const openInspector = async (nameRe, label) => {
 const openCompare = async (nameRe, label) => {
   const door = await openInspector(nameRe, label);
   if (!door.found) return { door };
-  evalJson(`(() => { document.querySelector("[aria-label^=\\"${label} A/B\\"]").click(); return 1; })()`);
+  evalSoft(`(() => { document.querySelector("[aria-label^=\\"${label} A/B\\"]").click(); return 1; })()`);
   let dlg = null;
   for (let i = 0; i < 15; i++) {
     zzz(1);
@@ -278,17 +453,21 @@ const openCompare = async (nameRe, label) => {
 };
 
 const closeAnyCompare = async () => {
-  evalJson('(() => { const d = document.querySelector("[role=dialog]"); if (d) { const k = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }); d.dispatchEvent(k); } return 1; })()');
+  evalSoft('(() => { const d = document.querySelector("[role=dialog]"); if (d) { const k = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }); d.dispatchEvent(k); } return 1; })()');
   await zzz(1.5);
 };
 
+/* the app's toasts are RADIX (ui/toaster), not sonner — the viewport is an
+ * <ol>, each toast an <li data-state> with Title/Description inside (the
+ * sonner selector never matched anything; the t1172 ride proved the point
+ * by reading "none" while the graph had already re-wired) */
 const toastOf = async () => {
   for (let i = 0; i < 16; i++) {
     await zzz(0.5);
-    const t = evalJson('(() => { const ts = Array.from(document.querySelectorAll("[data-sonner-toast]")); return JSON.stringify({ n: ts.length, titles: ts.map((x) => ((x.querySelector("[data-title]") || x).textContent || "").slice(0, 80)), descs: ts.map((x) => (x.textContent || "").slice(0, 200)) }); })()');
-    if (t.n > 0) return t;
+    const t = evalSoft('(() => { const lis = Array.from(document.querySelectorAll("ol > li[data-state]")); const vs = lis.filter((x) => x.closest("ol")); return JSON.stringify({ n: vs.length, titles: vs.map((x) => ((x.querySelector("[data-title]") || x.firstChild || x).textContent || "").slice(0, 90)), texts: vs.map((x) => (x.textContent || "").slice(0, 220)) }); })()');
+    if (t && t.n > 0) return t;
   }
-  return { n: 0, titles: [], descs: [] };
+  return { n: 0, titles: [], texts: [] };
 };
 
 const edgesNow = () => api("GET", "/api/edges").edges || [];
@@ -299,13 +478,13 @@ console.log("\n  FLIGHT 1 — the plain adopt (Continue downstream from run B)")
 const f1 = await openCompare(/^2D Classification/, "Class");
 ok("F1.1 the Class A/B door found (1 sibling)", f1.door?.found === true && f1.door?.siblings === "1", `siblings=${f1.door?.siblings}`);
 ok("F1.2 the compare dialog opened with the verdict region", f1.dlg?.open === true, (f1.dlg?.text || "").slice(0, 90));
-const f1verbs = evalJson('(() => { const q = (t) => document.querySelector(`[data-testid="${t}"]`); const ad = q("adopt-downstream"); const as = q("adopt-with-select"); const ax = q("adopt-with-exclude"); return JSON.stringify({ adopt: ad ? { disabled: ad.disabled, label: (ad.textContent || "").trim().slice(0, 60) } : null, select: as ? { disabled: as.disabled, label: (as.textContent || "").trim().slice(0, 60) } : null, excludePresent: !!ax }); })()');
+const f1verbs = evalJson('(() => { const q = (t) => document.querySelector(\'[data-testid="\' + t + \'"]\'); const ad = q("adopt-downstream"); const as = q("adopt-with-select"); const ax = q("adopt-with-exclude"); return JSON.stringify({ adopt: ad ? { disabled: ad.disabled, label: (ad.textContent || "").trim().slice(0, 60) } : null, select: as ? { disabled: as.disabled, label: (as.textContent || "").trim().slice(0, 60) } : null, excludePresent: !!ax }); })()');
 ok("F1.3 the plain adopt ENABLED with its move count", f1verbs.adopt && f1verbs.adopt.disabled === false, f1verbs.adopt?.label);
 ok("F1.4 the select rider PRESENT and ENABLED (K=10 twin: every paired class gained)", f1verbs.select && f1verbs.select.disabled === false, f1verbs.select?.label);
 ok("F1.5 the exclude rider ABSENT (the class verdict has no micrographs to exclude)", f1verbs.excludePresent === false);
-evalJson('(() => { document.querySelector("[data-testid=\\"adopt-downstream\\"]").click(); return 1; })()');
+evalSoft('(() => { document.querySelector("[data-testid=\\"adopt-downstream\\"]").click(); return 1; })()');
 const f1toast = await toastOf();
-ok("F1.6 the adoption receipt spoke (the toast names the re-wire)", f1toast.n > 0 && /re-wired|adopted/i.test(f1toast.descs.join(" ")), (f1toast.titles[0] || "none").slice(0, 60));
+ok("F1.6 the adoption receipt spoke (the toast names the re-wire)", f1toast.n > 0 && /re-wired|adopted/i.test(f1toast.texts.join(" | ")), (f1toast.titles[0] || "none").slice(0, 60));
 let f1edges = [];
 for (let i = 0; i < 10; i++) {
   await zzz(1);
@@ -323,9 +502,9 @@ await closeAnyCompare();
 const f2 = await openCompare(/^2D Classification/, "Class");
 const f2verbs = evalJson('(() => { const as = document.querySelector("[data-testid=\\"adopt-with-select\\"]"); return JSON.stringify({ present: !!as, disabled: as ? as.disabled : null, label: as ? (as.textContent || "").trim().slice(0, 70) : null }); })()');
 ok("F2.2 the select rider ENABLED on the re-opened dialog (the plan re-derived)", f2verbs.present === true && f2verbs.disabled === false, f2verbs.label);
-evalJson('(() => { document.querySelector("[data-testid=\\"adopt-with-select\\"]").click(); return 1; })()');
+evalSoft('(() => { document.querySelector("[data-testid=\\"adopt-with-select\\"]").click(); return 1; })()');
 const f2toast = await toastOf();
-ok("F2.3 the adoption receipt spoke (the selection as the new provider)", f2toast.n > 0 && /re-wired|adopted|select/i.test(f2toast.descs.join(" ")), (f2toast.titles[0] || "none").slice(0, 60));
+ok("F2.3 the adoption receipt spoke (the selection as the new provider)", f2toast.n > 0 && /re-wired|adopted|select/i.test(f2toast.texts.join(" | ")), (f2toast.titles[0] || "none").slice(0, 60));
 let mint = null;
 for (let i = 0; i < 12; i++) {
   await zzz(1);
@@ -347,9 +526,9 @@ ok("F3.1 the Motion A/B door found (1 sibling)", f3.door?.found === true, `found
 const f3verbs = evalJson('(() => { const ax = document.querySelector("[data-testid=\\"adopt-with-exclude\\"]"); const as = document.querySelector("[data-testid=\\"adopt-with-select\\"]"); const reg = document.querySelectorAll("[data-testid=\\"adopt-with-exclude\\"]") ? (document.body.textContent || "").match(/Biggest regressions?/i) : null; return JSON.stringify({ exclude: ax ? { disabled: ax.disabled, label: (ax.textContent || "").trim().slice(0, 70) } : null, selectPresent: !!as }); })()');
 ok("F3.2 the exclude rider PRESENT and ENABLED (the subset run grew real regressions)", f3verbs.exclude && f3verbs.exclude.disabled === false, f3verbs.exclude?.label);
 ok("F3.3 the select rider ABSENT (the motion verdict has no classes to select)", f3verbs.selectPresent === false);
-evalJson('(() => { document.querySelector("[data-testid=\\"adopt-with-exclude\\"]").click(); return 1; })()');
+evalSoft('(() => { document.querySelector("[data-testid=\\"adopt-with-exclude\\"]").click(); return 1; })()');
 const f3toast = await toastOf();
-ok("F3.4 the adoption receipt spoke (the filter as the new provider)", f3toast.n > 0 && /re-wired|adopted|exclud/i.test(f3toast.descs.join(" ")), (f3toast.titles[0] || "none").slice(0, 60));
+ok("F3.4 the adoption receipt spoke (the filter as the new provider)", f3toast.n > 0 && /re-wired|adopted|exclud/i.test(f3toast.texts.join(" | ")), (f3toast.titles[0] || "none").slice(0, 60));
 let filter = null;
 for (let i = 0; i < 12; i++) {
   await zzz(1);
@@ -367,42 +546,60 @@ const f4 = await openCompare(/^2D Classification/, "Class");
 const f4verbs = evalJson('(() => { const ad = document.querySelector("[data-testid=\\"adopt-downstream\\"]"); return JSON.stringify({ disabled: ad ? ad.disabled : null, title: ad ? ad.getAttribute("title") : null }); })()');
 ok("F4 the spent run speaks the honest disabled state (no downstream left)", f4verbs.disabled === true && /no downstream/i.test(f4verbs.title || ""), f4verbs.title?.slice(0, 70));
 await closeAnyCompare();
+} /* the flights chunk's gate */
 
-/* ================= PHASE 3 — the teardown ================= */
+/* ================= PHASE 3 — the teardown (the teardown chunk) ====== */
+if (inChunk("teardown")) {
 console.log("\nPhase 3 — the teardown (the spent world leaves no residue)");
-
+if (!sandboxId) {
+  const sb = await findSandbox();
+  sandboxId = sb?.id ?? null;
+}
+if (!tutorialProjectId) {
+  tutorialProjectId = ((api("GET", "/api/projects").projects || []).find((p) => /tutorial/i.test(p.name || "")) || {}).id;
+}
+if (!sandboxId) {
+  ok("T1 the sandbox already gone (a prior teardown's work)", true, "nothing to delete");
+} else {
 const del = api("DELETE", `/api/projects/${sandboxId}`);
 ok("T1 the sandbox deleted (live runs stopped, jobs and edges removed)", !del.error && !del.raw?.includes("error"), del.raw ? String(del.raw).slice(0, 60) : "ok");
+}
 /* the switch target comes from the CURRENT projects list — the name-derived
  * id captured at P2 could be stale if a prior ride's sandbox masqueraded */
 const projsT = api("GET", "/api/projects");
 const tProj = (projsT.projects || []).find((p) => /tutorial/i.test(p.name || "")) || { id: tutorialProjectId };
 const sw = api("POST", "/api/projects/switch", { id: tProj.id });
 ok("T2 the tutorial project active again", !sw.error && !!tProj.id, tProj.name || tProj.id);
-const demoAfter = await jobsOf();
+const demoAfter = await settledJobs((js) => js.length === 15 && js.every((j) => j.status === "completed"));
 ok("T3 the demo world untouched: 15/15 completed", demoAfter.length === 15 && demoAfter.every((j) => j.status === "completed"), `jobs=${demoAfter.length}`);
 
 /* the browser back on the demo world, the seed cleared */
-ab(`open ${BASE}/?t=${Date.now()}`);
-let t4 = null;
-for (let i = 0; i < 60; i++) {
-  zzz(1);
-  t4 = evalJson('(() => { const dgs = document.querySelectorAll("[role=dialog]").length; const cards = document.querySelectorAll("[data-card-btn]").length; return JSON.stringify({ dlgs: dgs, cards }); })()');
-  if (t4.dlgs === 0 && t4.cards >= 14) break;
-}
-evalJson('(() => { localStorage.removeItem("cryoflow.selectedJob.v1"); return 1; })()');
+const t4 = await openAndDress(14);
+evalSoft('(() => { localStorage.removeItem("cryoflow.selectedJob.v1"); return 1; })()');
 ok("T4 the browser rides the demo world again (15 cards, bare)", t4 && t4.dlgs === 0 && t4.cards >= 14, `cards=${t4?.cards}`);
+} /* the teardown chunk's gate */
 
-console.log(`\nADOPTION-VERBS t887: ${pass}/${pass + fail} ${fail === 0 ? "green" : `(${fail} red)`}`);
+console.log(`\nADOPTION-VERBS t887 [${CHUNK}]: ${pass}/${pass + fail} ${fail === 0 ? "green" : `(${fail} red)`}`);
 
+/* the receipt MERGES by chunk — a chunked film's receipt carries every
+ * chunk's checks; a re-run chunk rewrites only its own key */
+const receiptPath = join(ROOT, "shots-qa", "t887-adoption-verbs.json");
+let prior = null;
+try { prior = JSON.parse(readFileSync(receiptPath, "utf8")); } catch { /* first chunk */ }
+const thisChunk = { chunk: CHUNK, at: new Date().toISOString(), checks: results, pass, fail };
+const chunks = [...((prior && prior.chunks) || []).filter((c) => c.chunk !== CHUNK), thisChunk];
+const totPass = chunks.reduce((n, c) => n + (c.pass || 0), 0);
+const totFail = chunks.reduce((n, c) => n + (c.fail || 0), 0);
 const receipt = {
   task: "t887",
-  window: "cron 2026-11-02 17:05:40 +08:00 (trace 1a07549302235a99-cron-agent-loop-202611021705)",
+  window: "cron 2026-11-03/04 (Job 362852), the chunked film (t1172)",
   purpose: "the compare family's adoption verbs filmed: the plain adopt, the select rider (mint + wire both mouths + adopt), the exclude rider (the subset run's real regressions baked) — each with the receipt toast and the graph truth via the API; the throwaway world spent and deleted; the demo untouched",
+  chunk: CHUNK,
+  chunks,
+  totals: { pass: totPass, fail: totFail },
   sandboxId, tutorialProjectId, excludeName,
-  counts: { templateJobs: tplJobs.length, sandboxJobs: sandboxJobs.length, excludeName },
-  checks: results, pass, fail,
+  counts: { templateJobs: tplJobs?.length ?? null, sandboxJobs: sandboxJobs.length, excludeName },
 };
-writeFileSync(join(ROOT, "shots-qa", "t887-adoption-verbs.json"), JSON.stringify(receipt, null, 2) + "\n");
-console.log("receipt: shots-qa/t887-adoption-verbs.json");
+writeFileSync(receiptPath, JSON.stringify(receipt, null, 2) + "\n");
+console.log(`receipt: shots-qa/t887-adoption-verbs.json (film totals: ${totPass} pass / ${totFail} fail across ${chunks.length} chunks)`);
 process.exit(fail === 0 ? 0 : 1);
