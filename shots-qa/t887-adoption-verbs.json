@@ -1,0 +1,287 @@
+{
+  "task": "t887",
+  "window": "cron 2026-11-03/04 (Job 362852), the chunked film (t1172)",
+  "purpose": "the compare family's adoption verbs filmed: the plain adopt, the select rider (mint + wire both mouths + adopt), the exclude rider (the subset run's real regressions baked) — each with the receipt toast and the graph truth via the API; the throwaway world spent and deleted; the demo untouched",
+  "chunk": "teardown",
+  "chunks": [
+    {
+      "chunk": "mint",
+      "at": "2026-11-03T16:59:12.605Z",
+      "checks": [
+        {
+          "label": "P0 the daemon's tab neutered (no zombie reload can compile the whale)",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "label": "P1 the demo world is 15/15 completed (and active)",
+          "pass": false,
+          "detail": "jobs=15 active=β-Galactosidase Tutorial (demo)"
+        },
+        {
+          "label": "P2 the tutorial project captured (by name, not by active-guess)",
+          "pass": true,
+          "detail": "id=cmw05fpts0000m3jo5akx6223"
+        },
+        {
+          "label": "P3 the sandbox state resolved (adopt-or-mint)",
+          "pass": true,
+          "detail": "existing sandbox cmw0w6fnq0000ucomh23rj327"
+        },
+        {
+          "label": "P4 the compute lane detected (the mock stubs as the local RELION install)",
+          "pass": true,
+          "detail": "stubs=23 found=true path=/home/z/relion-install/bin"
+        },
+        {
+          "label": "W1 the sandbox project created (set active)",
+          "pass": true,
+          "detail": "id=cmw0xcq9z0000uc04ftgfqcls"
+        },
+        {
+          "label": "W2 the template chain created",
+          "pass": true,
+          "detail": "jobs=10 edges=13 (the template's own 13-wire chain)"
+        },
+        {
+          "label": "W3 the template chain completed (each stage run in RELION order)",
+          "pass": true,
+          "detail": "10/10"
+        },
+        {
+          "label": "W4 the import's movies star read from disk, an exclude name picked",
+          "pass": true,
+          "detail": "pick=mic_004.mrc"
+        }
+      ],
+      "pass": 8,
+      "fail": 1
+    },
+    {
+      "chunk": "side",
+      "at": "2026-11-03T17:00:35.296Z",
+      "checks": [
+        {
+          "label": "P0 the daemon's tab neutered (no zombie reload can compile the whale)",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "label": "P3 the sandbox state resolved (adopt-or-mint)",
+          "pass": true,
+          "detail": "existing sandbox cmw0xcq9z0000uc04ftgfqcls"
+        },
+        {
+          "label": "P4 the compute lane detected (the mock stubs as the local RELION install)",
+          "pass": true,
+          "detail": "stubs=23 found=true path=/home/z/relion-install/bin"
+        },
+        {
+          "label": "W4b the movies star re-read on the side chunk",
+          "pass": true,
+          "detail": "pick=mic_004.mrc"
+        },
+        {
+          "label": "W5 the exclude filter wired: import -> excludemg -> MotionCorr (subset run)",
+          "pass": true,
+          "detail": "filter=m4qeei mcB=omyqve"
+        },
+        {
+          "label": "W6 the class2d twin wired off the extract (K=10 — real gains, both mouths feedable)",
+          "pass": true,
+          "detail": "B=sfdugb K=10"
+        },
+        {
+          "label": "W7 the side world completed (filter, subset MotionCorr, K=10 class2d)",
+          "pass": true,
+          "detail": "filter=1 mcB=1 class2dB=1"
+        },
+        {
+          "label": "W8 the throwaway world stands: every job completed",
+          "pass": true,
+          "detail": "jobs=13 completed=13"
+        }
+      ],
+      "pass": 8,
+      "fail": 0
+    },
+    {
+      "chunk": "flights",
+      "at": "2026-11-03T17:03:27.932Z",
+      "checks": [
+        {
+          "label": "P0 the daemon's tab neutered (no zombie reload can compile the whale)",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "label": "P3 the sandbox state resolved (adopt-or-mint)",
+          "pass": true,
+          "detail": "existing sandbox cmw0xcq9z0000uc04ftgfqcls"
+        },
+        {
+          "label": "V0 the walk's world adopted (ids re-derived from the API truth)",
+          "pass": true,
+          "detail": "jobs=13 A=cim5oz B=sfdugb"
+        },
+        {
+          "label": "V1 the browser rides the throwaway world",
+          "pass": true,
+          "detail": "cards=13"
+        },
+        {
+          "label": "F1.1 the Class A/B door found (1 sibling)",
+          "pass": true,
+          "detail": "siblings=1"
+        },
+        {
+          "label": "F1.2 the compare dialog opened with the verdict region",
+          "pass": true,
+          "detail": "Run A2D Classification 1 (this run)Run B2D Classification 2 · Main"
+        },
+        {
+          "label": "F1.3 the plain adopt ENABLED with its move count",
+          "pass": true,
+          "detail": "Continue downstream from run B(2)"
+        },
+        {
+          "label": "F1.4 the select rider PRESENT and ENABLED (K=10 twin: every paired class gained)",
+          "pass": true,
+          "detail": "Continue downstream, selecting these(10)"
+        },
+        {
+          "label": "F1.5 the exclude rider ABSENT (the class verdict has no micrographs to exclude)",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "label": "F1.6 the adoption receipt spoke (the toast names the re-wire)",
+          "pass": false,
+          "detail": "none"
+        },
+        {
+          "label": "F1.7 THE GRAPH TRUTH: both template wires re-parented onto run B",
+          "pass": true,
+          "detail": "B->initialmodel=true B->refine3d=true"
+        },
+        {
+          "label": "F2.1 a fresh select2d child wired on run A (the re-wire target)",
+          "pass": true,
+          "detail": "child=twwflv"
+        },
+        {
+          "label": "F2.2 the select rider ENABLED on the re-opened dialog (the plan re-derived)",
+          "pass": false,
+          "detail": "Continue downstream, selecting these(10)"
+        },
+        {
+          "label": "F2.3 the adoption receipt spoke (the selection as the new provider)",
+          "pass": false,
+          "detail": "none"
+        },
+        {
+          "label": "F2.4 THE MINT: a 2D Class Selection born with the gained classes baked",
+          "pass": false,
+          "detail": "id=undefined selectedClasses=\"undefined\""
+        },
+        {
+          "label": "F2.5 THE WIRE: run B feeds the mint through BOTH mouths (classes + particles)",
+          "pass": false,
+          "detail": "B->mint edges=0"
+        },
+        {
+          "label": "F2.6 THE ADOPT: run A's child re-parented onto the MINT",
+          "pass": false,
+          "detail": "mint->child=false A->child=true"
+        },
+        {
+          "label": "F3.1 the Motion A/B door found (1 sibling)",
+          "pass": true,
+          "detail": "found=true"
+        },
+        {
+          "label": "F3.2 the exclude rider PRESENT and ENABLED (the subset run grew real regressions)",
+          "pass": false,
+          "detail": ""
+        },
+        {
+          "label": "F3.3 the select rider ABSENT (the motion verdict has no classes to select)",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "label": "F3.4 the adoption receipt spoke (the filter as the new provider)",
+          "pass": false,
+          "detail": "none"
+        },
+        {
+          "label": "F3.5 THE MINT: an Exclude Micrographs filter born with the regressions baked",
+          "pass": false,
+          "detail": "id=undefined excludeNames=\"\""
+        },
+        {
+          "label": "F3.6 THE WIRE + THE ADOPT: run B feeds the filter; CTF now consumes the FILTER",
+          "pass": false,
+          "detail": "B->filter=false filter->ctf=false A->ctf=true"
+        },
+        {
+          "label": "F4 the spent run speaks the honest disabled state (no downstream left)",
+          "pass": true,
+          "detail": "2D Classification 1 has no downstream jobs to re-wire"
+        }
+      ],
+      "pass": 14,
+      "fail": 10
+    },
+    {
+      "chunk": "teardown",
+      "at": "2026-11-03T17:06:04.238Z",
+      "checks": [
+        {
+          "label": "P0 the daemon's tab neutered (no zombie reload can compile the whale)",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "label": "P3 the sandbox state resolved (adopt-or-mint)",
+          "pass": true,
+          "detail": "existing sandbox cmw0xcq9z0000uc04ftgfqcls"
+        },
+        {
+          "label": "T1 the sandbox deleted (live runs stopped, jobs and edges removed)",
+          "pass": true,
+          "detail": "ok"
+        },
+        {
+          "label": "T2 the tutorial project active again",
+          "pass": true,
+          "detail": "β-Galactosidase Tutorial (demo)"
+        },
+        {
+          "label": "T3 the demo world untouched: 15/15 completed",
+          "pass": true,
+          "detail": "jobs=15"
+        },
+        {
+          "label": "T4 the browser rides the demo world again (15 cards, bare)",
+          "pass": true,
+          "detail": "cards=15"
+        }
+      ],
+      "pass": 6,
+      "fail": 0
+    }
+  ],
+  "totals": {
+    "pass": 36,
+    "fail": 11
+  },
+  "sandboxId": "cmw0xcq9z0000uc04ftgfqcls",
+  "tutorialProjectId": "cmw05fpts0000m3jo5akx6223",
+  "excludeName": null,
+  "counts": {
+    "templateJobs": 0,
+    "sandboxJobs": 0,
+    "excludeName": null
+  }
+}
