@@ -1,9 +1,9 @@
 {
   "unit": "t1021-import-fuel-unit",
-  "verdict": "GREEN",
-  "pass": 19,
-  "fail": 0,
-  "at": "2026-11-02T17:23:42.818Z",
+  "verdict": "RED",
+  "pass": 13,
+  "fail": 6,
+  "at": "2026-11-02T17:43:02.550Z",
   "bands": [
     "F the gate at source",
     "L the live refusal ride"

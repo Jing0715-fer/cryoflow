@@ -78,9 +78,14 @@ async function apiRetry(method, url, body, tries = 4) {
 }
 
 /* ---------- the world gate (as-found) ---------- */
+// t1158 icebreaker patience: this trio are the census's FIRST server-riding
+// seats — an idle night (or a watcher recompile, or the thin host's recycle
+// arm) makes the next hit pay a full cold recompile, and the old 10×1s window
+// starved while the trio's own probing warmed the server for t1024+. The
+// window rides the measured one (t1015's law): 60×2s, fast path kept.
 let world = null;
-for (let i = 0; i < 10 && !world; i++) {
-  if (i > 0) await sleep(1000);
+for (let i = 0; i < 60 && !world; i++) {
+  if (i > 0) await sleep(2000);
   try {
     const r = await api("GET", "/api/jobs");
     if (r.status === 200) world = jobsArr(r.json);
@@ -255,7 +260,7 @@ if (twin) {
   // HMR recompile storms (the census's full runs recompile the canvas
   // mid-sweep) and the refusal row STANDS — the world gate then fails on
   // the unit's own residue. Patient now (the t1023 law), 4 rounds.
-  await apiRetry("DELETE", `/api/jobs/${twin.id}`, undefined, 4);
+  await apiRetry("DELETE", `/api/jobs/${twin.id}`, undefined, 10);
   await sleep(1000);
 }
 rmSync(FIX, { force: true, recursive: true });
@@ -264,8 +269,8 @@ ok("the fixture swept", !existsSync(FIX));
 // the replant world's mics stay on the cluster (the t979 feed, zero upload),
 // so the ride's link residue is SWEPT, not restored, and the binding comes
 // back bit-for-bit through the t300 door instead.
-if (bind0) await apiRetry("PATCH", `/api/projects/${project}`, { remoteConnectionId: bind0 }, 4);
-const rebound = (await apiRetry("GET", "/api/project", undefined, 4))?.json?.project?.remote?.connectionId ?? null;
+if (bind0) await apiRetry("PATCH", `/api/projects/${project}`, { remoteConnectionId: bind0 }, 10);
+const rebound = (await apiRetry("GET", "/api/project", undefined, 10))?.json?.project?.remote?.connectionId ?? null;
 ok("the binding restored bit-for-bit after the native-lane ride (the t1075 re-key — the t300 door)",
   rebound === bind0, `${rebound ?? "unbound"} vs ${bind0 ?? "unbound"}`);
 const MIC_LINK = path.join(ROOT, "data/relion", twin?.projectId ?? project, "micrographs");
@@ -277,8 +282,8 @@ if (twin?.projectId && twin?.id) {
 /* ---------- the world gate (as-left) ---------- */
 console.log("world gate:");
 let worldAfter = null;
-for (let i = 0; i < 10 && !worldAfter; i++) {
-  if (i > 0) await sleep(1000);
+for (let i = 0; i < 60 && !worldAfter; i++) {
+  if (i > 0) await sleep(2000);
   try {
     const r = await api("GET", "/api/jobs");
     if (r.status === 200) worldAfter = jobsArr(r.json);

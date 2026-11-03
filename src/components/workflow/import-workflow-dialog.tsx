@@ -41,6 +41,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { useWorkflowStore } from "@/lib/store";
+import { fmtStampRow } from "@/lib/duration";
 import { jobType } from "@/lib/workflow";
 import { Button } from "@/components/ui/button";
 import {
@@ -53,19 +54,10 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
+// t1158: the row stamp rides its ONE father (the year stays — a shelf
+// entry can be a year old); the honest absence keeps this face's own word.
 function fmtDate(iso: string): string {
-  if (!iso) return "unknown date";
-  try {
-    return new Date(iso).toLocaleString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return "unknown date";
-  }
+  return (iso ? fmtStampRow(iso) : null) ?? "unknown date";
 }
 
 /** Tooltip copy for the per-file rename chip (grammar for 1 vs N).

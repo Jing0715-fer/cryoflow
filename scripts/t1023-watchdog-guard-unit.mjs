@@ -89,8 +89,11 @@ const jobsArr = (b) => (Array.isArray(b) ? b : b?.jobs ?? []);
 
 /* ---------- the world gate (as-found) ---------- */
 let world = null;
-for (let i = 0; i < 15 && !world; i++) {
-  if (i > 0) await sleep(1000);
+// t1158 icebreaker patience: the census's first rides pay the cold
+// recompile (idle night / watcher / thin-host recycle) — 60×2s, fast path
+// kept (t1015's measured-window law; the old 15×1s starved mid-compile).
+for (let i = 0; i < 60 && !world; i++) {
+  if (i > 0) await sleep(2000);
   try {
     const r = await api("GET", "/api/jobs");
     if (r.status === 200) world = jobsArr(r.json);
@@ -118,8 +121,8 @@ if (world.some((j) => j.name === "Import Fuel Gate Ride")) {
   }
   await sleep(1200);
   world = null;
-  for (let i = 0; i < 10 && !world; i++) {
-    if (i > 0) await sleep(1000);
+  for (let i = 0; i < 60 && !world; i++) {
+    if (i > 0) await sleep(2000);
     try {
       const r = await api("GET", "/api/jobs");
       if (r.status === 200) world = jobsArr(r.json);
@@ -253,8 +256,8 @@ echo "verdict=$(recycle_decision "$(next_server_rss_kb)" "$(host_avail_kb)" 9999
 /* ---------- the world gate (as-left) ---------- */
 console.log("world gate — as-left:");
 let worldAfter = null;
-for (let i = 0; i < 10 && !worldAfter; i++) {
-  if (i > 0) await sleep(1000);
+for (let i = 0; i < 60 && !worldAfter; i++) {
+  if (i > 0) await sleep(2000);
   try {
     const r = await api("GET", "/api/jobs");
     if (r.status === 200) worldAfter = jobsArr(r.json);

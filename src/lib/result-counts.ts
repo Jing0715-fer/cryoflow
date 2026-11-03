@@ -137,6 +137,11 @@ export function formatCountCompact(n: number): string {
  * DESIGN: every `new Date(...).toLocaleString()` — the date-time face
  * is a DIFFERENT word riding the browser's locale on purpose; a
  * separate census if it ever drifts.
+ *
+ * t1158 — the separate census RAN, the design HELD: the family is now
+ * NAMED at the stamp fathers (lib/duration.ts, fmtStampChip/fmtStampRow
+ * — the compact chips' two byte-twins died that day); a stamp is a
+ * SPOKEN word, never a parsed one, so the locale ride is the honesty.
  */
 export function formatCountFull(n: number): string {
   return n.toLocaleString("en-US");

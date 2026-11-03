@@ -66,8 +66,11 @@ const jobsArr = (b) => (Array.isArray(b) ? b : b?.jobs ?? []);
 
 /* ---------- the world gate (as-found) ---------- */
 let world = null;
-for (let i = 0; i < 10 && !world; i++) {
-  if (i > 0) await sleep(1000);
+// t1158 icebreaker patience: the census's first rides pay the cold
+// recompile (idle night / watcher / thin-host recycle) — 60×2s, fast path
+// kept (t1015's measured-window law; the old 10×1s starved mid-compile).
+for (let i = 0; i < 60 && !world; i++) {
+  if (i > 0) await sleep(2000);
   try {
     const r = await api("GET", "/api/jobs");
     if (r.status === 200) world = jobsArr(r.json);
@@ -95,8 +98,8 @@ if (world.some((j) => j.name === "Import Fuel Gate Ride")) {
   }
   await sleep(1200);
   world = null;
-  for (let i = 0; i < 10 && !world; i++) {
-    if (i > 0) await sleep(1000);
+  for (let i = 0; i < 60 && !world; i++) {
+    if (i > 0) await sleep(2000);
     try {
       const r = await api("GET", "/api/jobs");
       if (r.status === 200) world = jobsArr(r.json);

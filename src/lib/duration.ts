@@ -69,3 +69,64 @@ export function fmtAgo(iso: string | number): string {
   if (ms < 60_000) return "just now";
   return `${fmtDuration(ms)} ago`;
 }
+
+/**
+ * t1158 — the DATE-TIME WORD's census (the separate census the t1157
+ * thousands-father paragraph promised). The verdict: the design HOLDS —
+ * a stamp is a SPOKEN word, never a parsed one (no consumer reads these
+ * strings back), so the human faces keep riding the browser's locale:
+ * the user's own dialect is the honest one. The family, named:
+ *   - the FORENSIC full stamp — the bare locale-riding call on a
+ *     `new Date(...)`: the stale-badge tooltips (job-card, inspector),
+ *     the grave stamps' title (storage-dialog), the remote-cluster
+ *     history rows and their forget-label, the 3D viewer's bookmark
+ *     and event rows, the clipboard summary's "Generated" line —
+ *     hover/forensic words where full precision IS the point;
+ *   - the COMPACT chip stamp — month short + day + hour:minute, the
+ *     on-canvas chips: fmtStampChip below (the two byte-twins in
+ *     ai-verdict-stamp and selection-receipt died 2026-11-03 —
+ *     copy-paste twins are how a family drifts, the t1152 lesson);
+ *   - the ROW stamp — the chip's shape plus the year (fmtStampRow):
+ *     a shelf entry can be a year old and the import dialog's row
+ *     may not drop it;
+ *   - the MACHINE word — the ISO-UTC call: the md report footer
+ *     (results-view) and the pipeline-script header; UTC by contract;
+ *   - the BANNED face — the QC report carries no clock at all (t197:
+ *     the report is a function; determinism outranks provenance);
+ *   - the EXPLICIT default — the calendar's month label passes the
+ *     "default" locale BY HAND, the self-documenting twin of the
+ *     bare call.
+ * Both fathers are pure: the caller's instant in, the host's dialect
+ * out, NO clock read (the wall belongs to the caller — the t1153 law);
+ * junk parses to null and the call site speaks its own absence.
+ */
+
+/** Compact stamp "Nov 3, 01:20" (host locale, shape pinned) — the chips. */
+export function fmtStampChip(at: Date | number | string): string | null {
+  return fmtStampWith(at, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+/** Row stamp "Nov 3, 2026, 01:20" — the chip's year-bearing sibling. */
+export function fmtStampRow(at: Date | number | string): string | null {
+  return fmtStampWith(at, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function fmtStampWith(
+  at: Date | number | string,
+  opts: Intl.DateTimeFormatOptions,
+): string | null {
+  const d = at instanceof Date ? at : new Date(at);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleString(undefined, opts);
+}
