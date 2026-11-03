@@ -30,8 +30,15 @@ cd "$REPO_ROOT" || exit 1
 # node_modules NAME. Restore on boot; refresh the store just before the
 # boot spawn below (idempotent re-link; new files from fresh installs
 # join, the store always tracks the healthy tree).
-if [ ! -d node_modules ] && [ -d .nm-store ]; then
-  echo "[dev-server] node_modules reaped between calls — hardlink-restore from .nm-store"
+# t1175 — the reaper's harvest is PARTIAL: it can empty the tree while
+# leaving the directory and even a few entries (witnessed: exactly `next`
+# surviving, so the entry point exists and the first require dies with
+# MODULE_NOT_FOUND requireStack:[]). The guard therefore counts, not
+# exists: fewer than 600 of the known 643 packages means reaped.
+mv_nm_count() { ls node_modules 2>/dev/null | wc -l; }
+if [ "$(mv_nm_count)" -lt 600 ] && [ -d .nm-store ]; then
+  echo "[dev-server] node_modules reaped (partial harvest: $(mv_nm_count) left) — hardlink-restore from .nm-store"
+  rm -rf node_modules
   cp -al .nm-store node_modules
 fi
 

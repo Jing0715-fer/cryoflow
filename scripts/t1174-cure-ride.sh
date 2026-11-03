@@ -10,14 +10,24 @@ mkdir -p shots-qa /tmp/cryoflow-qa
 say() { echo "[cure-ride] $*"; }
 ab() { agent-browser "$@"; }
 
+# the zombie-tab law's ORDER (t1175 lesson): neuter the daemon's stale tab
+# BEFORE anything else — a tab parked on the canvas from a previous window
+# reconnects its HMR socket the moment a new server says Ready, reloads the
+# page, and its boot fan-out saturates the compile pipeline (the ride's own
+# lane check then times out at 000). about:blank has no HMR socket.
+ab open about:blank >/dev/null 2>&1; sleep 1
+
 code=$(curl -s -o /dev/null -w "%{http_code}" -m 10 -H "Origin: http://localhost:3000" http://localhost:3000/api/jobs 2>/dev/null)
 if [ "$code" != "200" ]; then
-  # the reaper law's counter: the hardlink store restores node_modules in ~1s
-  if [ ! -d node_modules ] && [ -d .nm-store ]; then
-    say "node_modules reaped — hardlink-restore from .nm-store"
+  # the reaper law's counter — t1175 update: the harvest can be PARTIAL
+  # (directory alive, ~1 entry left), so the guard counts, not exists.
+  nm_n=$(ls node_modules 2>/dev/null | wc -l)
+  if [ "$nm_n" -lt 600 ] && [ -d .nm-store ]; then
+    say "node_modules reaped (partial: $nm_n left) — hardlink-restore from .nm-store"
+    rm -rf node_modules
     cp -al .nm-store node_modules
   fi
-  if [ ! -d node_modules ]; then
+  if [ "$(ls node_modules 2>/dev/null | wc -l)" -lt 600 ]; then
     say "no store, installing"
     timeout 200 bun install > /tmp/cryoflow-qa/t1174-ride-install.log 2>&1 || { say "INSTALL FAILED"; exit 1; }
   fi
@@ -28,8 +38,7 @@ if [ "$code" != "200" ]; then
 fi
 say "lane up"
 
-# the zombie-tab law's cousin: a FRESH navigation, then the openAndDress law
-ab open about:blank >/dev/null 2>&1; sleep 1
+# the openAndDress law: a FRESH navigation into the (already-neutered) tab
 ab open http://localhost:3000 >/dev/null 2>&1
 sleep 8
 READY=0
