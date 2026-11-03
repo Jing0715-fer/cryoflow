@@ -1,0 +1,69 @@
+{
+  "task": "t1165 (2026-11-03, 13:51 dispatch, Job 362852, trace …-cron-202611031351)",
+  "title": "the world's verdict gets its product face — the System diagnostics dialog speaks the probe, one instrument many mouths",
+  "date": "2026-11-03",
+  "the_sweep": {
+    "name": "the newer-routes perf/security sweep (t1163+t1164 guidance's standing candidate)",
+    "route_guard_census": {
+      "tool": "scripts/t1165-route-guard-census.mjs (committed as the reworded b4e39027 — the platform cron's machine-id auto-commit reworded to house style)",
+      "doors_scanned": 94,
+      "unguarded": 0,
+      "verdict": "every API door file references isLocalRequest — the family hardening law holds across the whole api tree"
+    },
+    "newest_three_routes_audited": [
+      "jobs/[id]/outputs/push (11-02): isLocalRequest both verbs, paths 1..8 strings, dedupe, the twin address DERIVED (job row + connection), path validation in twin-push.ts (no leading /, no .. segments)",
+      "projects/[id]/fleet-ledger (11-02): isLocalRequest, Cache-Control no-store, honest 404, ONE-WELL shape (computeFleetLedger pure aggregator, 2 db queries)",
+      "projects/[id]/world-ledger (11-01): isLocalRequest both verbs, 64 KiB byte bound BEFORE parse, envelope validation, verbatim storage"
+    ],
+    "perf_half": [
+      "walkWorkdir: depth cap 3 + truncation flag (no unbounded walk)",
+      "fleet-ledger: pure aggregator over 2 queries, no N+1",
+      "verdict: the sweep came back CLEAN — a non-event recorded as a receipt (t1164's philosophy: the honest answer moves the work one layer out)"
+    ]
+  },
+  "the_vein": {
+    "name": "the family-report marker's UI face (t1164 guidance candidate #4) — answered: NO family-report surface existed (zero hits in src/), so the face was built as the world durability card in the System diagnostics dialog",
+    "architecture": [
+      "src/lib/diagnostics.ts: readWorldDurability() SPAWNS the ONE probe instrument (scripts/world-snapshot.mjs probe — the t1162 doorbell) via spawnSync(process.execPath, [script, \"probe\"], 10s timeout) and quotes its machine JSON verbatim — a second verdict ladder in the product would drift from the instrument the cron family rides; parseProbeStdout takes the LAST non-empty line (noise-tolerant) and shape-checks named fields; a nonzero exit is NOT a mute (doctor-RED verdicts exit 1 while still speaking valid JSON); a mute returns { ok:false, why } — the worded absence, never a guessed verdict",
+      "src/lib/world-durability-words.ts: the client-safe birthplace of the words (WORLD_DURABILITY_VERDICTS ladder order, relativeAgeWord buckets, worldVerdictNote prose) — the dialog (a client component) and the server reader both speak from it; zero node imports",
+      "src/lib/types.ts: WorldDurabilityClient mirror + DiagnosticsClient.durability",
+      "system-diagnostics-dialog.tsx: the World durability SectionCard (ShieldCheck, 'the probe's verdict') — verdict chip in the rail's color grammar (FRESH teal · STALE/EMPTY-LIVE amber · NO-SNAPSHOT/LIED/DRIFTED danger, unknown fails safe to amber), doctor-RED badge, snapshot/live counts mono line, heads line (snapshot head → tree head), exported age word, the verdict's own prose note, the mute face speaking the why, HonestEmpty for null",
+      "presentSystemDiagnostics: the locator summary gains the durability line (verdict + red word + counts + exported age) — the three-cups law: route, dialog and AI tool read the SAME well"
+    ],
+    "jurisdiction_check": "the running server inherits DATABASE_URL=file:…/db/cryoflow.db and the probe's own law (CRYOFLOW_DB_URL > dev-lane default) lands on the same lane — the spawned probe and the app's census read ONE world, no split-brain (the .env's custom.db template leak stays a bare-process trap only)"
+  },
+  "units": {
+    "t1165-world-durability-unit": {
+      "pins": "56 green-path ok pins (58 ok() calls in source — two ride the probe's mute branch; the count-before-rekey law counts the calls and SAYS the branch split)",
+      "groups": "A the live face (the REAL instrument read-only; the contract's shape, not the world's exact numbers — the t529 law) + the words fathers on fixtures + parseProbeStdout's shape law + the presenter's locator lines; B the source law (argv-direct spawn with the subcommand NAMED — the side-effect-default law's product face; no shell:true; the 10s budget; the payload composition; the client mirror; the ONE-birthplace import; zero node imports in the words module); C the doctrine (the card's testids; the fail-safe tone buckets; the honest mute face; the region's roster; the header's law)",
+      "result": "56/56 green on first full pass"
+    },
+    "t530-diagnostics-bench": {
+      "change": "the full fixture gained a durability face (STALE, not red, 15/15, 6cb3556a → 587c6570) and four new pins (the verdict+red word, the counts, the age word riding the ONE father, the mute face's why)",
+      "result": "58 checks passed"
+    }
+  },
+  "live_rides": [
+    "agent-browser QA: both views render, console clean; the diagnostics dialog opened live — the World durability card rendered STALE with the amber tone classes, snapshot 15 · live 15, snapshot head 6cb3556a → tree head b4e39027, exported 2h ago · probed just now, the verdict's prose note, 462×178px card, screenshots /tmp/render/diag-full.png + diag-durability.png",
+    "the live API read (same-origin headers): durability face rides the payload — ok:true, STALE, red:false, 15/15, exportedAt 04:28:56Z"
+  ],
+  "standing_instruments": {
+    "census": "103 seats · 103 GREEN · 0 RED (seat 103 enrolled by the formal rekey, idempotent ×2, 4 edits, bash -n green)",
+    "selftest": "7/7 (the vacuum verb untouched)",
+    "probe_vs_doctor": "STALE, red=false, 15/15 — agreement held (tree head moved 587c6570 → b4e39027 by the reword; the honest STALE-by-design continues, data faithful)",
+    "tsc": 0,
+    "eslint": 0,
+    "memory": "1377MB available at bed rolls (the 15th consecutive non-build day; the prod lane build stays queued)",
+    "reexport_duty": "NOT owed — this window changed CODE, not the world (no jobs created/deleted; the probe's liveJobs stayed 15)"
+  },
+  "scars": [
+    "the MultiEdit partial-application pin fired again live (t1162's scar): a 3-edit batch reported 'No replacement was performed' but 2 of 3 edits had landed — read back with rg before retrying, then fixed the third edit's anchor (the old_str's trailing marker pointed at '/**' where the file had the census banner '/* ---')",
+    "the seat's first summary line printed '56 ok · 0 FAIL' — the census parses '(N ok' / 'X/Y green' house formats; reworded to the house shape before the census rode (the count-before-rekey law's second half: the roster's mouth must speak the house dialect)"
+  ],
+  "judge_lines": [
+    "「一仪器众口」: the product face spawns the SAME probe the cron family rides — a second verdict ladder in the product would drift from the instrument; the doorbell law's jurisdictions hold because there is exactly one probe",
+    "「哑的仪器说为什么」: a mute returns { ok:false, why } — the worded absence extends the honest-nulls law from null to a reason; the card never invents a verdict",
+    "「未知的词退到琥珀」: an unknown verdict fails safe to the watch band, never dressed as green",
+    "「清洁的扫查是收据」: the route-guard sweep came back clean (94 doors, zero unguarded) — a non-event recorded honestly moves the work one layer out, exactly like t1164's innocent qa63"
+  ]
+}
