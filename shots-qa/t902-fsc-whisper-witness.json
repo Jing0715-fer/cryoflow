@@ -1,0 +1,24 @@
+{
+  "instrument": "t902-fsc-whisper-witness",
+  "at": "2026-10-11T19:15:44.174Z",
+  "project": "cmv3x1a000000lt89qwh34u45",
+  "launcher": {
+    "id": "cmv44773d0009lt9jlwq1lp56",
+    "name": "t899 ring browser witness"
+  },
+  "ghost": "t902-whisper-ghost-1791746126805",
+  "saved": [
+    "t902-whisper-ghost-1791746126805",
+    "cmv44773d0009lt9jlwq1lp56",
+    "cmv444gdx0007lt9jr6cr4qvj",
+    "cmv44057r0005lt9j8c2zebdj",
+    "cmv43tnnr0003lt9j742b0hjj",
+    "cmv43pv190001lt9jaymmccie",
+    "cmv43i5730005ltmocy7u2fbs",
+    "cmv43gh710003ltmotaf5t96y"
+  ],
+  "bucketWasMissing": true,
+  "pass": 23,
+  "fail": 0,
+  "verdict": "GREEN"
+}

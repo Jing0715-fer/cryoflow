@@ -7,6 +7,7 @@ import { persistPortEdge, portsValid } from "@/lib/edge-ports";
 import { findCycle, formatCyclePath } from "@/lib/graph-cycle";
 import { normalizeTypeId } from "@/lib/workflow-io";
 import type { EdgeDTO, JobDTO, ParamValue } from "@/lib/types";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -294,7 +295,6 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error("POST /api/workflow-import failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("POST /api/workflow-import", error);
   }
 }

@@ -133,6 +133,13 @@ for (let attempt = 0; attempt < 4 && !panned; attempt++) {
   ab("mouse up"); sleepNode(1);
 }
 ok(panned === true, "P1 the canvas panned onto the host card (the pan is persisted world state — the walk drags dynamically)");
+/* the pan's down-up can land ON the card itself = a synthetic click opens the
+ * inspector early (its results tab then covers the door's own click point —
+ * the walk's own preamble opened the room it is entering). One defensive
+ * Escape clears the room before the door's own click (the flicker lesson's
+ * sibling; the t880 teach). */
+const pre = evalJson(`(() => { const d = document.querySelector('[role=dialog]'); if (!d) return JSON.stringify({ pre: false }); const k = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }); (document.activeElement || d).dispatchEvent(k); d.dispatchEvent(k); return JSON.stringify({ pre: true }); })()`);
+if (pre.pre) { sleepNode(1.5); }
 ab(`click "div[role=button][aria-label^='${HOST}']"`);
 sleepNode(3);
 const insp = evalJson(`(() => { const h = document.querySelector('[role=dialog] [data-slot=dialog-title]'); return JSON.stringify({ heading: h ? (h.textContent||'').trim().slice(0, 45) : null }); })()`);
@@ -237,6 +244,12 @@ if (after.n === 1) {
 /* ---------- P13 the reopen (NO PERSISTENCE) ---------- */
 console.log("\nP13 — the reopen (the walk re-enters; the host leads again)");
 ab("eval \"(() => { document.body.focus(); return 'x'; })()\"");
+/* the fix changed the stack's arithmetic: P12's ONE Escape now peels ONE
+ * layer (the A/B dialog) — the inspector BEHIND survives (the disease's
+ * cure is exactly that). The reopen must first peel the surviving layer
+ * with its own press: one press, one layer, the law the walk itself filmed. */
+evalJson(`(() => { const d = document.querySelector('[role=dialog]'); if (!d) return JSON.stringify({ pre: false }); const k = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }); (document.activeElement || d).dispatchEvent(k); d.dispatchEvent(k); return JSON.stringify({ pre: true }); })()`);
+sleepNode(1.5);
 ab(`click "div[role=button][aria-label^='${HOST}']"`);
 sleepNode(3);
 const insp2 = evalJson(`(() => JSON.stringify({ d: !!document.querySelector('[role=dialog] [data-slot=dialog-title]') }))()`);

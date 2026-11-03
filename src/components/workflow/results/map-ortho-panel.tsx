@@ -62,13 +62,25 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { BarChart3, Check, ChevronDown, ChevronLeft, ChevronRight, Crosshair, Download, Focus, Loader2, ScanEye, ScanLine, Scissors, Slice, TriangleAlert } from "lucide-react";
+import { BarChart3, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, Crosshair, Download, Film, Focus, Layers, Loader2, Printer, ScanEye, ScanLine, Scissors, Slice, TriangleAlert } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Kbd } from "@/components/ui/kbd"; // t830 — the keymap row speaks the one kbd vocabulary (t642)
 import { MrcImage } from "./mrc-image";
 import { DensityHistogramStrip } from "./density-histogram";
 import { cn } from "@/lib/utils";
 import { downloadBlob } from "@/lib/download"; // t646 — one blob sink (this dance skipped the attach-before-click law)
+import { copyTextToClipboard } from "@/lib/chart-export"; // t1132 — the house clipboard word (a PERMISSION, not a right — all refusals collapse into one honest false)
+import { OBLIQUE_SHEET_FACE_TITLE, obliqueDepthVox, obliqueDepthVoice, obliqueNormal, obliqueOffsetPctVoice, obliqueSupportVox, patchBoxRect, patchClampVoice, voxelReadout, sheetLegendText, type SheetLegend } from "@/lib/voxel-voice"; // t906/t907 — the tile's and the oblique block's voices ride the ONE lib (the embed's commit site reads the same seats); t1099 — the cut's direction rides the ONE father too; t1122 — the patch's footprint rides the same lib (the box and the crosshair can never disagree about where a voxel lives); t1126 — the clamp's own voice rides the same mint (the chip's shortfall is the lib's word, not the panel's); t1130 — the face's title rides the lib (the mesh edition's division: the σ slider cuts the surface, the face keeps the field); t1131 — the legend's type rides the same lib (the strip renders the embed's own key, never its own ramp); t1132 — the copy chip's cargo rides the same father (the key as text is the strip's own words)
+import { DIRECTION_STATIONS, FILMSTRIP_FRAMES, obliqueDirectionWalkCurrentIndex, obliqueDirectionWalkFilename, obliqueDirectionWalkUrls, obliqueFilmstripFilename, obliqueFilmstripUrls, obliqueWalkCurrentIndex, planObliqueDirectionWalk, planObliqueFilmstrip } from "@/lib/oblique-filmstrip"; // t1096 — the walk's geometry rides the ONE lib: the plan, the URLs and the name are decided before a fetch flies; t1108 — the cut's "you are here" rides the same lib's frac seat; t1109 — the walk dial rides the same two seats on the live screen; t1111 — the direction dial rides the lib's azimuth ladder (the stations carry the voice's own label) and its angular mark; t1112 — the direction page's pixels ride the lib's azimuth URL edition; t1115 — the direction export's name rides the lib's filename edition
+import { ORTHO_FILMSTRIP_FRAMES, orthoFilmstripFilename, orthoFilmstripUrls, orthoWalkCurrentIndex, planOrthoFilmstrip } from "@/lib/ortho-filmstrip"; // t1098 — the axis walks ride the ONE lib: the plan, the URLs and the name are decided before a fetch flies; t1107 — the walk's "you are here" rides the same seat
+import { orthoAxisWalkHeading, orthoPlateDirectionCurrentLegend, orthoPlateDirectionWalkExtentWord, orthoPlateDirectionWalkMetaLine, orthoPlateMetaLine, orthoPlateObliqueCurrentLegend, orthoPlateTileUrl, orthoPlateWalkCurrentLegend, orthoPlateWalkMetaLine, orthoWalkFrameCaption, planOrthoPlate, planPlateHistogram, PLATE_HIST_INKS, type PlateHistPayload } from "@/lib/ortho-plate"; // t1103/t1104/t1105/t1106 — the plate's words and its distribution band ride the ONE plan lib (the voices' own bytes, decided before any print; the walk page's words and the σ leg's geometry ride the same family); t1112 — the direction page's extent and legend ride the same words lib; t1115 — the export button's aria and header ride the extent word seat and the legend's own sentence
+import { usePrintedDate } from "@/lib/use-now"; // t1103 — the plate's paper clock (the t232 law: paper clocks do not hydrate)
+import {
+  obliqueTraceDragOffset,
+  obliqueTraceEndpointHit, // t1100 — the rim's own word: the endpoints answer first, the body keeps the slide
+  obliqueTraceHit,
+  obliqueTraceTurn,
+} from "@/lib/oblique-trace-drag"; // t1099 — the trace's HAND rides the ONE lib: the hit-test and the offset solve are decided before an event flies
 
 /** event names for the two-way 3D↔2D linkage — see molstar-embed.tsx */
 export const ORTHO_SLICE_EVENT = "cryoflow:ortho-slice";
@@ -124,6 +136,67 @@ export const OBLIQUE_CLIP_EVENT = "cryoflow:oblique-clip";
  *  block's sliders — without the echo, a later scrub would silently
  *  resurrect a cut the viewer already dismissed (the toggle would lie). */
 export const OBLIQUE_CLIP_STATE_EVENT = "cryoflow:oblique-clip-state";
+/** 3D → 2D (t908): the KEYBOARD's verb half. The viewer's one key face
+ *  (the embed's gated keydown — the t829/t831 gates) requests the block's
+ *  OWN gestures over ONE wire, and the block executes with its own hands:
+ *  provenance, the adopt flash, the settle debounce and the ✂ mirror all
+ *  ride the same paths the buttons use (no second implementation to
+ *  drift). The verb alphabet speaks the house laws:
+ *    - "cut"   — the ✂ verb; wakes a sleeping block and cuts at its
+ *                plane (the slice verbs' X/Y/Z wake law: turning it on
+ *                if it slept);
+ *    - "jump"  — the ⌖ verb; demands the block ON (the scrub verbs'
+ *                sleep law — no spooky default-plane jumps);
+ *    - "adopt" — the ⤸ verb; the request→answer→wake law (the block
+ *                wakes BY CAMERA, its own provenance rides);
+ *    - "offset"— the depth dial; demands ON too; dir ±1 along n, the
+ *                shift step is the coarser one (the < > law).
+ *  When the block sleeps, jump/offset do nothing — the key's silence IS
+ *  the honesty (",/.” deliberately do nothing then” — the same sentence). */
+export const OBLIQUE_VERB_EVENT = "cryoflow:oblique-verb";
+export interface ObliqueVerbDetail {
+  verb: "cut" | "jump" | "adopt" | "offset";
+  /** offset direction: −1 toward −n, +1 toward +n */
+  dir?: -1 | 1;
+  /** shift = the coarser step (the < > law) */
+  coarse?: boolean;
+}
+/** 2D → 3D (t1129): the cut's FACE — the density sheet ON the cut plane.
+ *  The cut (OBLIQUE_CLIP_EVENT) opens the surface along the plane; the
+ *  face wears the data the plane crosses (Mol* slice representation,
+ *  mode 'plane': point + normal — the cut's OWN geometry, one anchor
+ *  word in the lib). The sheet rides its own wire — the cut's event
+ *  speaks {on,theta,phi,offset} and must not grow a second meaning.
+ *  detail = { on: boolean }. The embed ACKs on OBLIQUE_CLIP_STATE_EVENT
+ *  (detail.sheet = the LIVE truth: preference AND cut both on), so the
+ *  block's ▣ is pressed exactly when a face is actually showing, and a
+ *  cut retired elsewhere takes the face down with it. */
+export const OBLIQUE_SHEET_EVENT = "cryoflow:oblique-sheet";
+/** 3D → 2D (t1131): the face's LEGEND — the gray mosaic's own color key,
+ *  derived from the mesh arrays the scene wears (the lib's sheetLegendOf:
+ *  the legend is MADE of the face, never a second ramp). One dispatch per
+ *  settled pump (the embed announces AFTER the commit loop breaks — the
+ *  newest truth, once), detail = { legend: SheetLegend | null } — null is
+ *  the honest no-face announcement (the pump's lattice kept nothing, the
+ *  face retired with its cut). Its own wire, the sheet's own law: the
+ *  cut's event speaks geometry, the sheet's event speaks existence, the
+ *  legend speaks what the face WEARS — none of them grows a second
+ *  meaning. The block renders the strip only when the face's ACK says a
+ *  face is showing (sheet3d && cut3d) AND a legend has arrived. */
+export const OBLIQUE_SHEET_LEGEND_EVENT = "cryoflow:oblique-sheet-legend";
+
+/** t1134 — the key's second voice: the HOVER wire. Hovering a swatch on
+ *  the 2D strip lights the matching gray band IN THE 3D SCENE (the
+ *  ⧉ chip's cross-end linkage, the next inch: the key no longer just
+ *  describes the face — it POINTS at it). Its own wire, the family's
+ *  one-line-one-meaning law: the cut speaks geometry, the sheet speaks
+ *  existence, the legend speaks what the face wears, and the HOVER
+ *  speaks WHERE THE READER IS LOOKING — none of them grows a second
+ *  meaning. Detail { band: number | null } — the swatch's band index,
+ *  null on leave; the embed refuses every other shape. A pointer
+ *  instrument by design (the canvas-minimap's own precedent: the map
+ *  answers the mouse only); the keyboard path is a named later knife. */
+export const OBLIQUE_SHEET_LEGEND_HOVER_EVENT = "cryoflow:oblique-sheet-legend-hover";
 export interface ObliqueViewDetail {
   /** unit plane normal in grid coords */
   normal: [number, number, number];
@@ -225,6 +298,10 @@ const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
  *  them is still a flood; the crosshair line follows the cursor at full
  *  rate and only the VALUE chases on this cadence */
 const PROBE_THROTTLE_MS = 140;
+/** t1124 — the radius slider's re-probe debounce: a drag sweeps many r
+ *  values; ONE request lands, 180 ms after the last notch (a notch-step
+ *  is a deliberate ask, so the debounce is short) */
+const PROBE_REFETCH_MS = 180;
 /** t281 — the probe's hue (sky, the σ chip's cyan family): distinct from
  *  the three focus accents so "where I am looking" (dashed, accent) and
  *  "where my cursor is" (solid, sky) never share a colour language */
@@ -245,6 +322,7 @@ const EXPORT_TEXT = "#94a3b8";
 /** t556 — the fourth panel's accent: the oblique block's own violet
  *  (text-violet-600), solid for label text on the dark strip */
 const EXPORT_OBLIQUE_ACCENT = "#7c3aed";
+
 /** solid (non-alpha) versions of the accents for label text on the dark strip */
 const AXIS_LABEL: Record<"x" | "y" | "z", string> = {
   x: "#f59e0b",
@@ -284,6 +362,7 @@ function OrthoTile({
   clip,
   siblings,
   crosshairOn,
+  probeRadius,
   onPositionChange,
   onPick,
 }: {
@@ -306,6 +385,9 @@ function OrthoTile({
   siblings: { x: number; y: number; z: number };
   /** t278 — whether the crosshair lines are shown (panel-level toggle) */
   crosshairOn: boolean;
+  /** t1122 — the probe's patch radius in voxels (panel-level slider):
+   *  the AREA both the chip's statistics and the box outline speak */
+  probeRadius: number;
   /** t278 — report this tile's position upward so siblings can draw it */
   onPositionChange?: (pos: number) => void;
   /** t278 — clicking the image picks a focus point: the panel moves the
@@ -318,7 +400,20 @@ function OrthoTile({
   const [pos, setPos] = useState(0.5);
   const [rendered, setRendered] = useState(0.5);
   const [flash, setFlash] = useState(false);
+  // t1100 — declared EARLY: the oblique overlay's endpoint handles read
+  // these below, and a hooks-order TDZ here would unmount the whole tree
+  // the moment the cut turns on (the live walk's own catch)
+  const [traceHover, setTraceHover] = useState(false);
+  const [traceRiding, setTraceRiding] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // t1099 — the trace's HAND: grab the cut's line on this tile and slide
+  // it along its own normal. The grab gates on the pixel hit-test (the
+  // lib's own); the drag solves the offset through the ONE lib and speaks
+  // the sliders' own door (OBLIQUE_CLIP_EVENT), throttled with a trailing
+  // word on release; the pick yields once (the grab owns that click). The
+  // sliders and the 3D cut follow through the loop's ACK half (t661) —
+  // one writer, one truth, no desync.
   /** last nonce adopted — render-phase guard against replaying the same event */
   const [prevNonce, setPrevNonce] = useState(follow?.nonce ?? 0);
 
@@ -379,6 +474,16 @@ function OrthoTile({
     fy: number;
     value: number | null;
     voxel: { x: number; y: number; z: number } | null;
+    /** t1121 — the patch's second voice (only when the request names r);
+     *  t1122 — carries its clamped box so the tile can DRAW the area */
+    patch?: {
+      median: number;
+      sigma: number;
+      z: number | null;
+      n: number;
+      lo: { x: number; y: number; z: number };
+      hi: { x: number; y: number; z: number };
+    };
   } | null>(null);
   const probeAbort = useRef<AbortController | null>(null);
   const lastProbeAt = useRef(0);
@@ -395,12 +500,64 @@ function OrthoTile({
     probeAbort.current?.abort();
     const ac = new AbortController();
     probeAbort.current = ac;
-    const qs = `path=${encodeURIComponent(path)}&format=value&axis=${spec.axis}&pos=${rendered.toFixed(3)}&fx=${fx.toFixed(4)}&fy=${fy.toFixed(4)}`;
+    // t1121 — r: the answer grows the in-plane (2r+1)² local statistics
+    // (median / robust z) around the SAME voxel — still row-wise preads,
+    // still free of any plane buffer, still safe at hover frequency;
+    // t1122 — the radius rides the panel's own slider (the chip's numbers
+    // and the tile's box outline follow the same hand)
+    const qs = `path=${encodeURIComponent(path)}&format=value&axis=${spec.axis}&pos=${rendered.toFixed(3)}&fx=${fx.toFixed(4)}&fy=${fy.toFixed(4)}&r=${probeRadius}`;
     fetch(`/api/jobs/${jobId}/outputs/file?${qs}`, { signal: ac.signal })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: { value?: unknown; voxel?: { x: number; y: number; z: number } } | null) => {
+      .then((d: {
+        value?: unknown;
+        voxel?: { x: number; y: number; z: number };
+        patch?: {
+          median?: unknown;
+          sigma?: unknown;
+          z?: unknown;
+          n?: unknown;
+          box?: {
+            lo?: { x?: unknown; y?: unknown; z?: unknown };
+            hi?: { x?: unknown; y?: unknown; z?: unknown };
+          };
+        };
+      } | null) => {
         if (!d || typeof d.value !== "number" || !Number.isFinite(d.value)) return;
-        setProbe((p) => (p ? { ...p, value: d.value as number, voxel: d.voxel ?? null } : p));
+        // the patch speaks only when its numbers are finite — a partial
+        // payload degrades to the first voice (honest, never invented).
+        // Each field is extracted through one finite-guard (the `num`
+        // seat): a box corner that is not a finite number nulls the whole
+        // box — a half-honest rectangle would be a wrong rectangle.
+        const num = (v: unknown): number | null =>
+          typeof v === "number" && Number.isFinite(v) ? v : null;
+        const p = d.patch;
+        const mx = p ? num(p.median) : null;
+        const nx = p ? num(p.n) : null;
+        // the box rides the route's own shape (t1121's `box: {lo, hi}`) —
+        // the footprint and the numbers are ONE payload's two halves
+        const lo = p?.box?.lo;
+        const hi = p?.box?.hi;
+        const lx = lo ? num(lo.x) : null;
+        const ly = lo ? num(lo.y) : null;
+        const lz = lo ? num(lo.z) : null;
+        const hx = hi ? num(hi.x) : null;
+        const hy = hi ? num(hi.y) : null;
+        const hz = hi ? num(hi.z) : null;
+        const patch =
+          mx !== null && nx !== null && lx !== null && ly !== null && lz !== null &&
+          hx !== null && hy !== null && hz !== null
+            ? {
+                median: mx,
+                sigma: p ? num(p.sigma) ?? 0 : 0,
+                z: p ? num(p.z) : null,
+                n: nx,
+                lo: { x: lx, y: ly, z: lz },
+                hi: { x: hx, y: hy, z: hz },
+              }
+            : undefined;
+        setProbe((pv) =>
+          pv ? { ...pv, value: d.value as number, voxel: d.voxel ?? null, patch } : pv
+        );
       })
       .catch(() => {}); // aborted on leave/unmount — silence is correct
   };
@@ -414,7 +571,17 @@ function OrthoTile({
     const fy = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
     // the line is instant (local geometry); the value keeps whatever it
     // had until the next fetch answers — the chip never flashes empty
-    setProbe((p) => (p ? { ...p, fx, fy } : { fx, fy, value: null, voxel: null }));
+    setProbe((p) =>
+      p ? { ...p, fx, fy } : { fx, fy, value: null, voxel: null, patch: undefined }
+    );
+    probeAt(fx, fy);
+  };
+
+  // t1138 — the probe's own HAND, factored so the keyboard mirror rides
+  // the SAME wire: the line is instant above (local geometry), the value
+  // chases on this one trailing throttle — one cadence, two hands (the
+  // cursor's and the keyboard's), never a second clock.
+  const probeAt = (fx: number, fy: number) => {
     const now = Date.now();
     const remaining = PROBE_THROTTLE_MS - (now - lastProbeAt.current);
     if (probeTimer.current) clearTimeout(probeTimer.current);
@@ -433,6 +600,32 @@ function OrthoTile({
     probeAbort.current?.abort();
     setProbe(null);
   };
+
+  // t1124 — the radius slider's LIVE re-probe: the chip and the dashed
+  // box answer the slider without waiting for the next mouse move. The
+  // last hovered position is the probe's own state (fx/fy — t281 made
+  // the line pure geometry, t1121 taught the chip to speak a radius);
+  // a radius change re-fires at the SAME point, trailing-debounced so a
+  // slider drag sweeps many notches and ONE request lands. The refs
+  // bridge the freshest probe position and fetcher (assigned in the
+  // post-render pass — react-hooks/refs forbids render-time writes);
+  // radius is the ONLY reactive dependency of the re-probe effect.
+  const probeRef = useRef(probe);
+  const fireProbeRef = useRef(fireProbe);
+  useEffect(() => {
+    probeRef.current = probe;
+    fireProbeRef.current = fireProbe;
+  });
+  useEffect(() => {
+    const p = probeRef.current;
+    if (!p) return;
+    const { fx, fy } = p;
+    if (probeTimer.current) clearTimeout(probeTimer.current);
+    probeTimer.current = setTimeout(() => {
+      lastProbeAt.current = Date.now();
+      fireProbeRef.current(fx, fy);
+    }, PROBE_REFETCH_MS);
+  }, [probeRadius]);
 
   // t253 — the clip's tile overlay. The clip box lives in 3D; each 2D tile
   // speaks its slice of the story: the kept region's cross-section drawn as
@@ -566,6 +759,26 @@ function OrthoTile({
         >
           <Scissors className="size-2.5" />
         </div>
+        {/* t1100 — the endpoints' own handles: the rim is grabbable, and
+            the handles SAY so (the badge names the slide, the handles
+            name the turn — each affordance speaks its sentence). Small
+            violet rings at the drawn endpoints; they wake when the line
+            is under the hand (hover) or riding (drag). */}
+        {[
+          { x: obliqueTrace.x1, y: obliqueTrace.y1 },
+          { x: obliqueTrace.x2, y: obliqueTrace.y2 },
+        ].map((pt, i) => (
+          <div
+            key={i}
+            data-canvas-ui={`ortho-oblique-end-${spec.axis}-${i + 1}`}
+            aria-hidden="true"
+            className={cn(
+              "pointer-events-none absolute size-2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white bg-violet-600 shadow-sm transition-transform duration-150",
+              (traceHover || traceRiding) && "scale-150 ring-1 ring-violet-400"
+            )}
+            style={{ left: pct(pt.x / 100), top: pct(pt.y / 100) }}
+          />
+        ))}
       </>
     );
   }
@@ -638,6 +851,27 @@ function OrthoTile({
           : null
         : `${probe.value.toFixed(3)}${probe.voxel ? ` @ ${probe.voxel.x + 1},${probe.voxel.y + 1},${probe.voxel.z + 1}` : ""}`;
 
+  // t1121 — the patch's second line (the AREA voice): median first (the
+  // robust centre of the neighbourhood), then the robust z with an
+  // explicit sign (σ = 1.4826·MAD — a positive z on an apex says the
+  // blob rises above its own background; a z near zero says it sits
+  // inside the crowd), then the ACTUAL point count — a clamped edge
+  // patch speaks its true n, never a round (2r+1)² lie. When the patch
+  // is too flat or too small to speak (z null) the line simply omits
+  // the z — silence about it, never a lie about it. t1126 — a clamped
+  // edge ALSO speaks its shortfall in the lib's own micro-phrase
+  // ("of 169 full"): the clamp explained at the point of reading, and
+  // a full-grid read stays silent (the number already says it all).
+  const clampVoice = probe?.patch == null ? null : patchClampVoice(probe.patch.n, probeRadius);
+  const patchText =
+    probe?.patch == null
+      ? null
+      : `med ${probe.patch.median.toFixed(3)} · ${
+          probe.patch.z === null
+            ? ""
+            : `z ${probe.patch.z >= 0 ? "+" : "−"}${Math.abs(probe.patch.z).toFixed(1)}σ · `
+        }${probe.patch.n} pts${clampVoice ? ` ${clampVoice}` : ""}`;
+
   const syncTo3d = () => {
     window.dispatchEvent(
       new CustomEvent(ORTHO_SLICE_EVENT, { detail: { axis: spec.axis, pos } })
@@ -648,6 +882,12 @@ function OrthoTile({
    *  the image's own frame — hAxis left→right, vAxis top→bottom). The
    *  panel resolves which sibling planes move (hAxis/vAxis of THIS tile). */
   const pickFocus = (e: React.MouseEvent<HTMLDivElement>) => {
+    // t1099 — the grab owns the click that ends its own drag: the pick
+    // yields once, then the flag clears (a plain click never sees it)
+    if (traceDrag.current?.moved) {
+      traceDrag.current = null;
+      return;
+    }
     const r = e.currentTarget.getBoundingClientRect();
     if (r.width <= 0 || r.height <= 0) return;
     const fx = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
@@ -655,11 +895,169 @@ function OrthoTile({
     onPick?.(fx, fy);
   };
 
-  const idx = Math.round(pos * Math.max(0, (dim ?? 0) - 1));
-  const readout =
-    dim && dim > 1
-      ? `${spec.axis} ${idx + 1}/${dim}`
-      : `${spec.axis} ${Math.round(pos * 100)}%`;
+  // t1138 — the hover's KEYBOARD MIRROR: the probe and the pick were
+  // pointer-only verbs on this canvas. The canvas now takes focus and
+  // answers the same verbs on keys — the arrows nudge the probe one
+  // voxel in the plane (shift = the coarse ×10, the depth dial's own
+  // shape), Enter/Space commit the focus point (the click's own verb,
+  // the SAME onPick door), Escape clears the probe (the pointer-leave's
+  // mirror). ONE wire: the line and the chip ride exactly what the
+  // cursor rides (probeAt's shared trailing throttle included); the
+  // gate is the family's own gatekeeper (no ctrl/meta/alt — the t908
+  // B7 law); the canvas teaches exactly the keys it answers (the
+  // must-not-lie law's fifth application), and every handled key
+  // preventDefaults so the page keeps no double duty (the B5 law).
+  const axisDim = (ax: "x" | "y" | "z") => (dims ? dims[ax === "x" ? 0 : ax === "y" ? 1 : 2] : undefined);
+  const onCanvasKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return; // foreign combos keep their own duties
+    const hDim = axisDim(spec.hAxis);
+    const vDim = axisDim(spec.vAxis);
+    const mult = e.shiftKey ? 10 : 1; // the coarse ×10 — the depth dial's own shape
+    const nudge = (dh: number, dv: number) => {
+      const base = probe ?? { fx: 0.5, fy: 0.5 }; // no probe yet → the canvas's centre speaks first
+      const cx = Math.min(1, Math.max(0, base.fx + dh * mult));
+      const cy = Math.min(1, Math.max(0, base.fy + dv * mult));
+      // the line is instant; the value chases on the shared cadence
+      setProbe((p) => (p ? { ...p, fx: cx, fy: cy } : { fx: cx, fy: cy, value: null, voxel: null, patch: undefined }));
+      probeAt(cx, cy);
+    };
+    switch (e.key) {
+      case "ArrowLeft": e.preventDefault(); nudge(hDim ? -1 / hDim : -0.01, 0); break;
+      case "ArrowRight": e.preventDefault(); nudge(hDim ? 1 / hDim : 0.01, 0); break;
+      case "ArrowUp": e.preventDefault(); nudge(0, vDim ? -1 / vDim : -0.01); break;
+      case "ArrowDown": e.preventDefault(); nudge(0, vDim ? 1 / vDim : 0.01); break;
+      case "Enter":
+      case " ":
+        e.preventDefault();
+        if (probe) onPick?.(probe.fx, probe.fy);
+        break;
+      case "Escape":
+        e.preventDefault();
+        leaveProbe();
+        break;
+      default:
+        return; // unhandled keys keep the page's own duties
+    }
+  };
+
+  // t1099 — the trace's HAND, the handlers: the grab (pointerdown within
+  // the lib's pixel radius of the line), the slide (the lib's offset
+  // solve at the pointer, throttled to ~120ms with a trailing word on
+  // release — the embed's plane rebuild deserves a breath), the release
+  // (the final word rides NOW; the pick's suppression flag stays for the
+  // click that follows), and the cursor's vocabulary (grab when the line
+  // is under the hand, grabbing while it rides). t1100 — the SECOND DOF:
+  // a grab near an endpoint TURNs the cut (θ, φ) instead of sliding its
+  // depth — the mode rides the drag ref, the solve branches, the door
+  // (OBLIQUE_CLIP_EVENT) and the throttle stay the loop's own.
+  const traceDrag = useRef<{ active: boolean; moved: boolean; mode: "slide" | "turn" } | null>(null);
+  const traceDragTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const traceLastSent = useRef(0);
+
+  const traceSlideTo = (e: React.PointerEvent<HTMLDivElement>, force = false) => {
+    const cut = obliqueCut;
+    if (!cut || !dims) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0) return;
+    const fracs = { h: (e.clientX - r.left) / r.width, v: (e.clientY - r.top) / r.height };
+    // t1100 — the mode branches the solve, never the door: the slide
+    // solves the offset, the turn solves the angles — both speak the
+    // sliders' own OBLIQUE_CLIP_EVENT with the loop's own detail shape
+    const detail =
+      traceDrag.current?.mode === "turn"
+        ? (() => {
+            const turned = obliqueTraceTurn(spec, dims, pos, cut, fracs);
+            return turned
+              ? { on: true, theta: turned.theta, phi: turned.phi, offset: turned.offset }
+              : null;
+          })()
+        : (() => {
+            const offset = obliqueTraceDragOffset(spec, dims, pos, cut, fracs);
+            return offset === null
+              ? null
+              : { on: true, theta: cut.theta, phi: cut.phi, offset };
+          })();
+    if (detail === null) return;
+    if (traceDrag.current) traceDrag.current.moved = true;
+    const speak = () => {
+      traceLastSent.current = Date.now();
+      window.dispatchEvent(new CustomEvent(OBLIQUE_CLIP_EVENT, { detail }));
+    };
+    if (force || Date.now() - traceLastSent.current >= 120) {
+      if (traceDragTimer.current) {
+        clearTimeout(traceDragTimer.current);
+        traceDragTimer.current = null;
+      }
+      speak();
+    } else if (!traceDragTimer.current) {
+      traceDragTimer.current = setTimeout(speak, 120);
+    }
+  };
+
+  const tracePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!obliqueCut || !obliqueTrace || e.button !== 0) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    const ppx = { x: e.clientX - r.left, y: e.clientY - r.top };
+    // t1100 — the rim answers first: an endpoint grab TURNs the cut,
+    // the body keeps the slide (the more specific word wins)
+    const onEndpoint =
+      r.width > 0 && r.height > 0
+        ? obliqueTraceEndpointHit(obliqueTrace, { w: r.width, h: r.height }, ppx)
+        : false;
+    const onBody = obliqueTraceHit(obliqueTrace, { w: r.width, h: r.height }, ppx);
+    if (!onEndpoint && !onBody) return;
+    e.preventDefault();
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      /* a lost capture never kills the gesture — the move handlers re-arm */
+    }
+    traceDrag.current = { active: true, moved: false, mode: onEndpoint ? "turn" : "slide" };
+    setTraceRiding(true);
+    traceSlideTo(e, true);
+  };
+
+  const tracePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (traceDrag.current?.active) {
+      traceSlideTo(e);
+      return;
+    }
+    if (!obliqueTrace) {
+      if (traceHover) setTraceHover(false);
+      return;
+    }
+    const r = e.currentTarget.getBoundingClientRect();
+    const hit = obliqueTraceHit(
+      obliqueTrace,
+      { w: r.width, h: r.height },
+      { x: e.clientX - r.left, y: e.clientY - r.top }
+    );
+    if (hit !== traceHover) setTraceHover(hit);
+  };
+
+  const tracePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!traceDrag.current?.active) return;
+    if (traceDragTimer.current) {
+      clearTimeout(traceDragTimer.current);
+      traceDragTimer.current = null;
+    }
+    traceSlideTo(e, true); // the trailing word: the final offset rides NOW
+    traceDrag.current = { active: false, moved: traceDrag.current.moved, mode: traceDrag.current.mode };
+    setTraceRiding(false);
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      /* the capture may already be gone — the release is the point */
+    }
+  };
+
+  const tracePointerLeave = () => {
+    if (traceHover) setTraceHover(false);
+  };
+
+  // t906 — the readout rides the lib's ONE formula (the embed's commit
+  // site and this tile can never drift); the byte-format is unchanged
+  const readout = voxelReadout(pos, spec.axis, dim);
 
   return (
     <div
@@ -702,22 +1100,41 @@ function OrthoTile({
         >
           <ChevronRight className="size-3" aria-hidden="true" />
         </button>
+        {/* t1098 — the axis's own walk: the whole box swept face to face
+            along this axis, one document; revealed with the sync button's
+            own hover vocabulary (the tile's feature tier). t1107 — the
+            tile's own position rides along: the export marks the frame
+            nearest the plane the reader was just looking at. */}
+        <OrthoFilmstripButton jobId={jobId} path={path} spec={spec} dim={dim} current={pos} />
         <button
           type="button"
           onClick={syncTo3d}
           aria-label={`Show the ${spec.plane} at ${readout} in 3D`}
           title="Move the 3D cross-section to this plane"
-          className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-all duration-150 hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none group-hover/tile:opacity-100 group-focus-within/tile:opacity-100 hover-none:opacity-100"
+          className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-all duration-150 hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring group-hover/tile:opacity-100 group-focus-within/tile:opacity-100 hover-none:opacity-100"
         >
           <Crosshair className="size-3.5" aria-hidden="true" />
         </button>
       </div>
       <div
-        className="relative aspect-square cursor-crosshair"
+        className={cn(
+          "relative aspect-square cursor-crosshair focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+          traceRiding ? "cursor-grabbing" : traceHover && "cursor-grab"
+        )}
+        tabIndex={0}
+        role="group"
+        aria-label={`${spec.plane} at ${readout} — density canvas: arrow keys move the density probe (shift for coarse steps), Enter moves the focus point, Escape dismisses the probe`}
         onClick={pickFocus}
+        onKeyDown={onCanvasKeyDown}
         onMouseMove={moveProbe}
-        onMouseLeave={leaveProbe}
-        title="Hover reads the density at the cursor · click to move the focus point — the sibling planes follow"
+        onMouseLeave={() => {
+          tracePointerLeave();
+          leaveProbe();
+        }}
+        onPointerDown={tracePointerDown}
+        onPointerMove={tracePointerMove}
+        onPointerUp={tracePointerUp}
+        title="Hover reads the density at the cursor · click to move the focus point — the sibling planes follow · drag the violet cut line to slide the cut · drag an endpoint to turn the cut · keyboard: arrows move the probe, Enter picks the focus, Escape dismisses"
       >
         <MrcImage
           src={src}
@@ -732,6 +1149,28 @@ function OrthoTile({
             {/* t281 — the cursor's own crosshair: SOLID sky lines (the focus
                 lines above are DASHED accent-coloured — the two instruments
                 never blur together) */}
+            {(() => {
+              // t1122 — the patch's own footprint: the (2r+1)² AREA whose
+              // statistics the chip speaks, drawn as a dashed outline —
+              // the numbers and the rectangle are the same object (one
+              // fetch, one box, one lib seat: patchBoxRect). No dims, no
+              // patch, no drawable truth → no box (silence, not a guess).
+              const rect = patchBoxRect(probe?.patch, dims ?? null, spec.hAxis, spec.vAxis);
+              if (!rect) return null;
+              return (
+                <div
+                  data-ortho-probe-box
+                  aria-hidden="true"
+                  className="pointer-events-none absolute border border-dashed border-sky-400/70 bg-sky-400/5"
+                  style={{
+                    left: `${rect.left * 100}%`,
+                    top: `${rect.top * 100}%`,
+                    width: `${(rect.right - rect.left) * 100}%`,
+                    height: `${(rect.bottom - rect.top) * 100}%`,
+                  }}
+                />
+              );
+            })()}
             <div
               data-ortho-probe="h"
               aria-hidden="true"
@@ -747,9 +1186,19 @@ function OrthoTile({
             {probeText && (
               <div
                 data-canvas-ui="ortho-probe-readout"
+                aria-live="polite"
                 className="pointer-events-none absolute bottom-1 left-1 rounded border border-sky-500/30 bg-background/85 px-1.5 py-0.5 font-mono text-[9px] tabular-nums text-sky-300"
               >
                 {probeText}
+                {patchText && (
+                  <span
+                    data-ortho-probe-patch
+                    className="block text-sky-400/70"
+                    title="local (2r+1)² patch around the probed voxel — median & robust z (σ = 1.4826·MAD): a high z says the blob rises above its own background, a z near zero says noise"
+                  >
+                    {patchText}
+                  </span>
+                )}
               </div>
             )}
           </>
@@ -800,8 +1249,19 @@ export function MapOrthoPanel({
     y: 0.5,
     z: 0.5,
   });
+  // t1103 — the plate's paper clock (the t232 law: paper clocks do not
+  // hydrate). A TOP-LEVEL hook: the plate renders below the stack early
+  // return, but the clock belongs to the component's hook ledger —
+  // calling it past `if (isStack) return null` would be the hooks-order
+  // sin the t1100 TDZ lesson already paid for.
+  const printed = usePrintedDate();
   /** t278 — crosshair lines on/off (panel-level; default ON) */
   const [crosshairOn, setCrosshairOn] = useState(true);
+  // t1122 — the probe's patch radius (voxels): the slider is panel-level
+  // (one hand, all three tiles), the chip's statistics and the tile's
+  // dashed footprint follow it on the next hover — and the request speaks
+  // it verbatim, the server's own 0..16 law stays the last word
+  const [probeRadius, setProbeRadius] = useState(5);
   /** t283 — the density histogram strip on/off (default OFF: the first
    *  look costs one volume walk — the toggle makes that an explicit ask,
    *  and the server cache makes every later look free) */
@@ -813,6 +1273,30 @@ export function MapOrthoPanel({
    *  the chip stays absent and the export footer skips the σ segment
    *  rather than guessing a default (the footer must not lie). */
   const [isoSigma, setIsoSigma] = useState<OrthoSigmaState | null>(null);
+  /** t1103 — the panel's own echo of the live oblique cut: the plate's
+   *  words (the cut line, the violet trace) need the cut as STATE, not
+   *  the block's onChange ref — a ref moves without a render, and paper
+   *  must never print a stale cut. Rides the SAME wire the tiles ride
+   *  (OBLIQUE_CLIP_EVENT + the applied-state ACK), the tile's own adopt
+   *  law at panel altitude; the effect lives right below with the
+   *  panel's other window listeners. */
+  const [plateOblique, setPlateOblique] = useState<{
+    theta: number;
+    phi: number;
+    offset: number;
+  } | null>(null);
+  /** t1105 — the plate's distribution: fetched at PRINT time by the t291
+   *  law (the paper asks, the server's per-map cache answers), held as
+   *  state so the band is IN the DOM before the flag arms. Null = the
+   *  honest absence (fetch failed / degenerate payload): the plate
+   *  prints without the band, never with a guessed distribution. */
+  const [plateHist, setPlateHist] = useState<PlateHistPayload | null>(null);
+  /** t1105 — the print verb's busy door: the fetch (≤8s honest) now
+   *  precedes the dialog, so the button speaks the export button's own
+   *  spinner language while the paper prepares (the walk family's
+   *  idle/busy law, one state smaller — no ok/err window: the print
+   *  dialog itself is the answer). */
+  const [platePrintBusy, setPlatePrintBusy] = useState(false);
   /** t556 — the oblique block's export-facing state, kept in a ref (the
    *  triptych export reads it at click time; scrubbing never re-renders
    *  the panel). Null until the block mounts; .on gates the 4th panel. */
@@ -913,6 +1397,35 @@ export function MapOrthoPanel({
     return () => window.removeEventListener(ORTHO_CLIP_STATE_EVENT, onClipState);
   }, []);
 
+  // t1103 — the plate's cut echo: the SAME wire the tiles' shadows ride
+  // (the embed's clip intent + the applied-state ACK), adopted at panel
+  // altitude so the plate's cut line and violet trace re-render with the
+  // cut (a ref moves silently — paper must never print a stale cut). The
+  // tile's own adopt law, verbatim shape.
+  useEffect(() => {
+    const adopt = (d: unknown) => {
+      if (!d || typeof d !== "object") return;
+      const det = d as { on?: unknown; theta?: unknown; phi?: unknown; offset?: unknown };
+      if (det.on !== true) {
+        setPlateOblique(null);
+        return;
+      }
+      const theta = typeof det.theta === "number" && Number.isFinite(det.theta) ? det.theta : null;
+      const phi = typeof det.phi === "number" && Number.isFinite(det.phi) ? det.phi : null;
+      const offset = typeof det.offset === "number" && Number.isFinite(det.offset) ? det.offset : null;
+      if (theta == null || phi == null || offset == null) return;
+      setPlateOblique({ theta, phi, offset });
+    };
+    const onClip = (e: Event) => adopt((e as CustomEvent).detail);
+    const onAck = (e: Event) => adopt((e as CustomEvent).detail);
+    window.addEventListener(OBLIQUE_CLIP_EVENT, onClip);
+    window.addEventListener(OBLIQUE_CLIP_STATE_EVENT, onAck);
+    return () => {
+      window.removeEventListener(OBLIQUE_CLIP_EVENT, onClip);
+      window.removeEventListener(OBLIQUE_CLIP_STATE_EVENT, onAck);
+    };
+  }, []);
+
   // 2D → 3D (t279): the focus point is part of a saved view — every
   // committed positions change is reported once to the embed, whose
   // bookmark capture reads it from a ref (fire-and-forget; the embed
@@ -960,6 +1473,118 @@ export function MapOrthoPanel({
   const dimFor = (axis: "x" | "y" | "z") =>
     dims ? (axis === "x" ? dims[0] : axis === "y" ? dims[1] : dims[2]) : undefined;
 
+  // t1103 — the plate's words, decided before any print: the plan rides
+  // the ONE voices lib, so the paper can never drift from the screen's
+  // own readouts (the captions, the σ chip, the cut's annotation).
+  const platePlan = planOrthoPlate({ positions, dims, sigma: isoSigma, oblique: plateOblique });
+  const plateMeta = orthoPlateMetaLine(platePlan);
+  const plateBase = path.split("/").pop() || path;
+
+  // t1104 — the walk page's geometry, decided before any print: the SAME
+  // walk lib the screen's strip button rides (plan + URLs — no second
+  // request dialect), planned from the plate's own cut echo so the paper
+  // never prints a stale cut (the t1103 echo law, second page). No live
+  // cut → no walk page: the screen's own law (the strip button is
+  // disabled while the clip is off), stated on paper too.
+  const walkPlan = plateOblique
+    ? planObliqueFilmstrip(plateOblique.theta, plateOblique.phi, dims)
+    : null;
+  const walkUrls = walkPlan ? obliqueFilmstripUrls(jobId, path, walkPlan) : null;
+
+  // t1108 — the cut walk's "you are here": the frame whose plane stands
+  // nearest the cut's own offset (the ONE frac seat — the export's
+  // canvas rides the same answer via live.offset). A null walkPlan (no
+  // live cut) has no page and no mark: the honest absence, stated on
+  // both faces at once.
+  const walkCurrent =
+    walkPlan && plateOblique
+      ? obliqueWalkCurrentIndex(walkPlan.frames, plateOblique.offset)
+      : null;
+
+  // t1112 — the direction walk's paper geometry, decided before any
+  // print: the SAME seats the screen's direction dial rides (the ONE
+  // lib's azimuth ladder + angular mark) joined with the azimuth URL
+  // edition (the block's own src law — no second request dialect).
+  // The θ and offset are the cut's own (the plate's echo state — the
+  // paper never prints a stale cut, the t1103 echo law, fourth page);
+  // φ walks the stations. No live cut → no page: page 2's own law,
+  // stated on paper again.
+  const directionPrintStops = planObliqueDirectionWalk();
+  const directionPrintUrls = plateOblique
+    ? obliqueDirectionWalkUrls(jobId, path, plateOblique.theta, plateOblique.offset, directionPrintStops)
+    : null;
+  const directionPrintCurrent = plateOblique
+    ? obliqueDirectionWalkCurrentIndex(directionPrintStops, plateOblique.phi)
+    : null;
+
+  // t1106 — the axis walks' paper geometry, decided before any print: the
+  // SAME lib the screen's strip buttons ride (plan + URLs — no second
+  // request dialect), one strip per axis in the tile row's own order (the
+  // page's map below iterates TILE_SPECS — the ONE order father). A grid
+  // the listing cannot claim still walks: the plane voice's own % fallback
+  // carries the position (the t1098 law, stated on paper too).
+  const axisWalkPlans = {
+    z: planOrthoFilmstrip("z", dimFor("z")),
+    y: planOrthoFilmstrip("y", dimFor("y")),
+    x: planOrthoFilmstrip("x", dimFor("x")),
+  };
+  const axisWalkUrls = {
+    z: orthoFilmstripUrls(jobId, path, axisWalkPlans.z),
+    y: orthoFilmstripUrls(jobId, path, axisWalkPlans.y),
+    x: orthoFilmstripUrls(jobId, path, axisWalkPlans.x),
+  };
+
+  // t1107 — the walk's "you are here": each strip marks the frame whose
+  // plane stands nearest the tile's own current position (the ONE seat —
+  // the export's canvas rides the same answer, so the paper and the
+  // downloaded document can never disagree about where the reader was).
+  // positions are the state the tiles themselves speak (t278's focus
+  // point), so the mark follows every scrub without a second channel.
+  const axisWalkCurrent = {
+    z: orthoWalkCurrentIndex(axisWalkPlans.z.frames, positions.z),
+    y: orthoWalkCurrentIndex(axisWalkPlans.y.frames, positions.y),
+    x: orthoWalkCurrentIndex(axisWalkPlans.x.frames, positions.x),
+  };
+
+  // t1105 — the distribution band's geometry, decided before any print:
+  // the ONE plan seat (the t291 drawing law in pure, node-pinnable form).
+  // A null payload plans null → the leg honestly stays home.
+  const plateHistPlan = planPlateHistogram(plateHist, isoSigma);
+
+  // t1103 — the plate's print verb: set the body flag (the print CSS's
+  // only key), print, and ALWAYS clean the flag up — afterprint owns the
+  // happy path, the timeout is the headless failsafe. No printout inherits
+  // a flag it did not ask for (the session report's cleanup law,
+  // verb-scoped edition: the flag lives for THIS print, not the mount).
+  const printPlate = async () => {
+    if (platePrintBusy) return;
+    setPlatePrintBusy(true);
+    try {
+      // t1105 — the paper asks for the distribution BEFORE the verb (the
+      // t291 fetch law: 8s honest timeout, server-cached per map); the
+      // band must be committed before the flag arms, so a rAF pair lets
+      // the state paint, then the flag law below runs UNCHANGED (set →
+      // print → afterprint once + the 8s failsafe — the t1103 bytes).
+      const hist = await fetchHistForPaper();
+      setPlateHist(hist);
+      await new Promise<void>((res) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => res()))
+      );
+      const body = document.body;
+      body.setAttribute("data-plate-print", "");
+      const clear = () => body.removeAttribute("data-plate-print");
+      window.addEventListener("afterprint", clear, { once: true });
+      try {
+        window.print(); // headless probes: no dialog — the flag rides for the pdf instrument
+      } catch {
+        /* the flag stays for the instrument; the failsafe clears it below */
+      }
+      window.setTimeout(clear, 8000);
+    } finally {
+      setPlatePrintBusy(false);
+    }
+  };
+
   /** t278 — a tile clicked its image: move the TWO sibling planes to the
    *  clicked fractions (hAxis/vAxis of THAT tile). The fractions land in
    *  BOTH channels: positions (the crosshair lines) and follow (the
@@ -976,13 +1601,16 @@ export function MapOrthoPanel({
     }));
   };
 
-  /** t291 — the footer's distribution: the same `format=histogram` payload
-   *  the live strip consumes (server-cached per map, so a panel that had
-   *  the strip on pays nothing). Honest absence on ANY failure — a fetch
-   *  that errs, times out (8s: the first look walks the volume, the
-   *  export must not hang on it) or comes back malformed keeps the
-   *  one-line footer instead of drawing a guessed distribution. */
-  const fetchHistForExport = async (): Promise<{
+  /** t291/t1105 — the PAPER editions' distribution: the same
+   *  `format=histogram` payload the live strip consumes (server-cached
+   *  per map, so a panel that had the strip on pays nothing). ONE fetch
+   *  form serving both paper faces — the export triptych's footer (t291)
+   *  and the plate's σ leg (t1105) — honest absence on ANY failure: a
+   *  fetch that errs, times out (8s: the first look walks the volume,
+   *  the paper must not hang on it) or comes back malformed keeps the
+   *  paper honest (the footer stays one line, the leg stays home)
+   *  instead of drawing a guessed distribution. */
+  const fetchHistForPaper = async (): Promise<{
     bins: number[];
     mean: number;
     std: number;
@@ -1038,6 +1666,8 @@ export function MapOrthoPanel({
       const ob = obliqueInfoRef.current;
       const withOblique = !!(ob?.on);
       const [planeBitmaps, hist, obliqueBitmap] = await Promise.all([
+        // t1105 — the export's hist leg rides the SAME fetch fn (renamed
+        // fetchHistForPaper: it now serves both paper editions)
         Promise.all(
           TILES.map(async (t) => {
             const url = `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(path)}&format=png&axis=${t.axis}&pos=${positions[t.axis].toFixed(3)}`;
@@ -1046,7 +1676,7 @@ export function MapOrthoPanel({
             return createImageBitmap(await r.blob());
           })
         ),
-        fetchHistForExport(),
+        fetchHistForPaper(),
         withOblique
           ? fetch(
               `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(path)}&format=png&plane=oblique&theta=${ob.live.theta.toFixed(1)}&phi=${ob.live.phi.toFixed(1)}&offset=${(ob.live.offset / 100).toFixed(3)}`,
@@ -1149,17 +1779,23 @@ export function MapOrthoPanel({
       const base = path.split("/").pop() || path;
       const sigmaSeg = isoSigma ? `iso ${isoSigma.sign < 0 ? "-" : ""}${isoSigma.sigma.toFixed(2)} σ · ` : "";
       const f = `${sigmaSeg}focus x ${Math.round(positions.x * 100)}% · y ${Math.round(positions.y * 100)}% · z ${Math.round(positions.z * 100)}%   ${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC`;
-      // t559 — the camera↔plane dialogue: HOW the current cut was last
-      // chosen — ⌖ the camera swung face-on to it, ⤸ the cut adopted the
-      // camera's view. Only speaks while the reading still holds (a hand
-      // on a slider revokes it) — the footer must not lie. Violet: the
-      // oblique block's own hue, so the provenance reads as the fourth
-      // panel's voice inside the footer.
+      // t559/t907 — the footer's oblique voice: the cut DESCRIBED, not
+      // just gestured at. The render obeys ob.live (the fetch's own
+      // params), so the live readings always hold and always speak:
+      // the angles, the offset %, the depth in voxels. The provenance
+      // glyph prefixes while its reading holds (⌖ the camera swung
+      // face-on to it, ⤸ the cut adopted the camera's view) — a hand on
+      // a slider revokes the GLYPH, never the cut's own truth. Violet:
+      // the oblique block's own hue, so the voice reads as the fourth
+      // panel's inside the footer.
       ctx.font = "600 13px ui-sans-serif, system-ui, sans-serif";
       const nameW = ctx.measureText(base).width;
       ctx.font = "12px ui-monospace, SFMono-Regular, Menlo, monospace";
       const prov = withOblique ? ob?.provenance : undefined;
-      const dialogue = prov ? `${prov.kind === "jump" ? "⌖" : "⤸"} ${prov.theta}°·${prov.phi}°` : null;
+      const dialogue =
+        withOblique && ob
+          ? `${prov ? `${prov.kind === "jump" ? "⌖" : "⤸"} ` : ""}${ob.live.theta}°·${ob.live.phi}° · ${obliqueOffsetPctVoice(ob.live.offset / 100)} · ${obliqueDepthVoice(ob.offsetVox)}`
+          : null;
       const fW = ctx.measureText(f).width;
       const dialogueW = dialogue ? ctx.measureText(dialogue).width + 14 : 0;
       const statsW = fW + dialogueW;
@@ -1253,14 +1889,14 @@ export function MapOrthoPanel({
     <section
       aria-label="Orthogonal slice browser"
       data-canvas-ui="ortho-panel"
-      className="shrink-0 rounded-lg border border-border/80 bg-card/40"
+      className="plate-walk shrink-0 rounded-lg border border-border/80 bg-card/40"
     >
       <div className="flex w-full items-center gap-2 px-3 py-2">
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
-          className="flex flex-1 items-center gap-2 text-left"
+          className="flex flex-1 items-center gap-2 rounded text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <ScanLine className="h-3.5 w-3.5 shrink-0 text-cyan-600" aria-hidden="true" />
           <span className="text-xs font-semibold text-foreground/85">Orthogonal slices</span>
@@ -1288,6 +1924,28 @@ export function MapOrthoPanel({
             iso {isoSigma.sign < 0 ? "-" : ""}{isoSigma.sigma.toFixed(2)} σ
           </span>
         )}
+        {/* t1122 — the probe's patch radius: the AREA the second voice
+            summarises, adjustable 1..12. The readout speaks the FULL patch
+            size (2r+1)² — what the chip's `n` counts at the volume edge is
+            its own honest clamped truth, never this number. */}
+        <div
+          className="flex shrink-0 items-center gap-1.5"
+          data-canvas-ui="ortho-probe-radius"
+          title="the density probe reads a (2r+1)² patch around the cursor — its median and robust z fill the chip's second line; drag to widen or narrow the neighbourhood"
+        >
+          <Slider
+            value={[probeRadius]}
+            min={1}
+            max={12}
+            step={1}
+            onValueChange={(v) => setProbeRadius(v[0] ?? 5)}
+            aria-label="Probe patch radius in voxels"
+            className="w-16"
+          />
+          <span className="w-12 font-mono text-[10px] tabular-nums text-muted-foreground">
+            {2 * probeRadius + 1}×{2 * probeRadius + 1}
+          </span>
+        </div>
         {/* t278 — the tri-planar crosshair toggle. Sibling of the expand
             button (never nested): the expand behaviour stays the same for
             every existing locator while the crosshair gets its own switch. */}
@@ -1318,7 +1976,7 @@ export function MapOrthoPanel({
           disabled={exportState === "busy"}
           data-canvas-ui="ortho-export"
           data-ortho-export-state={exportState}
-          aria-label="Export the three orthogonal sections as a PNG triptych"
+          aria-label={exportState === "busy" ? "Exporting the triptych…" : "Export the three orthogonal sections as a PNG triptych"}
           title="Export the three sections as one PNG — crosshair and density footer included"
           className={cn(
             "shrink-0 rounded p-1 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
@@ -1337,6 +1995,29 @@ export function MapOrthoPanel({
             <TriangleAlert className="h-3.5 w-3.5" aria-hidden="true" />
           ) : (
             <Download className="h-3.5 w-3.5" aria-hidden="true" />
+          )}
+        </button>
+        {/* t1103 — the walk's paper verb. Sibling of the export button
+            (never nested): the plate is the screen's paper edition — the
+            body-flag door the session report opened, verb-scoped. */}
+        <button
+          type="button"
+          onClick={printPlate}
+          disabled={platePrintBusy}
+          data-canvas-ui="ortho-plate-print"
+          data-ortho-print-state={platePrintBusy ? "busy" : "idle"}
+          aria-label={
+            platePrintBusy
+              ? "Preparing the paper plate — fetching the density distribution"
+              : "Print the three sections as a paper plate"
+          }
+          title="Print the tri-panar plate — the three sections at the focus point, their voxel readouts, the σ contour and the density distribution, as one paper figure"
+          className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
+        >
+          {platePrintBusy ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+          ) : (
+            <Printer className="h-3.5 w-3.5" aria-hidden="true" />
           )}
         </button>
         {/* t283 — the density histogram toggle. Sibling of the export
@@ -1375,6 +2056,7 @@ export function MapOrthoPanel({
               clip={clip}
               siblings={positions}
               crosshairOn={crosshairOn}
+              probeRadius={probeRadius}
               onPositionChange={(pos) =>
                 setPositions((prev) => (prev[t.axis] === pos ? prev : { ...prev, [t.axis]: pos }))
               }
@@ -1455,6 +2137,376 @@ export function MapOrthoPanel({
           </span>
         </div>
       )}
+      {/* t1103 — the walk's PRINTER: the plate. The tiles live in the Mol*
+          modal and paper never sees them (the Task 70 law); the plate is
+          the paper's own edition — one print verb flips
+          body[data-plate-print], the dialog un-dialogs, and this figure
+          prints: the three sections at the focus point, the σ contour
+          the 3D view is drawn at, the live cut's annotation voice, each
+          tile's voxel address. The screen never sees it (hidden
+          print:block); the words ride the ONE plan lib, the pixels ride
+          the SAME request law as the screen tiles. */}
+      {open && (
+        <section
+          data-ortho-plate-doc
+          aria-hidden="true"
+          className="hidden print:block border-t border-foreground/10 px-3 pt-2 pb-1"
+        >
+          <header className="flex items-baseline justify-between gap-2">
+            <span className="text-[11px] font-semibold">Ortho plate</span>
+            <span className="truncate font-mono text-[9px] text-muted-foreground">
+              {plateBase}
+              {plateBase && printed ? " · " : ""}
+              {printed}
+            </span>
+          </header>
+          <p className="font-mono text-[9px] leading-4 text-muted-foreground">
+            {plateMeta || "—"}
+          </p>
+          <div className="mt-1 grid grid-cols-3 gap-2">
+            {TILES.map((t) => {
+              const trace =
+                plateOblique && dims
+                  ? obliqueTraceOnTile(t, dims, positions[t.axis], plateOblique)
+                  : null;
+              return (
+                <figure key={t.axis} className="min-w-0">
+                  <div className="relative aspect-square w-full overflow-hidden rounded-sm border border-foreground/15 bg-white">
+                    <img
+                      src={orthoPlateTileUrl(jobId, path, t.axis, positions[t.axis])}
+                      alt=""
+                      className="absolute inset-0 h-full w-full object-contain"
+                    />
+                    {crosshairOn &&
+                      ([t.hAxis, t.vAxis] as const).map((src) => {
+                        const vertical = src === t.hAxis;
+                        const at = positions[src];
+                        return (
+                          <div
+                            key={src}
+                            className="pointer-events-none absolute"
+                            style={{
+                              left: vertical ? pct(at) : 0,
+                              top: vertical ? 0 : pct(at),
+                              width: vertical ? 0 : "100%",
+                              height: vertical ? "100%" : 0,
+                              borderLeft: vertical
+                                ? `1px dashed ${AXIS_COLOR[src]}`
+                                : undefined,
+                              borderTop: vertical
+                                ? undefined
+                                : `1px dashed ${AXIS_COLOR[src]}`,
+                            }}
+                          />
+                        );
+                      })}
+                    {trace && (
+                      <>
+                        <svg
+                          className="pointer-events-none absolute inset-0 h-full w-full"
+                          viewBox="0 0 100 100"
+                          preserveAspectRatio="none"
+                          aria-hidden="true"
+                        >
+                          <line
+                            x1={trace.x1}
+                            y1={trace.y1}
+                            x2={trace.x2}
+                            y2={trace.y2}
+                            stroke="#7c3aed"
+                            strokeWidth={2}
+                            strokeDasharray="5 3"
+                            vectorEffect="non-scaling-stroke"
+                          />
+                        </svg>
+                        {[
+                          { x: trace.x1, y: trace.y1 },
+                          { x: trace.x2, y: trace.y2 },
+                        ].map((pt, i) => (
+                          <span
+                            key={i}
+                            className="pointer-events-none absolute size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white bg-violet-600"
+                            style={{ left: pct(pt.x / 100), top: pct(pt.y / 100) }}
+                          />
+                        ))}
+                      </>
+                    )}
+                  </div>
+                  <figcaption className="pt-0.5 font-mono text-[8px] leading-3 text-muted-foreground">
+                    {t.plane} · {platePlan.readouts[t.axis]}
+                  </figcaption>
+                </figure>
+              );
+            })}
+          </div>
+          {/* t1105 — the σ LEG: the map's density distribution joins page 1
+              (the t291 export's own figure, its second paper edition). The
+              data rides the t291 fetch law (asked at print time, the per-map
+              server cache answering); the geometry is the ONE plan seat's
+              (the t291 bytes, lib-pinned, zero inline math here); the inks
+              are the strip's own light edition (paper is always light).
+              No payload → the leg honestly stays home (the export's own
+              absence law), the plate prints without the band. */}
+          {plateHistPlan && (
+            <div data-ortho-plate-hist className="pt-1.5">
+              <svg
+                viewBox={`0 0 ${plateHistPlan.w} ${plateHistPlan.h}`}
+                className="h-auto w-full"
+                aria-hidden="true"
+              >
+                {plateHistPlan.bars.map((b, i) => (
+                  <rect
+                    key={`b${i}`}
+                    x={b.x}
+                    y={b.y}
+                    width={b.w}
+                    height={b.h}
+                    fill={PLATE_HIST_INKS.bar}
+                  />
+                ))}
+                {plateHistPlan.ticks.map((t, i) => (
+                  <line
+                    key={`t${i}`}
+                    x1={t.x}
+                    y1={6}
+                    x2={t.x}
+                    y2={plateHistPlan.h - 6}
+                    stroke={t.strong ? PLATE_HIST_INKS.mean : PLATE_HIST_INKS.tick}
+                    strokeWidth={1}
+                  />
+                ))}
+                {plateHistPlan.cut && (
+                  <line
+                    x1={plateHistPlan.cut.x}
+                    y1={4}
+                    x2={plateHistPlan.cut.x}
+                    y2={plateHistPlan.h - 6}
+                    stroke={PLATE_HIST_INKS.cut}
+                    strokeWidth={1.5}
+                    opacity={plateHistPlan.cut.onScale ? 1 : 0.35}
+                  />
+                )}
+              </svg>
+              <p className="font-mono text-[8px] leading-3 text-muted-foreground">
+                density (log) · ticks: μ ±1σ ±2σ · cyan line: the current contour
+              </p>
+            </div>
+          )}
+          <footer className="pt-1 font-mono text-[8px] leading-3 text-muted-foreground">
+            {path}
+            {printed ? ` · printed ${printed}` : ""}
+          </footer>
+          {/* t1104 — the walk's SECOND PAGE: the oblique walk's paper
+              edition. Six frames face to face along the cut's own normal,
+              planned by the SAME walk lib the screen's strip button rides
+              (planObliqueFilmstrip + obliqueFilmstripUrls — no second
+              request dialect), introduced by page 1's own cut line (the
+              annotation voice's bytes, passed through — never restated),
+              each frame signed with its pct and depth voices (the t907
+              seats — the honest silence included). No live cut → the page
+              honestly stays home (the screen's own disabled-button law).
+              break-before-page starts it on a fresh sheet: page 1 is the
+              three sections at the focus point, page 2 is the cut's walk
+              through the box. */}
+          {walkPlan && walkUrls && (
+            <div data-ortho-plate-walk className="break-before-page pt-2">
+              <header className="flex items-baseline justify-between gap-2">
+                <span className="text-[11px] font-semibold">Oblique walk</span>
+                <span className="truncate font-mono text-[9px] text-muted-foreground">
+                  {plateBase}
+                  {plateBase && printed ? " · " : ""}
+                  {printed}
+                </span>
+              </header>
+              <p className="font-mono text-[9px] leading-4 text-muted-foreground">
+                {orthoPlateWalkMetaLine(
+                  platePlan.cutLine,
+                  walkPlan.frames.length
+                ) || "—"}
+              </p>
+              <p className="font-mono text-[9px] leading-4 text-muted-foreground">
+                {orthoPlateObliqueCurrentLegend()}
+              </p>
+              <div className="mt-1 grid grid-cols-3 gap-2">
+                {walkPlan.frames.map((f, i) => (
+                  <figure key={f.frac} className="min-w-0">
+                    <div
+                      className={cn(
+                        "relative aspect-square w-full overflow-hidden rounded-sm bg-white",
+                        i === walkCurrent
+                          ? "border-2"
+                          : "border border-foreground/15"
+                      )}
+                      style={
+                        i === walkCurrent
+                          ? { borderColor: EXPORT_OBLIQUE_ACCENT }
+                          : undefined
+                      }
+                    >
+                      <img
+                        src={walkUrls[i]}
+                        alt=""
+                        className="absolute inset-0 h-full w-full object-contain"
+                      />
+                    </div>
+                    <figcaption className="pt-0.5 font-mono text-[8px] leading-3 text-muted-foreground">
+                      {orthoWalkFrameCaption(f)}
+                    </figcaption>
+                  </figure>
+                ))}
+              </div>
+              <footer className="pt-1 font-mono text-[8px] leading-3 text-muted-foreground">
+                {path}
+                {printed ? ` · printed ${printed}` : ""}
+              </footer>
+            </div>
+          )}
+          {/* t1106 — the walk's THIRD PAGE: the axis walks' paper edition.
+              The screen's strip buttons answer one axis at a time (one
+              export each); the paper answers all three — z, y, x in the
+              tile row's own order (TILES is the ONE order father), each
+              strip six frames face to face along its axis, every frame
+              signed with the strip lib's own plane voice (the t1098
+              seats — the % fallback rides along when the grid is
+              unknown). The strips ride no cut: the axis walk is the
+              box's own document, so this page prints whenever the plate
+              prints. The accent border rides the AXIS_LABEL father
+              (decorative — the voice text stays monochrome: paper
+              contrast is not the dark strip's contrast). */}
+          <div data-ortho-plate-axis-walks className="break-before-page pt-2">
+            <header className="flex items-baseline justify-between gap-2">
+              <span className="text-[11px] font-semibold">Axis walks</span>
+              <span className="truncate font-mono text-[9px] text-muted-foreground">
+                {plateBase}
+                {plateBase && printed ? " · " : ""}
+                {printed}
+              </span>
+            </header>
+            <p className="font-mono text-[9px] leading-4 text-muted-foreground">
+              {orthoPlateWalkCurrentLegend()}
+            </p>
+            {TILES.map((spec) => (
+              <div
+                key={spec.axis}
+                data-ortho-plate-axis-walk={spec.axis}
+                className="mt-2 border-l-2 pl-2"
+                style={{ borderColor: AXIS_LABEL[spec.axis] }}
+              >
+                <p className="font-mono text-[9px] leading-4 text-muted-foreground">
+                  {orthoAxisWalkHeading(
+                    spec.axis,
+                    axisWalkPlans[spec.axis].frames.length
+                  )}
+                </p>
+                <div className="mt-1 grid grid-cols-6 gap-1.5">
+                  {axisWalkPlans[spec.axis].frames.map((f, i) => (
+                    <figure key={f.pos} className="min-w-0">
+                      <div
+                        className={cn(
+                          "relative aspect-square w-full overflow-hidden rounded-sm bg-white",
+                          i === axisWalkCurrent[spec.axis]
+                            ? "border-2"
+                            : "border border-foreground/15"
+                        )}
+                        style={
+                          i === axisWalkCurrent[spec.axis]
+                            ? { borderColor: AXIS_LABEL[spec.axis] }
+                            : undefined
+                        }
+                      >
+                        <img
+                          src={axisWalkUrls[spec.axis][i]}
+                          alt=""
+                          className="absolute inset-0 h-full w-full object-contain"
+                        />
+                      </div>
+                      <figcaption className="pt-0.5 font-mono text-[8px] leading-3 text-muted-foreground">
+                        {f.planeLabel}
+                      </figcaption>
+                    </figure>
+                  ))}
+                </div>
+              </div>
+            ))}
+            <footer className="pt-1 font-mono text-[8px] leading-3 text-muted-foreground">
+              {path}
+              {printed ? ` · printed ${printed}` : ""}
+            </footer>
+          </div>
+          {/* t1112 — the walk's FOURTH PAGE: the direction walk's paper
+              edition. The screen's direction dial (t1111) walks the cut
+              around the box — six azimuth stations at the cut's own θ
+              and depth; the paper answers: six frames around the box,
+              planned by the SAME seats the dial rides (the ONE lib's
+              azimuth ladder + angular mark) joined with the azimuth URL
+              edition (the block's own src law — no second request
+              dialect), introduced by page 1's own cut line (the
+              annotation voice's bytes, passed through — never restated)
+              and the direction extent (the walk's own word — "around
+              the box"; face to face is the offset walk's phrase, the
+              direction walk does not pass through faces, it circles
+              them), each frame signed with the station's own voice
+              (the ladder's label bytes, passed through). The current
+              direction wears the mark family's ring (page 2's own ring
+              bytes — the cut's violet, 2px against 1px), the ANGULAR
+              seat's answer: the wrap law holds on paper too (350°
+              rings φ 0°). No live cut → the page honestly stays home
+              (page 2's own law). break-before-page starts it on a
+              fresh sheet: page 1 is the three sections, page 2 is the
+              cut's walk through the box, page 3 is the axis walks,
+              page 4 is the cut's walk around it. */}
+          {plateOblique && directionPrintUrls && (
+            <div data-ortho-plate-direction-walk className="break-before-page pt-2">
+              <header className="flex items-baseline justify-between gap-2">
+                <span className="text-[11px] font-semibold">Direction walk</span>
+                <span className="truncate font-mono text-[9px] text-muted-foreground">
+                  {plateBase}
+                  {plateBase && printed ? " · " : ""}
+                  {printed}
+                </span>
+              </header>
+              <p className="font-mono text-[9px] leading-4 text-muted-foreground">
+                {orthoPlateDirectionWalkMetaLine(platePlan.cutLine, directionPrintStops.length) || "—"}
+              </p>
+              <p className="font-mono text-[9px] leading-4 text-muted-foreground">
+                {orthoPlateDirectionCurrentLegend()}
+              </p>
+              <div className="mt-1 grid grid-cols-3 gap-2">
+                {directionPrintStops.map((s, i) => (
+                  <figure key={s.phi} className="min-w-0">
+                    <div
+                      className={cn(
+                        "relative aspect-square w-full overflow-hidden rounded-sm bg-white",
+                        i === directionPrintCurrent
+                          ? "border-2"
+                          : "border border-foreground/15"
+                      )}
+                      style={
+                        i === directionPrintCurrent
+                          ? { borderColor: EXPORT_OBLIQUE_ACCENT }
+                          : undefined
+                      }
+                    >
+                      <img
+                        src={directionPrintUrls[i]}
+                        alt=""
+                        className="absolute inset-0 h-full w-full object-contain"
+                      />
+                    </div>
+                    <figcaption className="pt-0.5 font-mono text-[8px] leading-3 text-muted-foreground">
+                      {s.label}
+                    </figcaption>
+                  </figure>
+                ))}
+              </div>
+              <footer className="pt-1 font-mono text-[8px] leading-3 text-muted-foreground">
+                {path}
+                {printed ? ` · printed ${printed}` : ""}
+              </footer>
+            </div>
+          )}
+        </section>
+      )}
     </section>
   );
 }
@@ -1467,7 +2519,14 @@ const OBLIQUE_DEG = Math.PI / 180;
 
 /** mirror of the server's plane-frame math (mrc.ts readMrcObliqueSlice):
  *  the readouts must speak the numbers the render obeys — computed here
- *  so scrubbing needs no round trip. Keep the two in lockstep. */
+ *  so scrubbing needs no round trip. Keep the two in lockstep.
+ *
+ *  t907 — the support walk rides the shared lib (obliqueSupportVox, the
+ *  ONE father; bit-identical to the server's historic inline for every
+ *  in-range angle — and the block's state law keeps the angles in-range:
+ *  sliders step 0..180/0..360, the ACK clamps, the adopt clamps). The
+ *  depth arithmetic rides obliqueDepthVox (the builder's own clamp law —
+ *  invisible for the slider's in-range fractions, byte-identical). */
 function obliqueFrame(
   dims: [number, number, number],
   thetaDeg: number,
@@ -1475,13 +2534,10 @@ function obliqueFrame(
   offsetFrac: number
 ) {
   const [nx, ny, nz] = dims;
-  const t = thetaDeg * OBLIQUE_DEG;
-  const p = phiDeg * OBLIQUE_DEG;
-  const normal: [number, number, number] = [
-    Math.sin(t) * Math.cos(p),
-    Math.sin(t) * Math.sin(p),
-    Math.cos(t),
-  ];
+  // t1099 — the direction rides the ONE father (voxel-voice's
+  // obliqueNormal): the builder, the support and the trace drag share the
+  // seat, so a cut and its shadow can never disagree about the way out.
+  const normal = obliqueNormal(thetaDeg, phiDeg);
   let u: [number, number, number];
   if (Math.abs(normal[2]) > 0.999) {
     u = [1, 0, 0];
@@ -1495,7 +2551,6 @@ function obliqueFrame(
     normal[0] * u[1] - normal[1] * u[0],
   ];
   const c: [number, number, number] = [(nx - 1) / 2, (ny - 1) / 2, (nz - 1) / 2];
-  let support = 0;
   let uMin = Infinity, uMax = -Infinity, vMin = Infinity, vMax = -Infinity;
   for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) for (let k = 0; k < 2; k++) {
     const d: [number, number, number] = [
@@ -1503,18 +2558,18 @@ function obliqueFrame(
       (j ? ny - 1 : 0) - c[1],
       (k ? nz - 1 : 0) - c[2],
     ];
-    support = Math.max(support, Math.abs(d[0] * normal[0] + d[1] * normal[1] + d[2] * normal[2]));
     const pu = d[0] * u[0] + d[1] * u[1] + d[2] * u[2];
     const pv = d[0] * v[0] + d[1] * v[1] + d[2] * v[2];
     uMin = Math.min(uMin, pu); uMax = Math.max(uMax, pu);
     vMin = Math.min(vMin, pv); vMax = Math.max(vMax, pv);
   }
+  const support = obliqueSupportVox(dims, thetaDeg, phiDeg) ?? 0;
   return {
     normal,
     u,
     v,
     support,
-    offsetVox: offsetFrac * support,
+    offsetVox: obliqueDepthVox(offsetFrac, support),
     extent: [Math.round(uMax - uMin) + 1, Math.round(vMax - vMin) + 1] as [number, number],
   };
 }
@@ -1624,6 +2679,538 @@ interface ObliqueExportInfo {
   provenance?: { kind: "jump" | "adopt"; theta: number; phi: number } | null;
 }
 
+/**
+ * t1096 — the cut's WALK, exported: the current oblique cut swept face
+ * to face through the box along its own normal, composed into ONE PNG
+ * document. The strip rides the same publishing-grid language as the
+ * triptych (fixed tiles, measure-first labels, the block's violet
+ * accent) and the SAME server truth the live view rides — the frames
+ * are the block's own src shape at the plan's offsets, so a frame and
+ * the screen can never disagree. The voices ride along: each frame is
+ * signed with its pct (violet) and, when the grid is usable, its depth
+ * in voxels (muted) — a strip that can be cited frame by frame.
+ *
+ * The provenance glyph rides the header while its reading holds (the
+ * t559 law — a hand on a slider revokes it; the live values it names
+ * are the fetch's own params, so the header never lies).
+ */
+function ObliqueFilmstripButton({
+  jobId,
+  path,
+  dims,
+  on,
+  live,
+  provenance,
+}: {
+  jobId: string;
+  path: string;
+  dims: [number, number, number];
+  on: boolean;
+  live: { theta: number; phi: number; offset: number };
+  provenance: ObliqueExportInfo["provenance"];
+}) {
+  const [state, setState] = useState<"idle" | "busy" | "ok" | "err">("idle");
+  useEffect(() => {
+    if (state !== "ok" && state !== "err") return;
+    const t = setTimeout(() => setState("idle"), 1600);
+    return () => clearTimeout(t);
+  }, [state]);
+
+  const walk = async () => {
+    if (state === "busy" || !on) return;
+    setState("busy");
+    try {
+      const plan = planObliqueFilmstrip(live.theta, live.phi, dims);
+      const urls = obliqueFilmstripUrls(jobId, path, plan);
+      // t1108 — the mark's frame, decided by the ONE frac seat before
+      // any pixel: the paper's page 2 and this export share the answer
+      // (the block's own live offset — the same number the slider
+      // speaks). t1109 — the two-scales translation lands HERE: the
+      // seat speaks the scene's fraction dialect (−1…+1), the slider
+      // speaks the block's percent dialect (−100…+100); the /100 is
+      // the boundary's own conversion (the raw percent read the seat
+      // past the tie band — a cut at +12% wore the +100% frame's ring).
+      const currentIdx = obliqueWalkCurrentIndex(plan.frames, live.offset / 100);
+      const bitmaps = await Promise.all(
+        urls.map(async (u) => {
+          const r = await fetch(u, { cache: "no-store" });
+          if (!r.ok) throw new Error(`frame render failed (${r.status})`);
+          return createImageBitmap(await r.blob());
+        })
+      );
+      // the publishing grid: fixed tiles, label strip per frame, a
+      // header naming the cut and a footer naming the map + the moment.
+      const TILE = 220;
+      const LABEL_H = 26;
+      const HEAD_H = 30;
+      const FOOT_H = 46;
+      const GAP = 12;
+      const n = bitmaps.length;
+      const W = GAP * (n + 1) + TILE * n;
+      const H = GAP + HEAD_H + GAP + LABEL_H + TILE + GAP + FOOT_H;
+      const cv = document.createElement("canvas");
+      cv.width = W;
+      cv.height = H;
+      const ctx = cv.getContext("2d");
+      if (!ctx) throw new Error("no 2d context");
+      ctx.fillStyle = EXPORT_BG;
+      ctx.fillRect(0, 0, W, H);
+      // header: the walk's name in the block's violet, the cut's angles
+      // (+ the provenance glyph while it holds) and the walk's span right
+      ctx.textBaseline = "middle";
+      ctx.textAlign = "left";
+      ctx.font = "600 13px ui-sans-serif, system-ui, sans-serif";
+      ctx.fillStyle = EXPORT_OBLIQUE_ACCENT;
+      ctx.fillText("Oblique walk", GAP, GAP + HEAD_H / 2);
+      ctx.font = "11px ui-monospace, SFMono-Regular, Menlo, monospace";
+      ctx.fillStyle = EXPORT_TEXT;
+      ctx.textAlign = "right";
+      const prov = provenance ? `${provenance.kind === "jump" ? "\u2302" : "\u2938"} ` : "";
+      const span =
+        plan.supportVox != null ? `${(plan.supportVox * 2).toFixed(1)} vox face to face · ` : "";
+      ctx.fillText(
+        `${prov}\u03b8 ${live.theta}\u00b0 \u00b7 \u03c6 ${live.phi}\u00b0 \u00b7 ${span}${n} frames${currentIdx != null ? " \u00b7 ring marks the cut's plane" : ""}`,
+        W - GAP,
+        GAP + HEAD_H / 2
+      );
+      ctx.textAlign = "left";
+      // the frames: pct voice left (violet), depth voice right (muted),
+      // the plane beneath — a strip that can be cited frame by frame
+      const rowTop = GAP + HEAD_H + GAP;
+      plan.frames.forEach((f, i) => {
+        const x0 = GAP + i * (TILE + GAP);
+        ctx.font = "600 11px ui-monospace, SFMono-Regular, Menlo, monospace";
+        ctx.fillStyle = EXPORT_OBLIQUE_ACCENT;
+        ctx.textBaseline = "middle";
+        ctx.fillText(f.pctLabel, x0, rowTop + LABEL_H / 2);
+        if (f.depthLabel) {
+          ctx.font = "11px ui-monospace, SFMono-Regular, Menlo, monospace";
+          ctx.fillStyle = EXPORT_TEXT;
+          ctx.textAlign = "right";
+          ctx.fillText(f.depthLabel, x0 + TILE, rowTop + LABEL_H / 2);
+          ctx.textAlign = "left";
+        }
+        ctx.drawImage(bitmaps[i], x0, rowTop + LABEL_H, TILE, TILE);
+        ctx.strokeStyle = EXPORT_TILE_BORDER;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x0 + 0.5, rowTop + LABEL_H + 0.5, TILE - 1, TILE - 1);
+        // t1108 — the "you are here" ring: the cut's own plane wears the
+        // block's violet (the header's voice color — no new ink), a 2px
+        // ring inside the tile's own border. The header legend names it;
+        // the plate's page 2 speaks the same mark with the same father.
+        if (i === currentIdx) {
+          ctx.strokeStyle = EXPORT_OBLIQUE_ACCENT;
+          ctx.lineWidth = 2;
+          ctx.strokeRect(x0 + 1.5, rowTop + LABEL_H + 1.5, TILE - 3, TILE - 3);
+          ctx.lineWidth = 1;
+        }
+      });
+      // footer: the map's name left, the moment right — the document
+      // provenance the triptych already speaks
+      const footTop = H - GAP - FOOT_H;
+      const footY = footTop + FOOT_H / 2;
+      const base = path.split("/").pop() || path;
+      ctx.font = "600 13px ui-sans-serif, system-ui, sans-serif";
+      ctx.fillStyle = "#e2e8f0";
+      ctx.fillText(base, GAP, footY);
+      ctx.font = "12px ui-monospace, SFMono-Regular, Menlo, monospace";
+      ctx.fillStyle = EXPORT_TEXT;
+      ctx.textAlign = "right";
+      ctx.fillText(
+        `${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC`,
+        W - GAP,
+        footY
+      );
+      ctx.textAlign = "left";
+      const blob = await new Promise<Blob | null>((res) => cv.toBlob(res, "image/png"));
+      if (!blob) throw new Error("encode failed");
+      const stamp = new Date().toISOString().slice(11, 19).replace(/:/g, "");
+      downloadBlob(blob, obliqueFilmstripFilename(path, stamp));
+      setState("ok");
+    } catch {
+      setState("err");
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={walk}
+      disabled={!on || state === "busy"}
+      data-canvas-ui="ortho-oblique-filmstrip"
+      aria-label={
+        state === "busy"
+          ? "Exporting the walk\u2026"
+          : `Export the cut's walk \u2014 ${FILMSTRIP_FRAMES} frames from face to face along the normal`
+      }
+      title="\u2317 the walk: the current cut swept face to face through the box along its own normal, one document \u2014 each frame signed with its offset and depth"
+      className={cn(
+        "rounded p-0.5 text-violet-600 transition-colors hover:bg-violet-600/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+        (!on || state === "busy") && "cursor-not-allowed opacity-50"
+      )}
+    >
+      {state === "busy" ? (
+        <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+      ) : state === "ok" ? (
+        <Check className="h-3 w-3" aria-hidden="true" />
+      ) : state === "err" ? (
+        <TriangleAlert className="h-3 w-3" aria-hidden="true" />
+      ) : (
+        <Film className="h-3 w-3" aria-hidden="true" />
+      )}
+    </button>
+  );
+}
+
+/**
+ * t1115 — the direction walk's EXPORT: the walk-page family's last
+ * honest gap, closed. Both siblings export — the offset walk as ONE PNG
+ * (t1096), the axis walks as their own (t1098); the direction walk had
+ * its live dial (t1111) and its paper page (t1112) but no document. The
+ * strip rides the SAME publishing-grid language and the SAME lib seats
+ * the paper's fourth page rides (the ONE plan, the azimuth URL edition,
+ * the angular mark) — the sibling walks mirror their laws, never share
+ * code (the t1098 precedent): this export is the offset walk's azimuth
+ * edition, not a parameterized merge. The frames speak the stations'
+ * own voice (the lib's label — "φ 0°"…, the ONE father); the held cut's
+ * θ and offset speak the header (the walk varies φ only); the ring is
+ * the mark family's father (EXPORT_OBLIQUE_ACCENT, 2px against the
+ * tiles' 1px — zero new ink). The URL's offset rides the /100
+ * translation BORN IN (the t1109 lesson — the seat speaks the scene's
+ * fraction dialect; the slider's percent never crosses raw).
+ */
+function ObliqueDirectionStripButton({
+  jobId,
+  path,
+  on,
+  live,
+}: {
+  jobId: string;
+  path: string;
+  on: boolean;
+  live: { theta: number; phi: number; offset: number };
+}) {
+  const [state, setState] = useState<"idle" | "busy" | "ok" | "err">("idle");
+  useEffect(() => {
+    if (state !== "ok" && state !== "err") return;
+    const t = setTimeout(() => setState("idle"), 1600);
+    return () => clearTimeout(t);
+  }, [state]);
+
+  const walk = async () => {
+    if (state === "busy" || !on) return;
+    setState("busy");
+    try {
+      const plan = planObliqueDirectionWalk();
+      const urls = obliqueDirectionWalkUrls(jobId, path, live.theta, live.offset / 100, plan);
+      // the mark's frame, decided by the ONE angular seat before any
+      // pixel: the paper's page 4 and this export share the answer
+      // (the cut's own φ, measured around the circle — the wrap law).
+      const currentIdx = obliqueDirectionWalkCurrentIndex(plan, live.phi);
+      const bitmaps = await Promise.all(
+        urls.map(async (u) => {
+          const r = await fetch(u, { cache: "no-store" });
+          if (!r.ok) throw new Error(`frame render failed (${r.status})`);
+          return createImageBitmap(await r.blob());
+        })
+      );
+      // the publishing grid: the walk family's own measures — fixed
+      // tiles, a label strip per frame, a header naming the held cut
+      // and a footer naming the map + the moment
+      const TILE = 220;
+      const LABEL_H = 26;
+      const HEAD_H = 30;
+      const FOOT_H = 46;
+      const GAP = 12;
+      const n = bitmaps.length;
+      const W = GAP * (n + 1) + TILE * n;
+      const H = GAP + HEAD_H + GAP + LABEL_H + TILE + GAP + FOOT_H;
+      const cv = document.createElement("canvas");
+      cv.width = W;
+      cv.height = H;
+      const ctx = cv.getContext("2d");
+      if (!ctx) throw new Error("no 2d context");
+      ctx.fillStyle = EXPORT_BG;
+      ctx.fillRect(0, 0, W, H);
+      // header: the walk's name in the block's violet; the held cut's
+      // θ and offset left-adjacent in the mono voice, the walk's span
+      // word right — "N frames, around the box", the meta line's own
+      // extent word (the paper's fourth page speaks the same bytes),
+      // plus the ring's legend while the mark holds
+      ctx.textBaseline = "middle";
+      ctx.textAlign = "left";
+      ctx.font = "600 13px ui-sans-serif, system-ui, sans-serif";
+      ctx.fillStyle = EXPORT_OBLIQUE_ACCENT;
+      ctx.fillText("Direction walk", GAP, GAP + HEAD_H / 2);
+      const nameW = ctx.measureText("Direction walk").width;
+      ctx.font = "11px ui-monospace, SFMono-Regular, Menlo, monospace";
+      ctx.fillStyle = EXPORT_TEXT;
+      const offPct = `${live.offset > 0 ? "+" : ""}${Math.round(live.offset)}%`;
+      ctx.fillText(
+        `\u03b8 ${live.theta}\u00b0 \u00b7 offset ${offPct}`,
+        GAP + nameW + 14,
+        GAP + HEAD_H / 2
+      );
+      ctx.textAlign = "right";
+      ctx.fillText(
+        `${orthoPlateDirectionWalkExtentWord(n)}${currentIdx != null ? ` \u00b7 ${orthoPlateDirectionCurrentLegend()}` : ""}`,
+        W - GAP,
+        GAP + HEAD_H / 2
+      );
+      ctx.textAlign = "left";
+      // the frames: each station's own voice (the lib's label — the ONE
+      // father), violet, above its tile
+      const rowTop = GAP + HEAD_H + GAP;
+      plan.forEach((s, i) => {
+        const x0 = GAP + i * (TILE + GAP);
+        ctx.font = "600 11px ui-monospace, SFMono-Regular, Menlo, monospace";
+        ctx.fillStyle = EXPORT_OBLIQUE_ACCENT;
+        ctx.textBaseline = "middle";
+        ctx.fillText(s.label, x0, rowTop + LABEL_H / 2);
+        ctx.drawImage(bitmaps[i], x0, rowTop + LABEL_H, TILE, TILE);
+        ctx.strokeStyle = EXPORT_TILE_BORDER;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x0 + 0.5, rowTop + LABEL_H + 0.5, TILE - 1, TILE - 1);
+        // the "you are here" ring: the cut's own direction wears the
+        // block's violet (the mark family's father — no new ink), a 2px
+        // ring inside the tile's own border. The header legend names it;
+        // the paper's page 4 speaks the same mark with the same father.
+        if (i === currentIdx) {
+          ctx.strokeStyle = EXPORT_OBLIQUE_ACCENT;
+          ctx.lineWidth = 2;
+          ctx.strokeRect(x0 + 1.5, rowTop + LABEL_H + 1.5, TILE - 3, TILE - 3);
+          ctx.lineWidth = 1;
+        }
+      });
+      // footer: the map's name left, the moment right — the document
+      // provenance the walk family already speaks
+      const footTop = H - GAP - FOOT_H;
+      const footY = footTop + FOOT_H / 2;
+      const base = path.split("/").pop() || path;
+      ctx.font = "600 13px ui-sans-serif, system-ui, sans-serif";
+      ctx.fillStyle = "#e2e8f0";
+      ctx.fillText(base, GAP, footY);
+      ctx.font = "12px ui-monospace, SFMono-Regular, Menlo, monospace";
+      ctx.fillStyle = EXPORT_TEXT;
+      ctx.textAlign = "right";
+      ctx.fillText(
+        `${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC`,
+        W - GAP,
+        footY
+      );
+      ctx.textAlign = "left";
+      const blob = await new Promise<Blob | null>((res) => cv.toBlob(res, "image/png"));
+      if (!blob) throw new Error("encode failed");
+      const stamp = new Date().toISOString().slice(11, 19).replace(/:/g, "");
+      downloadBlob(blob, obliqueDirectionWalkFilename(path, stamp));
+      setState("ok");
+    } catch {
+      setState("err");
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={walk}
+      disabled={!on || state === "busy"}
+      data-canvas-ui="ortho-oblique-direction-export"
+      aria-label={
+        state === "busy"
+          ? "Exporting the direction walk\u2026"
+          : `Export the cut's direction walk \u2014 ${orthoPlateDirectionWalkExtentWord(DIRECTION_STATIONS)}`
+      }
+      title="\u2317 the direction walk: the current cut swept around the box at its own depth \u2014 six azimuths, one document \u2014 each frame signed with its station"
+      className={cn(
+        "rounded p-0.5 text-violet-600 transition-colors hover:bg-violet-600/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+        (!on || state === "busy") && "cursor-not-allowed opacity-50"
+      )}
+    >
+      {state === "busy" ? (
+        <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+      ) : state === "ok" ? (
+        <Check className="h-3 w-3" aria-hidden="true" />
+      ) : state === "err" ? (
+        <TriangleAlert className="h-3 w-3" aria-hidden="true" />
+      ) : (
+        <Film className="h-3 w-3" aria-hidden="true" />
+      )}
+    </button>
+  );
+}
+
+/**
+ * t1098 — the walk's SIBLINGS: one ortho axis swept face to face through
+ * the box, composed into ONE PNG document. The strip rides the same
+ * publishing-grid language as the oblique walk (t1096), but speaks the
+ * TILE's own accent (the axis's color everywhere the oblique speaks
+ * violet) and the TILE's own voice (the t906 plane voice — "z 33/64" /
+ * "z 50%", the readout the tile already wears) — one father per family,
+ * no face drifts. The frames are the tile's own src shape at the plan's
+ * positions (axis + pos toFixed(3)), so a frame and the screen can never
+ * disagree. The walk is the axis's own tour: it owns the whole support
+ * face to face, independent of where the tile's slider currently sits.
+ */
+function OrthoFilmstripButton({
+  jobId,
+  path,
+  spec,
+  dim,
+  current,
+}: {
+  jobId: string;
+  path: string;
+  spec: TileSpec;
+  /** voxels along the walked axis (from the outputs listing) — the
+   * span's voice and the frames' addresses; absent → the honest % */
+  dim?: number;
+  /** t1107 — the tile's own current position (the live slider's
+   * fraction): the walk's "you are here" anchor. The ONE seat decides
+   * the frame; the export and the plate's page 3 speak the same mark. */
+  current: number;
+}) {
+  const [state, setState] = useState<"idle" | "busy" | "ok" | "err">("idle");
+  useEffect(() => {
+    if (state !== "ok" && state !== "err") return;
+    const t = setTimeout(() => setState("idle"), 1600);
+    return () => clearTimeout(t);
+  }, [state]);
+
+  const walk = async () => {
+    if (state === "busy") return;
+    setState("busy");
+    try {
+      const plan = planOrthoFilmstrip(spec.axis, dim ?? null);
+      const urls = orthoFilmstripUrls(jobId, path, plan);
+      // t1107 — the mark's frame, decided by the ONE seat before any
+      // pixel: the paper (page 3) and this export share the answer.
+      const currentIdx = orthoWalkCurrentIndex(plan.frames, current);
+      const bitmaps = await Promise.all(
+        urls.map(async (u) => {
+          const r = await fetch(u, { cache: "no-store" });
+          if (!r.ok) throw new Error(`frame render failed (${r.status})`);
+          return createImageBitmap(await r.blob());
+        })
+      );
+      // the publishing grid: the oblique walk's own measures — fixed
+      // tiles, a label strip per frame, a header naming the axis and a
+      // footer naming the map + the moment
+      const TILE = 220;
+      const LABEL_H = 26;
+      const HEAD_H = 30;
+      const FOOT_H = 46;
+      const GAP = 12;
+      const n = bitmaps.length;
+      const W = GAP * (n + 1) + TILE * n;
+      const H = GAP + HEAD_H + GAP + LABEL_H + TILE + GAP + FOOT_H;
+      const cv = document.createElement("canvas");
+      cv.width = W;
+      cv.height = H;
+      const ctx = cv.getContext("2d");
+      if (!ctx) throw new Error("no 2d context");
+      ctx.fillStyle = EXPORT_BG;
+      ctx.fillRect(0, 0, W, H);
+      // header: the axis walk's name in the tile's own accent, the axis's
+      // span face to face (honest silence when the grid is unknown) and
+      // the frame count right
+      ctx.textBaseline = "middle";
+      ctx.textAlign = "left";
+      ctx.font = "600 13px ui-sans-serif, system-ui, sans-serif";
+      ctx.fillStyle = AXIS_LABEL[spec.axis];
+      ctx.fillText(`${spec.axisLabel} walk`, GAP, GAP + HEAD_H / 2);
+      ctx.font = "11px ui-monospace, SFMono-Regular, Menlo, monospace";
+      ctx.fillStyle = EXPORT_TEXT;
+      ctx.textAlign = "right";
+      const span = plan.dim != null ? `${plan.dim} vox face to face \u00b7 ` : "";
+      ctx.fillText(
+        `${span}${n} frames${currentIdx != null ? " \u00b7 ring marks the current plane" : ""}`,
+        W - GAP,
+        GAP + HEAD_H / 2
+      );
+      ctx.textAlign = "left";
+      // the frames: the tile's own plane voice in the tile's own accent —
+      // the one honest label a cite needs; the plane beneath
+      const rowTop = GAP + HEAD_H + GAP;
+      plan.frames.forEach((f, i) => {
+        const x0 = GAP + i * (TILE + GAP);
+        ctx.font = "600 11px ui-monospace, SFMono-Regular, Menlo, monospace";
+        ctx.fillStyle = AXIS_LABEL[spec.axis];
+        ctx.textBaseline = "middle";
+        ctx.fillText(f.planeLabel, x0, rowTop + LABEL_H / 2);
+        ctx.drawImage(bitmaps[i], x0, rowTop + LABEL_H, TILE, TILE);
+        ctx.strokeStyle = EXPORT_TILE_BORDER;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x0 + 0.5, rowTop + LABEL_H + 0.5, TILE - 1, TILE - 1);
+        // t1107 — the "you are here" ring: the current plane's frame
+        // wears the axis's own accent (the header's voice color — no
+        // new ink), a 2px ring inside the tile's own border. The header
+        // legend names it; the plate's page 3 speaks the same mark
+        // with the same father.
+        if (i === currentIdx) {
+          ctx.strokeStyle = AXIS_LABEL[spec.axis];
+          ctx.lineWidth = 2;
+          ctx.strokeRect(x0 + 1.5, rowTop + LABEL_H + 1.5, TILE - 3, TILE - 3);
+          ctx.lineWidth = 1;
+        }
+      });
+      // footer: the map's name left, the moment right — the document
+      // provenance the oblique walk already speaks
+      const footTop = H - GAP - FOOT_H;
+      const footY = footTop + FOOT_H / 2;
+      const base = path.split("/").pop() || path;
+      ctx.font = "600 13px ui-sans-serif, system-ui, sans-serif";
+      ctx.fillStyle = "#e2e8f0";
+      ctx.fillText(base, GAP, footY);
+      ctx.font = "12px ui-monospace, SFMono-Regular, Menlo, monospace";
+      ctx.fillStyle = EXPORT_TEXT;
+      ctx.textAlign = "right";
+      ctx.fillText(
+        `${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC`,
+        W - GAP,
+        footY
+      );
+      ctx.textAlign = "left";
+      const blob = await new Promise<Blob | null>((res) => cv.toBlob(res, "image/png"));
+      if (!blob) throw new Error("encode failed");
+      const stamp = new Date().toISOString().slice(11, 19).replace(/:/g, "");
+      downloadBlob(blob, orthoFilmstripFilename(path, spec.axis, stamp));
+      setState("ok");
+    } catch {
+      setState("err");
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={walk}
+      disabled={state === "busy"}
+      data-canvas-ui={`ortho-filmstrip-${spec.axis}`}
+      aria-label={
+        state === "busy"
+          ? "Exporting the walk\u2026"
+          : `Export the ${spec.plane}'s walk \u2014 ${ORTHO_FILMSTRIP_FRAMES} frames from face to face along ${spec.axisLabel}`
+      }
+      title={`The walk: the whole ${spec.plane} swept face to face along ${spec.axisLabel}, one document \u2014 each frame signed with its plane address`}
+      className={cn(
+        "shrink-0 rounded p-0.5 opacity-0 transition-all duration-150 hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring group-hover/tile:opacity-100 group-focus-within/tile:opacity-100 hover-none:opacity-100",
+        spec.text,
+        state === "busy" && "cursor-not-allowed opacity-50"
+      )}
+    >
+      {state === "busy" ? (
+        <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+      ) : state === "ok" ? (
+        <Check className="size-3" aria-hidden="true" />
+      ) : state === "err" ? (
+        <TriangleAlert className="size-3" aria-hidden="true" />
+      ) : (
+        <Film className="size-3" aria-hidden="true" />
+      )}
+    </button>
+  );
+}
+
 function ObliqueSectionBlock({
   jobId,
   path,
@@ -1662,6 +3249,26 @@ function ObliqueSectionBlock({
   const scrubOffset = (v: number) => { setOffset(v); };
 
   const frame = obliqueFrame(dims, theta, phi, offset / 100);
+
+  // t1109 — the walk DIAL's seats: the stops ride the settled walk
+  // (live θ/φ — the span doesn't jitter under the hand; the same plan
+  // the strip export prints and the paper's page 2 wears), and the
+  // mark rides the HAND's own offset — the same number the % voice
+  // above speaks — through the ONE frac seat's fraction dialect. The
+  // /100 is the two-scales precedent's own translation (t1108's
+  // export rode the raw percent and the seat misread the hand past
+  // the tie band; the dial is born speaking the boundary's law).
+  const dialPlan = planObliqueFilmstrip(live.theta, live.phi, dims);
+  const dialCurrent = obliqueWalkCurrentIndex(dialPlan.frames, offset / 100);
+
+  // t1111 — the direction DIAL's seats: the azimuth ladder rides the ONE
+  // direction plan (six stations around the box, φ=360 honestly absent —
+  // it is φ=0), and the mark rides the HAND's phi through the ONE
+  // angular seat — the circle's own law (350° stands nearer 0° than
+  // 300°; the straight difference would lie). No unit translation: the
+  // slider and the stations speak the same degrees.
+  const directionStops = planObliqueDirectionWalk();
+  const directionCurrent = obliqueDirectionWalkCurrentIndex(directionStops, phi);
   const src = on
     ? `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(path)}&format=png&plane=oblique&theta=${live.theta.toFixed(1)}&phi=${live.phi.toFixed(1)}&offset=${(live.offset / 100).toFixed(3)}`
     : null;
@@ -1690,6 +3297,84 @@ function ObliqueSectionBlock({
   // a bookmark can revive the cut while the block is collapsed, and the
   // block must not kill it with a mount heartbeat it never earned.
   const [cut3d, setCut3d] = useState(false);
+  // t1129 — the cut's face (the density sheet ON the plane): block-side
+  // state mirrors the embed's LIVE truth over the ACK (a face only ever
+  // exists with its cut, so ▣ disabled until ✂ is on); the click speaks
+  // the intent over OBLIQUE_SHEET_EVENT and the ACK corrects it — the
+  // same optimistic-then-confirmed voice the ✂ rides
+  const [sheet3d, setSheet3d] = useState(false);
+  // t1131 — the face's LEGEND (3D → 2D): the strip reads the embed's own
+  // key over OBLIQUE_SHEET_LEGEND_EVENT — one dispatch per settled pump,
+  // null = the honest no-face. legendSettled separates "the key hasn't
+  // arrived yet" (the reading placeholder) from "the pump answered: no
+  // face here" (silence) — a placeholder that never clears would lie
+  // about a plane the lattice honestly kept nothing of.
+  const [sheetLegend, setSheetLegend] = useState<SheetLegend | null>(null);
+  const [legendSettled, setLegendSettled] = useState(false);
+  // t1132 — the copy chip's flip (⧉ → ✓ / ✗): idle, copied, refused. The
+  // flip self-resets on the 1600ms breath (the job-card's 1400ms idiom,
+  // one notch longer so the words are readable) and the timer is cleaned
+  // up on unmount — a dying strip never fires a state setter into the
+  // void. The retirement rides the render-phase block below (the face
+  // leaves, the flip leaves with it).
+  const [legendCopied, setLegendCopied] = useState<null | "ok" | "refused">(null);
+  const legendCopyTimer = useRef<number | null>(null);
+  useEffect(() => {
+    return () => {
+      if (legendCopyTimer.current !== null) clearTimeout(legendCopyTimer.current);
+    };
+  }, []);
+  const copySheetLegend = async () => {
+    if (!sheetLegend || legendCopied !== null) return;
+    const text = sheetLegendText(sheetLegend);
+    if (!text) return; // the lib refused the shape — the button stays honest-idle
+    const copied = await copyTextToClipboard(text);
+    setLegendCopied(copied ? "ok" : "refused");
+    if (legendCopyTimer.current !== null) clearTimeout(legendCopyTimer.current);
+    legendCopyTimer.current = window.setTimeout(() => setLegendCopied(null), 1600);
+  };
+  // t1134 — the hover's 2D mouth: the swatch's band index crosses the
+  // hover wire verbatim; leaving the ROW (not a swatch — sliding across
+  // gaps between swatches must not flicker the 3D highlight) speaks the
+  // honest null. A pointer instrument: no focus, no tabIndex (the
+  // role=img strip's contents stay unexposed — the a11y law that made
+  // the ⧉ chip a sibling). The minimap's precedent covers the mouse.
+  const hoverSheetBand = (band: number | null) => {
+    window.dispatchEvent(new CustomEvent(OBLIQUE_SHEET_LEGEND_HOVER_EVENT, { detail: { band } }));
+  };
+  useEffect(() => {
+    const onLegend = (e: Event) => {
+      const d = (e as CustomEvent<{ legend?: unknown }>).detail;
+      if (!d || typeof d !== "object" || !("legend" in d)) return;
+      const lg = d.legend;
+      if (lg === null) {
+        setSheetLegend(null);
+        setLegendSettled(true);
+        return;
+      }
+      if (typeof lg !== "object") return;
+      const o = lg as SheetLegend;
+      // a foreign key is not a key: the strip renders only a shape it
+      // understands (≥2 swatches — the lib's own minimum)
+      if (!Array.isArray(o.swatches) || o.swatches.length < 2) return;
+      setSheetLegend(o);
+      setLegendSettled(true);
+    };
+    window.addEventListener(OBLIQUE_SHEET_LEGEND_EVENT, onLegend);
+    return () => window.removeEventListener(OBLIQUE_SHEET_LEGEND_EVENT, onLegend);
+  }, []);
+  // a fresh activation reads its own key — the previous face's strip never
+  // survives the toggle. The retirement rides the RENDER phase (the
+  // prevNonce precedent above: "adjust state when a prop changes") — an
+  // effect setState here would trip the cascading-render lint and split
+  // one logical ACK into two render passes.
+  if (!sheet3d || !cut3d) {
+    if (sheetLegend !== null || legendSettled) {
+      setSheetLegend(null);
+      setLegendSettled(false);
+    }
+    if (legendCopied !== null) setLegendCopied(null); // the flip retires with the face
+  }
   const sentOnRef = useRef(false);
   useEffect(() => {
     const live3d = on && cut3d;
@@ -1715,9 +3400,13 @@ function ObliqueSectionBlock({
   // expansion never jumps), and a scrub never resurrects a dismissed cut
   useEffect(() => {
     const onAck = (e: Event) => {
-      const d = (e as CustomEvent<{ on?: unknown; theta?: unknown; phi?: unknown; offset?: unknown }>).detail;
+      const d = (e as CustomEvent<{ on?: unknown; theta?: unknown; phi?: unknown; offset?: unknown; sheet?: unknown }>).detail;
       if (!d || typeof d.on !== "boolean") return;
       setCut3d(d.on);
+      // t1129 — the face's live truth rides the same ACK: preference AND
+      // cut both on, or it is not showing (an absent field reads off —
+      // old embeds never promised a face)
+      setSheet3d(d.sheet === true);
       if (d.on) {
         if (typeof d.theta === "number" && Number.isFinite(d.theta))
           setTheta(Math.min(180, Math.max(0, Math.round(d.theta))));
@@ -1776,6 +3465,40 @@ function ObliqueSectionBlock({
     window.dispatchEvent(new CustomEvent(ORTHO_CAMERA_REQUEST_EVENT));
   };
 
+  // t908 — the keyboard's verb half: the viewer's key face (the embed's
+  // ONE gated keydown) requests this block's OWN gestures over the verb
+  // wire, and every law these buttons already obey rides along — the
+  // provenance chip, the adopt flash, the 140ms settle debounce, the ✂
+  // mirror. The wake/sleep laws live HERE (the block knows on/off; the
+  // embed's mirror only knows the cut): "cut" wakes a sleeping block
+  // (the slice's X/Y/Z law), "jump" and "offset" demand ON (the ,/. law —
+  // an invisible plane must not move, a default plane must not be faced),
+  // "adopt" wakes BY CAMERA (the answer handler sets on itself). The
+  // listener re-subscribes on the state it reads — the captured gestures
+  // are never stale (the frame ⌖ faces is THIS render's frame).
+  useEffect(() => {
+    const onVerb = (e: Event) => {
+      const d = (e as CustomEvent<ObliqueVerbDetail>).detail;
+      if (!d || typeof d.verb !== "string") return;
+      if (d.verb === "cut") {
+        setOn(true);
+        setCut3d(true);
+      } else if (d.verb === "jump") {
+        if (!on) return;
+        jumpToView();
+      } else if (d.verb === "adopt") {
+        adoptCamera();
+      } else if (d.verb === "offset") {
+        if (!on) return;
+        const dir = d.dir === -1 ? -1 : 1;
+        const step = d.coarse === true ? 10 : 2;
+        scrubOffset(Math.min(100, Math.max(-100, offset + dir * step)));
+      }
+    };
+    window.addEventListener(OBLIQUE_VERB_EVENT, onVerb);
+    return () => window.removeEventListener(OBLIQUE_VERB_EVENT, onVerb);
+  }, [on, theta, phi, offset]);
+
   return (
     <div className="border-t border-border/60 px-3 pb-3 pt-2" data-canvas-ui="ortho-oblique" data-oblique-state={on ? "on" : "off"}>
       <div className="flex w-full items-center gap-2">
@@ -1783,7 +3506,7 @@ function ObliqueSectionBlock({
           type="button"
           onClick={() => setOn((o) => !o)}
           aria-expanded={on}
-          className="flex flex-1 items-center gap-2 text-left"
+          className="flex flex-1 items-center gap-2 rounded text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <Slice className="h-3.5 w-3.5 shrink-0 text-violet-600" aria-hidden="true" />
           <span className="text-xs font-semibold text-foreground/85">Oblique section</span>
@@ -1812,7 +3535,7 @@ function ObliqueSectionBlock({
             {src ? (
               <MrcImage
                 src={src}
-                alt={`Oblique section at θ ${theta}°, φ ${phi}°, offset ${offset}%`}
+                alt={`Oblique section at θ ${theta}°, φ ${phi}°, offset ${obliqueOffsetPctVoice(offset / 100)} (${obliqueDepthVoice(frame.offsetVox)})`}
                 className="block w-full"
               />
             ) : null}
@@ -1865,6 +3588,51 @@ function ObliqueSectionBlock({
                 onValueChange={(v) => scrubPhi(v[0] ?? 0)}
                 aria-label="Azimuth angle of the plane normal"
               />
+              {/* t1111 — the direction DIAL: the offset dial's azimuth
+                  sibling — six stations around the box join the φ
+                  slider's own neighborhood. A click walks the cut to
+                  that direction through scrubPhi (the slider's own
+                  door — no second channel, no new request dialect; the
+                  dial IS a hand, so the t559 law reads it the slider's
+                  way: the provenance revokes). The current stop wears
+                  the block's violet (the mark family's father — zero
+                  new ink), 2px ring against the stops' 1px; the mark
+                  is ANGULAR (the wrap seat's own law — 350° rings φ
+                  0°). The stops speak: each names its azimuth; the
+                  current one says so (aria-pressed). */}
+              <div
+                role="group"
+                data-canvas-ui="ortho-oblique-direction-dial"
+                aria-label="The cut's direction stops — six azimuths around the box; the ringed stop is the cut's own direction"
+                title="The direction stops — six azimuths around the box at the cut's own depth. Click a stop to walk the cut there."
+                className="mt-1.5 flex flex-wrap items-center gap-1"
+              >
+                {directionStops.map((s, i) => {
+                  const current = i === directionCurrent;
+                  return (
+                    <button
+                      key={s.phi}
+                      type="button"
+                      onClick={() => scrubPhi(s.phi)}
+                      aria-pressed={current}
+                      aria-label={
+                        (current ? "The cut's own direction — " : "") +
+                        `Walk the cut to ${s.label} of the azimuth circle`
+                      }
+                      title={`Walk the cut to ${s.label}`}
+                      data-direction-stop={s.label}
+                      className={cn(
+                        "rounded-sm border px-1.5 py-0.5 font-mono text-[10px] tabular-nums transition-colors duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                        current
+                          ? "border-2 border-violet-600 bg-violet-600/10 font-semibold text-violet-700 dark:text-violet-300"
+                          : "border-border/70 text-muted-foreground hover:border-violet-600/40 hover:bg-violet-600/5 hover:text-foreground"
+                      )}
+                    >
+                      {s.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
             <div>
               <div className="mb-1 flex items-baseline justify-between gap-2">
@@ -1872,7 +3640,7 @@ function ObliqueSectionBlock({
                   offset
                 </label>
                 <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
-                  {offset >= 0 ? "+" : ""}{offset}% · {frame.offsetVox >= 0 ? "+" : ""}{frame.offsetVox.toFixed(1)} vox
+                  {obliqueOffsetPctVoice(offset / 100)} · {obliqueDepthVoice(frame.offsetVox)}
                 </span>
               </div>
               <Slider
@@ -1884,6 +3652,54 @@ function ObliqueSectionBlock({
                 onValueChange={(v) => scrubOffset(v[0] ?? 0)}
                 aria-label="Signed offset of the plane along its normal"
               />
+              {/* t1109 — the walk DIAL: the strip's six stops join the
+                  slider's own neighborhood — the cut's walk gains its
+                  LIVE screen face (the ring's third face: the export
+                  canvas and the paper's page 2 wear it; the live block
+                  never did). A click walks the cut to that stop through
+                  scrubOffset (the slider's own door — no second
+                  channel, no new request dialect; the walk keeps the
+                  direction's provenance — an offset scrub never revokes
+                  it, the t559 law's own reading). The current stop
+                  wears the block's violet (the t1108 mark's father —
+                  zero new ink), 2px ring against the stops' 1px — the
+                  plate's own marked/unmarked language, mirrored onto
+                  the screen. The stops speak: each names its frame and
+                  its depth; the current one says so (aria-pressed). */}
+              <div
+                role="group"
+                data-canvas-ui="ortho-oblique-walk-dial"
+                aria-label="The cut's walk stops — six frames face to face along the normal; the ringed stop is the cut's own plane"
+                title="The walk's stops — the frames the strip export prints and the paper's second page wear. Click a stop to walk the cut there."
+                className="mt-1.5 flex flex-wrap items-center gap-1"
+              >
+                {dialPlan.frames.map((f, i) => {
+                  const current = i === dialCurrent;
+                  return (
+                    <button
+                      key={f.frac}
+                      type="button"
+                      onClick={() => scrubOffset(f.offsetPct)}
+                      aria-pressed={current}
+                      aria-label={
+                        (current ? "The cut's own plane — " : "") +
+                        `Walk the cut to ${f.pctLabel} of the face-to-face span` +
+                        (f.depthLabel ? ` (${f.depthLabel})` : "")
+                      }
+                      title={`Walk the cut to ${f.pctLabel}${f.depthLabel ? ` · ${f.depthLabel}` : ""}`}
+                      data-walk-stop={f.pctLabel}
+                      className={cn(
+                        "rounded-sm border px-1.5 py-0.5 font-mono text-[10px] tabular-nums transition-colors duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                        current
+                          ? "border-2 border-violet-600 bg-violet-600/10 font-semibold text-violet-700 dark:text-violet-300"
+                          : "border-border/70 text-muted-foreground hover:border-violet-600/40 hover:bg-violet-600/5 hover:text-foreground"
+                      )}
+                    >
+                      {f.pctLabel}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] tabular-nums text-muted-foreground">
               <span title="Unit plane normal in grid coordinates">
@@ -1895,7 +3711,7 @@ function ObliqueSectionBlock({
               <button
                 type="button"
                 onClick={() => { setTheta(0); setPhi(0); setOffset(0); setProvenance(null); }}
-                className="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 title="Back to the axis-aligned center plane (θ 0°, φ 0°, centered)"
               >
                 reset
@@ -1904,7 +3720,7 @@ function ObliqueSectionBlock({
                 type="button"
                 onClick={jumpToView}
                 data-canvas-ui="ortho-oblique-jump"
-                className="rounded p-0.5 text-violet-600 transition-colors hover:bg-violet-600/10"
+                className="rounded p-0.5 text-violet-600 transition-colors hover:bg-violet-600/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 aria-label="Swing the 3D camera to look straight down this plane's normal"
                 title="⌖ the 3D view jumps face-on to this cut (the same ⌖ language the tiles speak)"
               >
@@ -1915,7 +3731,7 @@ function ObliqueSectionBlock({
                 onClick={adoptCamera}
                 data-canvas-ui="ortho-oblique-adopt"
                 className={cn(
-                  "rounded p-0.5 text-violet-600 transition-colors hover:bg-violet-600/10",
+                  "rounded p-0.5 text-violet-600 transition-colors hover:bg-violet-600/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                   adoptFlash && "bg-violet-600/15"
                 )}
                 aria-label="Adopt the current 3D camera direction as this plane's normal"
@@ -1929,7 +3745,7 @@ function ObliqueSectionBlock({
                 aria-pressed={cut3d}
                 data-canvas-ui="ortho-oblique-cut3d"
                 className={cn(
-                  "rounded p-0.5 text-violet-600 transition-colors hover:bg-violet-600/10",
+                  "rounded p-0.5 text-violet-600 transition-colors hover:bg-violet-600/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                   cut3d && "bg-violet-600/15"
                 )}
                 aria-label="Cut the 3D isosurface open at this plane"
@@ -1937,7 +3753,158 @@ function ObliqueSectionBlock({
               >
                 <Scissors className="h-3 w-3" aria-hidden="true" />
               </button>
+              <button
+                type="button"
+                disabled={!cut3d}
+                aria-pressed={sheet3d}
+                data-canvas-ui="ortho-oblique-sheet3d"
+                className={cn(
+                  "rounded p-0.5 text-violet-600 transition-colors hover:bg-violet-600/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-40 disabled:hover:bg-transparent",
+                  sheet3d && cut3d && "bg-violet-600/15"
+                )}
+                aria-label="Show the cut's face — a density sheet on this plane"
+                title={
+                  cut3d
+                    ? OBLIQUE_SHEET_FACE_TITLE
+                    : "▣ face — the density sheet needs the cut: press ✂ first"
+                }
+                onClick={() => {
+                  if (!cut3d) return;
+                  const next = !sheet3d;
+                  setSheet3d(next);
+                  window.dispatchEvent(
+                    new CustomEvent(OBLIQUE_SHEET_EVENT, { detail: { on: next } })
+                  );
+                }}
+              >
+                <Layers className="h-3 w-3" aria-hidden="true" />
+              </button>
+              <ObliqueFilmstripButton
+                jobId={jobId}
+                path={path}
+                dims={dims}
+                on={on}
+                live={live}
+                provenance={provenance}
+              />
+              <ObliqueDirectionStripButton
+                jobId={jobId}
+                path={path}
+                on={on}
+                live={live}
+              />
             </div>
+            {/* t1131 — the face's LEGEND strip: the gray mosaic's own color
+                key, MADE of the mesh arrays (the lib's sheetLegendOf — the
+                strip cannot disagree with the face because it IS what the
+                face wears). Rendered only when the ACK says a face is
+                showing AND the key has arrived; the ends speak the stretch
+                (the tiles' own 2–98 percentiles), each swatch confesses its
+                band-center density on hover, the chip names the count and
+                the lattice's harvest. Until the key lands: the reading
+                placeholder (honest — the pump is still sampling); after a
+                null answer: silence (a plane whose lattice kept nothing
+                keeps no key). */}
+            {sheet3d && cut3d && !legendSettled && (
+              <div
+                data-canvas-ui="ortho-oblique-sheet-legend-pending"
+                className="mt-1.5 flex items-center gap-2 rounded border border-violet-600/20 bg-violet-600/5 px-2 py-1.5"
+              >
+                <span
+                  className="animate-pulse font-mono text-[10px] tabular-nums text-violet-700/80 dark:text-violet-300/80"
+                  title="The embed is sampling the plane — the lattice mosaic's key arrives with the face"
+                >
+                  reading the face…
+                </span>
+              </div>
+            )}
+            {sheet3d && cut3d && sheetLegend && (
+              <div
+                data-canvas-ui="ortho-oblique-sheet-legend-row"
+                className="mt-1.5 flex items-stretch gap-1.5"
+                onPointerLeave={() => hoverSheetBand(null)}
+              >
+              <div
+                data-canvas-ui="ortho-oblique-sheet-legend"
+                role="img"
+                aria-label={sheetLegend.aria}
+                title="The face's gray key — the tiles' own 2–98 stretch quantized to gray bands; hover a band for its density."
+                className="flex min-w-0 flex-1 items-center gap-2 rounded border border-violet-600/20 bg-violet-600/5 px-2 py-1.5 transition-colors duration-300"
+              >
+                <span
+                  className="shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground"
+                  title={`The stretch's dark end — ${sheetLegend.loLabel} density`}
+                >
+                  {sheetLegend.loLabel}
+                </span>
+                <span className="flex h-2.5 min-w-0 flex-1 overflow-hidden rounded-sm ring-1 ring-black/10 dark:ring-white/15">
+                  {sheetLegend.swatches.map((sw, i) => (
+                    <span
+                      key={i}
+                      title={sheetLegend.labels[i]}
+                      style={{ backgroundColor: sw }}
+                      onPointerEnter={() => hoverSheetBand(i)}
+                      className="h-full min-w-0 flex-1 cursor-crosshair transition-[filter] duration-150 hover:brightness-125"
+                    />
+                  ))}
+                </span>
+                <span
+                  className="shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground"
+                  title={`The stretch's light end — ${sheetLegend.hiLabel} density`}
+                >
+                  {sheetLegend.hiLabel}
+                </span>
+                <span
+                  data-canvas-ui="ortho-oblique-sheet-legend-chip"
+                  className="shrink-0 rounded-full border border-violet-600/30 bg-background px-1.5 py-0.5 font-mono text-[9px] tabular-nums text-violet-700 dark:text-violet-300"
+                  title={`The mosaic's harvest — ${sheetLegend.kept} quads kept of ${sheetLegend.lattice} lattice cells (${sheetLegend.dropped} dropped outside the grid)`}
+                >
+                  {sheetLegend.bands} bands
+                </span>
+              </div>
+              {/* t1132 — the ⧉ copy chip: the key as text, a SIBLING of the
+                  role="img" strip (interactive content inside a role=img
+                  region is unexposed to the tree — the a11y law). The flip
+                  speaks all three states through aria-label + title; the
+                  width never reflows the strip (fixed w, self-stretch
+                  height, icons are the only content). */}
+              <button
+                type="button"
+                data-canvas-ui="ortho-oblique-sheet-legend-copy"
+                onClick={copySheetLegend}
+                aria-label={
+                  legendCopied === "ok"
+                    ? "The face's key copied to the clipboard"
+                    : legendCopied === "refused"
+                      ? "The clipboard refused the face's key"
+                      : "Copy the face's key as text"
+                }
+                title={
+                  legendCopied === "ok"
+                    ? "Copied — the aria word, the harvest, the band words"
+                    : legendCopied === "refused"
+                      ? "The clipboard refused — the key stays spoken by the strip and its aria"
+                      : "Copy the face's key as text — the aria word, the harvest, the band words"
+                }
+                className={cn(
+                  "inline-flex w-[26px] shrink-0 items-center justify-center rounded border transition-colors duration-150 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-violet-500/70",
+                  legendCopied === "ok"
+                    ? "border-emerald-600/40 bg-emerald-600/10 text-emerald-700 dark:text-emerald-300"
+                    : legendCopied === "refused"
+                      ? "border-amber-600/40 bg-amber-600/10 text-amber-700 dark:text-amber-300"
+                      : "border-violet-600/30 bg-background text-violet-700 hover:bg-violet-600/10 dark:text-violet-300"
+                )}
+              >
+                {legendCopied === "ok" ? (
+                  <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                ) : legendCopied === "refused" ? (
+                  <TriangleAlert className="h-3.5 w-3.5" aria-hidden="true" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                )}
+              </button>
+              </div>
+            )}
           </div>
         </div>
       )}

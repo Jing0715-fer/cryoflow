@@ -106,9 +106,9 @@ if (counts) {
   const total = parseInt(counts[1], 10) + parseInt(counts[2], 10) + parseInt(counts[3], 10) + parseInt(counts[4], 10);
   const house = parseInt(counts[1], 10);
   const bodyscroll = parseInt(counts[2], 10);
-  ok(total === 46, "C1 the census still covers FORTY-SIX faces (the verdict grew no dialog)", `found ${total}`);
+  ok(total === 48, "C1 the census covers FORTY-EIGHT faces (t1137 amendment 46→48: TWO newcomers, both named with their birth windows — pace-dialog (t1009, BODYSCROLL at birth, the same Task-64 long-content shape as the fsc-compare: max-h-[85vh] overflow-y-auto) + world-health-dialog (t1133, the world's memory board, hand-classified plain sm:max-w-2xl); growth amends the census, never skips it)", `found ${total}`);
   ok(house === 18, "C2 the house count stands at the t811 floor (18 — an exemption is not a card)", `found ${house}`);
-  ok(bodyscroll === 1, "C3 exactly ONE self-scroll card remains — the documented fsc-compare", `found ${bodyscroll}`);
+  ok(bodyscroll === 2, "C3 exactly TWO self-scroll cards remain — the documented fsc-compare (t809) + the pace-dialog (t1009), both the same Task-64 long-content shape (t1137 amendment: the second face named, not skipped)", `found ${bodyscroll}`);
 } else {
   fails.push("C1 the walk instrument produced no counts line");
 }

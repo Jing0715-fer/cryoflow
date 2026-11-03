@@ -1,0 +1,434 @@
+{
+  "instrument": "scripts/t878-judge-worker-family.mjs",
+  "instrumentRevision": 3,
+  "ruler": "the judge family's ruler is the API's own truth: the status route's introspection, the stamp file's bytes, the roster's hasVerdict join, the canvas's badge DOM — no DOM-naming surface, so the shared NAMEOF ruler does not ride (the faces measure wires, not controls)",
+  "build": "cbIHQtfEuq3Nn-gQeuvbz",
+  "worldMode": "build",
+  "date": "2026-10-11T02:16:01.528Z",
+  "chain": "status route (mounted / ticking / armed / provider / escape hatch / watermark / bounded ledger) -> the world's stamp states measured from the roster (the carrying pair, the shaped stamps, the file agreement, the materials host) -> the canvas badge baseline -> t578's bench re-ride -> the storm armed (two clean candidates, the DB pen, the latest iteration's materials) -> seat A drained (the verdict arrives without asking) -> seat B drained on a LATER tick (oldest first) -> hasVerdict through the jobs API -> the canvas badges (aria sentence) + screenshot -> the POLICY GATES (PUT off -> the gate reflected -> a clean candidate silent across 2+ ticks -> the off ledger untouched -> delete-before-re-arm -> the toggle restored -> the re-arm quiet -> the mirror gate LIVE and isolated -> the original's one opinion held -> the settings door restored) -> the console-hygiene arm -> the drills swept -> the stamps byte-for-byte -> the roster + canvas bit-for-bit (one command)",
+  "doors": {
+    "status": "GET /api/ai/judge-worker — the worker's own introspection (mounted, tickMs, watermark, judged[])",
+    "settings": "loadAiSettings/resolveAssistant — the autoJudge toggle and the provider the status route reads",
+    "stamps": "data/ai-verdicts.json — the per-job memory (one opinion per job, never overwritten by the worker)",
+    "watermark": "data/judge-worker.json — the per-ERA memory (the disposal boundary the t680 fix made honest)",
+    "planner": "src/lib/ai/judge-worker-plan.ts — the PURE eight-gate policy (t578's bench pins it bare)",
+    "roster": "GET /api/jobs — the hasVerdict join the canvas's badge reads",
+    "verdict": "GET /api/jobs/<id>/ai-verdict — the stamp's shaped face (classes[] enums, model, at)",
+    "toggle": "PUT/GET /api/ai/settings + data/ai-settings.json — the autoJudge toggle's door (the product-level off; the file's ABSENCE is a door state too — the defaults hold autoJudge: true)",
+    "pen": "db.job.create/deleteMany — the seeder's borrowed key (the engine's PATCH never writes completed)"
+  },
+  "port": {
+    "from": "the t876 map's debt walk t680-judge-storm (the AI stamp's own surfaces: the status route, the autoJudge boot, the clean-candidate/carrying-stamp world states, the storm's queue)",
+    "law": "the label-as-will law closed loop — the debt walk's surfaces are this instrument's own labels now (S the status route answers / the worker is mounted / autoJudge on and a provider configured)",
+    "redrawn": [
+      "the host MEASURED from the living roster (t680 pinned cmuwipe635000class3d, t574 pinned the EMPIAR world — both gone, the port refuses pins)",
+      "the storm's seats are MINTED drills, never the world's own jobs (t680 re-wrote the world class3d's updatedAt; the port's mutations are the port's)",
+      "the boot loop's liveness witnessed (lastTickAt fresh within 2.5 ticks — mounted alone is a promise, a fresh tick is a beat)",
+      "the queue's TWO witnesses kept apart: the live storm proves the world, the t578 bench proves the policy",
+      "the console-hygiene check reads the PAGE's own error events (the agent-browser errors channel carries empty-message artifacts — the t574-era errors==\"\" idiom retired)",
+      "rev 2 — the policy gates LIVE on the living host (t574's Face C shape: the off silence, the delete-before-re-arm law, the re-arm quiet) + the mirror gate LIVE and ISOLATED (fresh + linked + post-watermark, so gate 4 is witnessed without the toggle or the watermark confounding it) + the settings door's un-own law grown a new shape (the file's ABSENCE is a door state — the defaults hold autoJudge: true)",
+      "the ledger-growth check grown CAP-AWARE (the worker truncates judged[] at 20 — the storm's +2 per ride collides with the cap; the honest form: the door's ledger's PREFIX beneath the storm's two, tail records falling off at the cap)"
+    ]
+  },
+  "host": {
+    "projectId": "cmv2rou390000olsn0xnkohe8",
+    "measured": true,
+    "roster": 19,
+    "judgeable": 2,
+    "stamped": 2
+  },
+  "materials": {
+    "iteration": 25,
+    "files": 6
+  },
+  "storm": {
+    "seats": [
+      {
+        "id": "t878stormcell3da",
+        "updatedAtOffsetMs": 0,
+        "fate": "armed -> drained first (oldest) -> stamp landed -> swept"
+      },
+      {
+        "id": "t878stormcell3db",
+        "updatedAtOffsetMs": 2000,
+        "fate": "armed -> drained on a LATER tick -> stamp landed -> swept"
+      }
+    ],
+    "stampDeltaSeconds": 28.66,
+    "verdictsOk": true
+  },
+  "ledgerBaseline": {
+    "length": 20,
+    "ids": [
+      "t878stormcell3db",
+      "t878stormcell3da",
+      "cmv2royib000oolsn8azoa6v9",
+      "cmv2royha000golsn8hrcfk4d"
+    ]
+  },
+  "policy": {
+    "settingsDoor": "file ABSENT (the defaults hold the state)",
+    "offReflected": true,
+    "policySilent": true,
+    "reArmQuiet": true,
+    "mirrorSilent": true,
+    "originalUntouched": true,
+    "settingsRestored": true,
+    "originalStampAt": 1791659969103,
+    "seats": [
+      {
+        "id": "t878policycell3d",
+        "shape": "clean candidate armed during the OFF window, swept before the re-arm",
+        "fate": "silent across 2+ ticks -> swept"
+      },
+      {
+        "id": "t878mirrorcell3d",
+        "shape": "LINKED drill (linkedJobId -> the stamped class3d), armed FRESH after the re-arm (post-watermark), no workdir",
+        "fate": "invisible across 2+ ticks -> swept"
+      }
+    ]
+  },
+  "badges": {
+    "opening": 2,
+    "storm": 4,
+    "back": 2,
+    "aria": "AI verdict ready"
+  },
+  "consoleHygiene": {
+    "pageEvents": 0,
+    "channelNote": "agent-browser errors prints empty-message artifacts; the port reads the page's own events"
+  },
+  "faces": {
+    "statusFace": {
+      "live": {
+        "mounted": true,
+        "disabled": true,
+        "autoJudge": true,
+        "providerOk": true,
+        "tickMs": 30000,
+        "watermarkFinite": true
+      }
+    },
+    "stampStates": {
+      "live": {
+        "stamped2d": true,
+        "stamped3d": true,
+        "stampsOnDisk": 2,
+        "roster": 19
+      }
+    },
+    "worldBack": {
+      "live": {
+        "roster": 19,
+        "badges": 2,
+        "workdirsLeft": 0,
+        "stampsRestored": true
+      }
+    },
+    "policyFace": {
+      "live": {
+        "offReflected": true,
+        "policySilent": true,
+        "mirrorSilent": true,
+        "reArmQuiet": true,
+        "originalUntouched": true,
+        "settingsRestored": true
+      }
+    }
+  },
+  "checks": [
+    {
+      "label": "S the judge-worker status route answers",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "S the worker is mounted (the boot loop lives)",
+      "pass": true,
+      "detail": "startedAt 2026-10-10T19:07:19.862Z"
+    },
+    {
+      "label": "S autoJudge on and a provider is configured (builtin GLM)",
+      "pass": true,
+      "detail": "autoJudge=true providerOk=true"
+    },
+    {
+      "label": "S the escape hatch is quiet (the reaper's symmetry)",
+      "pass": true,
+      "detail": "disabled=false"
+    },
+    {
+      "label": "S the boot loop actually ticks (lastTickAt fresh within 2.5 ticks)",
+      "pass": true,
+      "detail": "26s ago (tick 30000ms)"
+    },
+    {
+      "label": "S the watermark is persisted (the per-ERA memory)",
+      "pass": true,
+      "detail": "status 1791684680479 / file 1791684680479"
+    },
+    {
+      "label": "S the judged ledger is bounded and honest",
+      "pass": true,
+      "detail": "20 records"
+    },
+    {
+      "label": "W the world carries stamped classifications (measured from the roster)",
+      "pass": true,
+      "detail": "rcfk4d (2d) + zoa6v9 (3d) of 2 judgeable"
+    },
+    {
+      "label": "W the class2d's stamp speaks (available, shaped, model named)",
+      "pass": true,
+      "detail": "glm-4-plus, 50 classes (1:reject 2:reject 3:reject 4:reject 5:reject 6:reject 7:reject 8:reject 9:reject 10:reject 11:reject 12:reject 13:reject 14:reject 15:reject 16:reject 17:reject 18:reject 19:reject 20:reject 21:reject 22:reject 23:reject 24:reject 25:reject 26:reject 27:reject 28:reject 29:reject 30:reject 31:reject 32:reject 33:reject 34:reject 35:reject 36:reject 37:reject 38:reject 39:reject 40:reject 41:reject 42:reject 43:reject 44:reject 45:reject 46:reject 47:reject 48:reject 49:reject 50:reject)"
+    },
+    {
+      "label": "W the class3d's stamp speaks (available, shaped, model named)",
+      "pass": true,
+      "detail": "glm-4-plus, 4 classes (1:reject 2:maybe 3:reject 4:maybe)"
+    },
+    {
+      "label": "W the stamps file agrees with the routes",
+      "pass": true,
+      "detail": "2 stamps on disk"
+    },
+    {
+      "label": "W the materials host stands (the measured class3d workdir carries the latest iteration's judge materials)",
+      "pass": true,
+      "detail": "it025: 6 files"
+    },
+    {
+      "label": "W the canvas baseline wears the world's stamps (the Sparkles badges)",
+      "pass": true,
+      "detail": "2 badges on 19 cards, aria \"AI verdict ready\""
+    },
+    {
+      "label": "Q the bench holds the queue's semantics (exit 0)",
+      "pass": true,
+      "detail": "18 passed, 0 failed"
+    },
+    {
+      "label": "Q the bench's storm is whole (18 faces)",
+      "pass": true,
+      "detail": "18 passed, 0 failed"
+    },
+    {
+      "label": "L the seats armed as clean candidates (completed, unstamped, fresh, not mirrors)",
+      "pass": true,
+      "detail": "A@+0ms B@+2000ms, workdir it025"
+    },
+    {
+      "label": "L seat A's verdict arrived WITHOUT anyone asking (the worker's own ledger)",
+      "pass": true,
+      "detail": "ok=true, 13s after arming"
+    },
+    {
+      "label": "L seat A's stamp landed on disk (ai-verdicts.json knows the seat)",
+      "pass": true,
+      "detail": "at 2026-10-11T02:12:00.762Z"
+    },
+    {
+      "label": "L seat A's live VLM judge SUCCEEDED (ok=true)",
+      "pass": true,
+      "detail": "Judged 4 3D classes of t878 storm cell A (iteration 25): 0 keep / 2 maybe — NO class merits a selection (zero-"
+    },
+    {
+      "label": "L the verdict says something (a summary sentence exists)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "L seat B's verdict arrived on a LATER tick (the queue's second cell)",
+      "pass": true,
+      "detail": "ok=true, 29s after seat A"
+    },
+    {
+      "label": "L seat B's stamp landed on disk",
+      "pass": true,
+      "detail": "at 2026-10-11T02:12:29.422Z"
+    },
+    {
+      "label": "L seat B's live VLM judge SUCCEEDED (ok=true)",
+      "pass": true,
+      "detail": "Judged 4 3D classes of t878 storm cell B (iteration 25): 1 keep / 1 maybe · two-pass: 4 agreed — The classific"
+    },
+    {
+      "label": "L the queue drained OLDEST FIRST (seat A's stamp precedes seat B's)",
+      "pass": true,
+      "detail": "Δ 28.7s"
+    },
+    {
+      "label": "L the ledger's order agrees (newest-first: B's record precedes A's)",
+      "pass": true,
+      "detail": "judged[0]=B, judged[1]=A (unshift newest-first)"
+    },
+    {
+      "label": "L the ledger grew by exactly the storm (no other job judged during the window)",
+      "pass": true,
+      "detail": "20 -> 20 (prepend-only: the storm's two on top, the door's ledger's prefix beneath — the worker's 20-cap may tail-truncate, the prefix holds)"
+    },
+    {
+      "label": "L the seats wear hasVerdict through the jobs API",
+      "pass": true,
+      "detail": "A=true B=true"
+    },
+    {
+      "label": "C the canvas wears the storm's badges (baseline + 2)",
+      "pass": true,
+      "detail": "4 badges (opening 2)"
+    },
+    {
+      "label": "C the storm cells' own cards wear the Sparkles badge, aria says the sentence",
+      "pass": true,
+      "detail": "A aria \"AI verdict ready\" / B aria \"AI verdict ready\""
+    },
+    {
+      "label": "P the toggle's door speaks (PUT off accepted, the status route reflects the gate)",
+      "pass": true,
+      "detail": "status 200, autoJudge=false"
+    },
+    {
+      "label": "P the off-window's clean candidate stays SILENT across 2+ ticks (no stamp, no judged record)",
+      "pass": true,
+      "detail": "stamped=false recorded=false"
+    },
+    {
+      "label": "P the off-window's ledger is untouched (nothing judged while the gate was off)",
+      "pass": true,
+      "detail": "20 records held"
+    },
+    {
+      "label": "P the off-period completion swept BEFORE the re-arm (the race made impossible)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "P the toggle restored (PUT on accepted, the status route reflects armed)",
+      "pass": true,
+      "detail": "autoJudge=true"
+    },
+    {
+      "label": "P the re-arm storms nothing (the storm's seats remain the ledger's newest)",
+      "pass": true,
+      "detail": "judged[0]=mcell3db, length 20"
+    },
+    {
+      "label": "P the mirror gate LIVE (a fresh linked drill stays invisible across 2+ ticks)",
+      "pass": true,
+      "detail": "stamped=false recorded=false (no workdir either — the gate must skip it BEFORE any judge attempt)"
+    },
+    {
+      "label": "P the original keeps its one opinion (the carrying stamp's at unchanged)",
+      "pass": true,
+      "detail": "at 1791659969103 == 1791659969103"
+    },
+    {
+      "label": "P the settings door restored (the file's state == the door's, the worker armed)",
+      "pass": true,
+      "detail": "the door's ABSENCE back (the file stays uncreated, the defaults armed)"
+    },
+    {
+      "label": "B the roster returns bit-for-bit (the storm's seats leave no fossil)",
+      "pass": true,
+      "detail": "19 -> 19"
+    },
+    {
+      "label": "B the stamps file is byte-for-byte the door's bytes",
+      "pass": true,
+      "detail": "2 stamps, the real opinions untouched"
+    },
+    {
+      "label": "B the drill workdirs are gone from the tree",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "B the canvas is back at its baseline (badges == the opening count, zero unnamed)",
+      "pass": true,
+      "detail": "2 badges on 19 cards (opening 2/19)"
+    },
+    {
+      "label": "B the worker still mounted and armed after the storm",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "B zero real console errors (the page's own error events)",
+      "pass": true,
+      "detail": "the armed listener heard nothing in 12s"
+    },
+    {
+      "label": "L statusFace face ride-drift law",
+      "pass": true,
+      "detail": "arm 3 — bit-for-bit (30000 -> 30000, the full live object identical)"
+    },
+    {
+      "label": "L stampStates face ride-drift law",
+      "pass": true,
+      "detail": "arm 3 — bit-for-bit (2 -> 2, the full live object identical)"
+    },
+    {
+      "label": "L worldBack face ride-drift law",
+      "pass": true,
+      "detail": "arm 3 — bit-for-bit (19 -> 19, the full live object identical)"
+    },
+    {
+      "label": "L policyFace face ride-drift law",
+      "pass": true,
+      "detail": "arm 3 — bit-for-bit (6 -> 6, the full live object identical)"
+    }
+  ],
+  "passed": 48,
+  "failed": 0,
+  "total": 48,
+  "verdict": "the judge-worker family's PORT holds on its first living host: the status route answered and the boot loop was witnessed TICKING (lastTickAt fresh within 2.5 ticks), autoJudge armed, the provider configured, the escape hatch quiet, the watermark persisted (the per-ERA memory), the judged ledger bounded at 20 — the t680 labels the shadowed walk carried are this instrument's own now; the world's carrying-stamp pair was MEASURED from the roster (never pinned — the cmuwipe and EMPIAR worlds are gone, the port refuses their pins), both stamps shaped (classes[] enum verdicts, model named, at finite), the stamps file agreeing with the routes, the materials host standing at it025; the queue's bench re-rode green (t578's eighteen faces — the cap, the fairness, the mirror invisibility, the watermark honesty); the LIVE STORM armed two clean candidates two seconds apart and the worker drained them ONE PER TICK, oldest first (seat A's stamp precedes seat B's by 28.7s, the ledger's unshift order agreeing, both verdicts ok=true, both seats wearing hasVerdict through the jobs API, the canvas growing the Sparkles badges with the aria sentence) — the watermark-disposal fix t680 discovered is load-bearing and this port now guards it live; the exit swept the drills, restored the stamps byte-for-byte, returned the roster and the canvas to their opening shapes, and the worker stayed mounted and armed; zero real console errors (the page's own events — the errors channel's empty artifacts named and refused); the ledger aboard from birth (three faces, arm 1)",
+  "driftLedger": {
+    "prevFound": true,
+    "prevBuild": "cbIHQtfEuq3Nn-gQeuvbz",
+    "prevDate": "2026-10-11T02:11:33.683Z",
+    "sameBuild": true,
+    "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
+    "faces": {
+      "statusFace": {
+        "prev": 30000,
+        "live": 30000,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "stampStates": {
+        "prev": 2,
+        "live": 2,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "worldBack": {
+        "prev": 19,
+        "live": 19,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "policyFace": {
+        "prev": 6,
+        "live": 6,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      }
+    }
+  }
+}

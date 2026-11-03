@@ -131,8 +131,9 @@ ok(
   "the passport rides the spoken line with the em-dash grammar the paper uses"
 );
 ok(
-  toolsSrc.includes("B-factor ${d.bfactor.toFixed(1)} Å² (used for sharpening)"),
-  "the guinier spoken line carries the same sharpening passport as the paper"
+  toolsSrc.includes("B-factor ${fmtBFactor(d.bfactor)} (used for sharpening)") &&
+    toolsSrc.includes('import { fmtAngstrom, fmtMicron, fmtBFactor, reportedPassport } from "@/lib/chart-rows"'),
+  "the guinier spoken line carries the same sharpening passport as the paper (t1155 — the B-factor word rides its ONE father)"
 );
 ok(
   toolsSrc.includes("reportedLabel: d.reportedLabel"),

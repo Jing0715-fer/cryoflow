@@ -40,6 +40,7 @@ import { readCleanupHistory, type CleanupHistoryEntry } from "@/lib/relion/clean
 import type { CleanupExecuteResult, CleanupPlan, CleanupSidePlan } from "@/lib/hpc/cleanup";
 import { computeStorageReport, type StorageResponse } from "@/lib/relion/storage-report";
 import { fmtDuration } from "@/lib/duration";
+import { fmtProgressPct } from "@/lib/progress-scale";
 import { walkTimeline, timelineLedger, timelineSharePct } from "@/lib/timeline-walk";
 import { getActiveProject, projectRemoteTarget } from "@/lib/projects";
 import {
@@ -133,7 +134,7 @@ import {
   loadTopazTraining,
   ChartJobNotFound,
 } from "@/lib/chart-data";
-import { fmtAngstrom, fmtMicron, reportedPassport } from "@/lib/chart-rows";
+import { fmtAngstrom, fmtMicron, fmtBFactor, reportedPassport } from "@/lib/chart-rows";
 // t501 — the agent reads the landscape: the inventory's OWN arithmetic
 // (peak/agreement/weakest/delta), the walk's OWN constants, the listing's
 // OWN well — imports all, no second derivation anywhere.
@@ -160,6 +161,13 @@ import { resolveInsideJobWorkdir } from "@/lib/relion/jobfile";
 import { readPathrefTarget } from "@/lib/relion/pathref";
 import { detectRelion, type RelionStatus } from "@/lib/relion/system";
 import { readDiagnostics, presentSystemDiagnostics, type DiagnosticsPayload } from "@/lib/diagnostics";
+import { presentWorldHealth, type WorldHealthToolResult } from "@/lib/ai/world-health-present";
+import { presentPresetShelf } from "@/lib/ai/preset-shelf-present";
+import { presentTemplateShelf } from "@/lib/ai/template-shelf-present";
+import { presentHpcProfiles } from "@/lib/ai/hpc-profile-present";
+import { loadProfilesVerdict } from "@/lib/hpc/slurm";
+import { PARAM_PRESET_SHELF_ID } from "@/lib/param-preset-sanitize";
+import type { JobClock } from "@/lib/world-vitals";
 
 // t530 — the box's agent face lives in the pure diagnostics module (the
 // bench's node lane imports the presenter without dragging this world);
@@ -599,6 +607,67 @@ export const AI_TOOLS: ToolSchema[] = [
     parameters: { type: "object", properties: {}, additionalProperties: false },
   },
   {
+    name: "get_world_health",
+    description:
+      "The WORLD'S HEALTH BOARD in one read — the World health dialog's own rows as data, byte for byte, never a re-derivation: the census (jobs / edges / running / completed / failed / pending / idle), the engine + pipeline verdicts (RELION found and how it executes, binaries and externals present, failures counted, wiring coherence) and the jobs' OWN face (the last failure named in the run's own first words, the oldest running's age with the pace judgment — the completions' own median is the line, never an invented constant —, the oldest waiting's patience, and the Fresh and Marathon completions dated and weighed). THE tool for 'how is the pipeline doing / 管道最近怎么样 / 最近怎么样 / what failed recently / why is this run slow / has anything finished / is the engine ready / 这个会话健康吗'. Cousins, not duplicates: get_workflow_state is the raw roster (positions, params, result lines), get_system_diagnostics is the BOX (memory, disk, build provenance), get_session_timeline is the TIME (honest windows), this is the BOARD (the verdicts and the rows). Scope: the whole project's roster — every workspace's jobs in one read (the client dialog reads the active workspace's; a one-workspace project agrees row for row, a multi-workspace project gets the scope note in the summary). Polite engine read: it drinks the same cached probe the header serves (fresh-while-revalidate; a thrown probe leaves the engine row as the board's own honest absence, and the annex says so). Zero knobs: the walk is the board's walk, not a filtered one.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "get_param_presets",
+    description:
+      "The USER'S OWN PARAMETER PRESETS in one read — the preset shelf (lib/user-param-presets' server mirror) " +
+      "as data, newest first: per preset the name, the job type, the knob count and the FULL spec-key snapshot's " +
+      "saved values. THE tool for 'what presets do I have / 我存过哪些预设 / 用我常用的参数 / my usual settings / " +
+      "which of my saved settings fit this job type / 把我调好的参数穿上去'. Cousins, not duplicates: " +
+      "list_job_types is the job-type roster (developer-written specs), get_job_params is ONE job's live params, " +
+      "this is the USER'S hand-tuned shelf — the same rows the inspector's save dialog, the palette's 'Add from " +
+      "your presets' group and the shelf dialog speak. Honest faces: a shelf never mirrored (no row on the " +
+      "server) says so; an emptied shelf is the deletion's truth, not a missing sync; a corrupt row says so " +
+      "instead of pretending empty. Read-only QUOTER: wear a preset through create_job or update_job's params " +
+      "(a FULL spec-key snapshot — every spec key replaced, legacy keys untouched); the type gate is structural " +
+      "(a preset of type X only lands on a type-X job). The shelf is the user's own, not the project's — it " +
+      "follows the user across browsers and projects. Zero knobs: the shelf is the shelf, not a filtered one.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "get_custom_templates",
+    description:
+      "The USER'S OWN SAVED WORKFLOW TEMPLATES in one read — the custom-template shelf (the canvas's save flow, " +
+      "the shelf dialog's rows) as data, newest first: per template the name, the job count, the wire count and " +
+      "the saved date. THE tool for 'what templates have I saved / 我存过哪些模板 / 用我存的那个模板 / which of " +
+      "my saved shapes fits here / 把我存的流程铺出来'. A template is a SHAPE the user wired by hand — jobs, " +
+      "relative positions, params and internal wires snapshotted as saved; the details travel on the apply door " +
+      "only (the list stays light — the route's own law). Cousins, not duplicates: get_param_presets is the " +
+      "user's PARAM shelf (per-job values); build_pipeline builds a NEW chain and can never quote a saved shape; " +
+      "list_job_types is the job-type roster. Honest faces: an emptied shelf is the deletion's truth, not a " +
+      "missing sync; a corrupt row stays listed with 0 · 0 counts and says so — quote nothing from it. " +
+      "Read-only QUOTER: the shape's ONLY writer is the shelf dialog's one-click apply (the route's own PUT — " +
+      "it mints fresh rows below the workspace's content, numbered in the project's RELION sequence, wired " +
+      "exactly as saved, ports re-validated); NEVER re-mint a saved shape through build_pipeline or create_job — " +
+      "a chain rebuild drifts from the saved wiring's ports and the saved placement. The shelf is the ACTIVE " +
+      "PROJECT's, not the user's global one — it does not follow the user across projects (the param presets' " +
+      "cousin line). Zero knobs: the shelf is the shelf, not a filtered one.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "get_hpc_profiles",
+    description:
+      "The HPC PROFILE REGISTRY in one read — the cluster profiles editor's own rows as data: per profile the " +
+    "display name, the login host (null = submits locally), the Slurm partition, QoS, account, the time limit " +
+    "in minutes, the node count, GPUs per node, the GPU model, the RELION home, the cluster data root, the " +
+    "ctffind binary, the environment preparation lines byte for byte, the array throttle (%N) and the simulator " +
+    "speed. THE tool for '什么分区 / which partition or queue / how many GPUs does my cluster get / 我的 profile " +
+    "是什么配置 / what walltime / which account / 用哪个 profile 跑'. Honest faces: a registry never saved speaks " +
+    "the HOUSE DEFAULTS — two of them carry .example.org hosts and are EXAMPLES, never a reachable target; a " +
+    "corrupt registry says so and quotes nothing as the user's tuning; an emptied registry is the deletion's " +
+    "truth. Cousins, not duplicates: list_clusters is the connections' roster (probe truth, RELION modules, " +
+    "dispatch résumés) and the real remote lane rides the CONNECTION's own Slurm settings — this is the sbatch " +
+    "TRANSLATION vocabulary the dry-run door wears. Read-only QUOTER: the sbatch dry-run door translates ONE " +
+    "job's script onto ONE profile by id; the agent never writes a profile. The registry is the SERVER's — it " +
+    "speaks across projects and browsers. Zero knobs: the registry is the registry, not a filtered one.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
     name: "get_continue_sources",
     description:
       "A run's RESTART DOORS in one read — the inspector's 'Continue from here:' picker as data: every optimiser round the run can legally resume from, its own arc (self) and any upstream refinement's rounds. Per round: the iteration number, the optimiser.star path, whether EVERY sibling RELION reload is present (an incomplete round is shown but never a legal --continue target), and the CHECKPOINT — the newest complete self round, live tree over archived generations, the picker's own pick, never re-derived. Per source: the lane (a remote row's paths speak CLUSTER coordinates — a host shell would misread them) and the honest wounds (a source that could not be read carries its own error; a capped listing says it is a floor, not all). THE tool for '这个任务能从哪继续 / what can this run continue from / where's the newest checkpoint / which iteration would --iter resume'. Read-only LOCATOR: it names the doors — continue_run is the verb that opens one. The roster is the picker's own walk and the checkpoint is the picker's own pick: the Continue dialog drinks the same cup. One knob: the job id.",
@@ -1034,6 +1103,14 @@ export async function executeAiTool(
         return await getEnvironmentReport(ctx);
       case "get_system_diagnostics":
         return await getSystemDiagnostics(ctx);
+      case "get_world_health":
+        return await getWorldHealth(ctx);
+      case "get_param_presets":
+        return await getParamPresets();
+      case "get_custom_templates":
+        return await getCustomTemplates(ctx);
+      case "get_hpc_profiles":
+        return await getHpcProfiles();
       case "get_continue_sources":
         return await getContinueSources(ctx, args);
       case "get_storage_report":
@@ -2347,7 +2424,10 @@ async function waitForJobs(ctx: AgentCtx, args: Record<string, unknown>): Promis
   const stillUnsettled = report.filter((r) => r.status === "running" || r.status === "pending");
   const allSettled = stillUnsettled.length === 0;
   const lines = report.map(
-    (r) => `${r.name}: ${r.status}${r.status === "running" ? ` (${Math.round(r.progress * 100)}%)` : r.result ? ` — ${r.result}` : ""}`
+    // t1154 — the wire IS 0–100 (the t181 scale law's father): ×100 here was
+    // the 4200% bug's third life — the agent quoted "(progress 4200%)" for a
+    // 42% run while every screen face spoke the column correctly.
+    (r) => `${r.name}: ${r.status}${r.status === "running" ? ` (${fmtProgressPct(r.progress)})` : r.result ? ` — ${r.result}` : ""}`
   );
   return {
     ok: true,
@@ -2493,7 +2573,7 @@ async function runJobTool(ctx: AgentCtx, args: Record<string, unknown>): Promise
   const job = await findJobInProject(jobId, ctx.projectId);
   if (!job) return { ok: false, summary: `Job not found: ${jobId}` };
   if (job.status === "running") {
-    return { ok: false, summary: `${job.name} is already running (progress ${(job.progress * 100).toFixed(0)}%)` };
+    return { ok: false, summary: `${job.name} is already running (progress ${fmtProgressPct(job.progress)})` };
   }
   if (job.linkedJobId) {
     return { ok: false, summary: `${job.name} is a soft link — run its original instead` };
@@ -2576,7 +2656,7 @@ async function continueRunTool(ctx: AgentCtx, args: Record<string, unknown>): Pr
     return { ok: false, summary: `Job not found: ${jobId} — get_workflow_state lists the canvas's ids` };
   }
   if (job.status === "running") {
-    return { ok: false, summary: `${job.name} is already running (progress ${(job.progress * 100).toFixed(0)}%) — a continue resumes a SETTLED run; let it finish or stop it first` };
+    return { ok: false, summary: `${job.name} is already running (progress ${fmtProgressPct(job.progress)}) — a continue resumes a SETTLED run; let it finish or stop it first` };
   }
   if (job.linkedJobId) {
     return { ok: false, summary: `${job.name} is a soft link — continue its original instead` };
@@ -3373,6 +3453,121 @@ async function getSystemDiagnostics(_ctx: AgentCtx): Promise<AiToolResult> {
   return presentSystemDiagnostics(payload);
 }
 
+/* ---- get_world_health ----------------------------------------------- */
+
+/** t1148 — the health board's well: the roster from the db (the WHOLE
+ *  project — every workspace; the server cannot know the client's
+ *  active workspace, and the presenter says so when it matters), the
+ *  wires, and the engine's polite read. The fathers do every verdict —
+ *  this well only feeds them (no status counting, no second formatter:
+ *  the presenter's own law). A thrown probe is the engine row's honest
+ *  absence (the same cup get_environment_report drinks, same refusal
+ *  to force: the forced re-probe is the Re-detect button's job). */
+async function getWorldHealth(ctx: AgentCtx): Promise<AiToolResult> {
+  const active = await getActiveProject();
+  if (!active) return { ok: false, summary: "No active project" };
+  const [jobs, edges] = await Promise.all([
+    db.job.findMany({ where: { projectId: ctx.projectId }, orderBy: { createdAt: "asc" } }),
+    db.edge.findMany({ where: { projectId: ctx.projectId }, select: { id: true } }),
+  ]);
+  let engine: RelionStatus | null = null;
+  let probeFailed = false;
+  try {
+    engine = await detectRelion();
+  } catch {
+    probeFailed = true;
+  }
+  const clocks: JobClock[] = jobs.map((j) => ({
+    name: j.name,
+    status: j.status,
+    result: j.result,
+    startedAt: j.startedAt ? j.startedAt.toISOString() : null,
+    updatedAt: j.updatedAt.toISOString(),
+    duration: j.duration,
+  }));
+  const workspaceCount = new Set(jobs.map((j) => j.workspaceId ?? "null")).size;
+  const spoken: WorldHealthToolResult = presentWorldHealth({
+    projectName: active.project.name,
+    jobs: clocks,
+    edges,
+    engine,
+    engineProbeFailed: probeFailed,
+    now: Date.now(),
+    workspaceCount,
+  });
+  return spoken;
+}
+
+/* ---- get_param_presets ---------------------------------------------- */
+
+/** t1149 — the preset shelf's well: the row read by its ONE id (the
+ *  sanitize lib's PARAM_PRESET_SHELF_ID — the route's own birthplace,
+ *  imported, never a second literal), the bytes handed WHOLE to the
+ *  pure presenter. This well only feeds: no parsing (the JSON.parse
+ *  rides the presenter, the t715 whitelist is the ONE trust decision
+ *  and it lives in the presenter's path), no shape checks, no second
+ *  formatter. The shelf is the USER'S — one global row, NO project
+ *  scope: the read takes no projectId and no active-project guard
+ *  (the list_job_types precedent — a user's vocabulary outlives any
+ *  one pipeline). */
+async function getParamPresets(): Promise<AiToolResult> {
+  const row = await db.presetShelf.findUnique({
+    where: { id: PARAM_PRESET_SHELF_ID },
+    select: { data: true, updatedAt: true },
+  });
+  return presentPresetShelf({
+    rowExists: row != null,
+    raw: row?.data ?? null,
+    rowUpdatedAt: row?.updatedAt ? row.updatedAt.toISOString() : null,
+    knownTypes: JOB_TYPES.map((t) => ({ key: t.key, label: t.label })),
+  });
+}
+
+/* ---- get_custom_templates -------------------------------------------- */
+
+/** t1150 — the template shelf's well: the project's stored rows read with
+ *  the GET list route's OWN query (same where, same desc order, same
+ *  select), the rows handed WHOLE to the pure presenter. This well only
+ *  feeds: no parsing (the JSON.parse rides the counts father,
+ *  templateCountsOf — the route and the presenter speak the SAME
+ *  arithmetic), no sorting in JS (the display order is pinned in the
+ *  presenter), no second gate. The shelf is the ACTIVE PROJECT's — the
+ *  route's own scope (where: projectId) rides unchanged; unlike the
+ *  user's param presets it does NOT follow the user across projects. */
+async function getCustomTemplates(ctx: AgentCtx): Promise<AiToolResult> {
+  const rows = await db.customTemplate.findMany({
+    where: { projectId: ctx.projectId },
+    orderBy: [{ createdAt: "desc" }],
+    select: { id: true, name: true, payload: true, createdAt: true },
+  });
+  return presentTemplateShelf({
+    rows: rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      payload: r.payload,
+      createdAt: r.createdAt.toISOString(),
+    })),
+  });
+}
+
+/* ---- get_hpc_profiles ------------------------------------------------ */
+
+/** t1151 — the profile registry's well: the verdict father's read (the
+ *  lib's OWN loader — loadProfiles rides loadProfilesVerdict, so the
+ *  route and this well drink the same bytes; no second loader is born),
+ *  the rows handed WHOLE to the pure presenter. This well only feeds:
+ *  no parsing, no sorting, no second gate. The registry is the
+ *  SERVER's — one global file, no project scope, no user scope (the
+ *  list_job_types precedent). */
+async function getHpcProfiles(): Promise<AiToolResult> {
+  const verdict = loadProfilesVerdict();
+  return presentHpcProfiles({
+    persisted: verdict.persisted,
+    corrupt: verdict.corrupt,
+    profiles: verdict.profiles,
+  });
+}
+
 /* ---- get_continue_sources ------------------------------------------- */
 
 /** t513 — the continue picker's AGENT face, as a PURE presenter so the
@@ -3745,7 +3940,7 @@ async function getJobCurves(
       if (d.points.length > 0) {
         spoken.push(
           `Guinier ${d.points.length} pts` +
-            (d.bfactor != null ? `, B-factor ${d.bfactor.toFixed(1)} Å² (used for sharpening)` : "")
+            (d.bfactor != null ? `, B-factor ${fmtBFactor(d.bfactor)} (used for sharpening)` : "")
         );
         curves.push({
           kind: "guinier",
@@ -4368,7 +4563,7 @@ export async function judge2dClasses(
   const table = stats.classes
     .map(
       (c) =>
-        `class ${c.cls}: ${(c.fraction * 100).toFixed(1)}% (${c.count} particles)${c.resolution != null ? `, estimated resolution ${c.resolution} Å` : ", resolution unknown"}`
+        `class ${c.cls}: ${(c.fraction * 100).toFixed(1)}% (${c.count} particles)${c.resolution != null ? `, estimated resolution ${fmtAng(c.resolution)}` : ", resolution unknown"}`
     )
     .join("\n");
   // t508 — the rubric, in full. The thin one-line criteria let the vision
@@ -4384,7 +4579,7 @@ export async function judge2dClasses(
   // by the evidence the image actually holds.
   const globalResLine =
     stats.globalResolution != null
-      ? ` The run's current resolution estimate (global, gold-standard): ${stats.globalResolution} Å.`
+      ? ` The run's current resolution estimate (global, gold-standard): ${fmtAng(stats.globalResolution)}.`
       : "";
   const prompt = `You are a senior cryo-EM scientist judging 2D class averages from a RELION 2D classification (iteration ${stats.iteration ?? "?"}, ${stats.total} particles total, ${sheet.rendered} classes shown in the image, left-to-right / top-to-bottom order = class number).${globalResLine}
 
@@ -4557,7 +4752,7 @@ OUTPUT — return ONE JSON object and NOTHING else: no preamble, no markdown fen
   const fewerClasses = Math.max(2, Math.floor(classTotal / 2));
   // t550 — the global resolution rides the summary: "every class unknown"
   // reads as a data problem when the run itself knows exactly where it stands
-  const globalNote = stats.globalResolution != null ? ` · run at ${stats.globalResolution} Å (global)` : "";
+  const globalNote = stats.globalResolution != null ? ` · run at ${fmtAng(stats.globalResolution)} (global)` : "";
   return {
     ok: true,
     summary: `Judged ${verdict?.classes.length ?? stats.classes.length} classes of ${job.name} (iteration ${stats.iteration ?? "?"}): ${keepCount} keep / ${maybeCount} maybe${zeroKeep ? " — NO class merits a selection (zero-keep verdict)" : ""}${confirmNote}${globalNote} — ${truncate(verdict?.advice ?? analysis, 300)}`,

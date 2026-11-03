@@ -1,8 +1,8 @@
 {
   "instrument": "t874-run-compare-a11y",
-  "worldMode": "build",
-  "build": "r8GOxh-ymcGX-2mJMCj9w",
-  "date": "2026-11-02T05:34:54.303Z",
+  "worldMode": "dev",
+  "build": "dev@063181dae529",
+  "date": "2026-11-02T06:22:01.673Z",
   "faces": {
     "arrival": {
       "nDialogs": 2,
@@ -30,7 +30,7 @@
       "selectGone": true
     },
     "escape": {
-      "after": 0
+      "after": 1
     },
     "world": {
       "btns": 144,
@@ -39,7 +39,7 @@
   },
   "ledger": {
     "adoption": {
-      "arm": "arm 3",
+      "arm": "arm 2",
       "ok": true,
       "drift": 0,
       "identical": true,
@@ -49,7 +49,7 @@
       }
     },
     "arrival": {
-      "arm": "arm 3",
+      "arm": "arm 2",
       "ok": true,
       "drift": 0,
       "identical": true,
@@ -59,17 +59,19 @@
       }
     },
     "escape": {
-      "arm": "arm 3",
+      "arm": "arm 2",
       "ok": true,
-      "drift": 0,
-      "identical": true,
+      "drift": 1,
+      "identical": false,
       "moved": {
         "lens": [],
-        "world": []
+        "world": [
+          "after"
+        ]
       }
     },
     "pickers": {
-      "arm": "arm 3",
+      "arm": "arm 2",
       "ok": true,
       "drift": 0,
       "identical": true,
@@ -79,7 +81,7 @@
       }
     },
     "sameRun": {
-      "arm": "arm 3",
+      "arm": "arm 2",
       "ok": true,
       "drift": 0,
       "identical": true,
@@ -89,7 +91,7 @@
       }
     },
     "scatter": {
-      "arm": "arm 3",
+      "arm": "arm 2",
       "ok": true,
       "drift": 0,
       "identical": true,
@@ -99,7 +101,7 @@
       }
     },
     "verdict": {
-      "arm": "arm 3",
+      "arm": "arm 2",
       "ok": true,
       "drift": 0,
       "identical": true,
@@ -109,7 +111,7 @@
       }
     },
     "world": {
-      "arm": "arm 3",
+      "arm": "arm 2",
       "ok": true,
       "drift": 0,
       "identical": true,
@@ -119,7 +121,7 @@
       }
     }
   },
-  "escapeDisease": "RECORDED (pre-fix build — the fix is in src, the t875 build-day ride turns this face green)",
-  "pass": 33,
-  "fail": 1
+  "escapeDisease": "FIXED on this build",
+  "pass": 34,
+  "fail": 0
 }

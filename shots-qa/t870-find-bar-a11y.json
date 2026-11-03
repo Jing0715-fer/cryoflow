@@ -1,0 +1,507 @@
+{
+  "instrument": "scripts/t870-find-bar-a11y.mjs",
+  "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
+  "build": "dev@31eccb9c8237",
+  "worldMode": "dev",
+  "date": "2026-10-14T03:47:32.248Z",
+  "chain": "clean room -> Ctrl+F door -> summoned bar (named, focused, honestly silent) -> query 'ion' (the live count door) -> wrap walk (Enter/door/Shift+Enter, the modulo law) -> chip lens (radio machines + the honest zero) -> Escape seat -> reopen (the ephemeral law) -> keymap seat -> worldBack + seed hygiene (one command)",
+  "doors": {
+    "open": "window keydown Ctrl+F — the product's own keyboard door",
+    "cycle": "Enter / Shift+Enter on the input + the count button door (Task 137's three triggers)",
+    "chips": "click the aria-pressed chips — the radio machines",
+    "close": "Escape on the input + the Close door — every exit taught"
+  },
+  "openingCanvas": 144,
+  "matchedN": 10,
+  "faces": {
+    "findBar": {
+      "live": {
+        "pageBtns": 165,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "hasBar": true,
+        "visible": true,
+        "searchNamed": "Find jobs on canvas",
+        "ip": {
+          "named": true,
+          "aria": "Find jobs by name, type, or key:value parameter query",
+          "value": "ion",
+          "focused": true
+        },
+        "count": {
+          "tag": "BUTTON",
+          "text": "10 matches",
+          "named": true,
+          "title": "Jump to next match"
+        },
+        "prevNextClose": {
+          "prev": {
+            "named": true,
+            "disabled": false
+          },
+          "next": {
+            "named": true,
+            "disabled": false
+          },
+          "close": {
+            "named": true,
+            "disabled": false
+          }
+        },
+        "groups": [
+          {
+            "label": "Filter matches by status",
+            "chips": [
+              {
+                "name": "Running",
+                "pressed": "false",
+                "testid": "canvas-find-status-running"
+              },
+              {
+                "name": "Completed",
+                "pressed": "false",
+                "testid": "canvas-find-status-completed"
+              },
+              {
+                "name": "Failed",
+                "pressed": "false",
+                "testid": "canvas-find-status-failed"
+              },
+              {
+                "name": "Idle",
+                "pressed": "false",
+                "testid": "canvas-find-status-idle"
+              },
+              {
+                "name": "Pending",
+                "pressed": "false",
+                "testid": "canvas-find-status-pending"
+              }
+            ]
+          },
+          {
+            "label": "Filter matches by type",
+            "chips": [
+              {
+                "name": "Import",
+                "pressed": "false",
+                "testid": "canvas-find-type-import"
+              },
+              {
+                "name": "Motion",
+                "pressed": "false",
+                "testid": "canvas-find-type-motion"
+              },
+              {
+                "name": "CTF",
+                "pressed": "false",
+                "testid": "canvas-find-type-ctf"
+              },
+              {
+                "name": "Picking",
+                "pressed": "false",
+                "testid": "canvas-find-type-picking"
+              },
+              {
+                "name": "Extraction",
+                "pressed": "false",
+                "testid": "canvas-find-type-extract"
+              },
+              {
+                "name": "Selection",
+                "pressed": "false",
+                "testid": "canvas-find-type-select"
+              },
+              {
+                "name": "2D Classification",
+                "pressed": "false",
+                "testid": "canvas-find-type-class2d"
+              },
+              {
+                "name": "3D Classification",
+                "pressed": "false",
+                "testid": "canvas-find-type-class3d"
+              },
+              {
+                "name": "3D Refinement",
+                "pressed": "false",
+                "testid": "canvas-find-type-refine"
+              },
+              {
+                "name": "Orientation",
+                "pressed": "false",
+                "testid": "canvas-find-type-orientation"
+              },
+              {
+                "name": "3D Postprocess",
+                "pressed": "false",
+                "testid": "canvas-find-type-postprocess"
+              }
+            ]
+          },
+          {
+            "label": "Filter matches by note",
+            "chips": [
+              {
+                "name": "Noted",
+                "pressed": "false",
+                "testid": "canvas-find-noted"
+              }
+            ]
+          }
+        ],
+        "badge": false,
+        "heading": "Main"
+      }
+    },
+    "findLens": {
+      "live": {
+        "pageBtns": 165,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "hasBar": true,
+        "visible": true,
+        "searchNamed": "Find jobs on canvas",
+        "ip": {
+          "named": true,
+          "aria": "Find jobs by name, type, or key:value parameter query",
+          "value": "",
+          "focused": true
+        },
+        "count": {
+          "tag": "BUTTON",
+          "text": "15 matches",
+          "named": true,
+          "title": "Jump to next match"
+        },
+        "prevNextClose": {
+          "prev": {
+            "named": true,
+            "disabled": false
+          },
+          "next": {
+            "named": true,
+            "disabled": false
+          },
+          "close": {
+            "named": true,
+            "disabled": false
+          }
+        },
+        "groups": [
+          {
+            "label": "Filter matches by status",
+            "chips": [
+              {
+                "name": "Running",
+                "pressed": "false",
+                "testid": "canvas-find-status-running"
+              },
+              {
+                "name": "Completed",
+                "pressed": "true",
+                "testid": "canvas-find-status-completed"
+              },
+              {
+                "name": "Failed",
+                "pressed": "false",
+                "testid": "canvas-find-status-failed"
+              },
+              {
+                "name": "Idle",
+                "pressed": "false",
+                "testid": "canvas-find-status-idle"
+              },
+              {
+                "name": "Pending",
+                "pressed": "false",
+                "testid": "canvas-find-status-pending"
+              }
+            ]
+          },
+          {
+            "label": "Filter matches by type",
+            "chips": [
+              {
+                "name": "Import",
+                "pressed": "false",
+                "testid": "canvas-find-type-import"
+              },
+              {
+                "name": "Motion",
+                "pressed": "false",
+                "testid": "canvas-find-type-motion"
+              },
+              {
+                "name": "CTF",
+                "pressed": "false",
+                "testid": "canvas-find-type-ctf"
+              },
+              {
+                "name": "Picking",
+                "pressed": "false",
+                "testid": "canvas-find-type-picking"
+              },
+              {
+                "name": "Extraction",
+                "pressed": "false",
+                "testid": "canvas-find-type-extract"
+              },
+              {
+                "name": "Selection",
+                "pressed": "false",
+                "testid": "canvas-find-type-select"
+              },
+              {
+                "name": "2D Classification",
+                "pressed": "false",
+                "testid": "canvas-find-type-class2d"
+              },
+              {
+                "name": "3D Classification",
+                "pressed": "false",
+                "testid": "canvas-find-type-class3d"
+              },
+              {
+                "name": "3D Refinement",
+                "pressed": "false",
+                "testid": "canvas-find-type-refine"
+              },
+              {
+                "name": "Orientation",
+                "pressed": "false",
+                "testid": "canvas-find-type-orientation"
+              },
+              {
+                "name": "3D Postprocess",
+                "pressed": "false",
+                "testid": "canvas-find-type-postprocess"
+              }
+            ]
+          },
+          {
+            "label": "Filter matches by note",
+            "chips": [
+              {
+                "name": "Noted",
+                "pressed": "false",
+                "testid": "canvas-find-noted"
+              }
+            ]
+          }
+        ],
+        "badge": false,
+        "heading": "Main"
+      }
+    },
+    "worldBack": {
+      "live": {
+        "pageBtns": 144,
+        "pageUnnamed": 0,
+        "hasBar": false,
+        "hasDlg": false,
+        "heading": "Main"
+      }
+    }
+  },
+  "checks": [
+    {
+      "label": "O0 the bar is absent before the door (summoned, never resident)",
+      "pass": true,
+      "detail": "pageBtns=144 bar=false"
+    },
+    {
+      "label": "F1 the bar arrived as role=search, named",
+      "pass": true,
+      "detail": "aria-label=\"Find jobs on canvas\""
+    },
+    {
+      "label": "F2 the input is named (aria-label, not the placeholder's crutch)",
+      "pass": true,
+      "detail": "aria=\"Find jobs by name, type, or key:value parameter query\""
+    },
+    {
+      "label": "F3 the input TOOK FOCUS (the opening effect's focus+select — the focus law)",
+      "pass": true,
+      "detail": "value=\"\""
+    },
+    {
+      "label": "F4 the empty lens speaks NO count (no query + no chip = the honest silence)",
+      "pass": true,
+      "detail": "text=\"\""
+    },
+    {
+      "label": "F5 the r0 doors named (prev / next / close)",
+      "pass": true,
+      "detail": "prev=true next=true close=true"
+    },
+    {
+      "label": "F6 the arrows disabled at n=0 (the honest disabled — nothing to cycle into)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "F7 the three chip groups named (status / type / note)",
+      "pass": true,
+      "detail": "Filter matches by status · Filter matches by type · Filter matches by note"
+    },
+    {
+      "label": "F8 every chip named, every chip carries its aria-pressed machine",
+      "pass": true,
+      "detail": "chips=17"
+    },
+    {
+      "label": "F9 zero unnamed page-wide with the bar up",
+      "pass": true,
+      "detail": "btns=164"
+    },
+    {
+      "label": "Q1 the count speaks N matches (the live button door)",
+      "pass": true,
+      "detail": "text=\"10 matches\" tag=BUTTON"
+    },
+    {
+      "label": "Q2 the count door named and titled (the count IS the name; the title speaks the verb)",
+      "pass": true,
+      "detail": "title=Jump to next match"
+    },
+    {
+      "label": "Q3 the arrows enabled once n>0 (the disabled state follows the world)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "Q4 zero unnamed with the query live",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "W1 the wrap walk: Enter advances, the door advances, N+1 Enters WRAP, Shift+Enter walks back",
+      "pass": true,
+      "detail": "first=1 of 10 → door=2 of 10 → 3 of 10 → 4 of 10 → 5 of 10 → 6 of 10 → 7 of 10 → 8 of 10 → 9 of 10 → 10 of 10 → 1 of 10 → shift=10 of 10"
+    },
+    {
+      "label": "L1 the Completed chip presses and the count follows (the chip IS the lens)",
+      "pass": true,
+      "detail": "pressed=true count=\"15 matches\""
+    },
+    {
+      "label": "L2 zero unnamed in the chip lens",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "L3 the second click clears (radio semantics; the empty lens is silent again)",
+      "pass": true,
+      "detail": "pressed=false count=\"\""
+    },
+    {
+      "label": "L4 the armed lens with zero hits SAYS SO (the honest zero, not a silence)",
+      "pass": true,
+      "detail": "tag=SPAN text=\"no matches\""
+    },
+    {
+      "label": "L5 the type chip presses and the count narrows (a category excludes something)",
+      "pass": true,
+      "detail": "chip=Import pressed=1 count=\"1 match\""
+    },
+    {
+      "label": "E1 Escape ON THE INPUT closed the bar (the input's own seat)",
+      "pass": true,
+      "detail": "bar=false"
+    },
+    {
+      "label": "E2 the world back bit-for-bit (the lens is ephemeral, the canvas unharmed)",
+      "pass": true,
+      "detail": "btns=144 (opening 144)"
+    },
+    {
+      "label": "E3 the reopen speaks an empty input and no pressed chip (closing cleared the lens)",
+      "pass": true,
+      "detail": "value=\"\""
+    },
+    {
+      "label": "E4 the Close door closes too (the seat teaches every exit)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "K1 the keymap seat teaches the find bar (⌘/Ctrl F — Find jobs on canvas)",
+      "pass": true,
+      "detail": "hasFind=true ctrlF=true — the seat's kbds are PAIRWISE (\"⌘/Ctrl\" + \"F\"), the t870 lens-cure"
+    },
+    {
+      "label": "K2 the keymap dialog itself zero unnamed",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "W1 the world unharmed (canvas count == the opening count, zero unnamed)",
+      "pass": true,
+      "detail": "btns=144 (opening 144)"
+    },
+    {
+      "label": "W2 the walk leaves no session seed (the t157 two-way door's honest none — the t866 lesson rides every page)",
+      "pass": true,
+      "detail": "seed=null"
+    },
+    {
+      "label": "L findBar face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L findLens face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L worldBack face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    }
+  ],
+  "passed": 31,
+  "failed": 0,
+  "total": 31,
+  "verdict": "the find-bar face holds — the canvas's ambient lens walked: the clean room held (the bar summoned, never resident), the Ctrl+F door opened the bar through the 720ms cascade (role=search named, the input named and TOOK FOCUS, the empty lens honestly silent, the r0 doors named, the arrows honestly disabled at n=0), the query spoke \"N matches\" as the live count door and the wrap walk rode the modulo law (Enter to N, one more wraps to 1, Shift+Enter back, the door the third trigger), the chip lens pressed and CLEARED by radio semantics with the honest zero (\"no matches\" spoken, not silent), a type chip narrowed the world, Escape on the input closed the seat and the world came back bit-for-bit with the reopen speaking an empty lens (the ephemeral law), the keymap seat teaches ⌘/Ctrl F, and the walk left no session seed — the ledger aboard from birth (three faces, the shared law)",
+  "driftLedger": {
+    "prevFound": true,
+    "prevBuild": "dev@31eccb9c8237",
+    "prevDate": "2026-10-14T03:46:38.218Z",
+    "sameBuild": true,
+    "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
+    "faces": {
+      "findBar": {
+        "prev": 165,
+        "live": 165,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "findLens": {
+        "prev": 165,
+        "live": 165,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "worldBack": {
+        "prev": 144,
+        "live": 144,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      }
+    }
+  }
+}

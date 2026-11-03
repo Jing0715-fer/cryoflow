@@ -61,7 +61,10 @@ import {
   onEscapeClose,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { fmtBytes } from "@/lib/relion/disk-usage"; // t1152 — the byte word's one birthplace (the local unit-loop dialect died)
 import { GALLERY_FOCUS_TTL_MS, useWorkflowStore } from "@/lib/store";
+import { httpErrorFrom } from "@/lib/http-error";
+import { fmtPixel } from "@/lib/chart-rows"; // t1156 — the sampling digits ride the pixel father AND the unit word is ONE voice here (the StatChip said "1.24 Å" while this dialog said "1.24 Å/px" for the SAME optics row — "Å" alone is the resolution's word, the sampling rate says Å/px)
 import { Chip } from "@/components/ui/chip";
 import { MrcImage } from "./mrc-image";
 
@@ -100,17 +103,11 @@ interface MicrographsResponse {
   cluster?: ClusterInfo;
 }
 
-function formatBytes(bytes: number): string {
-  if (bytes <= 0) return "—";
-  const units = ["B", "KB", "MB", "GB"];
-  let v = bytes;
-  let i = 0;
-  while (v >= 1024 && i < units.length - 1) {
-    v /= 1024;
-    i++;
-  }
-  return `${v.toFixed(v >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
-}
+/** t1152 — the byte word rides its ONE father (@/lib/relion/disk-usage's
+ *  fmtBytes — the unit-loop dialect with its whole-number shortcuts died
+ *  in the census); this face keeps only its ABSENCE word: a size ≤ 0 is
+ *  an UNKNOWN size (the star's rows may not carry one at all), not "0 B". */
+const formatBytes = (bytes: number): string => (bytes > 0 ? fmtBytes(bytes) : "—");
 
 /** t657 — measured bytes per pixel (size ÷ nx·ny): the per-frame storage
  *  density the compare panes can line up side by side. It is a MEASUREMENT,
@@ -210,14 +207,14 @@ export function ImportGallery({
           }`,
           { cache: "no-store" }
         );
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) throw await httpErrorFrom(res); // t959 — the door's own reason rides
         const body = (await res.json()) as MicrographsResponse;
         if (!cancelled) {
           setData(body);
           setError(null);
         }
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "failed");
+        if (!cancelled) setError(err instanceof Error ? err.message : "the micrograph gallery could not be loaded");
       }
     })();
     return () => {
@@ -335,7 +332,7 @@ export function ImportGallery({
           <button
             type="button"
             onClick={resample}
-            className="inline-flex items-center gap-1 rounded border px-1.5 py-px text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+            className="inline-flex items-center gap-1 rounded border px-1.5 py-px text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             aria-label="Sample five different micrographs"
             title="Pick five different micrographs (a new stable selection — it persists until you press again)"
           >
@@ -353,6 +350,7 @@ export function ImportGallery({
           aria-pressed={compareMode}
           data-gallery-ui="compare-toggle"
           className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
             "inline-flex items-center gap-1 rounded border px-1.5 py-px text-[10px] font-medium transition-colors",
             compareMode
               ? "border-running-600/40 bg-running-600/10 text-running-700 dark:text-running-300"
@@ -369,7 +367,7 @@ export function ImportGallery({
             onClick={() => setCompareOpen(true)}
             disabled={pickedEntries.length < 2}
             data-gallery-ui="compare-open"
-            className="inline-flex items-center gap-1 rounded border border-running-600/40 bg-running-600/10 px-1.5 py-px text-[10px] font-semibold text-running-700 transition-colors hover:bg-running-600/20 dark:text-running-300 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-running-600/10"
+            className="inline-flex items-center gap-1 rounded border border-running-600/40 bg-running-600/10 px-1.5 py-px text-[10px] font-semibold text-running-700 transition-colors hover:bg-running-600/20 dark:text-running-300 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-running-600/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             title={
               pickedEntries.length < 2
                 ? "Pick at least two thumbnails to compare"
@@ -380,15 +378,22 @@ export function ImportGallery({
           </button>
         ) : null}
         <div className="ml-auto flex flex-wrap gap-1">
-          <StatChip label="pixel" value={data.pixelSize != null ? `${data.pixelSize} Å` : null} />
+          <StatChip label="pixel" value={data.pixelSize != null ? `${fmtPixel(data.pixelSize)} Å/px` : null} />
           <StatChip label="HT" value={data.voltage != null ? `${data.voltage} kV` : null} />
           <StatChip label="Cs" value={data.sphericalAberration != null ? `${data.sphericalAberration} mm` : null} />
           <StatChip label="Q0" value={data.amplitudeContrast != null ? `${data.amplitudeContrast}` : null} />
         </div>
       </div>
 
-      {/* thumbnail grid */}
-      <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 lg:grid-cols-5">
+      {/* thumbnail grid — t968: the narrow step. The wall spoke
+          grid-cols-3 at EVERY width; at the 320 fold that starved the
+          cells to 76px inside a ~260px panel (the t968 before-witness's
+          numbers). Two columns at the fold give the thumbnails back
+          their ~117px faces; the sm/lg steps keep the wide walls dense.
+          The recorded panel overflow (panelOverX) is the Overview's
+          OTHER mouths — the ResultSummary card's chip row and the
+          two-column grid's min-content — a separate offender-walk. */}
+      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 lg:grid-cols-5">
         {micrographs.map((m, i) => {
           const pickNo = picks.indexOf(m.path); // -1 unpicked, else 1-based tray order
           const picked = pickNo >= 0;
@@ -445,7 +450,7 @@ export function ImportGallery({
           "i of n" so the walk has a place in the world */}
       <Dialog open={selected != null} onOpenChange={(open) => !open && setSelected(null)}>
         <DialogContent
-          className="max-w-2xl sm:max-w-2xl"
+          className="sm:max-w-2xl"
           data-gallery-ui="lightbox"
           onKeyDown={(e) =>
             lightboxKeydown(e, micrographs.length, step, () => setSelected(null))
@@ -464,7 +469,7 @@ export function ImportGallery({
                 </DialogTitle>
                 <DialogDescription className="tabular-nums">
                   {micrographs[selected].nx}×{micrographs[selected].ny} px · {formatBytes(micrographs[selected].size)}
-                  {data.pixelSize != null ? ` · ${data.pixelSize} Å/px` : ""}
+                  {data.pixelSize != null ? ` · ${fmtPixel(data.pixelSize)} Å/px` : ""}
                   {data.voltage != null ? ` · ${data.voltage} kV` : ""}
                   {micrographs.length > 1 ? " · ←/→ to walk" : ""}
                 </DialogDescription>
@@ -485,7 +490,7 @@ export function ImportGallery({
           wider grid is a grid nobody will ever fill). */}
       <Dialog open={compareOpen} onOpenChange={(open) => !open && setCompareOpen(false)}>
         <DialogContent
-          className="max-w-4xl sm:max-w-4xl"
+          className="sm:max-w-4xl"
           data-gallery-ui="compare-dialog"
           onKeyDown={onEscapeClose(() => setCompareOpen(false))}
         >

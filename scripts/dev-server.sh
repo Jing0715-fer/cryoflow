@@ -68,16 +68,18 @@ sleep 1
 # this cap, three witnesses in the t402 window) needs ~1792MB of V8 heap
 # to compile the home graph; 896 dies with "Ineffective mark-compacts".
 export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--max-old-space-size=${DEV_HEAP_MB:-896}"
-# t377 — the DB lane: the sandbox tool environment exports a TEMPLATE
-# DATABASE_URL, so t377 pinned THIS repo's own path unconditionally. That
-# pin guarded an era when custom.db was a User/Post-only template — the
-# era is over (t872's ruling: the platform owns .env, and booting
-# custom.db is a LEGAL lane; t871 witness: custom.db carries the full
-# 8/8 schema while the pinned cryoflow.db sat empty — the prod lane 500'd
-# on "no Project table" until this passthrough landed). The pin becomes
-# a DEFAULT: a preset DATABASE_URL (the platform's .env choice) rides;
-# with nothing preset, this repo's own cryoflow.db boots.
-export DATABASE_URL="${DATABASE_URL:-file:$REPO_ROOT/db/cryoflow.db}"
+# t377 — HARD overrides: the sandbox tool environment itself exports a
+# TEMPLATE DATABASE_URL (my-project's custom.db); `${VAR:-…}` passthrough
+# would poison Prisma into a User/Post-only database. These two are always
+# pinned to THIS repo's own paths.
+# t921 — the split-brain cure's second half: the sandbox's custom.db has
+# become a REAL world in later eras (the bare `next dev` session-bootstrap
+# lane rides the sandbox pin and seeds there), so two boot lanes now serve
+# TWO worlds. The pin stays the default (the t402 law stands), but an
+# operator may now pin the OTHER world EXPLICITLY via CRYOFLOW_DB_URL —
+# an operator's choice, never the template's leak (only this named var is
+# honored; the sandbox's bare DATABASE_URL is still ignored).
+export DATABASE_URL="${CRYOFLOW_DB_URL:-file:$REPO_ROOT/db/cryoflow.db}"
 export CRYOFLOW_DATA_DIR="$REPO_ROOT/data"
 export CRYOFLOW_TRUST_GATEWAY=1
 # t402 — spawn under NODE explicitly: `bunx next` / `bun next` make BUN the

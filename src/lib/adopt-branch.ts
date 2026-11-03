@@ -101,6 +101,30 @@ export function planAdoption(opts: {
   fromRunId: string;
   toRunId: string;
   outputPortsOf: (type: string) => string[];
+  /** t949 — the riders' MINT PREVIEW: the verb adopts a node that does
+   *  not exist yet (an Exclude Micrographs filter / a 2D Class Selection
+   *  minted at fire time, consuming toRunId). Three consequences, each
+   *  one honesty:
+   *
+   *  1. THE DUP CHECK SKIPS — nothing can be already-wired to a node
+   *     that does not exist; the children already consuming toRunId
+   *     through the same port pair are NOT "left as is" (the mint's
+   *     fire re-parents them onto the mint), so they fall through to
+   *     the guards and MOVE. The old stand-in (planning against
+   *     toRunId's id) filed them under alreadyWired and the rider's
+   *     aria undercounted the fire — the t949 cure.
+   *  2. THE PORTS ARE THE MINT'S — outputPortsOf is read for the mint
+   *     type, not for toRunId's own type (the t453/t454 port-swap hack,
+   *     now a named law of the lib instead of a caller-side shim).
+   *  3. THE CYCLE CHECK KEEPS READING toRunId — the only wire into the
+   *     mint is toRunId→mint, so "the child can reach the mint" means
+   *     exactly "the child can reach toRunId"; the stand-in check IS
+   *     the fire's own truth, no change needed.
+   *
+   *  With this set, plan.alreadyWired is always empty — the riders'
+   *  fires never leave a wire as is (and the t948 speakWired gate
+   *  keeps their speech silent about a bucket they can never have). */
+  mintTargetType?: string;
 }): AdoptionPlan {
   const { edges, jobs, fromRunId, toRunId, outputPortsOf } = opts;
 
@@ -114,7 +138,8 @@ export function planAdoption(opts: {
 
   const jobById = new Map(jobs.map((j) => [j.id, j]));
   const bOutputs = new Set(outputPortsOf(
-    jobById.get(toRunId)?.type ?? "",
+    // the mint's ports, not the stand-in's (the t949 mint preview)
+    opts.mintTargetType ?? jobById.get(toRunId)?.type ?? "",
   ));
 
   const moves: AdoptionMove[] = [];
@@ -161,8 +186,12 @@ export function planAdoption(opts: {
     const move: AdoptionMove = { edge, child };
 
     // already wired: the child consumes B through the same port pair —
-    // the adoption has nothing to add (report, never duplicate)
-    const dup = edges.some(
+    // the adoption has nothing to add (report, never duplicate).
+    // THE MINT PREVIEW SKIPS THIS CHECK (t949): a freshly minted target
+    // cannot have pre-existing consumers — the children on toRunId
+    // today will MOVE onto the mint, and reporting them as alreadyWired
+    // made the riders' speech undercount the fire.
+    const dup = !opts.mintTargetType && edges.some(
       (e) =>
         e.id !== edge.id &&
         e.fromJobId === toRunId &&

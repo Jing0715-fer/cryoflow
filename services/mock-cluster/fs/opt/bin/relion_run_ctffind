@@ -64,6 +64,19 @@ if os.path.exists(os.path.join(os.path.dirname(os.path.abspath(star_in)), ".qa-c
 # 1.6s/mic cadence was tuned for small suites; a 450-micrograph import tree
 # turned the run into a 12-minute wall. Small jobs (≤37 mics) keep the full
 # cadence the progress parser was tuned against.
+# t533 law — the mock learns at the deepest layer the real binary
+# actually touches: CTFFIND4 scans the defocus window [--dFMin, --dFMax]
+# (Å) and every found defocus MUST land inside it, so the estimates
+# spread across the search range itself. --ResMax nudges the fit
+# confidence per micrograph with ALTERNATING sign (a wider fit limit is
+# easier on some movies, harder on others). Same params, same rows (the
+# determinism law); different params, genuinely moved rows — the food
+# the A/B compare dialog's verdict has never had from this stub.
+lo = float(opts.get("dFMin", 5000) or 5000)
+hi = float(opts.get("dFMax", 50000) or 50000)
+if hi <= lo:
+    lo, hi = 5000.0, 50000.0
+resmax = float(opts.get("ResMax", 5) or 5)
 pace = min(1.6, 60.0 / max(1, len(mics)))
 # t319 — speak RELION's REAL progress dialect (src/time.cpp progress_bar):
 # the runner prints ONE GLOBAL bar over all micrographs, rewritten in place
@@ -93,7 +106,8 @@ for n, mic in enumerate(mics, 1):
         _bar += " " * max(0, 60 - _done_dots - 3) + "[oo]"
     sys.stdout.write(_bar)
     sys.stdout.flush()
-    print(f"\nMicrograph {n}/{len(mics)}: {os.path.basename(mic)} — CTF estimated (dF=12500, astig=180)")
+    _u = lo + (hi - lo) * (0.12 + 0.04 * ((n - 1) % 5))
+    print(f"\nMicrograph {n}/{len(mics)}: {os.path.basename(mic)} — CTF estimated (dF={_u:.0f}, astig=180)")
     sys.stdout.flush()
 
 os.makedirs(outdir, exist_ok=True)
@@ -118,10 +132,10 @@ with open(out, "w") as fh:
     fh.write("_rlnCtfFigureOfMerit #6\n")
     fh.write("_rlnCtfMaxResolution #7\n")
     for k, mic in enumerate(mics):
-        u = 11800 + 700 * ((k % 5) - 2)
+        u = lo + (hi - lo) * (0.12 + 0.04 * (k % 5))
         v = u + 160
-        fom = 0.07 + 0.004 * (k % 4)
+        fom = 0.07 + 0.004 * (k % 4) + 0.002 * (((k % 2) * 2 - 1) * (5.0 - resmax))
         res = 4.1 + 0.15 * (k % 3)
-        fh.write(f"{mic}\t{u}.0\t{v}.0\t{15.0 + k}.0\t0.0\t{fom:.3f}\t{res:.2f}\n")
+        fh.write(f"{mic}\t{u:.1f}\t{v:.1f}\t{15.0 + k:.1f}\t0.0\t{fom:.3f}\t{res:.2f}\n")
 print(f"wrote {out}")
 sys.exit(0)

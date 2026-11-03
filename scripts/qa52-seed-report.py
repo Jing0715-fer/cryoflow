@@ -29,11 +29,21 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from qa_lib import resolve_project, resolve_refine_host
 
 _PROJECT = resolve_project()
-_REFINE_JOB, WORKDIR = resolve_refine_host(_PROJECT)
+# t1090 — the resolution is LAZY: the --clean path removes THIS seeder's
+# files from the host's workdir — on a world without the host there is
+# nothing to clean BY DEFINITION (the seed path re-resolves on demand and
+# still fails loudly).
+def _resolve_host():
+    return resolve_refine_host(_PROJECT)
+
+try:
+    _REFINE_JOB, WORKDIR = _resolve_host()
+except SystemExit:
+    _REFINE_JOB, WORKDIR = None, None
 PROJECT = _PROJECT
-PP = os.path.join(WORKDIR, "postprocess.star")
-CTF = os.path.join(WORKDIR, "micrographs_ctf.star")
-DATA = os.path.join(WORKDIR, "run_data.star")
+PP = os.path.join(WORKDIR, "postprocess.star") if WORKDIR else None
+CTF = os.path.join(WORKDIR, "micrographs_ctf.star") if WORKDIR else None
+DATA = os.path.join(WORKDIR, "run_data.star") if WORKDIR else None
 
 F0, F1, N = 0.01, 0.35, 40          # FSC shells (same as Task 50 seed)
 G0, G1, GN = 0.001, 0.120, 36       # guinier 1/d² span
@@ -203,13 +213,16 @@ def build_run_data() -> str:
     return "\n".join(lines) + "\n"
 
 
-SEEDED = [PP, CTF, DATA] + [
+SEEDED = [PP, CTF, DATA] + ([
     os.path.join(WORKDIR, f"run_it{it:03d}_half1_model.star") for it, _ in ITERS
-]
+] if WORKDIR else [])
 
 
 if __name__ == "__main__":
     if "--clean" in sys.argv:
+        if not WORKDIR:
+            print("qa52 clean: the old world is absent — no seeded files to clean (verified by the host's own absence)")
+            sys.exit(0)
         n = 0
         for p in SEEDED:
             if os.path.exists(p):
@@ -217,6 +230,10 @@ if __name__ == "__main__":
                 n += 1
         print(f"cleaned {n} seeded file(s) from {WORKDIR}")
         sys.exit(0)
+    _REFINE_JOB, WORKDIR = _resolve_host()
+    PP = os.path.join(WORKDIR, "postprocess.star")
+    CTF = os.path.join(WORKDIR, "micrographs_ctf.star")
+    DATA = os.path.join(WORKDIR, "run_data.star")
     os.makedirs(WORKDIR, exist_ok=True)
     with open(PP, "w") as fh:
         fh.write(build_postprocess())

@@ -201,8 +201,6 @@ export async function copyCanvasPng(meta: CanvasExportMeta): Promise<boolean> {
   return copyPngToClipboard(png.blob);
 }
 
-export function fmtBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
-  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-}
+// t1152 — this module's own byte dialect (KB 0 decimals, NO GB branch: a
+// 2.5 GB blob rendered "2560.0 MB") died in the census; the byte word's
+// one birthplace is @/lib/relion/disk-usage's fmtBytes — import it there.

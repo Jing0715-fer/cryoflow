@@ -43,6 +43,16 @@
  * contracts — a refine3d curve hangs on particles/volume/halfmap, an
  * import's on nothing this process owns). Unknown types keep the bare
  * word (the gate closes on pouring).
+ *
+ * t901 — the restore's whisper (the t899 grammar's third seat): the
+ * persisted selection is the user's remembered comparison, and the
+ * restore can silently EDIT it — a persisted id whose job left the
+ * index is dropped, and the 6-curve cap eats the tail when the launcher
+ * joins first. Remembered state that fails to restore is INVISIBLE; the
+ * whisper names it (the house mono voice at whisper level, the fuchsia
+ * the wipe family taught). Silence is the honest voice at an exact
+ * restore; the first user pick takes ownership — from then on the
+ * whisper is the restore's history, not the live truth.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -77,7 +87,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Chip } from "@/components/ui/chip";
 import { fetchJsonRetry } from "@/lib/retry-fetch";
 import { cn } from "@/lib/utils";
+import { usePrintedDate } from "@/lib/use-now"; // t1094 — the paper's clock (the t1093 hook-order law: the hook lives with the hooks, above every return)
 import { jobType, pourKindsOf, PORT_COLORS } from "@/lib/workflow"; // t771 — the kind vocabulary's TWENTY-NINTH reader joins the FSC compare overlay
+import {
+  collectRestoreEdits,
+  restoreEditSummary,
+  type RestoreEdit,
+} from "@/lib/fsc-restore"; // t901 — the restore's arithmetic lives in lib (the t653 law); the UI imports the meaning
 import { FscParamsDiff } from "./fsc-params-diff";
 
 /* ------------------------------------------------------------------ */
@@ -172,6 +188,7 @@ export function FscCompareDialog({
 }) {
   const [index, setIndex] = useState<FscIndexEntry[] | null>(null);
   const [indexError, setIndexError] = useState(false);
+  const printed = usePrintedDate(); // t1094 — the provenance line's clock
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [curves, setCurves] = useState<Map<string, FscResponse | null>>(new Map());
   const [hidden, setHidden] = useState<Set<string>>(new Set());
@@ -182,6 +199,11 @@ export function FscCompareDialog({
    *  fetches (running refinements land new checkpoints while open) */
   const [scan, setScan] = useState(0);
   const [scanning, setScanning] = useState(false);
+  /** the restore's edit receipt + its ownership flag (the t901 whisper):
+   * armed by the restore, disarmed by the user's first pick — once the
+   * user touches the selection, the restore's edits are history */
+  const [restoreEdits, setRestoreEdits] = useState<RestoreEdit[]>([]);
+  const [picksTouched, setPicksTouched] = useState(false);
   const restoreLatch = useRef(false);
   const inspect = useWorkflowStore((s) => s.inspect);
   /* ---------- discovery + selection restore ---------- */
@@ -223,12 +245,18 @@ export function FscCompareDialog({
             /* corrupted state — start clean */
           }
           const known = new Set(jobs.map((j) => j.jobId));
-          const next = new Set<string>([currentJobId]);
-          for (const id of saved) {
-            if (next.size >= MAX_CURVES) break;
-            if (known.has(id)) next.add(id);
-          }
+          // the t901 edit receipt: the arithmetic lives in lib/fsc-restore
+          // (the t653 law) — the launcher joins first, so the cap eats the
+          // SAVED tail, and ids outside the index are the world's
+          // deletions speaking
+          const { picked: next, edits } = collectRestoreEdits(
+            saved,
+            known,
+            currentJobId,
+            MAX_CURVES
+          );
           setPicked(next);
+          setRestoreEdits(edits);
         }
       } catch {
         if (!cancelled) {
@@ -452,6 +480,7 @@ export function FscCompareDialog({
   );
 
   const toggle = useCallback((id: string) => {
+    setPicksTouched(true); // the t901 whisper: the user's first pick takes ownership
     setPicked((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -471,7 +500,8 @@ export function FscCompareDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
-        className="flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-2xl flex-col gap-4 overflow-y-auto sm:max-w-2xl"
+        data-fsc-compare-dialog
+        className="flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-2xl flex-col gap-4 overflow-y-auto sm:max-w-2xl print:[translate:none] print:[scale:none] print:[rotate:none]"
         // overflow-y-auto, NOT overflow-hidden: the Task 64 params table
         // pushed the dialog past its 85vh budget on 4-pick comparisons, and
         // the hidden overflow SILENTLY CLIPPED the legend chips + footnote —
@@ -482,11 +512,22 @@ export function FscCompareDialog({
         onKeyDown={(e) => {
           // Escape must peel ONE layer: this dialog floats on top of the
           // job inspector modal, and each Radix Dialog root carries its own
-          // dismissable-layer stack — both layers see themselves as highest
-          // and BOTH would dismiss (the inspector behind dies with it).
-          // Consuming Escape at the React level stops the event before the
-          // document-level Radix listeners ever fire; we close ourselves
-          // (through handleOpenChange so the close-path cache reset runs).
+          // dismissable-layer stack. t1137's live measurement (two rides,
+          // receipts in shots-qa/) rewrote this comment's story — the old
+          // text claimed consuming Escape at the React level stops the
+          // event BEFORE the document-level Radix listeners fire; the truth
+          // is the reverse ORDER: Radix's useEscapeKeydown listens at
+          // document CAPTURE and dismisses the top layer there (its
+          // isHighestLayer check IS the peel-one guarantee — the inspector
+          // behind sees isHighestLayer false and stays), before the event
+          // ever descends to this content. THIS handler runs later, at the
+          // React bubble dispatch, on an already-dismissed dialog — the
+          // idempotent second writer. What it really guards: the
+          // stopPropagation eats the key between body and the document
+          // bubble, so the app's window-level keymap (the command palette,
+          // the shortcuts) never sees a modal's Escape; and
+          // handleOpenChange runs OUR close path (the cache reset) even if
+          // Radix's own dismiss ever skipped this layer.
           if (e.key === "Escape") {
             e.preventDefault();
             e.stopPropagation();
@@ -506,6 +547,34 @@ export function FscCompareDialog({
             Overlay the official criterion curve of every selected job —
             masked + corrected for postprocess, gold-standard for refinements.
           </DialogDescription>
+          {/* the restore's whisper (the t901 echo of the t899 grammar):
+              remembered state that failed to restore is invisible — this
+              names the edit once, at whisper level, and goes silent the
+              moment the user's own picks take over */}
+          {!picksTouched && restoreEdits.length > 0 && (
+            <p
+              data-testid="fsc-compare-restore-whisper"
+              className="font-mono text-[10px] tracking-wide text-fuchsia-600/80 dark:text-fuchsia-400/80"
+            >
+              {restoreEdits.length === 1
+                ? "1 remembered curve didn't return"
+                : `${restoreEdits.length} remembered curves didn't return`}
+              {' \u2014 '}
+              {restoreEditSummary(restoreEdits)}
+            </p>
+          )}
+          {/* t1094 — the provenance line (the t945 law verbatim: the revival
+              rides CSS, the provenance rides JSX). The sheet must name what
+              it plots and when it was printed — the screen title's picked/
+              cap chip is a live count, the archival sheet carries the
+              census and the clock. Screen-hidden, print-only. */}
+          <p
+            data-fsc-print-doc
+            className="hidden font-mono text-[10px] tracking-wide text-muted-foreground print:block"
+          >
+            {pickedCount} curve{pickedCount === 1 ? "" : "s"} plotted ·{" "}
+            {index?.length ?? "…"} indexed · printed {printed}
+          </p>
         </DialogHeader>
 
         {/* ---------- freshness strip: live status + re-scan, one unit ----------
@@ -560,9 +629,9 @@ export function FscCompareDialog({
             onClick={rescan}
             disabled={scanning}
             data-testid="fsc-compare-rescan"
-            aria-label="Re-scan the project for FSC curves"
+            aria-label={scanning ? "Scanning the project for FSC curves…" : "Re-scan the project for FSC curves"}
             title="Re-scan the project for FSC curves — running refinements land a new model checkpoint every few minutes, so an index read from a minute ago is already stale"
-            className="inline-flex h-6 shrink-0 items-center gap-1 rounded-md border border-border/70 bg-background/60 px-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-border hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:pointer-events-none disabled:opacity-60"
+            className="inline-flex h-6 shrink-0 items-center gap-1 rounded-md border border-border/70 bg-background/60 px-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-border hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:pointer-events-none disabled:opacity-60 no-print"
           >
             <RefreshCw
               className={cn("h-3 w-3", scanning && "animate-spin motion-reduce:animate-none")}
@@ -638,6 +707,7 @@ export function FscCompareDialog({
                   disabled={atCap}
                   onCheckedChange={() => toggle(job.jobId)}
                   aria-label={`Compare ${job.name}`}
+                  className="no-print"
                 />
                 {isRunning ? (
                   <span
@@ -656,37 +726,47 @@ export function FscCompareDialog({
                   />
                 )}
                 {isHost ? (
-                  <span className="min-w-0 flex-1 truncate text-xs font-medium">
+                  <span className="min-w-0 flex-1 truncate text-xs font-medium print:whitespace-normal print:break-all">
                     {job.name}
                     <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">
                       (this job)
                     </span>
                   </span>
                 ) : (
-                  <button
-                    type="button"
-                    data-testid={`fsc-compare-jump-${job.jobId}`}
-                    title={`Open ${job.name} in the inspector — its card, curves and outputs replace this one`}
-                    onClick={(e) => {
-                      // the row is a <label> for the checkbox — a click on
-                      // the name button must NOT forward to the checkbox
-                      // (preventDefault for the browsers that would, plus
-                      // this is a navigation, not a selection change);
-                      // handleOpenChange also wipes the curve cache before
-                      // the whole subtree swaps to the jumped-to job
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handleOpenChange(false);
-                      inspect(job.jobId);
-                    }}
-                    className="flex min-w-0 flex-1 items-center gap-0.5 rounded-sm text-left text-xs font-medium underline-offset-2 decoration-dotted hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-                  >
-                    <span className="truncate">{job.name}</span>
-                    <ArrowUpRight
-                      className="h-3 w-3 shrink-0 text-muted-foreground/50"
-                      aria-hidden="true"
-                    />
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      data-testid={`fsc-compare-jump-${job.jobId}`}
+                      title={`Open ${job.name} in the inspector — its card, curves and outputs replace this one`}
+                      onClick={(e) => {
+                        // the row is a <label> for the checkbox — a click on
+                        // the name button must NOT forward to the checkbox
+                        // (preventDefault for the browsers that would, plus
+                        // this is a navigation, not a selection change);
+                        // handleOpenChange also wipes the curve cache before
+                        // the whole subtree swaps to the jumped-to job
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleOpenChange(false);
+                        inspect(job.jobId);
+                      }}
+                      className="flex min-w-0 flex-1 items-center gap-0.5 rounded-sm text-left text-xs font-medium underline-offset-2 decoration-dotted hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 no-print"
+                    >
+                      <span className="truncate">{job.name}</span>
+                      <ArrowUpRight
+                        className="h-3 w-3 shrink-0 text-muted-foreground/50"
+                        aria-hidden="true"
+                      />
+                    </button>
+                    {/* t1094 — the name's paper face (the t1087 dual-face
+                        law): the jump button is chrome (a jump lands
+                        nowhere on a sheet — the t946 funnel law), but the
+                        ROW'S IDENTITY is a fact, so the plain name rides
+                        the print span beside the dead button. */}
+                    <span className="hidden min-w-0 flex-1 text-xs font-medium print:block print:whitespace-normal print:break-all">
+                      {job.name}
+                    </span>
+                  </>
                 )}
                 <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">
                   {job.type}
@@ -894,6 +974,14 @@ export function FscCompareDialog({
                     <button
                       type="button"
                       data-testid={`fsc-compare-legend-${id}`}
+                      /* t1094 — the legend is the paper's color→curve KEY:
+                         the Task 114 generic control-killer (scoped to the
+                         open inspector stack, which this overlay always
+                         rides) would eat these buttons wholesale; the
+                         house's [data-print-keep] hook opts the chips back
+                         onto the sheet — a key that dies takes the
+                         science's vocabulary with it. */
+                      data-print-keep=""
                       aria-pressed={!isHidden}
                       onClick={() =>
                         setHidden((prev) => {
@@ -913,6 +1001,7 @@ export function FscCompareDialog({
                           : `click to ${isHidden ? "show" : "hide"} this curve`
                       }
                       className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                         isHidden
                           ? "border-muted-foreground/25 bg-muted text-muted-foreground/60 line-through"
                           : "border-border bg-background hover:border-primary/40",

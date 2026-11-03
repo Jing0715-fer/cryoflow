@@ -1,0 +1,62 @@
+{
+  "walk": "t984-ambient-walk",
+  "at": "2026-10-14T15:46:41.017Z",
+  "pass": 10,
+  "fail": 5,
+  "phaseTrace": [],
+  "results": [
+    {
+      "label": "the Workspaces tab opened its panel",
+      "cond": false,
+      "extra": "NO-ELEMENT"
+    },
+    {
+      "label": "the New workspace door is up",
+      "cond": false,
+      "extra": "doors=undefined"
+    },
+    {
+      "label": "the create dialog opened",
+      "cond": false,
+      "extra": "NO-ELEMENT"
+    },
+    {
+      "label": "the create dialog's Cancel announces its plain name (nothing is being created)",
+      "cond": false,
+      "extra": "disabled=undefined label=\"undefined\""
+    },
+    {
+      "label": "the create dialog closed through its real mouth",
+      "cond": false,
+      "extra": "NO-ELEMENT shut=false"
+    }
+  ],
+  "instrument": "t984-ambient-walk",
+  "born": "2026-10-14",
+  "contract": "the AMBIENT ruling's second wave — the blind pool closed at zero, witnessed",
+  "legs": {
+    "worldAlive": true,
+    "inspector": {
+      "open": true,
+      "title": "Job inspector: Select 2D (tutorial)"
+    },
+    "presetDoor": {
+      "present": false
+    },
+    "createDialog": {
+      "open": false
+    },
+    "createCancelShut": true,
+    "deleteDoorRests": {
+      "present": true,
+      "disabled": true,
+      "label": "Delete Main"
+    },
+    "sendRefusalLive": {
+      "up": true,
+      "disabled": true,
+      "label": "Send (type a message first)"
+    },
+    "companionShut": true
+  }
+}

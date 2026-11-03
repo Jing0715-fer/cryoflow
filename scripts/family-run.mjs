@@ -225,6 +225,30 @@ const readReborn = () => {
   }
 };
 
+// t1162 — the world probe (the snapshot doctor's THIRD face): ONE cheap
+// reading (count+head only — no nine-model dump, no job-ID ledger)
+// stamped onto every batch entry, so the freshness verdict rides the
+// report the cron family already reads. A RED probe (NO-SNAPSHOT /
+// LIED / DRIFTED) is a DOORBELL, not a diagnosis — the full doctor
+// (node scripts/world-snapshot.mjs doctor) holds the hearing; and by
+// the t548 doctrine the runner reports verdicts, it does not repair
+// worlds: the probe NEVER moves the exit code. A mute probe (spawn
+// failure, timeout, unparseable output) is reported as null — the
+// report says so honestly, it does not invent a verdict.
+const probeWorld = () => {
+  try {
+    const r = spawnSync("node", [path.join(SCRIPTS, "world-snapshot.mjs"), "probe"], {
+      encoding: "utf8",
+      timeout: 30_000,
+    });
+    const line = (r.stdout ?? "").trim().split("\n").filter(Boolean).slice(-1)[0] ?? "";
+    const parsed = JSON.parse(line);
+    return parsed && parsed.verdict ? parsed : null;
+  } catch {
+    return null; // the probe went mute — honesty over invention
+  }
+};
+
 // ---- paint (defined BEFORE the CLI reads it — the --batches/--summary
 // branches above the old location would have hit the temporal dead zone)
 const C = {
@@ -250,6 +274,11 @@ if (args.includes("--help") || args.includes("-h")) {
       "  --batches        list the batches and their members (coverage-checked), run nothing\n" +
       "  --summary        print the family summary from scripts/.family-report.json, run nothing\n" +
       "  --reset          delete the accumulated report file, run nothing\n" +
+      "  world probe      every batch entry carries a cheap doctor reading (t1162); --summary speaks it —\n" +
+      "                   a RED probe (NO-SNAPSHOT/LIED/DRIFTED) is a doorbell, never an exit code\n" +
+      "  FAMILY_WORLD_GATE=strict  refuse to ride a doctor-RED world: the batch writes world-gated\n" +
+      "                   testimony (nothing rode, exit 0) instead of running on a lying world (t1163);\n" +
+      "                   the default rides and reports — the operator owns the lever\n" +
       "  FAMILY_DRILL=<suite>  drill the solo-retry path (first attempt of <suite> fails)\n" +
       "  signals          SIGTERM/SIGINT/SIGHUP kill the in-flight suite's whole group and write an\n" +
       "                   interrupted report entry — the runner dies with its children (exit 143/130)",
@@ -297,17 +326,43 @@ if (args.includes("--summary")) {
         paint.dim(` (${reborn.causes ?? "rebuilt"}${reborn.by ? ` · ${reborn.by}` : ""}) — batches run after this speak from a resurrected world`),
     );
   }
+  // t1162 — the world's freshness, spoken AT reading time (not the
+  // batch entries' stamped past): the report is only as trustworthy
+  // as the world it was gathered in.
+  const worldNow = probeWorld();
+  if (worldNow) {
+    const where = `live ${worldNow.liveJobs ?? "∅"} job${worldNow.liveJobs === 1 ? "" : "s"} · snapshot ${worldNow.snapshotJobs ?? "∅"} @ ${worldNow.snapshotHead ?? "∅"} vs tree ${worldNow.treeHead ?? "∅"}`;
+    console.log(
+      worldNow.red
+        ? paint.red(`  ◆ world probe: ${worldNow.verdict} — ${where} — the doorbell rings; node scripts/world-snapshot.mjs doctor holds the hearing`)
+        : paint.dim(`  ◆ world probe: ${worldNow.verdict} — ${where}`),
+    );
+  } else {
+    console.log(paint.dim("  ◆ world probe: mute (no reading — the report carries no fresh verdict)"));
+  }
   let totPass = 0, totSolo = 0, totFail = 0, totWall = 0, totReborn = 0;
   for (const k of keys) {
     const b = report.batches[k];
     totPass += b.pass; totSolo += b.soloRecovery; totFail += b.realFail; totWall += b.wallMs;
     const inRebornWorld = reborn?.at && b.lastRun && new Date(b.lastRun) >= new Date(reborn.at);
     if (inRebornWorld) totReborn += 1;
-    const flag = b.interrupted ? paint.bold("⚡") : b.realFail > 0 ? paint.red("✗") : b.soloRecovery > 0 ? paint.yellow("↻") : paint.green("✓");
+    const flag = b.worldGated ? paint.bold("⊘") : b.interrupted ? paint.bold("⚡") : b.realFail > 0 ? paint.red("✗") : b.soloRecovery > 0 ? paint.yellow("↻") : paint.green("✓");
     console.log(
       `  ${flag} ${k.padEnd(12)} pass ${String(b.pass).padStart(2)}  solo ${b.soloRecovery}  real-fail ${b.realFail}` +
         paint.dim(`  wall ${(b.wallMs / 1000).toFixed(1)}s  ${b.lastRun}`) +
         (inRebornWorld ? paint.bold("  ⟳ reborn-world") : "") +
+        // t1163 — the operator's lever, spoken: a gated batch shows the
+        // ⊘ and its verdict, NOT the suite flags (nothing rode).
+        (b.worldGated
+          ? paint.red(`  ⊘ world-gated(${b.world?.verdict ?? "?"} @ ${String(b.world?.probedAt ?? "").slice(0, 16)}Z) — nothing rode`)
+          : "") +
+        // t1162 — the stamped world reading: a batch whose entry is
+        // doctor-RED is named AT the batch, not only at the header.
+        (!b.worldGated && b.world?.red
+          ? paint.red(`  ◆ world-RED(${b.world.verdict} @ ${String(b.world.probedAt).slice(0, 16)}Z)`)
+          : !b.worldGated && b.world === null
+            ? paint.dim("  ◆ world ∅ (probe mute)")
+            : "") +
         (b.interrupted
           ? paint.bold(
               `  ⚡ INTERRUPTED by ${b.interruptedBy ?? "a signal"} at ${b.interruptedAt ?? "the first breath"}` +
@@ -523,6 +578,65 @@ console.log(
     "\n",
 );
 
+// t1162 — the world is announced BEFORE the family rides it (the t548
+// preflight's sibling): a doctor-RED world is named at the top, with
+// the hearing named, instead of being discovered in the report hours
+// later. Non-fatal by default: the ride proceeds — verdicts, not
+// repairs.
+// t1163 — the OPERATOR'S LEVER: FAMILY_WORLD_GATE=strict refuses to
+// ride a doctor-RED world. The gate is the third jurisdiction of the
+// doorbell law made concrete: the probe names the drift (the
+// doorbell), the doctor holds the hearing, and the GATE decides —
+// but it decides only the operator's own way: the default (empty or
+// any value but "strict") keeps the t1162 behavior (report and ride),
+// and strict never repairs, never retries, never fakes a verdict — it
+// writes HONEST TESTIMONY (a worldGated entry, every suite
+// "world-gated", attempts 0) and exits 0: a gated batch is an
+// operator choice, not a failure. A mute probe is never red — the
+// gate stays silent when the instrument went silent; and EMPTY-LIVE
+// (red=false) rides: the recycle's signature is the recovery's
+// business, not the family's refusal.
+const WORLD_GATE = (process.env.FAMILY_WORLD_GATE || "").trim().toLowerCase();
+{
+  const preWorld = probeWorld();
+  if (preWorld?.red) {
+    if (WORLD_GATE === "strict") {
+      console.log(
+        paint.red(
+          `  ⊘ WORLD-GATE(strict): the world is doctor-RED (${preWorld.verdict} — live ${preWorld.liveJobs ?? "∅"} vs snapshot ${preWorld.snapshotJobs ?? "∅"} @ ${preWorld.snapshotHead ?? "∅"}) — the batch REFUSES to ride a lying world; hearing: node scripts/world-snapshot.mjs doctor`,
+        ),
+      );
+      try {
+        const report = readReport();
+        report.batches[reportKey] = {
+          lastRun: new Date().toISOString(),
+          worldGated: true,
+          world: preWorld, // the reading that rang the doorbell, preserved in the testimony
+          suites: roster.map((file) => ({ name: file, verdict: "world-gated", ms: 0, attempts: 0 })),
+          pass: 0,
+          soloRecovery: 0,
+          realFail: 0, // the gate never manufactures a failure — it refuses, it does not judge
+          skippedServer: 0,
+          wallMs: 0,
+        };
+        writeReport(report);
+        console.log(
+          `  ⊘ report → ${REPORT_FILE.replace(ROOT + "/", "")} · key "${reportKey}" marked world-gated` +
+            ` (testimony, not silence — re-run with the world healed, or unset FAMILY_WORLD_GATE to ride anyway)`,
+        );
+      } catch (e) {
+        console.log(`  report write failed at the gate (${e.message})`);
+      }
+      process.exit(0); // refusal, not failure — the exit code stays pure suite arithmetic
+    }
+    console.log(
+      paint.yellow(
+        `  ⚠ preflight: WORLD PROBE ${preWorld.verdict} (live ${preWorld.liveJobs ?? "∅"} vs snapshot ${preWorld.snapshotJobs ?? "∅"} @ ${preWorld.snapshotHead ?? "∅"}) — the ride proceeds (verdicts, not repairs); hearing: node scripts/world-snapshot.mjs doctor`,
+      ),
+    );
+  }
+}
+
 const verdicts = { PASS: [], "SOLO-RECOVERY": [], "REAL-FAIL": [], "SKIPPED(SERVER)": [] };
 const runSuiteMs = new Map(); // the deciding attempt's wall time, per suite (the report's ledger)
 const t0 = Date.now();
@@ -593,6 +707,7 @@ const signalDeath = (sig) => {
       realFail: verdicts["REAL-FAIL"].length,
       skippedServer: verdicts["SKIPPED(SERVER)"].length,
       wallMs: Date.now() - t0,
+      world: probeWorld(), // t1162 — even a killed batch leaves its world reading (testimony, not silence)
     };
     writeReport(report);
     console.log(
@@ -706,6 +821,7 @@ try {
     realFail: realFail.length,
     skippedServer: verdicts["SKIPPED(SERVER)"].length,
     wallMs: Math.round((Date.now() - t0)),
+    world: probeWorld(), // t1162 — the freshness verdict rides the report
   };
   writeReport(report);
   console.log(paint.dim(`  report → ${REPORT_FILE.replace(ROOT + "/", "")} · key "${reportKey}" (--summary speaks the accumulated truth)`));

@@ -1,0 +1,99 @@
+{
+  "task": "t881",
+  "window": "cron 2026-11-02 14:20:37 +08:00 (trace 1a07549302235a99-cron-agent-loop-202611021424)",
+  "purpose": "the W1 fork's CLEAN-STATE probe — the fsc-compare comment's verdict round",
+  "checks": [
+    {
+      "label": "C1 the world dressed (the patience held)",
+      "pass": true,
+      "detail": "pageBtns=101 dlgs=0 waited=3s"
+    },
+    {
+      "label": "C2 the compare selection keys cleared",
+      "pass": true,
+      "detail": "cleared=0"
+    },
+    {
+      "label": "C2b the Workflow tab active",
+      "pass": true,
+      "detail": "{\"found\":true,\"selected\":true}"
+    },
+    {
+      "label": "C2c the job cards on the canvas",
+      "pass": true,
+      "detail": "cards=15"
+    },
+    {
+      "label": "C3 the 3D Refine card found and opened",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "C4 the inspector arrived",
+      "pass": true,
+      "detail": "heads=[3D Refine (tutorial) — job inspector3D R]"
+    },
+    {
+      "label": "C4b the Results tab active",
+      "pass": true,
+      "detail": "first={\"found\":true,\"selected\":true}"
+    },
+    {
+      "label": "C4c the compare trigger mounted",
+      "pass": true,
+      "detail": "waited up to 15s"
+    },
+    {
+      "label": "C5 the compare door clicked",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "C6 the compare dialog open",
+      "pass": true,
+      "detail": "rows=0 checked=0"
+    },
+    {
+      "label": "C7 the CLEAN baseline verified (no churn source)",
+      "pass": true,
+      "detail": "probeChecked=null autolive=false checked=0/0"
+    },
+    {
+      "label": "C8 the instruments armed (esc counter + the synth-wrap)",
+      "pass": true,
+      "detail": "wrap={\"wrapped\":true,\"ownKind\":\"function\"}"
+    },
+    {
+      "label": "C9 ONE Escape fired at the top dialog",
+      "pass": true,
+      "detail": "target=BUTTON:fsc-compare-rescan"
+    },
+    {
+      "label": "C10 ONE press peeled ONE layer (the compare door closed)",
+      "pass": true,
+      "detail": "prompt fscOpen=true | late={\"landed\":true,\"atMs\":500}"
+    },
+    {
+      "label": "C11 the fork's clean-state answer (synth>0 = consumer alive; synth=0+closed = Radix is THE path)",
+      "pass": true,
+      "detail": "esc=1 synth=0 closed=true → Radix's document-level path is THE path (comment upgrade earned)"
+    },
+    {
+      "label": "C12 the fiber probe self-honest (the counters persist past the unmount)",
+      "pass": true,
+      "detail": "gone=true dlgHeads=[3D Refine (tutorial) — job inspector3D R] counters={\"esc\":1,\"synth\":0}"
+    },
+    {
+      "label": "C13 the layered-stack law in the clean state (the inspector survives)",
+      "pass": true,
+      "detail": "heads=[3D Refine (tutorial) — job inspector3D R]"
+    },
+    {
+      "label": "C14 the world restored",
+      "pass": true,
+      "detail": "closeClicked=true dlgs=0 pageBtns=144"
+    }
+  ],
+  "pass": 18,
+  "fail": 0
+}

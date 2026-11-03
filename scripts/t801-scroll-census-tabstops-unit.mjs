@@ -188,8 +188,8 @@ ok(
   "D4 the storage runs region stands — t798's home"
 );
 ok(
-  (assistant.match(/tabIndex=\{0\}/g) || []).length === 3,
-  "D5 the assistant's regions stand and grew — t799's log + list, joined by the tool-detail window (t803's second-pass cure)"
+  (assistant.match(/tabIndex=\{0\}/g) || []).length === 5,
+  "D5 the assistant's regions stand and grew — t799's log + list, the tool-detail window (t803's second-pass cure), joined by the two keyboard-geometry handles (the t1137 amendment 3→5: the TWO newcomers are the keyboard GEOMETRY handles (t991's cure — the width/height arrows became tab stops so keyboard users can drive the panel's geometry, each riding aria-orientation + aria-valuemin))"
 );
 ok(
   molstar.includes("phase === \"error\"") && molstar.includes("showing the central slice instead"),

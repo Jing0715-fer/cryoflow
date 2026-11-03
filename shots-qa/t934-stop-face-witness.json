@@ -1,0 +1,63 @@
+{
+  "stage1": {
+    "pass": 44,
+    "fail": 0,
+    "slurmId": "310",
+    "stoppedResult": "stopped by user",
+    "roundsAtStop": [
+      "run_it000_optimiser.star",
+      "run_it001_optimiser.star",
+      "run_it002_optimiser.star",
+      "run_it003_optimiser.star",
+      "run_it004_optimiser.star",
+      "run_it005_optimiser.star",
+      "run_it006_optimiser.star",
+      "run_it007_optimiser.star",
+      "run_it008_optimiser.star",
+      "run_it009_optimiser.star",
+      "run_it010_optimiser.star",
+      "run_it011_optimiser.star",
+      "run_it012_optimiser.star",
+      "run_it013_optimiser.star",
+      "run_it014_optimiser.star",
+      "run_it015_optimiser.star",
+      "run_it016_optimiser.star",
+      "run_it017_optimiser.star"
+    ],
+    "cancelRow": "310|CANCELLED|0:15|1791824164|1791824146|",
+    "toast": "Job stoppedsent scancel to Slurm job 310 — the scheduler tears the process tree down on the compute node (teardown confirmed — the job left the queue) — re-run resumes from the last synced checkpoint",
+    "parked": true,
+    "caseClosed": true
+  },
+  "at": "2026-10-12T17:01:03.036Z",
+  "stage2": {
+    "pass": 22,
+    "fail": 0,
+    "pickedRound": "017",
+    "resume": "completed",
+    "ladder": [
+      "run_it046_optimiser.star",
+      "run_it047_optimiser.star",
+      "run_it048_optimiser.star"
+    ]
+  },
+  "stage3": {
+    "pass": 23,
+    "fail": 0,
+    "kill2": {
+      "slurmId": "312",
+      "pid": 7716,
+      "roundsAtKill": [
+        "run_it000_optimiser.star",
+        "run_it001_optimiser.star"
+      ],
+      "killAt": "2026-10-12T16:58:55.568Z"
+    },
+    "tombstone": "interrupted remotely (no exit status — node reboot or hard kill; 3 consecutive checks saw no trace of it); re-run resumes from the last synced checkpoint",
+    "boundary": {
+      "killed1Row": true,
+      "killed2Row": false,
+      "clause": "re-run resumes from the last synced checkpoint"
+    }
+  }
+}

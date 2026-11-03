@@ -41,6 +41,15 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  // t874 — Escape must peel ONE layer: this dialog floats on top of the
+  // job inspector modal (t873's walk filmed the same law on its sibling
+  // fsc-compare via an inline consumer). Without a React-level consumer
+  // the document-level Radix listeners of BOTH roots see the same keydown
+  // and BOTH dismiss — the t874 walk caught the inspector behind dying
+  // with it (dialogs 2 → 0). The shared helper (preventDefault +
+  // stopPropagation + close) is the family dialect — remote-cluster /
+  // pipeline-script / hpc-sbatch wear it. The parallel-line reunion
+  // carries the cure home onto the mainline's evolved dialog.
   onEscapeClose,
 } from "@/components/ui/dialog";
 import {
@@ -51,6 +60,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useWorkflowStore } from "@/lib/store";
+import { usePrintedDate } from "@/lib/use-now";
+import { httpErrorFrom } from "@/lib/http-error";
 import type { JobDTO } from "@/lib/types";
 import { jobType } from "@/lib/workflow";
 import { planAdoption } from "@/lib/adopt-branch";
@@ -119,7 +130,7 @@ async function fetchJson(url: string): Promise<unknown> {
   const res = await fetch(url, {
     headers: { Origin: window.location.origin },
   });
-  if (!res.ok) throw new Error(`route said ${res.status}`);
+  if (!res.ok) throw await httpErrorFrom(res); // t959 — the door's own reason rides
   return res.json();
 }
 
@@ -265,9 +276,89 @@ export function ClassCompareEntry({ job }: { job: JobDTO }) {
 /* The face.                                                           */
 /* ------------------------------------------------------------------ */
 
+/** t931 — the mixed plan's refusal PRE-ANNOUNCEMENT, appended to the
+ *  enabled verb's aria/title: before the fire, the enabled speech must
+ *  account for EVERY one of A's downstream wires — the t928 ride
+ *  witnessed the mixed face speaking only the moves while the refusal
+ *  stayed invisible until the toast (the carried cure, now product).
+ *  The raw reason words match the all-refused face's vocabulary
+ *  ("All N downstream wire(s) refused — cycle"); empty when nothing
+ *  was refused, so every clean face's speech is byte-identical to the
+ *  t920/t925/t926 pins. `sep` picks the join: the aria continues its
+ *  single-dash sentence (" and refuses…"), the title opens a new
+ *  em-dash clause after "stay until re-run" (" — and refuses…"). */
+function refusesClause(
+  refused: { reason: string }[] | null | undefined,
+  sep = " and",
+): string {
+  if (!refused || refused.length === 0) return "";
+  return `${sep} refuses ${refused.length} (${refused.map((r) => r.reason).join(", ")})`;
+}
+
+/** t931 — the contract line's refusal sentence (the visible, non-tooltip
+ *  twin of refusesClause): names the count, the reasons, and WHERE the
+ *  refused wires stay — consuming A — so the accounting closes at the
+ *  face: every one of A's downstream wires is spoken for before the
+ *  click. "left consuming" matches the toast's "left as is" register. */
+function refusalSentence(
+  refused: { reason: string }[] | null | undefined,
+  nameA: string,
+): string {
+  if (!refused || refused.length === 0) return "";
+  return ` Also refuses ${refused.length} downstream ${refused.length === 1 ? "wire" : "wires"} (${refused.map((r) => r.reason).join(", ")}) — left consuming ${nameA}.`;
+}
+
+/** t948 — the mixed plan's ALREADY-WIRED pre-announcement, the refusal
+ *  clause's twin: before the fire, the enabled speech must account for
+ *  EVERY one of A's downstream wires — moves (the verb's own promise),
+ *  refusals (t931), and now the third bucket, the children already
+ *  consuming B through the same port pair (the toast's "N job(s)
+ *  already on B (left as is)" — the clause speaks the toast's own
+ *  words so the pre-announcement teaches exactly what the fire will
+ *  say). The raw register matches the toast verbatim ("left as is");
+ *  empty when nothing was already wired, so every clean face's speech
+ *  is byte-identical to the t920/t925/t926/t928 pins (the t926
+ *  empty-clause law, now proven for BOTH clauses). `sep` picks the
+ *  join, the refusal clause's own doctrine: the aria continues its
+ *  single-dash sentence (" and …"), the title opens a new em-dash
+ *  clause after "stay until re-run" (" — and …"). */
+function wiredClause(
+  alreadyWired: unknown[] | null | undefined,
+  nameB: string,
+  sep = " and",
+): string {
+  if (!alreadyWired || alreadyWired.length === 0) return "";
+  return `${sep} ${alreadyWired.length} already on ${nameB} (left as is)`;
+}
+
+/** t948 — the contract line's already-wired sentence (the visible,
+ *  non-tooltip twin of wiredClause, as refusalSentence is to
+ *  refusesClause): names the count and WHERE the wired children stand
+ *  — on B, left as is — so the accounting closes at the face: every
+ *  one of A's downstream wires is spoken for before the click. The
+ *  toast's own words ("N job(s) already on B (left as is)") carry the
+ *  register; empty when nothing was already wired (the clean-face
+ *  law). */
+function wiredSentence(
+  alreadyWired: unknown[] | null | undefined,
+  nameB: string,
+): string {
+  if (!alreadyWired || alreadyWired.length === 0) return "";
+  return ` Also ${alreadyWired.length} ${alreadyWired.length === 1 ? "job" : "jobs"} already on ${nameB} (left as is).`;
+}
+
 /** The adoption plan's one-line honest disabled/enabled state — shared
  *  by the plain adopt verb and the select rider (t453), each speaking
- *  about its OWN plan. */
+ *  about its OWN plan; the enabled state pre-announces the plan's
+ *  refusals (t931) and — only where the fire actually leaves them as
+ *  is — the plan's already-wired children (t948). `speakWired` is the
+ *  honesty gate: TRUE for the plain adopt verb, whose fire re-parents
+ *  onto B itself and leaves the already-wired children untouched; the
+ *  riders keep it FALSE, because their fire re-parents onto a freshly
+ *  MINTED node (a filter/selection nothing can be wired to yet) —
+ *  their plan's alreadyWired bucket is the port-proxy's artifact
+ *  (children consuming B today will MOVE onto the mint), and speaking
+ *  "left as is" there would promise the opposite of the fire. */
 function adoptionPlanTitle(
   plan: {
     sameRun: boolean;
@@ -278,6 +369,7 @@ function adoptionPlanTitle(
   },
   nameA: string,
   nameB: string,
+  speakWired = false,
 ): string {
   return plan.sameRun
     ? "Runs A and B are the same run — adoption needs two different runs"
@@ -289,7 +381,7 @@ function adoptionPlanTitle(
           ? `All ${plan.refused.length} downstream wire(s) refused — ${plan.refused
               .map((r) => r.reason)
               .join(", ")}`
-          : `Re-wires ${nameA}'s ${plan.moves.length} downstream wire${plan.moves.length === 1 ? "" : "s"} to ${nameB} — their current results stay until re-run`;
+          : `Re-wires ${nameA}'s ${plan.moves.length} downstream wire${plan.moves.length === 1 ? "" : "s"} to ${nameB} — their current results stay until re-run${refusesClause(plan.refused, " — and")}${speakWired ? wiredClause(plan.alreadyWired, nameB, " — and") : ""}`;
 }
 
 interface RunDialogProps<R> {
@@ -462,12 +554,17 @@ function RunCompareDialog<R extends { name: string }>({
       jobs: jobs.map((j) => ({ id: j.id, type: j.type, name: j.name })),
       fromRunId: runAId,
       toRunId: effectiveRunB,
-      outputPortsOf: (type) =>
-        type === jobById.get(effectiveRunB)?.type
-          ? (jobType(spec.adoptTargetType as string)?.outputs ?? []).map((p) => p.name)
-          : (jobType(type)?.outputs ?? []).map((p) => p.name),
+      // t949 — the MINT PREVIEW, named by the lib: the ports are the
+      // selection's (the t453 law, now mintTargetType instead of the
+      // caller-side port-swap shim) and the dup check skips — nothing
+      // can be already-wired to a node that does not exist, so the
+      // children already on B MOVE onto the selection and the aria
+      // counts exactly what the fire will re-wire (the undercount
+      // cured at the source).
+      mintTargetType: spec.adoptTargetType as string,
+      outputPortsOf: (type) => (jobType(type)?.outputs ?? []).map((p) => p.name),
     });
-  }, [spec, edges, jobs, runAId, effectiveRunB, jobById]);
+  }, [spec, edges, jobs, runAId, effectiveRunB]);
   const adoptableSelect =
     selectPlan != null &&
     !selectPlan.sameRun &&
@@ -487,12 +584,14 @@ function RunCompareDialog<R extends { name: string }>({
       jobs: jobs.map((j) => ({ id: j.id, type: j.type, name: j.name })),
       fromRunId: runAId,
       toRunId: effectiveRunB,
-      outputPortsOf: (type) =>
-        type === jobById.get(effectiveRunB)?.type
-          ? (jobType(spec.adoptTargetType as string)?.outputs ?? []).map((p) => p.name)
-          : (jobType(type)?.outputs ?? []).map((p) => p.name),
+      // t949 — the MINT PREVIEW (the select rider's cure carried home):
+      // the ports are the filter's and the dup check skips, so the
+      // multi-input world's already-on-B children MOVE onto the filter
+      // and the rider's speech counts the fire's own truth.
+      mintTargetType: spec.adoptTargetType as string,
+      outputPortsOf: (type) => (jobType(type)?.outputs ?? []).map((p) => p.name),
     });
-  }, [spec, edges, jobs, runAId, effectiveRunB, jobById]);
+  }, [spec, edges, jobs, runAId, effectiveRunB]);
   const adoptableExclude =
     excludePlan != null &&
     !excludePlan.sameRun &&
@@ -505,24 +604,32 @@ function RunCompareDialog<R extends { name: string }>({
     !adoptionPlan.sameRun &&
     !adoptionPlan.noDownstream &&
     adoptionPlan.moves.length > 0;
-  const adoptTitle = adoptionPlanTitle(adoptionPlan, nameA, nameB);
+  // t948 — the plain verb's title speaks the THIRD bucket (speakWired):
+  // its fire re-parents onto B itself, so its alreadyWired children are
+  // truly left as is — the pre-announcement is honest here, and only
+  // here (the riders' mint-targeted fires keep the gate closed).
+  const adoptTitle = adoptionPlanTitle(adoptionPlan, nameA, nameB, true);
   const selectTitle =
     selectPlan != null ? adoptionPlanTitle(selectPlan, nameA, nameB) : "";
   const excludeTitle =
     excludePlan != null ? adoptionPlanTitle(excludePlan, nameA, nameB) : "";
+  // t945 — the print face's paper clock (the t232 law: paper clocks do
+  // NOT hydrate — useSyncExternalStore with an empty server snapshot).
+  const printed = usePrintedDate();
 
-  // Escape must peel ONE layer: this dialog floats on top of the job
-  // inspector modal (t873's walk filmed the same law on its sibling
-  // fsc-compare via an inline consumer). Without a React-level consumer
-  // the document-level Radix listeners of BOTH roots see the same keydown
-  // and BOTH dismiss — the t874 walk caught the inspector behind dying
-  // with it (dialogs 2 → 0). The shared helper (preventDefault +
-  // stopPropagation + close) is the family dialect — remote-cluster /
-  // pipeline-script / hpc-sbatch wear it.
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
+      {/* t945 — the print face (globals.css's :has() block, the Task 114
+          doctrine's second seat): data-compare-dialog opts this dialog
+          out of the generic step-aside — an A/B verdict IS a document,
+          so paper re-lays the modal into flow and keeps the verdict
+          chips, the scatter, the mover lists and the trust line. The
+          standalone-translate kill rides the className (the inspector's
+          own probe: Lightning CSS folds a same-block translate:none into
+          an identity transform, so the kill must be its own rule). */}
       <DialogContent
-        className="flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl"
+        data-compare-dialog=""
+        className="flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl print:[translate:none] print:[scale:none] print:[rotate:none]"
         onKeyDown={onEscapeClose(() => onOpenChange(false))}
       >
         <DialogHeader className="shrink-0 border-b px-6 pb-4 pt-6">
@@ -533,6 +640,17 @@ function RunCompareDialog<R extends { name: string }>({
           <DialogDescription>
             {spec.intro}
           </DialogDescription>
+          {/* t945 — the paper's provenance line: the pickers it
+              companions are chrome (no-print below) and die on paper,
+              taking the pair's identity with them — this line carries
+              WHAT two runs the verdict reads, and when the sheet was
+              printed. Screen-hidden (the pickers speak it live). */}
+          <p
+            data-compare-print-doc
+            className="hidden print:mt-2 print:block text-[11px] text-muted-foreground"
+          >
+            {`Run A: ${nameA} · Run B: ${nameB} · printed ${printed}`}
+          </p>
         </DialogHeader>
 
         {/* t804 — the content-node census's house cure, the t802 dialect at
@@ -552,10 +670,11 @@ function RunCompareDialog<R extends { name: string }>({
           tabIndex={0}
           role="region"
           aria-label="Run comparison reading — the A/B verdict and its adoption verbs"
-          className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-6 pt-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50"
+          className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-6 pt-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50 print:max-h-none print:overflow-visible"
         >
-        {/* the pair pickers — the host leads, both stay switchable */}
-        <div className="grid gap-2 sm:grid-cols-2">
+        {/* the pair pickers — the host leads, both stay switchable
+            (t945: chrome on paper — the provenance line speaks the pair) */}
+        <div className="no-print grid gap-2 sm:grid-cols-2">
           <div className="min-w-0">
             <div className="mb-1 text-[11px] font-medium text-muted-foreground">Run A</div>
             <Select value={runAId} onValueChange={setRunAId}>
@@ -582,7 +701,10 @@ function RunCompareDialog<R extends { name: string }>({
               onValueChange={(v) => setRunBId(v)}
               disabled={candidates.length === 0}
             >
-              <SelectTrigger className="h-8 w-full text-xs" aria-label="Run B">
+              <SelectTrigger
+                className="h-8 w-full text-xs"
+                aria-label={candidates.length ? "Run B" : "Run B — no sibling runs to compare"}
+              >
                 <SelectValue placeholder={candidates.length ? "Pick a run" : "No sibling runs"} />
               </SelectTrigger>
               <SelectContent>
@@ -615,12 +737,16 @@ function RunCompareDialog<R extends { name: string }>({
           </div>
         ) : (
           <>
-            {/* lens chips (the shared kit — one-lens domains hide them) */}
-            <LensChips
-              lenses={Object.values(spec.lenses)}
-              activeKey={lensSpec.key}
-              onPick={setLensKey}
-            />
+            {/* lens chips (the shared kit — one-lens domains hide them;
+                t945: toggles are chrome on paper, the title names the
+                lens the verdict was read through) */}
+            <div className="no-print">
+              <LensChips
+                lenses={Object.values(spec.lenses)}
+                activeKey={lensSpec.key}
+                onPick={setLensKey}
+              />
+            </div>
 
             {/* the verdict chips — counts first, then the median */}
             <VerdictChips
@@ -673,16 +799,26 @@ function RunCompareDialog<R extends { name: string }>({
 
             {/* the verdict's verb (left) and the doors (right) — adoption
                 is a graph mutation, so it sits apart from the jumps and
-                carries its own one-line contract */}
-            <div className="space-y-1.5">
+                carries its own one-line contract (t945: the whole row is
+                chrome on paper — a verb that prints is a verb that lies;
+                the contract speaks FOR the verbs, so it prints with them) */}
+            <div className="no-print space-y-1.5">
               {adoptable && (
                 <div className="text-[11px] text-muted-foreground">
-                  Adoption re-wires {nameA}&apos;s {adoptionPlan.moves.length} downstream{" "}
-                  {adoptionPlan.moves.length === 1 ? "job" : "jobs"} to consume {nameB} — their
-                  current results stay until re-run.
+                  {`Adoption re-wires ${nameA}'s ${adoptionPlan.moves.length} downstream ${adoptionPlan.moves.length === 1 ? "job" : "jobs"} to consume ${nameB} — their current results stay until re-run.`}
+                  {refusalSentence(adoptionPlan.refused, nameA)}
+                  {wiredSentence(adoptionPlan.alreadyWired, nameB)}
                 </div>
               )}
-              <div className="flex items-center justify-between gap-2">
+              {/* t945 — the row WRAPS (the narrow-320 door): the left
+                  cluster's riders wrap among themselves already, but the
+                  OUTER row didn't — at 320 the nowrap+shrink-0 buttons'
+                  min-content (riders ~150px + Open A/B ~180px) exceeds
+                  the 240px content box and the row painted past its own
+                  border. Wrapping the row lets the Open A/B cluster drop
+                  to its own line — the honest wrap, the t828 tier law's
+                  dialog edition. */}
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <Button
                     variant="outline"
@@ -691,7 +827,7 @@ function RunCompareDialog<R extends { name: string }>({
                     data-testid="adopt-downstream"
                     aria-label={
                       adoptable
-                        ? `Continue downstream from ${nameB} — re-wires ${adoptionPlan.moves.length} of ${nameA}'s downstream jobs`
+                        ? `Continue downstream from ${nameB} — re-wires ${adoptionPlan.moves.length} of ${nameA}'s downstream jobs${refusesClause(adoptionPlan.refused)}${wiredClause(adoptionPlan.alreadyWired, nameB)}`
                         : `Continue downstream from run B — unavailable: ${adoptTitle}`
                     }
                     title={adoptTitle}
@@ -735,12 +871,12 @@ function RunCompareDialog<R extends { name: string }>({
                       data-testid="adopt-with-exclude"
                       aria-label={
                         adoptableExclude
-                          ? `Continue downstream from ${nameB} with ${regressedSeries.length} regressed micrographs excluded — mints an Exclude Micrographs filter and re-wires ${excludePlan?.moves.length} of ${nameA}'s downstream jobs onto it`
+                          ? `Continue downstream from ${nameB} with ${regressedSeries.length} regressed micrographs excluded — mints an Exclude Micrographs filter and re-wires ${excludePlan?.moves.length} of ${nameA}'s downstream jobs onto it${refusesClause(excludePlan?.refused)}`
                           : `Continue downstream with these micrographs excluded — unavailable: ${excludeTitle}`
                       }
                       title={
                         adoptableExclude
-                          ? `Bakes the ${regressedSeries.length} regressed micrographs into an Exclude Micrographs filter consuming ${nameB} (editable in the filter's Exclusions tab), then re-wires ${nameA}'s ${excludePlan?.moves.length} downstream wire${excludePlan?.moves.length === 1 ? "" : "s"} onto the filter — results stay until re-run`
+                          ? `Bakes the ${regressedSeries.length} regressed micrographs into an Exclude Micrographs filter consuming ${nameB} (editable in the filter's Exclusions tab), then re-wires ${nameA}'s ${excludePlan?.moves.length} downstream wire${excludePlan?.moves.length === 1 ? "" : "s"} onto the filter — results stay until re-run${refusesClause(excludePlan?.refused, " — and")}`
                           : excludeTitle
                       }
                       disabled={!adoptableExclude || excluding}
@@ -790,12 +926,12 @@ function RunCompareDialog<R extends { name: string }>({
                       data-testid="adopt-with-select"
                       aria-label={
                         adoptableSelect
-                          ? `Continue downstream from ${nameB} with ${improvedSeries.length} gained classes selected — mints a 2D Class Selection consuming ${nameB} and re-wires ${selectPlan?.moves.length} of ${nameA}'s downstream jobs onto it`
+                          ? `Continue downstream from ${nameB} with ${improvedSeries.length} gained classes selected — mints a 2D Class Selection consuming ${nameB} and re-wires ${selectPlan?.moves.length} of ${nameA}'s downstream jobs onto it${refusesClause(selectPlan?.refused)}`
                           : `Continue downstream with these classes selected — unavailable: ${selectTitle}`
                       }
                       title={
                         adoptableSelect
-                          ? `Bakes the ${improvedSeries.length} gained classes into a 2D Class Selection consuming ${nameB} (editable in its Classes tab), then re-wires ${nameA}'s ${selectPlan?.moves.length} downstream wire${selectPlan?.moves.length === 1 ? "" : "s"} onto the selection — results stay until re-run`
+                          ? `Bakes the ${improvedSeries.length} gained classes into a 2D Class Selection consuming ${nameB} (editable in its Classes tab), then re-wires ${nameA}'s ${selectPlan?.moves.length} downstream wire${selectPlan?.moves.length === 1 ? "" : "s"} onto the selection — results stay until re-run${refusesClause(selectPlan?.refused, " — and")}`
                           : selectTitle
                       }
                       disabled={!adoptableSelect || selecting}

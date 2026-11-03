@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
-import { readPathrefTarget } from "@/lib/relion/pathref";
+import { readPathrefTarget, pathrefHatchApplies } from "@/lib/relion/pathref";
 import { resolveInsideJobWorkdir } from "@/lib/relion/jobfile";
 import { isLocalRequest } from "@/lib/http-guard";
 import { isMrcPath, readMrcHeader, readMrcSubvolume } from "@/lib/mrc";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -61,10 +62,16 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
     let { abs, name } = resolved;
 
-    // pathref escape hatch — same policy as /outputs/file: engine-written
-    // markers for UNLINKABLE import sources (cross-drive/UNC) resolve to
-    // the real file, so imported maps can be cropped like on-disk ones.
-    if (name.endsWith(".pathref")) {
+    // pathref escape hatch — the ONE gate (pathrefHatchApplies, t1169's
+    // completion of the t903 verdict): the hatch speaks ONLY for the
+    // engine's canonical markers (micrographs/-scoped hidden dotfiles) —
+    // the bare suffix test this route carried before let a planted
+    // non-hidden `anything/evil.pathref` open the hatch to any absolute
+    // path its content named, exactly what /outputs/file's t903 gate
+    // already refused. Engine-written markers for UNLINKABLE import
+    // sources (cross-drive/UNC) resolve to the real file, so imported
+    // maps can be cropped like on-disk ones.
+    if (pathrefHatchApplies(rel, name)) {
       const target = readPathrefTarget(abs);
       if (!target) {
         return NextResponse.json({ error: "Broken path reference (source moved or deleted)" }, { status: 404 });
@@ -139,7 +146,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         "Cache-Control": "no-cache",
       },
     });
-  } catch {
-    return NextResponse.json({ error: "Sub-volume export failed" }, { status: 500 });
+  } catch (error) {
+    return serverErrorReply("GET /api/jobs/[id]/outputs/subvolume", error);
   }
 }

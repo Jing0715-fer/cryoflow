@@ -117,9 +117,9 @@ ok(
   "D1 the particle browser runs SIX type=\"button\" elements (group head, grid tile, page retry, prev, next, first-page retry)",
 );
 ok(
-  particle.includes('aria-label="Previous particle page"') &&
-    particle.includes('aria-label="Next particle page"'),
-  "D2 the pagination speaks (both arrows carry honest names)",
+  particle.includes('aria-label={page.offset === 0 ? "Previous particle page (already at the first page)" : loading ? "Loading the previous page…" : "Previous particle page"}') &&
+    particle.includes('aria-label={page.offset + PAGE_SIZE >= page.total ? "Next particle page (already at the last page)" : loading ? "Loading the next page…" : "Next particle page"}'),
+  "D2 the pagination speaks its EDGE STATES (t1137 re-key: the arrows' honest names grew the clamp voice — already-at-the-end and loading each get their own sentence, the t1126 law's pagination dialect; the plain names survive as the mid-state arms)",
 );
 ok(
   particle.includes('aria-label="Retry loading this page"'),

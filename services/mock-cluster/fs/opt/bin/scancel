@@ -12,9 +12,18 @@
 set -u
 SLURM_DIR="$HOME/.slurm"
 
+# t935 — the miss speaks the REAL scancel's exit code. Real slurm's scancel
+# on a finished/unknown job prints "scancel: error: Invalid job id
+# specified" and EXITS 1 — the app's stop receipt reads that code as the
+# honest "missed" verdict (t618: a missed kill claims nothing). The mock
+# used to exit 0 on every miss, hiding the miss from the app entirely: a
+# stop that arrived after the run had finished claimed "cluster-side
+# session killed" and earned the user-stop stamp over a run it never
+# touched. cancel_one now returns 1 on both miss shapes (the unknown id,
+# the already-finished pid) and the script exits 1 when ANY cancel missed.
 cancel_one() {
   local id="$1"
-  pinfo="$(cat "$SLURM_DIR/job-$id.pid" 2>/dev/null)" || { echo "scancel: error: Invalid job id specified" >&2; return; }
+  pinfo="$(cat "$SLURM_DIR/job-$id.pid" 2>/dev/null)" || { echo "scancel: error: Invalid job id specified" >&2; return 1; }
   pid="$(echo "$pinfo" | awk '{print $2}')"
   st="$(echo "$pinfo" | awk '{print $3}')"
   if [ -n "$pid" ] && [ -r "/proc/$pid/stat" ] && [ "$(awk '{print $22}' /proc/$pid/stat 2>/dev/null)" = "$st" ]; then
@@ -33,8 +42,10 @@ cancel_one() {
     kill -9 -- -"$pid" 2>/dev/null
     kill -9 "$pid" 2>/dev/null
     rm -f "$SLURM_DIR/job-$id.state"
+    return 0
   else
     echo "scancel: error: Job $id has already finished" >&2
+    return 1
   fi
 }
 
@@ -60,8 +71,11 @@ while [ $# -gt 0 ]; do
   shift
 done
 
+# t935 — any miss leaves the exit code at 1 (the real scancel's word);
+# every cancel returning 0 keeps the exit at 0.
+rc=0
 for id in "${ids[@]}"; do
-  cancel_one "$id"
+  cancel_one "$id" || rc=1
 done
 
 # t341 — cancel by NAME: every job whose recorded --job-name matches
@@ -72,8 +86,8 @@ for want in "${names[@]}"; do
     have="$(cat "$nf" 2>/dev/null || true)"
     [ "$have" = "$want" ] || continue
     jid="$(basename "$nf" | sed 's/^job-//; s/\.name$//')"
-    cancel_one "$jid"
+    cancel_one "$jid" || rc=1
   done
 done
 
-exit 0
+exit "$rc"

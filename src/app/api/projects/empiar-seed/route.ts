@@ -6,6 +6,7 @@ import { defaultParams, jobType } from "@/lib/workflow";
 import { startJob } from "@/lib/relion/dispatch";
 import { isLocalRequest } from "@/lib/http-guard";
 import type { Job } from "@prisma/client";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -153,7 +154,6 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error("POST /api/projects/empiar-seed failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("POST /api/projects/empiar-seed", error);
   }
 }

@@ -3,6 +3,7 @@ import { type CleanupTierId } from "@/lib/hpc/cleanup";
 import { computeCleanupPlan } from "@/lib/relion/cleanup-plan";
 import { runCleanupExclusive } from "@/lib/relion/cleanup-execute";
 import { isLocalRequest } from "@/lib/http-guard";
+import { badJsonReply, serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -67,8 +68,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
     return NextResponse.json(plan);
   } catch (error) {
-    console.error("GET /api/jobs/[id]/cleanup failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/jobs/[id]/cleanup", error);
   }
 }
 
@@ -88,8 +88,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     let body: { local?: boolean; remote?: boolean; tiers?: string[] };
     try {
       body = (await request.json()) as typeof body;
-    } catch {
-      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    } catch (error) {
+      return badJsonReply("POST /api/jobs/[id]/cleanup", error);
     }
     const scopes = { local: body.local === true, remote: body.remote === true };
     const tiers = (Array.isArray(body.tiers) ? body.tiers : []).filter(
@@ -119,7 +119,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
     return NextResponse.json(result);
   } catch (error) {
-    console.error("POST /api/jobs/[id]/cleanup failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("POST /api/jobs/[id]/cleanup", error);
   }
 }

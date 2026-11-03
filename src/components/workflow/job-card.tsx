@@ -53,6 +53,8 @@ import { parseClassNotes } from "@/lib/class-notes";
 import { useStatusNews } from "@/lib/use-status-news"; // t606 — the hook moved to lib: the news face now speaks at THREE distances (badge, floor, minimap dot)
 import { isStayReceipt, stayReceiptHead } from "@/lib/remote/stay-receipt";
 import { formatElapsed } from "@/lib/elapsed";
+import { formatEta } from "@/lib/elapsed"; // t1032 — the twins share ONE roof now (the ETA's second birth retired); this file re-exports it below so every "./job-card" call site stays put
+import { fmtProgressPct } from "@/lib/progress-scale"; // t1154 — the progress word rides its ONE father (the wire is 0–100; ×100 here was the 4200% bug's shape)
 import { useNow } from "@/lib/use-now";
 import { TypeIcon } from "./icons";
 import { Badge } from "@/components/ui/badge";
@@ -324,14 +326,7 @@ export function trackEtaBaseline(jobId: string, startedAt: string | null, progre
 }
 
 /** "~3h 5m" / "~12m" / "~45s" style compact ETA text. */
-export function formatEta(ms: number): string {
-  const s = Math.round(ms / 1000);
-  if (s < 90) return `~${s}s`;
-  const m = Math.round(s / 60);
-  if (m < 90) return `~${m}m`;
-  const h = Math.floor(m / 60);
-  return `~${h}h ${m % 60}m`;
-}
+export { formatEta }; // t1032 — the twin retired to lib/elapsed (beside its fact face); the re-export keeps every path AND this file's own call sites unchanged
 
 /** Hydration-safe "now" gate — ETA only renders after mount. */
 export function useMounted(): boolean {
@@ -781,13 +776,14 @@ function JobCardMenu({
               <button
                 type="button"
                 disabled={noteBusy}
+                aria-label={noteBusy ? "Clear note (the note is being saved)" : "Clear note"}
                 onClick={() => {
                   setNoteDraft("");
                   void saveJob(job.id, { note: "" }, { silent: true }).then((res) => {
                     if (res.ok) setNoteOpen(false);
                   });
                 }}
-                className="mr-auto text-[11px] font-medium text-muted-foreground underline-offset-2 hover:text-danger-600 hover:underline dark:hover:text-danger-400"
+                className="mr-auto text-[11px] font-medium text-muted-foreground underline-offset-2 hover:text-danger-600 hover:underline dark:hover:text-danger-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 Clear note
               </button>
@@ -795,15 +791,16 @@ function JobCardMenu({
             <button
               type="button"
               onClick={() => setNoteOpen(false)}
-              className="inline-flex h-9 items-center justify-center rounded-md px-4 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              className="inline-flex h-9 items-center justify-center rounded-md px-4 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               Cancel
             </button>
             <button
               type="button"
               disabled={noteBusy || noteDraft.trim().length === 0}
+              aria-label={noteBusy ? "Save note (the note is being saved)" : noteDraft.trim().length === 0 ? "Save note (type a note first)" : "Save note"}
               onClick={() => void saveNote()}
-              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               {noteBusy ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : null}
               Save note
@@ -836,9 +833,14 @@ function JobCardMenu({
         >
           <AlertDialogHeader>
             <AlertDialogTitle>Delete {job.name}?</AlertDialogTitle>
+            {/* t1013 — the single pair's prose truce: this context-menu door
+                adopts the running clause its keyboard sibling (app-shell's
+                Del confirm) always spoke — both doors now render ONE prose:
+                connections, workdir, running, link-count refusal, undo. */}
             <AlertDialogDescription>
               This removes the job and every connection attached to it. Files
               already written to the workdir stay on disk.
+              {job.status === "running" && " A running process will be stopped."}
               {job.linkCount
                 ? ` ${job.linkCount} linked cop${job.linkCount === 1 ? "y" : "ies"} in other workspaces reference this job — the server refuses to delete it until they are removed.`
                 : ""}{" "}
@@ -1330,7 +1332,7 @@ function JobCardPreview({
                 className="text-[10px] font-semibold tabular-nums text-running"
               >
                 {elapsedText ? `${elapsedText} elapsed · ` : ""}
-                {Math.round(job.progress)}%
+                {fmtProgressPct(job.progress)}%
                 {etaText ? ` · ${etaText} left` : ""}
               </span>
             )
@@ -2187,6 +2189,19 @@ export const JobCard = React.memo(function JobCard({
                 : "Click to open the results inspector"
           }
           onKeyDown={(e) => {
+            // t1010 — Shift+Space toggles the card in the multi-selection
+            // (the keyboard edition of shift+click: the selection modifier
+            // is Shift everywhere else on the canvas, so the keyboard
+            // contract reads the same). Keyboard users had NO multi-select
+            // before this — the rubber band and shift+click are both
+            // pointer-only. Lives BEFORE the act branch: the modifier
+            // changes the verb, and a fall-through would open the
+            // inspector instead of selecting.
+            if (e.key === " " && e.shiftKey) {
+              e.preventDefault();
+              onToggleSelect(job.id);
+              return;
+            }
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
               if (job.status === "idle") onSelect(job.id);
@@ -2634,14 +2649,14 @@ export const JobCard = React.memo(function JobCard({
                   {etaText ? (
                     <span
                       className="shrink-0 text-[9.5px] font-medium tabular-nums text-running"
-                      title={`Progress ${Math.round(job.progress)}% — ${etaText} remaining (estimate from current pace)`}
+                      title={`Progress ${fmtProgressPct(job.progress)}% — ${etaText} remaining (estimate from current pace)`}
                     >
                       <span aria-hidden="true" className="text-muted-foreground">· </span>
                       {etaText}
                     </span>
                   ) : (
                     <span className="w-7 shrink-0 text-right text-[9.5px] font-semibold tabular-nums text-muted-foreground">
-                      {Math.round(job.progress)}%
+                      {fmtProgressPct(job.progress)}%
                     </span>
                   )}
                 </div>

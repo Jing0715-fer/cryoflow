@@ -31,7 +31,7 @@
  *     The reading informs the decision; the verb acts on it.
  */
 
-import type { Delta } from "@/lib/paired-compare";
+import { fmtDelta, type Delta } from "@/lib/paired-compare";
 
 /** "Round 25" → "Round 025" — RELION's zero-padded iteration dialect
  *  (the same pad the class rows use; three digits fit RELION's own
@@ -76,7 +76,12 @@ export interface MovingCensusOpts {
  *  Null on an empty electorate (the trust line hides, it never
  *  hand-waves). Direction is irrelevant to convergence: |Δ| is the
  *  motion, and the biggest mover speaks with its sign so the reading
- *  says WHO moved and WHERE they went. */
+ *  says WHO moved and WHERE they went — the sign is the FAMILY's
+ *  (t945): fmtDelta's U+2212 minus, the same law the mover lists and
+ *  the median chip speak. One face, one minus convention: the census
+ *  used to hand the negative to toFixed's ASCII hyphen while the mover
+ *  list beside it spoke "−" — two minus signs in one dialog, two
+ *  glyphs for one truth. */
 export function movingCensus(
   deltas: Delta[],
   opts: MovingCensusOpts,
@@ -97,7 +102,7 @@ export function movingCensus(
   )[0];
   const biggestNote =
     movers.length > 0 && biggest
-      ? ` (biggest: ${biggest.name}, ${biggest.delta > 0 ? "+" : ""}${biggest.delta.toFixed(1)} pp)`
+      ? ` (biggest: ${biggest.name}, ${fmtDelta(biggest.delta, 1)} pp)`
       : "";
   return (
     `Convergence census: ${movers.length} of ${n} classes moved more than ` +

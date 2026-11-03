@@ -23,13 +23,11 @@ import { closeSync, openSync, readFileSync, readSync, statSync } from "fs";
 import path from "path";
 import { getRun } from "@/lib/relion/engine";
 import {
-  classify,
-  friendlyLabel,
+  joinRemotePage,
   KIND_ORDER,
   naturalCompare,
   walkWorkdir,
   type OutputFile,
-  type OutputKind,
 } from "@/lib/relion/outputs-list";
 import { readRemoteManifest, describeListingNote } from "@/lib/remote/remote-files";
 import { parseRunWarnings, summarizeOutputs, type OutputSummary } from "@/lib/relion/output-summary";
@@ -107,6 +105,12 @@ export interface JobOutputsOk {
   /** undefined → the key vanishes from the JSON, exactly as the route
    *  always sent it (no truncation = no note). */
   note: string | undefined;
+  /** t956 — the deep band's door: when the remote join's 300-card page
+   *  ended on a truncated ledger, this speaks the NEXT page's offset
+   *  (the UI's "show 300 more" affordance fetches ?remoteOffset=N).
+   *  undefined → the ledger is spent (or there is no remote world) —
+   *  the key vanishes, exactly like the note's own law. */
+  remoteNextOffset?: number;
 }
 
 export interface JobOutputsEmpty {
@@ -125,12 +129,23 @@ export type JobOutputsResult = JobOutputsOk | JobOutputsEmpty;
 /**
  * One job's on-disk products, assembled EXACTLY as the outputs route has
  * since t330/t289/t464/t501 — the walk, the remote-manifest join (ledger
- * sizes, no SSH, capped at 300 additions), the kind-order re-sort, the
- * per-type key numbers over the JOINED list, the run.out warnings, and
- * the listing note that carries every truncation flag. Never throws —
- * a hostile directory answers an empty, honestly-noted listing.
+ * sizes, no SSH, capped at 300 additions — and PAGEABLE since t956), the
+ * kind-order re-sort, the per-type key numbers over the JOINED list, the
+ * run.out warnings, and the listing note that carries every truncation
+ * flag. Never throws — a hostile directory answers an empty, honestly-
+ * noted listing.
+ *
+ * t956 — `opts.remoteOffset` (default 0 = the standing face, byte-
+ * compatible with every existing caller) skips that many remote-only
+ * ledger entries before the page; the response's `remoteNextOffset`
+ * speaks the next page's door. The t944 deep-band law's affordance:
+ * the 300-card budget spends itself door→spine→front first, and the
+ * deep band is now one honest page away instead of unreachable.
  */
-export function computeJobOutputs(job: { id: string; type: string; status: string }): JobOutputsResult {
+export function computeJobOutputs(
+  job: { id: string; type: string; status: string },
+  opts?: { remoteOffset?: number }
+): JobOutputsResult {
   const run = getRun(job.id);
   const engine: "relion" = "relion";
 
@@ -180,6 +195,7 @@ export function computeJobOutputs(job: { id: string; type: string; status: strin
   // the file is fetched; the card speaks size + label + kind, honestly.
   let remoteTruncated = false;
   let ledgerTruncated = false;
+  let remoteNextOffset: number | undefined;
   if (run.remote) {
     const manifest = readRemoteManifest(workdir);
     if (manifest) {
@@ -187,28 +203,21 @@ export function computeJobOutputs(job: { id: string; type: string; status: strin
       // it hit the cap, so the cluster holds files this listing has never
       // heard of (not even as "on cluster" cards). The note names it.
       ledgerTruncated = manifest.truncated === true;
-      const localSet = new Set(files.map((f) => f.path));
-      let remoteAdded = 0;
-      for (const entry of manifest.files) {
-        if (localSet.has(entry.path)) continue;
-        if (remoteAdded >= 300) {
-          remoteTruncated = true;
-          break;
-        }
-        const name = path.posix.basename(entry.path);
-        files.push({
-          path: entry.path,
-          name,
-          kind: classify(name),
-          size: entry.size,
-          label: friendlyLabel(name, entry.path),
-          remote: true,
-        });
-        remoteAdded += 1;
-      }
-      if (remoteAdded > 0) {
+      // t956 — the join is now PAGEABLE (the deep band's door): the page
+      // cap, the duplicate-never-spends law and the kind-order re-sort
+      // are the t289 join's own, extracted into joinRemotePage and pinned
+      // by the t956 unit; the push + re-sort stay at the assembly.
+      const { added, truncated: pageTruncated, nextOffset } = joinRemotePage(
+        files,
+        manifest,
+        opts?.remoteOffset ?? 0
+      );
+      if (added.length > 0) {
+        files.push(...added);
         files.sort((a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || naturalCompare(a.path, b.path));
       }
+      remoteTruncated = pageTruncated;
+      remoteNextOffset = nextOffset ?? undefined;
     }
   }
   // t330 — the per-type key numbers (particles above all: the user's
@@ -243,5 +252,6 @@ export function computeJobOutputs(job: { id: string; type: string; status: strin
       displayTruncated: remoteTruncated,
       count: files.length,
     }),
+    remoteNextOffset,
   };
 }

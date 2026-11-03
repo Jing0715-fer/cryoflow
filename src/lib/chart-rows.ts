@@ -29,6 +29,20 @@ import type { CsvRow } from "@/lib/chart-export";
  * same 1-decimal Å and 3-decimal µm by construction — a number that
  * appears on two faces must be ROUNDED in one place, or the faces will
  * drift apart one decimal at a time.
+ *
+ * t1155 census — the drift the header predicted, found and cured: the
+ * SAME quantities wore two grains across faces (the FSC 0.143 estimate
+ * said "3.2 Å" in the agent's summary and "3.24 Å" in the QC report's
+ * resolution lines; the class2d judge prompt and the class tool quoted
+ * the raw parseFloat float — "3.2145678 Å"; the resolution chart's
+ * annotations said 2 decimals while the chart's own y axis said 1).
+ * All of them died into these fathers the same day. Kept as DOCUMENTED
+ * boundaries: the report's DATA tables (the trajectory markdown, the
+ * per-shell FSC table) — data faces, not words; the engine's rebalance
+ * log (before→after deltas need the 2nd decimal — the engine's voice,
+ * its own honest note is the receipt); motion-compare's `digits: 2`
+ * schema (each lens declares its own grain); the editor's param
+ * vocabulary (workflow.ts's word cup).
  */
 export const fmtAngstrom = (v: number | null | undefined): string =>
   v == null || !Number.isFinite(v) ? "?" : `${Math.round(v * 10) / 10} Å`;
@@ -36,6 +50,52 @@ export const fmtAngstrom = (v: number | null | undefined): string =>
 /** defocus/astigmatism live in µm in the star grammar (compare-rows). */
 export const fmtMicron = (v: number | null | undefined): string =>
   v == null || !Number.isFinite(v) ? "?" : `${Math.round(v * 1000) / 1000} µm`;
+
+/**
+ * The B-factor word (Å², the sharpening fit's slope): the agent's
+ * Guinier line and the QC report's Guinier verdict spoke the SAME
+ * 1-decimal grain by two separate hands — agreeing by luck, the
+ * t1155 law says one birthplace. Same rounding rule as the Å father,
+ * its own unit and its own junk face.
+ */
+export const fmtBFactor = (v: number | null | undefined): string =>
+  v == null || !Number.isFinite(v) ? "?" : `${Math.round(v * 10) / 10} Å²`;
+
+/**
+ * t1156 — the PIXEL word's precision father (the sampling rate, Å per
+ * pixel/voxel — a different QUANTITY from the resolution Å above: this
+ * is the map's ruler, not its finest visible detail). The shape-hunt
+ * found the sampling rate wearing THREE precisions and NO father: the
+ * map cards rounded locally (toFixed(2)), the particle/gallery faces
+ * spoke the RAW STAR float unrounded (`1.23666667 Å/px` beside the
+ * report's `1.24 Å / voxel` for the SAME map), and the postprocess
+ * verdict interpolated `undefined` outright when its angpix was null
+ * ("at undefined Å/px"). The ONE grain: 2 decimals — the editor's own
+ * input step (workflow.ts's `step: 0.01` on every pixelSize param) is
+ * the identity's native grain, and the map-card family already agreed
+ * with it by luck. Junk → "?" (the fathers' shared junk face; the
+ * verdict's "undefined" sentence dies here).
+ *
+ * The father returns the NUMBER WORD ONLY — no unit — because the
+ * pixel word's UNITS are a DOCUMENTED FAMILY, not drift: "Å/px" on the
+ * diagnostics and receipts (remote-run's t365 verification sentences,
+ * the particle browser, the import dialog), "Å / voxel" on the map
+ * cards (the voxel is the map-profile's own word for the same ruler —
+ * file-ledger speaks "128³ voxels"), "Å" on the editor's param cup and
+ * the engine's map-import log (RELION's own GUI/log convention, the
+ * t1155 word-cup boundary). Each face keeps its unit; the DIGITS now
+ * have one birthplace.
+ *
+ * Kept at 4 decimals by contract (the DIAGNOSTIC precision face, not
+ * drift): remote-run's t365 verification sentences (×6) and the
+ * engine's stacks-vote line — those sentences exist to let a human
+ * compare an MRC-header division (cella/nz → 1.236666…) against a
+ * STAR-declared 4-decimal value, and 2 decimals would erase exactly
+ * the digit the comparison is for. That boundary is drawn in
+ * remote-run.ts beside the sentences themselves.
+ */
+export const fmtPixel = (v: number | null | undefined): string =>
+  v == null || !Number.isFinite(v) ? "?" : `${Math.round(v * 100) / 100}`;
 
 /**
  * t493 — the reported number's passport, compressed in ONE place. The

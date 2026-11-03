@@ -1,0 +1,118 @@
+{
+  "task": "t884",
+  "window": "cron 2026-11-02 15:20:37 +08:00 (trace 1a07549302235a99-cron-agent-loop-202611021520)",
+  "purpose": "the A7 isolation — three arms (pure / chain / spy), three fresh worlds; the spy now carries stacks",
+  "verdict": "A7 WAS NONDETERMINISTIC — all arms land; the t883 red was a world-state race",
+  "arms": {
+    "arm1": {
+      "built": true,
+      "armed": true,
+      "fired": {
+        "armed": true,
+        "fired": true,
+        "instrument": "none"
+      },
+      "landedMs": 500,
+      "post": {
+        "dlgCount": 1,
+        "dlgHeads": [
+          "2D Classification (tutorial) — job inspector"
+        ],
+        "abOpen": false
+      }
+    },
+    "arm2": {
+      "built": true,
+      "armed": true,
+      "fired": {
+        "armed": true,
+        "fired": true,
+        "instrument": "chain",
+        "counters": "DIV{dialog-content} cap=1 bub=1 | BODY cap=1 bub=1 | HTML cap=1 bub=0 | TARGET cap=1 bub=1"
+      },
+      "landedMs": 1000,
+      "post": {
+        "dlgCount": 1,
+        "dlgHeads": [
+          "2D Classification (tutorial) — job inspector"
+        ],
+        "abOpen": false
+      }
+    },
+    "arm3": {
+      "built": true,
+      "armed": true,
+      "fired": {
+        "armed": true,
+        "fired": true,
+        "instrument": "spy",
+        "stops": [
+          {
+            "m": "stop",
+            "ph": 3,
+            "self": "BODY",
+            "key": "Escape",
+            "stack": "    at Event.stopPropagation (<anonymous>:1:640) <<     at SyntheticBaseEvent.stopPropagation (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2330:57) <<     at http://localhost:3000/_next/static/chunks/src_components_ui_f619a57d._.js:893:15 <<     at overrideProps.<computed> (http://localhost:3000/_next/static/chunks/node_modules_07a1a564._.js:1371:36) <<     at executeDispatch (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:10314:13) <<     at runWithFiberInDEV (http://localhost:3000/_next/s"
+          }
+        ]
+      },
+      "landedMs": 500,
+      "post": {
+        "dlgCount": 1,
+        "dlgHeads": [
+          "2D Classification (tutorial) — job inspector"
+        ],
+        "abOpen": false
+      }
+    }
+  },
+  "checks": [
+    {
+      "label": "B-1-pure the two-dialog world built",
+      "pass": true,
+      "detail": "1-pure: cards=15 dlgs=2"
+    },
+    {
+      "label": "B-1-pure the dismissal landed",
+      "pass": true,
+      "detail": "atMs=500 post={\"dlgCount\":1,\"abOpen\":false}"
+    },
+    {
+      "label": "B-2-chain the two-dialog world built",
+      "pass": true,
+      "detail": "2-chain: cards=15 dlgs=2"
+    },
+    {
+      "label": "B-2-chain the dismissal landed",
+      "pass": true,
+      "detail": "atMs=1000 post={\"dlgCount\":1,\"abOpen\":false}"
+    },
+    {
+      "label": "B-3-spy the two-dialog world built",
+      "pass": true,
+      "detail": "3-spy: cards=15 dlgs=2"
+    },
+    {
+      "label": "B-3-spy the dismissal landed",
+      "pass": true,
+      "detail": "atMs=500 post={\"dlgCount\":1,\"abOpen\":false}"
+    },
+    {
+      "label": "B-V the verdict synthesised",
+      "pass": true,
+      "detail": "A7 WAS NONDETERMINISTIC — all arms land; the t883 red was a world-state race"
+    },
+    {
+      "label": "B-S the spy's stack capture",
+      "pass": true,
+      "detail": "1 stops (stacks above)"
+    },
+    {
+      "label": "B-R the world restored",
+      "pass": true,
+      "detail": "dlgs=0"
+    }
+  ],
+  "pass": 9,
+  "fail": 0
+}

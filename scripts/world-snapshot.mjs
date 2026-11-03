@@ -1,0 +1,689 @@
+#!/usr/bin/env node
+/**
+ * world-snapshot.mjs — the world snapshot lane (t1160): the DB truth +
+ * the engine-state file, frozen into ONE tracked JSON, restorable in one
+ * command. The world died twice in one week (the t418 disaster's echo,
+ * then t1159's recycle that zeroed db/cryoflow.db and emptied the mock
+ * fs); each rebirth cost an afternoon of chain rounds and OOM rides.
+ * THIS script is that afternoon, written down:
+ *
+ *   export   dump the 9 Prisma models (FK-safe order, IDs preserved)
+ *            + data/engine-state.json into fixtures/world-snapshot.json
+ *            (tracked — the only world home the recycle cannot eat).
+ *   restore  wipe the target DB and rebuild it from the snapshot, in FK
+ *            order (jobs two-pass: linkedJobId is a self-FK). Writes the
+ *            engine-state file back. The FILE half of the world (the
+ *            workdirs under data/relion/) is NOT in the snapshot — a
+ *            restored job is DB-complete but file-hollow; the chain
+ *            (scripts/demo-chain-resurrect.mjs) re-runs what needs
+ *            files. Restore NEVER touches the live dev lane unless the
+ *            target URL says so — the URL is the jurisdiction.
+ *   selftest export live → restore into a TEMP sqlite → re-export →
+ *            deep-compare (data payloads byte-equal, meta ignored).
+ *   doctor   is the tracked snapshot still FRESH — does it still tell
+ *            the truth about the live world? READ-ONLY (no file
+ *            writes, no DB writes): the doctor names the drift before
+ *            a restore lies with it (t1161). Verdicts, loudest first:
+ *              LIED     meta.counts disagree with the snapshot's own
+ *                       data rows — a snapshot that lies about itself
+ *                       is worse than no snapshot.
+ *              EMPTY-LIVE the live lane holds ZERO readable jobs (zero
+ *                       rows, or NO tables at all — the 0-byte db lane,
+ *                       t1166) while the snapshot carries its spine —
+ *                       the recycle's signature; the snapshot is the
+ *                       cure (restore), exit 0.
+ *              MUTE-LIVE the live lane did not answer at all (locked,
+ *                       corrupt, or not a database) — the doctor is
+ *                       BLIND, not the world empty; a blind guard is a
+ *                       doorbell, exit 1, the why quoted.
+ *              DRIFTED  the live world has moved since the snapshot
+ *                       (count or job-ID differences, or rows updated
+ *                       after exportedAt) — a restore now would
+ *                       resurrect an OLD world; re-export first.
+ *              STALE    data faithful, but the snapshot rides an older
+ *                       commit (the docs/qa cars' usual footprint) —
+ *                       re-export when convenient.
+ *              FRESH    counts faithful, job IDs equal, engine-state
+ *                       aligned.
+ *            Exit codes: 0 EMPTY-LIVE/FRESH/STALE (restore may
+ *            proceed) · 1 LIED/MUTE-LIVE/DRIFTED (the drift or the
+ *            blindness is named, not guessed).
+ *   probe    the doctor's THIRD face (t1162): the CHEAP reading for the
+ *            family batch runner — count+head only, ONE live query
+ *            (job count + newest updatedAt, one aggregate; no nine-model
+ *            dump, no job-ID ledger). Machine face: ONE JSON line on
+ *            stdout, {verdict, red, ...} — the freshness verdict rides
+ *            the batch report the cron family already reads. Verdicts,
+ *            loudest first:
+ *              NO-SNAPSHOT  the snapshot file is gone or unparseable —
+ *                           the family is riding a world whose only
+ *                           tracked home vanished.
+ *              LIED         meta.counts.job disagrees with the
+ *                           snapshot's own job rows (the self-truth —
+ *                           the one tooth the probe keeps, free once
+ *                           the JSON is in hand).
+ *              EMPTY-LIVE   the live lane has ZERO jobs while the
+ *                           snapshot carries its spine — the recycle's
+ *                           signature, recovery step 3.5 is about to
+ *                           speak; NOT a disease (the snapshot is the
+ *                           cure here), exit 0. The no-tables lane
+ *                           (P2021, the 0-byte db) speaks this too,
+ *                           with a why (t1166).
+ *              MUTE-LIVE    the live lane did not answer at all (the
+ *                           db is locked, corrupt, or not a database)
+ *                           — the probe is BLIND, not the world empty;
+ *                           a blind guard is a doorbell, exit 1, the
+ *                           why quoted (t1166, the worded-absence law).
+ *              DRIFTED      the live job count moved off the snapshot's,
+ *                           or a live job was updated after exportedAt
+ *                           (+1s slack) — the world moved on without
+ *                           the snapshot.
+ *              STALE        counts faithful, the snapshot rides an
+ *                           older commit (the docs/qa cars' footprint).
+ *              FRESH        counts faithful, same head.
+ *            Exit codes: 0 EMPTY-LIVE/STALE/FRESH · 1 NO-SNAPSHOT/
+ *            LIED/MUTE-LIVE/DRIFTED (doctor-RED). A RED probe is a DOORBELL, not
+ *            a diagnosis — the full doctor holds the hearing.
+ *
+ * The URL: CRYOFLOW_DB_URL overrides; default is the dev lane
+ * (file:<repo>/db/cryoflow.db) — the t921 split-brain cure's own
+ * default, never the sandbox's template leak.
+ */
+import {
+  readFileSync,
+  writeFileSync,
+  existsSync,
+  mkdirSync,
+  rmSync,
+} from "node:fs";
+import { execSync } from "node:child_process";
+import { createRequire } from "node:module";
+import path from "node:path";
+
+const REPO = "/home/z/my-project";
+const require = createRequire(import.meta.url);
+const { PrismaClient } = require("@prisma/client");
+
+const DB_URL =
+  process.env.CRYOFLOW_DB_URL || `file:${REPO}/db/cryoflow.db`;
+const DEFAULT_OUT = `${REPO}/fixtures/world-snapshot.json`;
+const ENGINE_STATE = `${REPO}/data/engine-state.json`;
+
+/** FK-safe order: parents before children; wipe walks it backwards. */
+const MODELS = [
+  "project",
+  "workspace",
+  "customTemplate",
+  "job",
+  "edge",
+  "overlaySession",
+  "bookmarkSession",
+  "presetShelf",
+  "worldLedger",
+];
+
+function openClient(url) {
+  return new PrismaClient({
+    datasources: { db: { url } },
+  });
+}
+
+/**
+ * The why of a silent lane (t1166): a mute says WHY, not a stack trace.
+ * Prisma wraps the useful words two layers deep (the invocation
+ * boilerplate owns line one; the connector's own words sit in
+ * `message: Some("…")`) — dig for the connector's words first, then the
+ * first informative line, then anything at all. Never an empty why.
+ */
+function whyOf(e) {
+  const raw = String((e && e.message) || e || "");
+  const inner = raw.match(/message: Some\("([^"]+)"\)/);
+  if (inner) return inner[1];
+  const line = raw
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(
+      (s) =>
+        s.length > 0 &&
+        !s.startsWith("Invalid `prisma") &&
+        !s.startsWith("Error occurred during query execution"),
+    )[0];
+  if (line) return line;
+  return raw.slice(0, 160) || "the lane raised an unnamed error";
+}
+
+async function dumpModels(prisma) {
+  const data = {};
+  for (const m of MODELS) {
+    const rows = await prisma[m].findMany();
+    rows.sort((a, b) => String(a.id).localeCompare(String(b.id)));
+    data[m] = rows;
+  }
+  return data;
+}
+
+async function wipeModels(prisma) {
+  for (const m of [...MODELS].reverse()) {
+    try {
+      await prisma[m].deleteMany();
+    } catch (e) {
+      if (e && e.code === "P2021") continue; // nothing to wipe — the bare lane IS this cure's patient (t1166)
+      throw e;
+    }
+  }
+}
+
+async function seedModels(prisma, data) {
+  for (const m of MODELS) {
+    const rows = data[m] || [];
+    // Job.linkedJobId is a self-FK: create detached, then wire the links.
+    if (m === "job") {
+      const detached = rows.map(({ linkedJobId, ...rest }) => rest);
+      if (detached.length)
+        await prisma.job.createMany({ data: detached });
+      const linked = rows.filter((r) => r.linkedJobId);
+      for (const r of linked) {
+        await prisma.job.update({
+          where: { id: r.id },
+          data: { linkedJobId: r.linkedJobId },
+        });
+      }
+      continue;
+    }
+    if (rows.length) await prisma[m].createMany({ data: rows });
+  }
+}
+
+async function cmdExport(outPath) {
+  const prisma = openClient(DB_URL);
+  try {
+    const data = await dumpModels(prisma);
+    const engineState = existsSync(ENGINE_STATE)
+      ? JSON.parse(readFileSync(ENGINE_STATE, "utf8"))
+      : null;
+    let head = "unknown";
+    try {
+      head = execSync("git rev-parse --short HEAD", { cwd: REPO })
+        .toString()
+        .trim();
+    } catch {}
+    const counts = Object.fromEntries(
+      MODELS.map((m) => [m, (data[m] || []).length]),
+    );
+    const snap = {
+      meta: {
+        exportedAt: new Date().toISOString(),
+        head,
+        db: DB_URL.replace(/file:.*\//, "file:…/"),
+        counts,
+        engineStateJobs: engineState ? Object.keys(engineState).length : 0,
+      },
+      data,
+      engineState,
+    };
+    mkdirSync(path.dirname(outPath), { recursive: true });
+    writeFileSync(outPath, JSON.stringify(snap, null, 1) + "\n");
+    console.log(
+      `world-snapshot: exported ${Object.values(counts).reduce((a, b) => a + b, 0)} rows (${Object.entries(counts).filter(([, v]) => v > 0).map(([k, v]) => `${k}:${v}`).join(" · ")}) engine-state:${counts.engineStateJobs || snap.meta.engineStateJobs} → ${outPath}`,
+    );
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+async function cmdRestore(snapPath) {
+  const snap = JSON.parse(readFileSync(snapPath, "utf8"));
+  if (!snap.data || !snap.meta) {
+    console.error("world-snapshot: not a snapshot file — no meta/data");
+    process.exit(1);
+  }
+  const prisma = openClient(DB_URL);
+  try {
+    await wipeModels(prisma);
+    await seedModels(prisma, snap.data);
+    if (snap.engineState) {
+      writeFileSync(ENGINE_STATE, JSON.stringify(snap.engineState, null, 2));
+    }
+    const counts = Object.fromEntries(
+      MODELS.map((m) => {
+        const rows = snap.data[m] || [];
+        return [m, rows.length];
+      }),
+    );
+    // t1163 — the file half's own hygiene: wipe+rebuild leaves SQLite
+    // pages behind (the freelist the deleteMany never returns), and the
+    // page-quantized db size is a PINNED face (the t1021 fuel family
+    // asserts it — 143360 held across the epochs). VACUUM compacts the
+    // rebuilt world back to its canonical shape, so a restored world is
+    // bit-for-bit the tracked world on BOTH faces: the rows (the t1160
+    // roundtrip law) and the bytes (the t1021 family's own law).
+    try {
+      await prisma.$executeRawUnsafe("VACUUM");
+    } catch {
+      /* a locked or exotic lane still keeps its rows — the size face
+         just says so on the next probe, honestly */
+    }
+    console.log(
+      `world-snapshot: restored ${Object.values(counts).reduce((a, b) => a + b, 0)} rows into ${DB_URL.replace(/file:.*\//, "file:…/")} — the file half rides the chain (scripts/demo-chain-resurrect.mjs)`,
+    );
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+/** Selftest: live export → temp restore → temp re-export → deep compare. */
+async function cmdSelftest() {
+  const live = openClient(DB_URL);
+  let liveData, engineState;
+  try {
+    liveData = await dumpModels(live);
+    engineState = existsSync(ENGINE_STATE)
+      ? JSON.parse(readFileSync(ENGINE_STATE, "utf8"))
+      : null;
+  } finally {
+    await live.$disconnect();
+  }
+  const total = MODELS.reduce((a, m) => a + (liveData[m] || []).length, 0);
+  let pass = 0;
+  const ok = (cond) => {
+    if (cond) pass += 1;
+    return cond;
+  };
+
+  // A — the live world exports FOR REAL: every model present, rows sane.
+  ok(MODELS.every((m) => Array.isArray(liveData[m])));
+  ok(total > 0);
+  ok(
+    (liveData.project || []).length >= 1 &&
+      (liveData.job || []).length >= 1,
+  );
+  // A2 — the engine-state's shape: every record speaks its job (null is
+  // an honest absence — a fresh world has no engine-state file).
+  ok(
+    engineState === null ||
+      Object.values(engineState).every(
+        (v) => v && typeof v === "object" && v.jobId,
+      ),
+  );
+  // A3 — the determinism law: a second dump of the same instant is
+  // byte-identical (the snapshot must diff clean across re-exports).
+  const live2 = openClient(DB_URL);
+  let liveData2;
+  try {
+    liveData2 = await dumpModels(live2);
+  } finally {
+    await live2.$disconnect();
+  }
+  ok(JSON.stringify(liveData2) === JSON.stringify(liveData));
+
+  // B — the temp restore roundtrip: byte-equal data, IDs preserved.
+  const tmpDb = `file:/tmp/world-snapshot-selftest-${Date.now()}.db`;
+  execSync(
+    `npx prisma db push --skip-generate --accept-data-loss`,
+    {
+      cwd: REPO,
+      env: { ...process.env, DATABASE_URL: tmpDb },
+      stdio: "ignore",
+    },
+  );
+  const tmp = openClient(tmpDb);
+  let tmpData;
+  try {
+    await seedModels(tmp, liveData);
+    tmpData = await dumpModels(tmp);
+  } finally {
+    await tmp.$disconnect();
+  }
+  ok(JSON.stringify(tmpData) === JSON.stringify(liveData));
+  const srcJobs = liveData.job || [];
+  const restoredLinked = srcJobs.filter((j) => j.linkedJobId).length;
+  ok(
+    restoredLinked === 0 ||
+      (tmpData.job || []).filter((j) => j.linkedJobId).length ===
+        restoredLinked,
+  );
+  rmSync(tmpDb.replace("file:", ""), { force: true });
+
+  console.log(`PASS ${pass}`);
+  console.log(
+    `world-snapshot selftest: ${pass}/7 pins — live ${total} rows, roundtrip ${restoredLinked ? `with ${restoredLinked} linked self-FK(s)` : "linkedJobId clean"}, temp DB deleted`,
+  );
+  process.exit(pass === 7 ? 0 : 1);
+}
+
+/**
+ * Doctor (t1161): the snapshot's second face — the freshness gate.
+ * A stale snapshot restored after a recycle would resurrect an OLD
+ * world and PRESENT it as the truth; the doctor names the drift before
+ * it lies. Four checks, loudest first: (1) the self-truth — meta.counts
+ * against the data rows it describes (the t1160 tooth); (2) the live
+ * truth — every model counted in the lane the URL names; (3) the
+ * freshness — any live job updated after exportedAt means the world
+ * moved on without the snapshot; (4) the job-ID ledger — BOTH loss
+ * directions named: live-only IDs a restore would not bring back,
+ * snapshot-only IDs it would resurrect from a dead world. READ-ONLY:
+ * the doctor writes nothing, deletes nothing, decides nothing — it
+ * speaks, and the operator (or reboot-recover's step 3.5) decides.
+ */
+async function cmdDoctor(snapPath) {
+  const snap = JSON.parse(readFileSync(snapPath, "utf8"));
+  if (!snap.data || !snap.meta) {
+    console.error("world-snapshot doctor: not a snapshot file — no meta/data");
+    process.exit(1);
+  }
+  const dataCounts = Object.fromEntries(
+    MODELS.map((m) => [m, (snap.data[m] || []).length]),
+  );
+  const engineKeys = snap.engineState
+    ? Object.keys(snap.engineState).length
+    : 0;
+
+  // 1. the self-truth: meta.counts must match the rows it describes.
+  const lied = MODELS.filter(
+    (m) => (snap.meta.counts?.[m] ?? -1) !== dataCounts[m],
+  );
+  const engineLie = (snap.meta.engineStateJobs ?? -1) !== engineKeys;
+
+  // 2-4. the live truth: count every model in the lane the URL names.
+  // The lane can be SILENT — the 0-byte db holds NO tables (P2021), or
+  // worse, is locked/corrupt and answers nothing (t1166): the doctor
+  // speaks the silence instead of crashing (a mute says why, a blind
+  // guard is a doorbell — never an unhandled stack trace).
+  const prisma = openClient(DB_URL);
+  let liveCounts, liveJobs, liveEngineKeys;
+  let liveMute = null;
+  try {
+    const live = await dumpModels(prisma);
+    liveCounts = Object.fromEntries(
+      MODELS.map((m) => [m, (live[m] || []).length]),
+    );
+    liveJobs = live.job || [];
+  } catch (e) {
+    // both mute kinds keep SAFE shapes: the moved/ledger computations
+    // below run before the mute speaks, so the silence reads as zero.
+    liveCounts = Object.fromEntries(MODELS.map((m) => [m, 0]));
+    liveJobs = [];
+    if (e && e.code === "P2021") {
+      // the 0-byte lane: zero readable rows, the recycle's sharpest
+      // signature — the snapshot is the cure, restore decides.
+      liveMute = {
+        kind: "EMPTY-LIVE",
+        why: "the live lane has no tables (the 0-byte db lane)",
+      };
+    } else {
+      liveMute = { kind: "MUTE-LIVE", why: whyOf(e) };
+    }
+  } finally {
+    await prisma.$disconnect();
+  }
+  liveEngineKeys = existsSync(ENGINE_STATE)
+    ? Object.keys(JSON.parse(readFileSync(ENGINE_STATE, "utf8"))).length
+    : 0;
+
+  // 3. the freshness: live rows updated after the snapshot = the world
+  //    moved on (1s slack — the dump and the timestamp share an instant).
+  const exportedAt = new Date(snap.meta.exportedAt).getTime();
+  const moved = liveJobs.filter(
+    (j) =>
+      j.updatedAt && new Date(j.updatedAt).getTime() > exportedAt + 1000,
+  );
+  // 4. the job-ID ledger — both loss directions, named.
+  const snapIds = new Set((snap.data.job || []).map((j) => j.id));
+  const liveIds = new Set(liveJobs.map((j) => j.id));
+  const liveOnly = [...liveIds].filter((id) => !snapIds.has(id));
+  const snapOnly = [...snapIds].filter((id) => !liveIds.has(id));
+  const countDrift = MODELS.filter((m) => liveCounts[m] !== dataCounts[m]);
+
+  let headNow = "unknown";
+  try {
+    headNow = execSync("git rev-parse --short HEAD", { cwd: REPO })
+      .toString()
+      .trim();
+  } catch {}
+
+  const rows = MODELS.filter((m) => dataCounts[m] > 0)
+    .map((m) => `${m}:${dataCounts[m]}`)
+    .join(" · ");
+
+  if (lied.length || engineLie) {
+    const bits = [
+      ...lied.map(
+        (m) =>
+          `meta says ${m}:${snap.meta.counts?.[m] ?? "∅"} but data carries ${dataCounts[m]}`,
+      ),
+      engineLie
+        ? `meta says engine-state:${snap.meta.engineStateJobs ?? "∅"} but carries ${engineKeys}`
+        : null,
+    ].filter(Boolean);
+    console.error(
+      `world-snapshot doctor: LIED — ${bits.join("; ")} — a snapshot that lies about itself is worse than no snapshot; re-export (node scripts/world-snapshot.mjs export)`,
+    );
+    process.exit(1);
+  }
+  if (liveMute && liveMute.kind === "MUTE-LIVE") {
+    console.error(
+      `world-snapshot doctor: MUTE-LIVE — ${liveMute.why} — the doctor is blind, not the world drifted; check the db lane the URL names`,
+    );
+    process.exit(1);
+  }
+  if (liveMute) {
+    // EMPTY-LIVE: zero readable jobs under a carrying snapshot — the
+    // recycle's signature; the snapshot is the cure, exit 0.
+    console.log(
+      `world-snapshot doctor: EMPTY-LIVE — ${liveMute.why} — the recycle's signature: the snapshot is the cure (node scripts/world-snapshot.mjs restore)`,
+    );
+    process.exit(0);
+  }
+  if (countDrift.length || liveOnly.length || snapOnly.length || moved.length) {
+    const bits = [
+      ...countDrift.map(
+        (m) => `${m}: live ${liveCounts[m]} vs snapshot ${dataCounts[m]}`,
+      ),
+      liveOnly.length
+        ? `restore would NOT bring back ${liveOnly.length} live-only job(s) (${liveOnly.slice(0, 3).join(", ")}${liveOnly.length > 3 ? "…" : ""})`
+        : null,
+      snapOnly.length
+        ? `restore would resurrect ${snapOnly.length} job(s) the live world no longer has (${snapOnly.slice(0, 3).join(", ")}${snapOnly.length > 3 ? "…" : ""})`
+        : null,
+      moved.length
+        ? `${moved.length} job(s) updated after the snapshot (${moved
+            .slice(0, 2)
+            .map(
+              (j) =>
+                `${j.id} @ ${new Date(j.updatedAt).toISOString().slice(0, 16)}Z`,
+            )
+            .join(", ")})`
+        : null,
+    ].filter(Boolean);
+    console.error(
+      `world-snapshot doctor: DRIFTED — ${bits.join("; ")} — a restore now would resurrect an OLD world; re-export first (node scripts/world-snapshot.mjs export)`,
+    );
+    process.exit(1);
+  }
+  const engineNote =
+    liveEngineKeys === engineKeys
+      ? `engine-state:${engineKeys}`
+      : `engine-state snapshot:${engineKeys} vs live:${liveEngineKeys}`;
+  if (snap.meta.head !== headNow) {
+    console.log(
+      `world-snapshot doctor: STALE — data faithful (${rows}, ${engineNote}) but the snapshot rides ${snap.meta.head} while the tree is at ${headNow} — re-export when convenient`,
+    );
+    process.exit(0);
+  }
+  console.log(
+    `world-snapshot doctor: FRESH — ${dataCounts.job}/${liveCounts.job} job IDs equal, counts faithful (${rows}), ${engineNote}, exported ${String(snap.meta.exportedAt).slice(0, 16)}Z`,
+  );
+  process.exit(0);
+}
+
+/**
+ * Probe (t1162): the doctor's third face — the CHEAP reading for the
+ * family batch runner (see the header). The self-truth is free (the
+ * JSON is already read); the live truth costs ONE aggregate. READ-ONLY
+ * like the doctor: the probe speaks, it never touches.
+ */
+async function cmdProbe(snapPath) {
+  const emit = (obj, code) => {
+    console.log(JSON.stringify(obj));
+    process.exit(code);
+  };
+  const gone = () =>
+    emit(
+      {
+        verdict: "NO-SNAPSHOT",
+        red: true,
+        snapshotJobs: null,
+        liveJobs: null,
+        snapshotHead: null,
+        treeHead: null,
+        exportedAt: null,
+        liveMaxUpdatedAt: null,
+        probedAt: new Date().toISOString(),
+      },
+      1,
+    );
+  if (!existsSync(snapPath)) gone();
+  let snap;
+  try {
+    snap = JSON.parse(readFileSync(snapPath, "utf8"));
+  } catch {
+    gone(); // an unparseable home is no home — same verdict, honestly
+  }
+  if (!snap.data || !snap.meta) gone();
+  const snapJobs = (snap.data.job || []).length;
+  const exportedAt = new Date(snap.meta.exportedAt).getTime();
+
+  // The self-truth, kept: the one tooth that is FREE once the JSON is
+  // in hand (the full doctor keeps all nine; the probe keeps job only).
+  const selfLie =
+    (snap.meta.counts?.job ?? -1) !== snapJobs ||
+    (snap.meta.engineStateJobs ?? -1) !==
+      (snap.engineState ? Object.keys(snap.engineState).length : 0);
+
+  // The live truth, ONE aggregate: count + newest updatedAt. The lane
+  // can be SILENT — the 0-byte db holds NO tables (P2021), or is locked
+  // /corrupt and answers nothing (t1166): the probe speaks the silence
+  // instead of crashing — the worded-absence law, extended to the lane.
+  const prisma = openClient(DB_URL);
+  let liveJobs = null;
+  let liveMax = null;
+  let liveMute = null;
+  try {
+    const agg = await prisma.job.aggregate({
+      _count: { _all: true },
+      _max: { updatedAt: true },
+    });
+    liveJobs = agg._count._all;
+    liveMax = agg._max.updatedAt;
+  } catch (e) {
+    if (e && e.code === "P2021") {
+      // the 0-byte lane: zero readable jobs, the recycle's signature —
+      // the snapshot is the cure; EMPTY-LIVE speaks it below, exit 0.
+      liveJobs = 0;
+      liveMax = null;
+      liveMute = {
+        kind: "EMPTY-LIVE",
+        why: "the live lane has no tables (the 0-byte db lane)",
+      };
+    } else {
+      // the lane did not answer at all — the probe is BLIND, not the
+      // world empty; a blind guard is a doorbell (MUTE-LIVE, exit 1).
+      liveMute = { kind: "MUTE-LIVE", why: whyOf(e) };
+    }
+  } finally {
+    await prisma.$disconnect();
+  }
+
+  let treeHead = null;
+  try {
+    treeHead = execSync("git rev-parse --short HEAD", { cwd: REPO })
+      .toString()
+      .trim();
+  } catch {}
+  const base = {
+    snapshotJobs: snapJobs,
+    liveJobs,
+    snapshotHead: snap.meta.head ?? null,
+    treeHead,
+    exportedAt: snap.meta.exportedAt ?? null,
+    liveMaxUpdatedAt: liveMax ? new Date(liveMax).toISOString() : null,
+    probedAt: new Date().toISOString(),
+    ...(liveMute ? { why: liveMute.why } : {}),
+  };
+
+  if (selfLie) {
+    emit({ verdict: "LIED", red: true, ...base }, 1);
+  }
+  if (liveMute && liveMute.kind === "MUTE-LIVE") {
+    // the probe is blind — the doorbell rings, the why rides the JSON.
+    emit({ verdict: "MUTE-LIVE", red: true, ...base }, 1);
+  }
+  if (liveJobs === 0 && snapJobs > 0) {
+    // The recycle's signature: the recovery's step 3.5 is about to
+    // rebuild from this very snapshot — the snapshot is the CURE here,
+    // not a disease. Exit 0.
+    emit({ verdict: "EMPTY-LIVE", red: false, ...base }, 0);
+  }
+  const moved =
+    liveMax && new Date(liveMax).getTime() > exportedAt + 1000;
+  if (liveJobs !== snapJobs || moved) {
+    emit({ verdict: "DRIFTED", red: true, ...base }, 1);
+  }
+  if (snap.meta.head !== treeHead) {
+    emit({ verdict: "STALE", red: false, ...base }, 0);
+  }
+  emit({ verdict: "FRESH", red: false, ...base }, 0);
+}
+
+/**
+ * Vacuum (t1164): the world's byte-half hygiene, a command of its own.
+ * ANY ride through the product doors (create, delete, the seeder, the
+ * smoke sentinel's take-home) leaves SQLite freelist pages the deletes
+ * never return — and the page-quantized db size is a PINNED face (the
+ * t1021 fuel family asserts 143360 across the epochs). t1163 taught
+ * restore to compact what it rebuilds; t1164 generalizes: every
+ * world-CHANGING rider compacts what IT moved — qa63's tail runs this
+ * as the byte-half of its no-trace contract, and a window that moved
+ * the world by hand runs it at close. Idempotent, cheap (a 143KB
+ * file), and honest about what it found.
+ */
+async function cmdVacuum() {
+  const before = (() => {
+    try {
+      return execSync(`stat -c %s "${DB_URL.replace("file:", "")}"`).toString().trim();
+    } catch {
+      return "?";
+    }
+  })();
+  const prisma = openClient(DB_URL);
+  try {
+    await prisma.$executeRawUnsafe("VACUUM");
+  } finally {
+    await prisma.$disconnect();
+  }
+  const after = (() => {
+    try {
+      return execSync(`stat -c %s "${DB_URL.replace("file:", "")}"`).toString().trim();
+    } catch {
+      return "?";
+    }
+  })();
+  console.log(
+    `world-snapshot: vacuum ${DB_URL.replace(/file:.*\//, "file:…/")} — ${before} → ${after} bytes${before === after ? " (already compact)" : " (the freelist returned)"}`,
+  );
+}
+
+const cmd = process.argv[2] || "export";
+const arg = process.argv[3];
+if (cmd === "export") await cmdExport(arg || DEFAULT_OUT);
+else if (cmd === "restore") await cmdRestore(arg || DEFAULT_OUT);
+else if (cmd === "selftest") await cmdSelftest();
+else if (cmd === "doctor") await cmdDoctor(arg || DEFAULT_OUT);
+else if (cmd === "probe") await cmdProbe(arg || DEFAULT_OUT);
+else if (cmd === "vacuum") await cmdVacuum();
+else {
+  console.error(
+    "usage: world-snapshot.mjs export|restore|selftest|doctor|probe|vacuum [path]",
+  );
+  process.exit(1);
+}

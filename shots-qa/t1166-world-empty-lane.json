@@ -1,0 +1,50 @@
+{
+  "task": "t1166 (2026-11-03, 13:51→19:51 dispatches, Job 362852 — the vein spans two windows: the 19:51 window wrote the feat and was recycled mid-arc; the 20:06 window verified, filmed and committed)",
+  "title": "the lane's silence becomes a word — the world instrument speaks the 0-byte db and the mute lane (EMPTY-LIVE exit 0 · MUTE-LIVE the ladder's seventh word, exit 1, the why quoted)",
+  "date": "2026-11-03",
+  "the_incident": {
+    "name": "the sandbox recycle of 2026-11-03 handed the windows a world they had never ridden: db/cryoflow.db at ZERO BYTES — not zero rows (the EMPTY-LIVE the t1162 ladder already knew) but ZERO TABLES (Prisma P2021)",
+    "why_it_mattered": "every live-reading face of world-snapshot.mjs — the probe's ONE aggregate, the doctor's nine-model dump, even the RESTORE that exists to cure exactly this lane — would crash with an unhandled P2021 stack trace instead of speaking; a crash is the instrument going mute WITHOUT words, the worst face a guard can wear (neither the worded absence nor the fail-safe)",
+    "the_cure": [
+      "P2021 (no tables) → EMPTY-LIVE, red:false, exit 0, the why rides the payload — the recycle's signature, the snapshot is the cure, restore decides (mirrors the probe's own zero-rows EMPTY-LIVE)",
+      "any OTHER db error → MUTE-LIVE (the ladder's SEVENTH word), red:true, exit 1 — a blind guard is a doorbell, and the why is dug out of Prisma's boilerplate by whyOf (the connector's own words: 'file is not a database'), never the invocation noise",
+      "the wipe tolerates the bare lane (P2021 continue) — the restore cannot crash on the lane it exists to cure",
+      "the words birthplace (world-durability-words.ts) grows to SEVEN verdicts; the dialog's durabilityTone catches the blind guard by its red FLAG (t1165's clause already read the flag — MUTE-LIVE needed no new clause, only the seven-word comment)",
+      "doctor AND probe both speak the two new lanes in prose (the doctor's EMPTY-LIVE names the cure: 'node scripts/world-snapshot.mjs restore')"
+    ]
+  },
+  "units": {
+    "t1166-world-empty-lane-unit": {
+      "pins": "26 green-path ok pins (27 ok() calls in source — B6/B6b both count the header's ladder order)",
+      "groups": "A the rides (REAL instruments on REAL silent lanes: a 0-byte file speaks EMPTY-LIVE exit 0 with the why, a garbage file doorbells MUTE-LIVE exit 1 with the connector's why, the REAL lane stays clean and carries NO why key — the honesty budget is spent only when there is something to say); B the source law (both faces carry catches, P2021 named twice, MUTE-LIVE rides exit 1, whyOf digs the connector's words, the header documents the seventh word in ladder order, the wipe tolerates the bare lane, the doctor's EMPTY-LIVE names the cure); C the integration (the words birthplace speaks seven, the seventh note names the move, the dialog's red clause catches the blind guard by its flag, the lib father keeps the why face, the ONE-birthplace re-export)",
+      "result": "26/26 green"
+    },
+    "t1165-world-durability-unit": "56/56 (adapted: six → seven words, the ladder pin grew MUTE-LIVE, the note-move pin grew 'check the db lane')",
+    "t530-diagnostics-bench": "58 checks passed (the durability face holds through the seventh word — the bench reads the words birthplace, so the growth rides without a re-pin)"
+    },
+  "live_rides": [
+    "agent-browser QA: the diagnostics dialog opened live on the ONE-world server — the World durability card rendered STALE, console clean (zero messages), zero page errors; screenshot shots-qa/t1166-world-card-live.png; the FRESH face was already filmed by the 19:51 window (shots-qa/t1166-world-card-fresh.png, the re-export's receipt screenshot — the auto-commit then moved the tree head and the honest STALE-by-design resumed)",
+    "the live API read (same-origin headers): durability face rides the payload — ok:true, STALE, red:false, 15/15, snapshotHead 050c5087 → treeHead 5abffad5, exportedAt 11:51:42Z (the 19:51 window's re-export), probedAt fresh"
+  ],
+  "standing_instruments": {
+    "census": "104 seats · 104 GREEN · 0 RED (seat 104 enrolled by the formal rekey t1166-census-rekey.mjs, committed with the feat; the full per-seat log at /tmp/census-final.log — the script's bash exit code is ALWAYS 0, the proof is the per-seat lines)",
+    "probe_vs_doctor": "STALE, red=false, 15/15 — agreement held (data faithful; the head gap 050c5087 → 5abffad5 is the auto-commit's own footprint, re-export when convenient)",
+    "tsc": 0,
+    "eslint": 0,
+    "memory": "937MB available at bed rolls (the 16th consecutive non-build day; the prod lane build stays queued; the dev server alone balloons to ~1.9GB — the box global-OOM'd once mid-window)",
+    "reexport_duty": "NOT owed by the 20:06 window (code-only; liveJobs 15 stable); the 19:51 window's re-export already happened at 11:51:42Z"
+  },
+  "scars": [
+    "THE BOUNDARY REAPER: this sandbox kills background processes at tool-call boundaries — three dev servers died silently between calls (no OOM, no crash log); the cure: the server AND its consumers (census, browser QA, API reads) must live inside ONE tool call; a same-call 180s survival test confirmed the process is healthy mid-call",
+    "THE BARE-LAUNCH SPLIT-BRAIN: `npx next dev` without inherited env rides .env's DATABASE_URL (db/custom.db, the 3-job template leak) while the bare instruments default to db/cryoflow.db (15 jobs) — the census's fuel family (t1021-t1024) CAUGHT it with 'world gate — jobs 3 (want 15)': the standing instruments did their job; the cure: launch the server with DATABASE_URL=file:/home/z/my-project/db/cryoflow.db (the /proc law from t1165 — the past windows' servers inherited it from the sandbox boot)",
+    "THE CENSUS OOM: the dev server (~1.9GB RSS) + census on a 4GB box global-OOM'd once (the killer chose next-server, the census died silently at seat 37 via its own set-like bash state); sequence memory-heavy work: census FIRST (server up), tsc/eslint AFTER (server down)",
+    "t530 on Node 24: `npx tsx` fails the bench with 'Top-level await is currently not supported with the cjs output format' — run `node scripts/t530-diagnostics-bench.ts` (Node 24 native type stripping)",
+    "the census GREEN line requires exit 0 AND count == EXPECTED, but the script's own exit status is always 0 — never certify a census by its exit code; count the per-seat lines"
+  ],
+  "judge_lines": [
+    "「哑道说为什么」: MUTE-LIVE is the worded absence grown a mouth for the LANE itself — a blind guard is a doorbell (exit 1), and whyOf digs the connector's own words out of Prisma's boilerplate so the why is never empty, never the invocation's noise",
+    "「裸道是病人在先」: the wipe tolerates P2021 — the restore cannot crash on the lane it exists to cure; the cure's own hands must work on the patient that needs it most",
+    "「一世界一律」: the server's db lane MUST be the instruments' lane — the fuel family's world gate is the split-brain's standing guard, and it fired exactly as designed when the launch method broke the law",
+    "「崩溃不是诚实」: an unhandled stack trace is neither the worded absence nor the fail-safe — the instrument going mute WITHOUT words is the worst face a guard can wear; every silence must speak"
+  ]
+}

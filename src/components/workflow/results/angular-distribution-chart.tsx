@@ -21,6 +21,7 @@ import { angDistRenderable, angDistRows, type AngDistResponse } from "@/lib/char
 import { ChartExportButtons } from "./chart-export-buttons";
 import { ChartErrorStrip } from "./chart-error-strip";
 import { ChartInterpretation } from "./interpretation-strip";
+import { formatCountFull } from "@/lib/result-counts"; // t1157 — the thousands word rides its ONE father (the locale pin lives in result-counts, the parser's own contract)
 
 const SIZE = 236;
 const CX = SIZE / 2;
@@ -131,7 +132,7 @@ export function AngularDistributionChart({
         ) : null}
         <Chip size="sm" tone="muted">
           <RadioTower aria-hidden="true" />
-          {total.toLocaleString()} particles · {iterLabel}
+          {formatCountFull(total)} particles · {iterLabel}
         </Chip>
         <ChartExportButtons
           name="Orientation distribution"
@@ -298,7 +299,7 @@ export function AngularDistributionChart({
                 <span key={`${b.rotBin}-${b.tiltBin}`}>
                   {i > 0 && <span className="opacity-50"> · </span>}
                   rot {b.rotBin} · tilt {b.tiltBin}
-                  <span className="opacity-70"> ×{b.count.toLocaleString()}</span>
+                  <span className="opacity-70"> ×{formatCountFull(b.count)}</span>
                 </span>
               ))}
             </ChartInterpretation>

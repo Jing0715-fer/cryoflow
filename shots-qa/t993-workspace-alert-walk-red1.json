@@ -1,0 +1,81 @@
+{
+  "walk": "t993-workspace-alert-walk",
+  "at": "2026-10-14T16:39:59.189Z",
+  "pass": 19,
+  "fail": 11,
+  "phaseTrace": [],
+  "results": [
+    {
+      "label": "the dialog closed and the minted row bloomed (the badge's own door on the new row)",
+      "cond": false,
+      "extra": "shut=undefined doors=undefined"
+    },
+    {
+      "label": "the tab's badge flipped to 2 (the rendered count follows the mint)",
+      "cond": false,
+      "extra": "badge=undefined"
+    },
+    {
+      "label": "the minted row's delete door is ENABLED (the non-default law; the title names the jobs-move)",
+      "cond": false,
+      "extra": "disabled=undefined title=\"\""
+    },
+    {
+      "label": "the delete door opened its alert",
+      "cond": false,
+      "extra": "NO-ELEMENT"
+    },
+    {
+      "label": "the alert stands on the alertdialog plane (the kit's dialog probes never see it — this walk probes its own role)",
+      "cond": false,
+      "extra": "title=\"undefined\""
+    },
+    {
+      "label": "THE A36 FACE SPEAKS (the Cancel enabled + its PLAIN rest name — nothing is being deleted)",
+      "cond": false,
+      "extra": "disabled=undefined label=\"undefined\""
+    },
+    {
+      "label": "the alert's description carries the jobs-move law (nothing is deleted)",
+      "cond": false,
+      "extra": ""
+    },
+    {
+      "label": "the Cancel honored (the alert shut, the workspace still there)",
+      "cond": false,
+      "extra": "NO-ELEMENT shut=false rows=0"
+    },
+    {
+      "label": "the delete door reopened its alert",
+      "cond": false,
+      "extra": "NO-ELEMENT"
+    },
+    {
+      "label": "the destructive confirm is up (Delete workspace)",
+      "cond": false,
+      "extra": ""
+    },
+    {
+      "label": "THE CONFIRM CLICK LANDED (the destructive action, for real)",
+      "cond": false,
+      "extra": "NO-ELEMENT"
+    }
+  ],
+  "instrument": "t993-workspace-alert-walk",
+  "born": "2026-10-15",
+  "contract": "the A36 face cashed in — the second workspace minted through the product's own create door, the alert's Cancel honored, the confirm arc restoring the world",
+  "legs": {
+    "asFoundOneWorkspace": true,
+    "restingDoorDisabled": true,
+    "mintClicked": true,
+    "badgeFlip": {
+      "before": "1",
+      "minted": null,
+      "after": "1"
+    },
+    "a36CancelFace": null,
+    "cancelHonored": true,
+    "confirmDeleted": true,
+    "worldRestored": true
+  }
+}

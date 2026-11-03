@@ -1,0 +1,30 @@
+{
+  "walk": "t1007-script-flip-walk",
+  "at": "2026-10-15T02:52:22.372Z",
+  "pass": 20,
+  "fail": 0,
+  "phaseTrace": [],
+  "results": [],
+  "legs": {
+    "paletteDoor": {
+      "chip": "clicked@1026,28",
+      "item": "Export pipeline as shell scriptdependenc"
+    },
+    "copiedPair": {
+      "atRest": "Copy script",
+      "flipWitnessed": true,
+      "reverted": "Copy script"
+    },
+    "siblingFaces": {
+      "download": {
+        "disabled": false,
+        "label": "Download .sh"
+      },
+      "relionWarning": true
+    }
+  },
+  "world": {
+    "before": "cmv8nhqxq0002sy89j4c0llxu:completed:Import Movies 1|cmv8nhqxs0004sy89u8j518d2:completed:Motion Correction 1|cmv8nhqxu0006sy89h0j3lsc6:completed:CTF Estimation 1|cmv8ogdr2000csy89uu7kgomt:completed:Auto-pick (tutorial)|cmv8ogdrg000esy89xjl65ds4:completed:Extract (tutorial)|cmv8ogdrt000gsy89s3sx6n0r:completed:2D Classification (tutorial)|cmv8ogdsf000isy89efijdruw:completed:Select 2D (tutorial)|cmv8ogdss000ksy89da5cs7gs:completed:Select (tutorial)|cmv8ogdtt000msy894hlcu1kk:completed:Initial Model (tutorial)|cmv8ogdu4000osy891dgvx5iy:completed:3D Classification (tutorial)|cmv8ogduf000qsy89hy4qjyia:completed:Symmetry Expansion (tutorial)|cmv8ogdur000ssy89dr1luh4j:completed:Rebalance (tutorial)|cmv8ogdv2000usy89pd12v096:completed:3D Refine (tutorial)|cmv8ogdvb000wsy89ovn1cqm7:completed:Mask Create (tutorial)|cmv8ogdvk000ysy8969rydbc5:completed:Post-process (tutorial)|cmv8td2e20001syivxkk6b3q5:failed:Failed Diagnosis Face (t970)|cmv8tdc8r0007syivown80yks:idle:Idle Shape Face (t987)|cmv8tdcfa0009syivbofi7cwd:idle:Continue Face (t988)|cmv8tdcmp000bsyiv2xswjxwf:idle:Rounds Face (t989)|cmv8tddul000dsyiv41pngsmq:failed:Custom Error Face (t995)|cmv8tsj2p0001syf96god3ti2:failed:Negative Diagnosis Face (t972)|cmv8tsjdk0003syf9jo2d2gyv:failed:Cancelled Diagnosis Face (t976)",
+    "after": "cmv8nhqxq0002sy89j4c0llxu:completed:Import Movies 1|cmv8nhqxs0004sy89u8j518d2:completed:Motion Correction 1|cmv8nhqxu0006sy89h0j3lsc6:completed:CTF Estimation 1|cmv8ogdr2000csy89uu7kgomt:completed:Auto-pick (tutorial)|cmv8ogdrg000esy89xjl65ds4:completed:Extract (tutorial)|cmv8ogdrt000gsy89s3sx6n0r:completed:2D Classification (tutorial)|cmv8ogdsf000isy89efijdruw:completed:Select 2D (tutorial)|cmv8ogdss000ksy89da5cs7gs:completed:Select (tutorial)|cmv8ogdtt000msy894hlcu1kk:completed:Initial Model (tutorial)|cmv8ogdu4000osy891dgvx5iy:completed:3D Classification (tutorial)|cmv8ogduf000qsy89hy4qjyia:completed:Symmetry Expansion (tutorial)|cmv8ogdur000ssy89dr1luh4j:completed:Rebalance (tutorial)|cmv8ogdv2000usy89pd12v096:completed:3D Refine (tutorial)|cmv8ogdvb000wsy89ovn1cqm7:completed:Mask Create (tutorial)|cmv8ogdvk000ysy8969rydbc5:completed:Post-process (tutorial)|cmv8td2e20001syivxkk6b3q5:failed:Failed Diagnosis Face (t970)|cmv8tdc8r0007syivown80yks:idle:Idle Shape Face (t987)|cmv8tdcfa0009syivbofi7cwd:idle:Continue Face (t988)|cmv8tdcmp000bsyiv2xswjxwf:idle:Rounds Face (t989)|cmv8tddul000dsyiv41pngsmq:failed:Custom Error Face (t995)|cmv8tsj2p0001syf96god3ti2:failed:Negative Diagnosis Face (t972)|cmv8tsjdk0003syf9jo2d2gyv:failed:Cancelled Diagnosis Face (t976)"
+  }
+}

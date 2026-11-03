@@ -1,14 +1,53 @@
 import { NextRequest, NextResponse } from "next/server";
-import { existsSync, readFileSync, readdirSync } from "fs";
+import { existsSync, readdirSync } from "fs";
 import path from "path";
 import { db } from "@/lib/db";
 import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
 import { isLocalRequest } from "@/lib/http-guard";
+import { cachedFileCompute } from "@/lib/relion/statcache";
+import { serverErrorReply } from "@/lib/server-error";
+import { readTextHead } from "@/lib/fs-text"; // t1168 — the head probe, not the whole file
+import {
+  decodeParticlesRows, // t1101 — the pure decode rides the ONE lib (and the ONE cache slot with its parse)
+  parseParticlesStarText,
+  relativizePath, // the absent-stack fallback keeps its historic bytes (the RAW form's relativize)
+  type DecodedParticleRow,
+} from "@/lib/particles-star";
+
+// t904 — the #8 audit's living remainder: the BFS N+1 the recital named
+// died batches ago (one edge query per depth level, one job query per
+// batch — the doctrine the picks route cites), but the SAME route carried
+// a real hot path: parseParticlesStar re-read + re-parsed the WHOLE
+// particles star on EVERY request — every page fetch of 48 rows paid a
+// full 13k-row parse — and the decode loop stat'ed the same stack path
+// once per ROW. The parse is pure text→shape (the statcache contract's
+// exact fit: it changes only when the star's (size, mtime) changes); the
+// decode is deliberately NOT cached across requests — its dependency
+// surface (existsSync on stack files, the upstream BFS, the DB) is the
+// mtime key's blind spot, so it stays per-request and only the storm
+// collapses (a per-request memo keyed by stack path). The asymmetry is
+// the policy, not an oversight.
+//
+// t1101 — the deep band's split: the decode loop is TWO halves. The
+// per-row half (image-name forms, mic relativization, coordinates/fom/
+// res) is as pure as the parse it fed from — a function of (text,
+// workdir) alone — and now rides the SAME cache slot (the cached fn
+// returns { optics, decoded }); the stack-OWNERSHIP half (existsSync per
+// distinct stack, the upstream BFS, the DB) keeps the t904 policy line:
+// per-request, memoized by distinct stack path. One namespace id, one
+// invalidation key, the per-row storm joins the parse in the cache.
 
 export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ id: string }> };
+
+/** the route's own row: the lib's pure decode + the ownership pass's
+ * two fields (the historic Decoded shape, byte-for-byte) */
+type OwnedParticleRow = DecodedParticleRow & {
+  ownerJobId: string;
+  stackRel: string;
+};
 
 export interface ParticleRow {
   /** 0-based slice index inside the .mrcs stack (feeds outputs/file PNG) */
@@ -74,12 +113,13 @@ function findParticlesStar(workdir: string): string | null {
     for (const f of readdirSync(workdir)) {
       if (!f.endsWith(".star")) continue;
       const p = path.join(workdir, f);
-      try {
-        const head = readFileSync(p, "utf8").slice(0, 4000);
-        if (head.includes("_rlnImageName")) return p;
-      } catch {
-        /* unreadable — skip */
-      }
+      // t1168 — the HEAD, not the file: the old probe read the WHOLE star
+      // (a real Extract's particles.star is gigabytes) and sliced 4000
+      // characters off it — the intent was always a bounded head, and the
+      // well (lib/fs-text's readTextHead) now prices the intent, not the
+      // file. Unreadable → null text → next candidate, exactly as before.
+      const head = readTextHead(p, 4000);
+      if (head?.text.includes("_rlnImageName")) return p;
     }
   } catch {
     /* workdir unreadable */
@@ -88,128 +128,11 @@ function findParticlesStar(workdir: string): string | null {
 }
 
 /**
- * Block-aware parser: reads data_optics scalars + the data_particles loop
- * into flat row records. Reuses the label-column mapping approach used by
- * the CTF route (first row freezes the column order).
+ * Block-aware parser, the label freeze, the image-name forms, the
+ * relativize law and the pure per-row decode now live in the ONE lib
+ * (src/lib/particles-star.ts — t1101): the unit imports the same seats
+ * the route rides, and the decode shares the parse's cache slot.
  */
-interface StarRow {
-  cells: string[];
-  labels: Record<string, number>;
-}
-
-function parseParticlesStar(file: string): {
-  optics: ParticlesResponse["optics"];
-  rows: StarRow[];
-} {
-  const text = readFileSync(file, "utf8");
-  const lines = text.split(/\r?\n/);
-
-  const optics: ParticlesResponse["optics"] = {
-    pixelSize: null,
-    voltage: null,
-    cs: null,
-    q0: null,
-    boxSize: null,
-  };
-
-  // --- data_optics scalars (single-row loop) ---
-  let inOptics = false;
-  let opticsLabels: Record<string, number> | null = null;
-  let opticsDone = false;
-
-  // --- data_particles rows ---
-  const rows: StarRow[] = [];
-  let inParticles = false;
-  let labels: Record<string, number> | null = null;
-
-  for (const raw of lines) {
-    const t = raw.trim();
-    if (!t) continue;
-
-    if (t.startsWith("data_")) {
-      const block = t.slice(5).trim();
-      inOptics = block === "optics";
-      inParticles = block === "particles";
-      opticsLabels = null;
-      labels = null;
-      if (inParticles) opticsDone = true;
-      continue;
-    }
-    if (t.startsWith("#") || t === "loop_") continue;
-
-    if (inOptics && !opticsDone) {
-      if (t.startsWith("_")) {
-        opticsLabels ??= {};
-        const m = t.match(/^(\S+)\s+#(\d+)$/);
-        if (m) opticsLabels[m[1]] = Number(m[2]) - 1;
-      } else if (opticsLabels) {
-        const cells = t.split(/\s+/);
-        const num = (label: string) => {
-          const i = opticsLabels![label];
-          if (i == null || i >= cells.length) return null;
-          const v = parseFloat(cells[i]);
-          return Number.isFinite(v) ? v : null;
-        };
-        optics.pixelSize = num("_rlnImagePixelSize") ?? optics.pixelSize;
-        optics.voltage = num("_rlnVoltage") ?? optics.voltage;
-        optics.cs = num("_rlnSphericalAberration") ?? optics.cs;
-        optics.q0 = num("_rlnAmplitudeContrast") ?? optics.q0;
-        optics.boxSize = num("_rlnImageSize") ?? optics.boxSize;
-      }
-      continue;
-    }
-
-    if (inParticles) {
-      if (t.startsWith("_")) {
-        labels ??= {};
-        const m = t.match(/^(\S+)\s+#(\d+)$/);
-        if (m) labels[m[1]] = Number(m[2]) - 1;
-      } else if (labels) {
-        const cells = t.split(/\s+/);
-        if (cells.length >= Object.keys(labels).length) rows.push({ cells, labels });
-      }
-    }
-  }
-  return { optics, rows };
-}
-
-/**
- * decode an _rlnImageName cell → { stack, idx (1-based) }.
- * RELION 5 writes "00000007@/abs/path/stack.mrcs" (index first); some
- * tools write "stack.mrcs@00000007". Handle both.
- */
-function parseImageName(v: string): { stack: string; idx: number } | null {
-  const at = v.lastIndexOf("@");
-  if (at < 0) return null;
-  const head = v.slice(0, at).replace(/^\.?\//, "");
-  const tail = v.slice(at + 1);
-  // index-first form: head is digits, tail is the stack path
-  if (/^\d+$/.test(head) && tail.length > 0) {
-    const idx = parseInt(head, 10);
-    if (Number.isFinite(idx) && idx > 0) return { stack: tail, idx };
-  }
-  // path-first form: tail is digits
-  const idx = parseInt(tail, 10);
-  if (/^\d+$/.test(tail) && head.length > 0 && Number.isFinite(idx) && idx > 0) {
-    return { stack: head, idx };
-  }
-  return null;
-}
-
-/** absolutize-then-relativize: only paths inside workdir stay, others 404 later */
-function relativize(workdir: string, p: string): string {
-  const abs = path.isAbsolute(p) ? p : path.resolve(workdir, p.replace(/^\.?\//, ""));
-  if (abs === workdir) return ".";
-  if (abs.startsWith(workdir + path.sep)) return path.relative(workdir, abs);
-  // outside the workdir — keep as-is (the file route will reject it)
-  return p.replace(/^\.?\//, "");
-}
-
-const num = (c: string | undefined): number | null => {
-  if (c == null) return null;
-  const v = parseFloat(c);
-  return Number.isFinite(v) ? v : null;
-};
 
 /**
  * GET /api/jobs/[id]/particles — particle stack inventory for Extract /
@@ -248,24 +171,27 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "No particles STAR file in this job" }, { status: 400 });
     }
 
-    const { optics, rows } = parseParticlesStar(starPath);
-    if (rows.length === 0) {
+    const parsed = cachedFileCompute(starPath, "particles:star", (text) => {
+      // t1101 — the parse AND the pure decode share the ONE slot: both are
+      // functions of (text, workdir) alone; the ownership pass stays
+      // per-request below (the t904 policy line, unchanged)
+      const { optics, rows } = parseParticlesStarText(text);
+      return { optics, decoded: decodeParticlesRows(rows, workdir) };
+    });
+    if (!parsed) {
+      // findParticlesStar just verified existence — this door only opens if
+      // the file vanished between the listing and the read (honest 400)
+      return NextResponse.json({ error: "No particles STAR file in this job" }, { status: 400 });
+    }
+    const { optics, decoded } = parsed;
+    if (decoded.length === 0) {
       return NextResponse.json({ error: "No particle rows parsed" }, { status: 400 });
     }
 
     // ---- decode rows into typed records ------------------------------
-    interface Decoded {
-      mic: string;
-      name: string;
-      stackAbs: string;
-      stackRel: string;
-      ownerJobId: string;
-      idx1: number;
-      x: number;
-      y: number;
-      fom: number | null;
-      maxRes: number | null;
-    }
+    // t1101 — the per-row half moved to the lib (decodeParticlesRows, one
+    // cache slot with the parse); what remains here is the OWNERSHIP pass
+    // (the filesystem's half) and the assembly.
 
     // Stack ownership: Select (and friends) write star rows that point at
     // the UPSTREAM Extract job's stacks by absolute path. Resolve which
@@ -331,33 +257,39 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return { ownerJobId: id, stackRel: path.basename(stackAbs) };
     };
 
-    const decoded: Decoded[] = [];
-    for (const r of rows) {
-      const imgCell = r.cells[r.labels["_rlnImageName"]];
-      const parsed = imgCell ? parseImageName(imgCell) : null;
-      if (!parsed) continue;
-      const micCell = r.cells[r.labels["_rlnMicrographName"]] ?? "";
-      const mic = relativize(workdir, micCell);
-      const stackAbs = path.isAbsolute(parsed.stack)
-        ? parsed.stack
-        : path.resolve(workdir, parsed.stack.replace(/^\.?\//, ""));
-      const { ownerJobId, stackRel } = existsSync(stackAbs)
-        ? resolveOwner(stackAbs)
-        : { ownerJobId: id, stackRel: relativize(workdir, parsed.stack) };
-      decoded.push({
-        mic,
-        name: path.basename(mic),
-        stackAbs,
-        stackRel,
-        ownerJobId,
-        idx1: parsed.idx,
-        x: num(r.cells[r.labels["_rlnCoordinateX"]]) ?? 0,
-        y: num(r.cells[r.labels["_rlnCoordinateY"]]) ?? 0,
-        fom: num(r.cells[r.labels["_rlnCtfFigureOfMerit"]]),
-        maxRes: num(r.cells[r.labels["_rlnCtfMaxResolution"]]),
-      });
-    }
-    if (decoded.length === 0) {
+    // t904 — the stack facts memo: a star's rows repeat the same handful
+    // of stack paths (one per micrograph), but the old loop stat'ed the
+    // SAME file once per ROW — 13k particles = 13k stat syscalls per
+    // request, every page fetch included. One Map collapses the storm to
+    // #distinct stacks; the value null = the stack is absent. The memo is
+    // PER-REQUEST by design — FS state is the star mtime key's blind spot
+    // (an extract still writing stacks must not be frozen by a cache).
+    const stackFacts = new Map<
+      string,
+      { ownerJobId: string; stackRel: string } | null
+    >();
+    const factsFor = (stackAbs: string) => {
+      let f = stackFacts.get(stackAbs);
+      if (f === undefined) {
+        f = existsSync(stackAbs) ? resolveOwner(stackAbs) : null;
+        stackFacts.set(stackAbs, f);
+      }
+      return f;
+    };
+
+    // the ownership pass joins the pure decode to the route's answer:
+    // ONE existsSync per DISTINCT stack (the memo), never per row — and a
+    // NEW array (the statcache serves the decoded rows as a SHARED
+    // instance; the route never mutates it — the t904 docblock's own law)
+    const owned: OwnedParticleRow[] = decoded.map((d) => {
+      const { ownerJobId, stackRel } =
+        factsFor(d.stackAbs) ?? {
+          ownerJobId: id,
+          stackRel: relativizePath(workdir, d.stackRaw),
+        };
+      return { ...d, ownerJobId, stackRel };
+    });
+    if (owned.length === 0) {
       return NextResponse.json({ error: "No stack-backed particles found" }, { status: 400 });
     }
 
@@ -369,7 +301,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         string,
         ParticleGroup & { fomSum: number; fomN: number; resWorst: number | null }
       >();
-      for (const d of decoded) {
+      for (const d of owned) {
         let g = map.get(d.name);
         if (!g) {
           g = {
@@ -410,7 +342,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
       const body: ParticlesResponse = {
         jobId: id,
-        total: decoded.length,
+        total: owned.length,
         optics,
         groups,
       };
@@ -418,7 +350,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     // ---- paged mode: individual particles of one micrograph ----------
-    const subset = decoded.filter((d) => d.name === group);
+    const subset = owned.filter((d) => d.name === group);
     if (subset.length === 0) {
       return NextResponse.json({ error: "Unknown group" }, { status: 404 });
     }
@@ -447,7 +379,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
     };
     return NextResponse.json(body);
   } catch (error) {
-    console.error("GET /api/jobs/[id]/particles failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/jobs/[id]/particles", error);
   }
 }

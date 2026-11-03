@@ -234,7 +234,7 @@ export function MicrographQcBoard({
                 aria-pressed={metric === m}
                 onClick={() => setMetric(m)}
                 className={cn(
-                  "rounded border px-1.5 py-0.5 text-[10px] transition-colors",
+                  "rounded border px-1.5 py-0.5 text-[10px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                   metric === m
                     ? "border-running/40 bg-running/10 font-medium text-running-700 dark:text-running-300"
                     : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
@@ -252,7 +252,7 @@ export function MicrographQcBoard({
                   aria-pressed={metric === m}
                   onClick={() => setMetric(m)}
                   className={cn(
-                    "rounded border px-1.5 py-0.5 text-[10px] transition-colors",
+                    "rounded border px-1.5 py-0.5 text-[10px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                     metric === m
                       ? "border-running/40 bg-running/10 font-medium text-running-700 dark:text-running-300"
                       : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
@@ -268,7 +268,7 @@ export function MicrographQcBoard({
             onClick={() => setWorstFirst((v) => !v)}
             title={worstFirst ? "Sorted worst-first — click to sort by name" : "Sorted by name — click to sort worst-first"}
             className={cn(
-              "rounded border px-1.5 py-0.5 text-[10px] transition-colors",
+              "rounded border px-1.5 py-0.5 text-[10px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
               worstFirst
                 ? "border-running/40 bg-running/10 font-medium text-running-700 dark:text-running-300"
                 : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"

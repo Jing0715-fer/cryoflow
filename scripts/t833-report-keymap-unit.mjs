@@ -155,7 +155,7 @@ console.log("B — the census verdict");
   );
 
   const allKeymaps = hosts.map((p) => (src(p).match(/data-canvas-ui="[a-z-]*keymap"/g) ?? []).length).reduce((a, b) => a + b, 0);
-  ok(allKeymaps === 6, `B4 the family's seat count — ${allKeymaps} keymap rows tree-wide (results' five + the report's first outside seat)`);
+  ok(allKeymaps === 8, `B4 the family's seat count — ${allKeymaps} keymap rows tree-wide (t1137 amendment 6→8: the TWO newcomers are the Mol* chain's own rows — molstar-embed + map-ortho-panel, the t1127 door-mapping law's keyboard faces — joining results' five + the report's first outside seat)`);
 }
 
 console.log("C — regression guards");

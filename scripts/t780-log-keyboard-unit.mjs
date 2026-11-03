@@ -191,10 +191,10 @@ ok(/const \[noLog, setNoLog\] = React\.useState\(false\);/.test(insp),
   "D1 the noLog state word form untouched");
 ok(/const \[totalLines, setTotalLines\] = React\.useState\(0\);/.test(insp),
   "D1 the totalLines state word form untouched");
-ok(/const \[follow, setFollow\] = React\.useState\(true\);/.test(insp),
-  "D1 the follow state word form untouched");
-ok(/const \[wrap, setWrap\] = React\.useState\(false\);/.test(insp),
-  "D1 the wrap state word form untouched");
+ok(/const \[follow, setFollow\] = React\.useState\(readFollowPref\);/.test(insp),
+  "D1 the follow state rides the t1128 seed (the literal true became the PREF READER — the session position's third seat seeds the inspector's preferences across the watchdog's reload; t1137 re-key)");
+ok(/const \[wrap, setWrap\] = React\.useState\(readWrapPref\);/.test(insp),
+  "D1 the wrap state rides the t1128 seed (the literal false became the PREF READER — the same session-position law; t1137 re-key)");
 ok(/const \[query, setQuery\] = React\.useState\(""\);/.test(insp),
   "D1 the filter query state word form untouched");
 

@@ -34,6 +34,7 @@ import { TypeIcon } from "./icons";
 import { MolViewer, type MolViewerTarget } from "./results/mol-viewer";
 import { useAnchorParent } from "./results/anchor-parent";
 import { formatStat, mapSourceNote } from "./results/results-view";
+import { fmtPixel } from "@/lib/chart-rows"; // t1156 — the sampling digits ride the pixel father (the unit word stays "Å / voxel" — the voxel is the map card's own voice)
 
 /** Minimal slice of the outputs listing the card needs. */
 interface RefFile {
@@ -247,7 +248,7 @@ export function ReferenceMapCard({ job, refPath }: { job: JobDTO; refPath: strin
             data-testid="reference-provider-chip"
             onClick={() => useWorkflowStore.getState().inspect(provider.id)}
             title={`Open the provider job "${provider.name}"`}
-            className="flex min-w-0 items-center gap-1 rounded-full border border-teal-600/25 bg-teal-600/10 px-2 py-0.5 text-[10px] font-semibold text-teal-700 transition-colors hover:bg-teal-600/20 dark:text-teal-300"
+            className="flex min-w-0 items-center gap-1 rounded-full border border-teal-600/25 bg-teal-600/10 px-2 py-0.5 text-[10px] font-semibold text-teal-700 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:bg-teal-600/20 dark:text-teal-300"
           >
             <TypeIcon
               name={jobType(provider.type)?.icon ?? "Box"}
@@ -273,7 +274,7 @@ export function ReferenceMapCard({ job, refPath }: { job: JobDTO; refPath: strin
             </span>
             {map.pixel > 0 && (
               <span className="rounded-full border border-teal-600/25 bg-teal-600/10 px-2 py-0.5 text-[10px] font-semibold text-teal-700 dark:text-teal-300">
-                {map.pixel.toFixed(2)} Å / voxel
+                {fmtPixel(map.pixel)} Å / voxel
               </span>
             )}
             <span className="rounded-full border border-border bg-muted/60 px-2 py-0.5 text-[10px] text-muted-foreground">
@@ -315,7 +316,7 @@ export function ReferenceMapCard({ job, refPath }: { job: JobDTO; refPath: strin
                 onClick={() =>
                   setViewTarget({ job: provider!, path: resolved!.file.path, name: resolved!.file.name })
                 }
-                className="inline-flex h-7 items-center gap-1.5 rounded-md border border-teal-600/40 px-2.5 text-[11px] font-medium text-teal-700 transition-colors hover:bg-teal-600/10 hover:text-teal-800 dark:text-teal-300 dark:hover:text-teal-200"
+                className="inline-flex h-7 items-center gap-1.5 rounded-md border border-teal-600/40 px-2.5 text-[11px] font-medium text-teal-700 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:bg-teal-600/10 hover:text-teal-800 dark:text-teal-300 dark:hover:text-teal-200"
               >
                 <Box className="h-3.5 w-3.5" aria-hidden="true" />
                 View in 3D
@@ -332,7 +333,7 @@ export function ReferenceMapCard({ job, refPath }: { job: JobDTO; refPath: strin
                       box: cropBox,
                     })
                   }
-                  className="inline-flex h-7 items-center gap-1.5 rounded-md border border-violet-600/40 px-2.5 text-[11px] font-medium text-violet-700 transition-colors hover:bg-violet-600/10 hover:text-violet-800 dark:text-violet-300 dark:hover:text-violet-200"
+                  className="inline-flex h-7 items-center gap-1.5 rounded-md border border-violet-600/40 px-2.5 text-[11px] font-medium text-violet-700 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:bg-violet-600/10 hover:text-violet-800 dark:text-violet-300 dark:hover:text-violet-200"
                 >
                   <Crop className="h-3.5 w-3.5" aria-hidden="true" />
                   Show in parent

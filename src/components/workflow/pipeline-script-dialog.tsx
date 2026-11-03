@@ -140,7 +140,7 @@ export function PipelineScriptDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-3xl"
+        className="sm:max-w-3xl"
         onKeyDown={onEscapeClose(() => onOpenChange(false))}
         data-canvas-ui="pipeline-script-dialog"
       >
@@ -211,13 +211,14 @@ export function PipelineScriptDialog({
             ) : (
               <Copy className="size-3.5" aria-hidden="true" />
             )}
-            {copied ? "Copied" : "Copy script"}
+            <span aria-live="polite">{copied ? "Copied" : "Copy script"}</span>
           </Button>
           <Button
             size="sm"
             variant="outline"
             onClick={download}
             disabled={!data?.script}
+            aria-label={!data?.script ? "Download .sh (no script yet)" : "Download .sh"}
             data-canvas-ui="pipeline-script-download"
           >
             <Download className="size-3.5" aria-hidden="true" />

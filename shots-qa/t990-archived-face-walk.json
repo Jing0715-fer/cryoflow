@@ -1,0 +1,14 @@
+{
+  "walk": "t990-archived-face-walk",
+  "at": "2026-10-14T16:25:24.448Z",
+  "pass": 35,
+  "fail": 0,
+  "phaseTrace": [
+    "i0: {\"up\":true,\"head\":true,\"chip\":true,\"cluster\":true,\"explain\":true,\"chipCount\":true,\"it5\":{\"label\":\"Continue from iteration 5 of Rounds Face (t989): /projects/cry"
+  ],
+  "results": [],
+  "face": {
+    "name": "Rounds Face (t989)",
+    "jobId": "cmv86xfmq0001usha0t85mcfb"
+  }
+}

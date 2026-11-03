@@ -46,11 +46,30 @@
  *   W1  the seat parses live (the audit's A4d-2, live half)
  *   W2  the two-line structure live (line 2 aboard at 1024 via sm:block)
  *   W3  the derivation closes: |max(lines) − rect| ≤ 0.5
- *   W4  the pin: |round(derived) − 142| ≤ 0.5 (derived, not bare)
- *   W5  the winner is line 2 — the derivation names the 142's carrier
+ *   W4  the pin: |round(derived) − 133| ≤ 0.5 (derived, not bare)
+ *   W5  the winner is line 2 — the derivation names the 133's carrier
  *   W6  the two letter-spacing models agree (canvas set ≡ manual)
  *   W7  the fonts precondition (document.fonts loaded before the ride)
- *   W8  the labels' 120 witnessed by the same ruler (±0.5)
+ *   W8  the labels' 115 witnessed by the same ruler (±0.5)
+ *
+ * t901 PREMISE AUDIT — RE-PINNED FOR THE GEIST WORLD: the t895 font law
+ * (body font-sans; Geist loads AND is consumed) moved every text metric
+ * this ruler prices — the fallback's 142.47/120/90.3 became the Geist
+ * world's 133.21/114.82/86.97 (live-measured, two rides bit-identical).
+ * The old pins ride as PROVENANCE; the C6 num cross-check is re-scoped:
+ * Geist carries a REAL tabular-nums variant the canvas cannot set (no
+ * ctx tnum), so the num's own rect stays the honest ruler and the
+ * canvas/rect delta is bounded and NAMED, not pinned to 0.
+ *
+ * t912 SETTLE GATE — the fixed sleeps RETIRED (the t911 finding seated):
+ * the first two rides at the t911 key died 'wordmark div not found' —
+ * a freshly killed browser against a still-settling dev server raced
+ * the recompile, and `wait 500`/`wait 350` bought no honesty, just a
+ * fixed prayer. The t909 judge-line already owns the law: a click (or a
+ * measure) lands only when it sees. Both openings now POLL for the
+ * seat itself (the wordmark div; the 2xl chip) — bounded 20s, the
+ * presence arm rides as W7a/C1a, and a seat that never mounts fails
+ * LOUDLY instead of measuring a rumor.
  *
  * Section C (t838): the LENS CHIP's 90 — the text-constants family's
  * last seat, the audit's LAST pinned width. The chip (header.tsx, the
@@ -72,8 +91,9 @@
  *       arithmetic, computed-style witnessed)
  *   C3  the icon rides 14 (size-3.5)
  *   C4  the derivation closes: |chrome + icon + num + noted − rect| ≤ 0.5
- *   C5  the pin: |round(derived) − 90| ≤ 0.5 (count recorded)
- *   C6  the canvas cross-checks (num / noted vs their live rects, ±0.5)
+ *   C5  the pin: |round(derived) − 87| ≤ 0.5 (count recorded)
+ *   C6  the canvas cross-checks (noted ±0.5; the num bounded + NAMED —
+ *       the tnum variant is the DOM's alone, the t901 re-scope)
  */
 
 import { execSync } from "node:child_process";
@@ -129,11 +149,37 @@ const buildId = world.id;
 console.log(`t837 wordmark probe — world ${world.mode}:${buildId}, band 1024 (natural, no squeeze)\n`);
 
 /* viewport 1024: the audit's A4e-3 band — the wordmark sits at its
- * natural width here, the honest ruler for a natural-width constant */
+ * natural width here, the honest ruler for a natural-width constant.
+ * t901 premise audit — the t849 law BACK-PORTED: this probe predates the
+ * lesson and never opened its own page (in the battery it inherited the
+ * previous rider's document); standalone, the fresh browser has NO
+ * document and the seat walk dies ('wordmark div not found' —
+ * live-captured on this window's first ride). Open first, own the world. */
+ab("open http://localhost:3000/");
 ab("set viewport 1024 800");
-ab("wait 350");
+
+/* t912 settle gate: poll for the seat, never sleep a fixed prayer. A
+ * fresh browser against a still-settling server (recompile, cold fonts,
+ * hydration) needs PRESENCE, not milliseconds — the loop re-reads the
+ * DOM up to ~20s and treats an unopenable page-mouth as 'not yet'. */
+let seatSeen = false;
+for (let i = 0; i < 40 && !seatSeen; i++) {
+  try {
+    const gate = evalJson(
+      "JSON.stringify({ wm: !!document.querySelector('header div.min-w-0.leading-tight') })"
+    );
+    if (gate && gate.wm === true) seatSeen = true;
+  } catch {
+    /* the page's mouth is not open yet — keep polling */
+  }
+  if (!seatSeen) ab("wait 500");
+}
 
 /* ---------- W7 first: the fonts precondition ---------- */
+ok(
+  seatSeen,
+  "W7a the settle gate: the wordmark seat PRESENT before the ride (polled to presence, the t911 transient's fix — no fixed sleep)"
+);
 let fontStatus = "";
 for (let i = 0; i < 5; i++) {
   fontStatus = evalJson("document.fonts.status");
@@ -185,12 +231,12 @@ ok(
   `W3 the derivation closes: |max(lines) − rect| ≤ 0.5 — derived ${r.derived} vs rect ${r.rect}`
 );
 ok(
-  Math.abs(Math.round(r.derived) - 142) <= 0.5,
-  `W4 the pin stays, now DERIVED: round(${r.derived}) = ${Math.round(r.derived)} = the audit's wm 142`
+  Math.abs(Math.round(r.derived) - 133) <= 0.5,
+  `W4 the pin stays, now DERIVED (the t901 re-pin — the t895 font law's Geist metrics; the fallback's 142 rides as provenance): round(${r.derived}) = ${Math.round(r.derived)}`
 );
 ok(
   l2 && Math.max(l1.wSet, l2.wSet) === l2.wSet,
-  `W5 the winner is line 2 "${l2.text}" (11px/400) — it carries the 142; line 1 "${l1.text}" rides ${l1.wSet}`
+  `W5 the winner is line 2 "${l2.text}" (11px/400) — it carries the 133 (the fallback era's 142 rides as provenance); line 1 "${l1.text}" rides ${l1.wSet}`
 );
 const modelsAgree = r.lines.every((l) => Math.abs(l.wSet - l.wMan) <= 0.1);
 ok(
@@ -198,8 +244,8 @@ ok(
   `W6 the two letter-spacing models agree (canvas set ≡ manual, ±0.1) — lsOK ${r.lsOK}, line1 ${l1.wSet}/${l1.wMan}, line2 ${l2.wSet}/${l2.wMan}`
 );
 ok(
-  Math.abs(r.labelsSum - 120) <= 0.5,
-  `W8 the labels' 120 witnessed by the same ruler (±0.5) — sum ${r.labelsSum} (${r.labels.map((l) => `${l.text} ${l.w}`).join(" + ")})`
+  Math.abs(r.labelsSum - 115) <= 0.5,
+  `W8 the labels' 115 witnessed by the same ruler (±0.5; the t901 re-pin — the fallback's 120 rides as provenance) — sum ${r.labelsSum} (${r.labels.map((l) => `${l.text} ${l.w}`).join(" + ")})`
 );
 
 /* ---------- section C: the lens chip's 90 — the family's last seat ----------
@@ -208,7 +254,25 @@ ok(
  * is variant-dependent (tabular-nums) — its own live rect is the honest
  * ruler; the canvas advance rides as the recorded cross-check (C6). */
 ab("set viewport 1536 800");
-ab("wait 350");
+/* t912 settle gate, the chip's leg: `set viewport` RELOADS the page
+ * (the t910 law) — the chip is a fresh mount after the dance, so the
+ * same presence poll replaces `wait 350`. */
+let chipSeen = false;
+for (let i = 0; i < 40 && !chipSeen; i++) {
+  try {
+    const gate = evalJson(
+      "JSON.stringify({ chip: [...document.querySelectorAll('header button')].some((b) => (typeof b.className === 'string' ? b.className : b.getAttribute('class') || '').includes('2xl:flex')) })"
+    );
+    if (gate && gate.chip === true) chipSeen = true;
+  } catch {
+    /* the reload's mouth is not open yet — keep polling */
+  }
+  if (!chipSeen) ab("wait 500");
+}
+ok(
+  chipSeen,
+  "C1a the settle gate, chip leg: the 2xl chip PRESENT after the viewport dance (polled, the t910 reload law respected)"
+);
 const CHIP_MEASURE =
   "(() => { const cls = (c) => (typeof c.className === 'string' ? c.className : c.getAttribute('class') || ''); const chip = [...document.querySelectorAll('header button')].find((b) => cls(b).includes('2xl:flex')); if (!chip) return JSON.stringify({ error: 'chip not found' }); const r = chip.getBoundingClientRect(); const cs = getComputedStyle(chip); const kids = [...chip.children]; const icon = kids.find((c) => c.tagName === 'svg'); const numEl = kids.find((c) => /^[0-9]+$/.test((c.textContent || '').trim())); const notedEl = kids.find((c) => c.textContent === 'noted'); if (!icon || !numEl || !notedEl) return JSON.stringify({ error: 'chip kids incomplete' }); const ctx = document.createElement('canvas').getContext('2d'); const adv = (el) => { const s = getComputedStyle(el); ctx.font = s.fontStyle + ' ' + s.fontWeight + ' ' + s.fontSize + ' ' + s.fontFamily; return Math.round(ctx.measureText(el.textContent).width * 100) / 100; }; const numRect = Math.round(numEl.getBoundingClientRect().width * 100) / 100; const notedRect = Math.round(notedEl.getBoundingClientRect().width * 100) / 100; const chrome = parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderRightWidth) + parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + parseFloat(cs.gap) * (kids.length - 1); const derived = Math.round((chrome + icon.getBoundingClientRect().width + numRect + adv(notedEl)) * 100) / 100; return JSON.stringify({ rect: Math.round(r.width * 100) / 100, cls: cls(chip).slice(0, 140), visible: r.width > 0, bw: cs.borderLeftWidth, pl: cs.paddingLeft, gap: cs.gap, kidCount: kids.length, iconW: Math.round(icon.getBoundingClientRect().width * 100) / 100, count: numEl.textContent, numRect, numCanvas: adv(numEl), notedRect, notedCanvas: adv(notedEl), chrome: Math.round(chrome * 100) / 100, derived }); })()";
 
@@ -303,12 +367,13 @@ ok(
   `C4 the derivation closes: |${c.derived} − ${c.rect}| ≤ 0.5 (chrome ${c.chrome} + icon ${c.iconW} + count "${c.count}" ${c.numRect} + noted ${c.notedCanvas})`
 );
 ok(
-  Math.abs(Math.round(c.derived) - 90) <= 0.5,
-  `C5 the pin stays, now DERIVED: round(${c.derived}) = ${Math.round(c.derived)} = the audit's chip 90 (count ${c.count} recorded — a future count explains its own drift)`
+  Math.abs(Math.round(c.derived) - 87) <= 0.5,
+  `C5 the pin stays, now DERIVED (the t901 re-pin — the fallback's 90 rides as provenance): round(${c.derived}) = ${Math.round(c.derived)} (count ${c.count} recorded — a future count explains its own drift)`
 );
 ok(
-  Math.abs(c.numCanvas - c.numRect) <= 0.5 && Math.abs(c.notedCanvas - c.notedRect) <= 0.5,
-  `C6 the canvas cross-checks: num ${c.numCanvas} vs rect ${c.numRect}, noted ${c.notedCanvas} vs rect ${c.notedRect} (tabular-nums: the span's own rect is the honest ruler, canvas rides along)`
+  Math.abs(c.notedCanvas - c.notedRect) <= 0.5 &&
+    c.numRect > 0 && Math.abs(c.numCanvas - c.numRect) <= 2,
+  `C6 the canvas cross-checks, the t901 re-scope: noted ${c.notedCanvas} vs rect ${c.notedRect} (±0.5, plain text — the ruler agrees); the num ${c.numCanvas} vs rect ${c.numRect} bounded ≤ 2 and NAMED — Geist's tabular-nums is a REAL variant the canvas cannot set (no ctx tnum), so the span's own rect stays the num's honest ruler and the canvas rides as the recorded variant-witness (the old ±0.5 num pin was the fallback's truth: a font with no tnum variant could not disagree)`
 );
 
 /* ---------- restore the working band ---------- */

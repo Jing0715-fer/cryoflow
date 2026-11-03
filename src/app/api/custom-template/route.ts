@@ -7,8 +7,10 @@ import { persistPortEdge, portsValid } from "@/lib/edge-ports";
 import {
   MAX_TEMPLATE_PAYLOAD_BYTES,
   templateCycleError,
+  templateCountsOf,
   validateTemplatePayload,
 } from "@/lib/template-io";
+import { serverErrorReply } from "@/lib/server-error";
 import type {
   CustomTemplatePayload,
   CustomTemplateSummary,
@@ -169,28 +171,23 @@ export async function GET(request: NextRequest) {
       orderBy: [{ createdAt: "desc" }],
       select: { id: true, name: true, payload: true, createdAt: true },
     });
+    // t1150 — the counts ride the ONE father (templateCountsOf) — the
+    // agent's template-shelf presenter speaks the SAME arithmetic; two
+    // parsers of the same blob are how the shelf's numbers drift apart.
+    // The response shape is byte-equal to the pre-father face.
     const templates: CustomTemplateSummary[] = rows.map((r) => {
-      let jobCount = 0;
-      let edgeCount = 0;
-      try {
-        const parsed = JSON.parse(r.payload) as CustomTemplatePayload;
-        jobCount = Array.isArray(parsed.jobs) ? parsed.jobs.length : 0;
-        edgeCount = Array.isArray(parsed.edges) ? parsed.edges.length : 0;
-      } catch {
-        // corrupt row — keep it listed (deletable) but honest about counts
-      }
+      const counts = templateCountsOf(r.payload);
       return {
         id: r.id,
         name: r.name,
-        jobCount,
-        edgeCount,
+        jobCount: counts.jobCount,
+        edgeCount: counts.edgeCount,
         createdAt: r.createdAt.toISOString(),
       };
     });
     return NextResponse.json({ templates });
   } catch (error) {
-    console.error("GET /api/custom-template failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/custom-template", error);
   }
 }
 
@@ -244,8 +241,7 @@ export async function POST(request: NextRequest) {
     };
     return NextResponse.json({ template: summary }, { status: 201 });
   } catch (error) {
-    console.error("POST /api/custom-template failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("POST /api/custom-template", error);
   }
 }
 
@@ -302,8 +298,7 @@ export async function PATCH(request: NextRequest) {
     };
     return NextResponse.json({ template: summary });
   } catch (error) {
-    console.error("PATCH /api/custom-template failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("PATCH /api/custom-template", error);
   }
 }
 
@@ -481,8 +476,7 @@ export async function PUT(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error("PUT /api/custom-template failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("PUT /api/custom-template", error);
   }
 }
 
@@ -527,7 +521,6 @@ export async function DELETE(request: NextRequest) {
     await db.customTemplate.delete({ where: { id } });
     return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error("DELETE /api/custom-template failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("DELETE /api/custom-template", error);
   }
 }

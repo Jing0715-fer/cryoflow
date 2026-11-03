@@ -183,10 +183,10 @@ ok(!/onClick/.test(stripBlock), "B7 the strip owns no onClick");
 
 // C1 — every row family carries the promise (36 attr sites; label and
 // hint always paired)
-eq((cp.match(/data-preview-label=/g) || []).length, 36,
-  "C1 36 rows carry the label promise (pre-counted inventory)");
-eq((cp.match(/data-preview-hint=/g) || []).length, 36,
-  "C1 36 rows carry the hint promise (label and hint paired)");
+eq((cp.match(/data-preview-label=/g) || []).length, 37,
+  "C1 37 rows carry the label promise (t1137 amendment 36→37: the Pipeline pace row joined at t1009 with its own preview promise — growth amends the inventory, never skips it)");
+eq((cp.match(/data-preview-hint=/g) || []).length, 37,
+  "C1 37 rows carry the hint promise (label and hint paired — the pace row's hint rides the same promise-writer)");
 ok(!/data-preview-hint=\{/.test(cp) || (cp.match(/data-preview-hint=\{/g) || []).length >= 3,
   "C1 dynamic hints are expressions where the promise depends on state");
 

@@ -11,6 +11,7 @@ import { readMrcHeader } from "@/lib/mrc";
 import { isLocalRequest } from "@/lib/http-guard";
 import { remoteClusterSample, remotePreviewPng } from "@/lib/remote/preview";
 import type { ClusterSample } from "@/lib/remote/preview";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -367,7 +368,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
       micrographs,
     });
   } catch (error) {
-    console.error("GET /api/jobs/[id]/micrographs failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/jobs/[id]/micrographs", error);
   }
 }

@@ -50,6 +50,7 @@ import {
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { httpErrorFrom } from "@/lib/http-error";
 import { parseClassNotes } from "@/lib/class-notes";
 import { gridNeighbor, type GridDir, type GridEntry } from "@/lib/grid-nav"; // t778 — the roving geometry's one brain (the results grid already speaks it)
 import { pourKindsOf, PORT_COLORS } from "@/lib/workflow"; // t773 — the kind vocabulary's THIRTY-FIRST reader joins the class gallery's source line
@@ -61,10 +62,17 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { formatCountFull } from "@/lib/result-counts"; // t1157 — the thousands word rides its ONE father (the locale pin lives in result-counts, the parser's own contract)
 
 interface ClassOccupancy {
   cls: number;
   count: number;
+  /** The class's share of particles, 0–1. The screen word is integer-grain
+   *  (Math.round — compact chips); the agent tools' word is one-decimal
+   *  (toFixed(1) — the model's precision). Two grains of ONE claim, drawn
+   *  at their own births — t1154's census names this boundary so a future
+   *  hunter doesn't mistake the grain for drift (the duration map's
+   *  lesson: a dialect is another claim, not another error). */
   fraction: number;
 }
 
@@ -163,9 +171,14 @@ export function ClassGallery({
   // when several exist, then a running one (its settled rounds already
   // answer), then whatever is wired
   const upstream = useMemo(() => {
+    // t958 — the idiom Map: the per-edge `jobs.find` walked the whole jobs
+    // array per incoming edge (O(E×J) on every edges/jobs change); one Map
+    // build + O(1) lookups. Small N today, the canvas's own growth curve
+    // tomorrow — the same hygiene the particles route's BFS rides.
+    const byId = new Map(jobs.map((j) => [j.id, j]));
     const sources = edges
       .filter((e: EdgeDTO) => e.toJobId === job.id)
-      .map((e: EdgeDTO) => jobs.find((j) => j.id === e.fromJobId))
+      .map((e: EdgeDTO) => byId.get(e.fromJobId))
       .filter(
         (j): j is JobDTO =>
           j != null && (j.type === "class2d" || j.type === "select2d" || j.type === "class3d")
@@ -237,7 +250,7 @@ export function ClassGallery({
     (async () => {
       try {
         const res = await fetch(`/api/jobs/${upstream.id}/classes`, { cache: "no-store" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) throw await httpErrorFrom(res); // t959 — the door's own reason rides
         const body = (await res.json()) as ClassesResponse;
         if (!cancelled) {
           setData(body);
@@ -247,7 +260,7 @@ export function ClassGallery({
           setFallbackImgs(new Set());
         }
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "failed");
+        if (!cancelled) setError(err instanceof Error ? err.message : "the class gallery could not be loaded");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -807,7 +820,7 @@ export function ClassGallery({
             }
             title="AI 分析 — 视觉模型判 class，结合占比与分辨率推荐"
             data-canvas-ui="class-gallery-ai"
-            className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-700 transition-colors hover:bg-amber-500/25 dark:text-amber-300"
+            className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-700 transition-colors hover:bg-amber-500/25 dark:text-amber-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <Bot className="mr-1 inline size-2.5" aria-hidden="true" />
             AI 分析
@@ -818,6 +831,7 @@ export function ClassGallery({
             aria-pressed={isAuto}
             title={`Auto: keep classes with occupancy ≥ ${cutoff.toFixed(2)} × best class`}
             className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
               "rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors",
               isAuto
                 ? "bg-teal-600 text-white"
@@ -832,7 +846,7 @@ export function ClassGallery({
             onClick={() => onChange(classes.map((c) => c.cls).join(","))}
             aria-pressed={!isAuto && kept.size === classes.length}
             title="Keep every class"
-            className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground transition-colors hover:bg-teal-600/15 hover:text-teal-700 dark:hover:text-teal-300"
+            className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground transition-colors hover:bg-teal-600/15 hover:text-teal-700 dark:hover:text-teal-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             All
           </button>
@@ -840,7 +854,7 @@ export function ClassGallery({
             type="button"
             onClick={() => onChange("1")}
             title="Clear manual selection (keep only class 1 as a starting point)"
-            className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground transition-colors hover:bg-danger-500/15 hover:text-danger-600 dark:hover:text-danger-300"
+            className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground transition-colors hover:bg-danger-500/15 hover:text-danger-600 dark:hover:text-danger-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             None
           </button>
@@ -889,6 +903,7 @@ export function ClassGallery({
             data-canvas-ui={`sort-${m}`}
             title={m === "class" ? "RELION order — by class number" : "Biggest classes first — triage by occupancy"}
             className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
               "rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors",
               sortMode === m
                 ? "bg-zinc-700 text-white dark:bg-zinc-300 dark:text-zinc-900"
@@ -905,6 +920,7 @@ export function ClassGallery({
           data-canvas-ui="kept-only"
           title={keptOnly ? "Show every class again" : "Show only the kept classes — review your picks"}
           className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
             "ml-1 rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors",
             keptOnly
               ? "bg-teal-600 text-white"
@@ -927,6 +943,7 @@ export function ClassGallery({
                 : "Show only the annotated classes"
           }
           className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
             "rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40",
             notedOnly
               ? "bg-amber-500 text-white hover:bg-amber-500"
@@ -967,7 +984,7 @@ export function ClassGallery({
               setFallbackImgs(new Set());
               setDataNonce((n) => n + 1);
             }}
-            className="flex shrink-0 items-center gap-1 rounded-md border border-danger-500/40 px-2 py-1 text-[10px] font-medium text-danger-700 transition-colors hover:bg-danger-500/10 dark:text-danger-300"
+            className="flex shrink-0 items-center gap-1 rounded-md border border-danger-500/40 px-2 py-1 text-[10px] font-medium text-danger-700 transition-colors hover:bg-danger-500/10 dark:text-danger-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <RefreshCw className="size-3" aria-hidden="true" />
             Retry
@@ -1000,7 +1017,7 @@ export function ClassGallery({
               setFallbackImgs(new Set());
               setDataNonce((n) => n + 1);
             }}
-            className="flex shrink-0 items-center gap-1 rounded-md border border-amber-500/40 px-2 py-1 text-[10px] font-medium text-amber-800 transition-colors hover:bg-amber-500/10 dark:text-amber-300"
+            className="flex shrink-0 items-center gap-1 rounded-md border border-amber-500/40 px-2 py-1 text-[10px] font-medium text-amber-800 transition-colors hover:bg-amber-500/10 dark:text-amber-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <RefreshCw className="size-3" aria-hidden="true" />
             Retry
@@ -1046,7 +1063,7 @@ export function ClassGallery({
                 setKeptOnly(false);
                 setNotedOnly(false);
               }}
-              className="font-semibold text-teal-700 underline underline-offset-2 hover:text-teal-600 dark:text-teal-300"
+              className="font-semibold text-teal-700 underline underline-offset-2 hover:text-teal-600 dark:text-teal-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               reset the filters
             </button>
@@ -1125,7 +1142,7 @@ export function ClassGallery({
                 <div className="flex min-w-0 items-center justify-between gap-1 overflow-hidden whitespace-nowrap">
                   <span className="flex min-w-0 items-center gap-1 font-mono text-[10px] tabular-nums text-muted-foreground">
                     <Users className="size-2.5 shrink-0" aria-hidden="true" />
-                    <span className="truncate">{c.count.toLocaleString()}</span>
+                    <span className="truncate">{formatCountFull(c.count)}</span>
                   </span>
                   <span className="shrink-0 font-mono text-[10px] font-semibold tabular-nums">
                     {Math.round(c.fraction * 100)}%
@@ -1232,7 +1249,7 @@ export function ClassGallery({
           {isAuto ? `occupancy ≥ ${cutoff.toFixed(2)} × best` : `classes ${[...kept].sort((a, b) => a - b).join(", ") || "—"}`}
         </span>
         <span className="ml-auto rounded-md bg-teal-600/10 px-1.5 py-0.5 font-mono font-semibold tabular-nums text-teal-700 dark:text-teal-300">
-          {keptCount.toLocaleString()} / {total.toLocaleString()} particles
+          {formatCountFull(keptCount)} / {formatCountFull(total)} particles
           <span className="ml-1 font-normal opacity-70">
             ({total > 0 ? Math.round((100 * keptCount) / total) : 0}%)
           </span>
@@ -1247,7 +1264,7 @@ export function ClassGallery({
         }}
       >
         <DialogContent
-          className="max-w-2xl gap-0 overflow-hidden p-0"
+          className="sm:max-w-2xl gap-0 overflow-hidden p-0"
           onKeyDown={onLightboxKey}
           aria-describedby={undefined}
           onCloseAutoFocus={(e) => {
@@ -1413,7 +1430,7 @@ export function ClassGallery({
 
                 <span className="ml-auto flex items-center gap-1.5 font-mono text-xs tabular-nums text-muted-foreground">
                   <Users className="size-3" aria-hidden="true" />
-                  {zoomClass.count.toLocaleString()} particles
+                  {formatCountFull(zoomClass.count)} particles
                 </span>
 
                 <button

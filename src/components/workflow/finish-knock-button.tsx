@@ -147,6 +147,7 @@ export function KnockSettingsButton() {
         ) : (
           <DropdownMenuItem
             disabled={asking}
+            aria-busy={asking}
             onSelect={() => void enableNotifications()}
             title="Ask the browser for permission to show a desktop notification when a job finishes in a hidden tab."
           >

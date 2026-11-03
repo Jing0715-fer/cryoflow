@@ -8,6 +8,7 @@ import { jobType } from "@/lib/workflow";
 import { clearRunRecord, stopRun, isRunAlive } from "@/lib/relion/engine";
 import { removeFileEdgesTouching } from "@/lib/edge-ports";
 import { writeJobTombstone } from "@/lib/job-tombstone";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -213,8 +214,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         : await db.job.update({ where: { id }, data });
     return NextResponse.json({ job: toJobDTO(job) });
   } catch (error) {
-    console.error("PATCH /api/jobs/[id] failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("PATCH /api/jobs/[id]", error);
   }
 }
 
@@ -286,7 +286,6 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     }
     return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error("DELETE /api/jobs/[id] failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("DELETE /api/jobs/[id]", error);
   }
 }

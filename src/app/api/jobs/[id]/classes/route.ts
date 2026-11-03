@@ -10,6 +10,7 @@ import { isLocalRequest } from "@/lib/http-guard";
 import { remoteLiveIterations, remoteLiveIterationsFor, cachedStackState, lastStackFailure } from "@/lib/remote/iteration-live";
 import { derivedRemoteTargetForJob } from "@/lib/remote/derived-target";
 import { readRemoteManifest } from "@/lib/remote/remote-files";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -388,7 +389,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
       ...(renderError ? { renderError } : {}),
     });
   } catch (error) {
-    console.error("GET /api/jobs/[id]/classes failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/jobs/[id]/classes", error);
   }
 }

@@ -1,0 +1,566 @@
+{
+  "instrument": "scripts/t874-e2e-retirement-audit.mjs",
+  "date": "2026-10-11T13:19:58.922Z",
+  "build": null,
+  "question": "the e2e walk instruments of the pre-restore era pin world ids the snapshot restore annihilated — the fleet must not carry a dead fixture's shadow",
+  "answer": "17 of the 17 e2e walks shadowed (every pinned id gone from the live roster): t651-e2e.mjs, t652-e2e.mjs, t657-e2e.mjs, t658-e2e.mjs, t660-e2e.mjs, t661-e2e.mjs, t662-e2e.mjs, t664-e2e.mjs, t665-e2e.mjs, t668-saved-view-deeplink.mjs, t669-saved-view-notfound.mjs, t670-palette-delete.mjs, t671-third-mouth.mjs, t675-fourth-ear.mjs, t676-toast-eclipse.mjs, t679-third-exit.mjs, t680-judge-storm.mjs — each carries the t874 retirement guard and the guard FIRES (exit 3 = RETIRED, distinct from the exit-1 red, proven by execution in this audit); the census's other 22 cmuwipe-bearing files are recorded without guards (one-shot diag/probe/patch or measured-not-pinned readers — a literal in source is a shadow, not a dependency); the seeder qa-t635-demo-skeleton-seed.mjs is the fixture's parent, recorded for provenance, never retired",
+  "pins": [
+    {
+      "file": "diag-t668-consumer.mjs",
+      "ids": [
+        "cmuwipe635000refine3d"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "diag-t675-escape.mjs",
+      "ids": [
+        "cmuwipe635000refine3d"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "diag-t675-escape2.mjs",
+      "ids": [
+        "cmuwipe635000refine3d"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "diag-t675-escape3.mjs",
+      "ids": [
+        "cmuwipe635000refine3d"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "qa-t635-demo-skeleton-seed.mjs",
+      "ids": [
+        "cmuwipe6350000demoproject",
+        "cmuwipe63500import",
+        "cmuwipe6350motioncorr",
+        "cmuwipe635000ctffind",
+        "cmuwipe6350autopick",
+        "cmuwipe635000extract",
+        "cmuwipe635000class2d",
+        "cmuwipe63500select2d",
+        "cmuwipe6350000select",
+        "cmuwipe635000class3d",
+        "cmuwipe6350symexpand",
+        "cmuwipe63500rebalance",
+        "cmuwipe635000refine3d",
+        "cmuwipe6350postprocess"
+      ],
+      "seeder": true
+    },
+    {
+      "file": "qa-t664-warmup.mjs",
+      "ids": [
+        "cmuwipe635000refine3d"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "smoke-t675-overlay.mjs",
+      "ids": [
+        "cmuwipe635000refine3d"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "t636-lens-emph-probe.mjs",
+      "ids": [
+        "cmuwipe6350000demoproject"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "t639-ui-probe.mjs",
+      "ids": [
+        "cmuwipe6350000demoproject"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "t651-e2e.mjs",
+      "ids": [
+        "cmuwipe635000class2d"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "t652-e2e.mjs",
+      "ids": [
+        "cmuwipe635000class2d"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "t657-e2e.mjs",
+      "ids": [
+        "cmuwipe63500import"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "t658-e2e.mjs",
+      "ids": [
+        "cmuwipe63500import",
+        "cmuwipe6350motioncorr"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "t660-e2e.mjs",
+      "ids": [
+        "cmuwipe635000class2d",
+        "cmuwipe635000class3d"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "t661-e2e.mjs",
+      "ids": [
+        "cmuwipe635000refine3d"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "t662-e2e.mjs",
+      "ids": [
+        "cmuwipe635000refine3d"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "t664-e2e.mjs",
+      "ids": [
+        "cmuwipe635000refine3d",
+        "cmuwipe6350motioncorr"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "t665-e2e.mjs",
+      "ids": [
+        "cmuwipe635000class2d",
+        "cmuwipe6350motioncorr"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "t668-saved-view-deeplink.mjs",
+      "ids": [
+        "cmuwipe635000refine3d"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "t669-saved-view-notfound.mjs",
+      "ids": [
+        "cmuwipe635000refine3d"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "t670-palette-delete.mjs",
+      "ids": [
+        "cmuwipe635000refine3d"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "t671-third-mouth.mjs",
+      "ids": [
+        "cmuwipe635000refine3d"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "t675-fourth-ear.mjs",
+      "ids": [
+        "cmuwipe635000refine3d"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "t676-toast-eclipse.mjs",
+      "ids": [
+        "cmuwipe635000refine3d"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "t679-third-exit.mjs",
+      "ids": [
+        "cmuwipe635000refine3d"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "t680-judge-storm.mjs",
+      "ids": [
+        "cmuwipe635000class3d",
+        "cmuwipe635000class2d",
+        "cmuwipe6350000demoproject"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "t696-seed-gap-patch.mjs",
+      "ids": [
+        "cmuwipe6350000demoproject"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "t699-maskcreate-life-patch.mjs",
+      "ids": [
+        "cmuwipe6350000demoproject"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "t701-story-enrichment-patch.mjs",
+      "ids": [
+        "cmuwipe6350000demoproject"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "t702-defocus-verdict-patch.mjs",
+      "ids": [
+        "cmuwipe6350000demoproject"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "t705-fsc-forensics.mjs",
+      "ids": [
+        "cmuwipe635000refine3d"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "t774-canon-reset.mjs",
+      "ids": [
+        "cmuwipe6350000demoprojectws"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "t794-grow-temp-view.mjs",
+      "ids": [
+        "cmuwipe635000refine3d"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "t824-share-miss-link.mjs",
+      "ids": [
+        "cmuwipe635000refine3d",
+        "cmuwipe6350000demoproject"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "t826-bookmark-net-read.mjs",
+      "ids": [
+        "cmuwipe635000refine3d"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "t832-slack-audit-unit.mjs",
+      "ids": [
+        "cmuwipe"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "t874-e2e-retirement-audit.mjs",
+      "ids": [
+        "cmuwipe635000class2d",
+        "cmuwipe"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "t876-e2e-modernization-map.mjs",
+      "ids": [
+        "cmuwipe"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "t877-saved-views-family.mjs",
+      "ids": [
+        "cmuwipe635000refine3d",
+        "cmuwipe"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "t878-judge-worker-family.mjs",
+      "ids": [
+        "cmuwipe",
+        "cmuwipe635000class3d"
+      ],
+      "seeder": false
+    },
+    {
+      "file": "t880-rename-family.mjs",
+      "ids": [
+        "cmuwipe635000refine3d",
+        "cmuwipe"
+      ],
+      "seeder": false
+    }
+  ],
+  "verdicts": [
+    {
+      "file": "t651-e2e.mjs",
+      "pinnedIds": [
+        "cmuwipe635000class2d"
+      ],
+      "present": [],
+      "absent": [
+        "cmuwipe635000class2d"
+      ],
+      "verdict": "RETIRED-SHADOW (every pinned id gone)"
+    },
+    {
+      "file": "t652-e2e.mjs",
+      "pinnedIds": [
+        "cmuwipe635000class2d"
+      ],
+      "present": [],
+      "absent": [
+        "cmuwipe635000class2d"
+      ],
+      "verdict": "RETIRED-SHADOW (every pinned id gone)"
+    },
+    {
+      "file": "t657-e2e.mjs",
+      "pinnedIds": [
+        "cmuwipe63500import"
+      ],
+      "present": [],
+      "absent": [
+        "cmuwipe63500import"
+      ],
+      "verdict": "RETIRED-SHADOW (every pinned id gone)"
+    },
+    {
+      "file": "t658-e2e.mjs",
+      "pinnedIds": [
+        "cmuwipe63500import",
+        "cmuwipe6350motioncorr"
+      ],
+      "present": [],
+      "absent": [
+        "cmuwipe63500import",
+        "cmuwipe6350motioncorr"
+      ],
+      "verdict": "RETIRED-SHADOW (every pinned id gone)"
+    },
+    {
+      "file": "t660-e2e.mjs",
+      "pinnedIds": [
+        "cmuwipe635000class2d",
+        "cmuwipe635000class3d"
+      ],
+      "present": [],
+      "absent": [
+        "cmuwipe635000class2d",
+        "cmuwipe635000class3d"
+      ],
+      "verdict": "RETIRED-SHADOW (every pinned id gone)"
+    },
+    {
+      "file": "t661-e2e.mjs",
+      "pinnedIds": [
+        "cmuwipe635000refine3d"
+      ],
+      "present": [],
+      "absent": [
+        "cmuwipe635000refine3d"
+      ],
+      "verdict": "RETIRED-SHADOW (every pinned id gone)"
+    },
+    {
+      "file": "t662-e2e.mjs",
+      "pinnedIds": [
+        "cmuwipe635000refine3d"
+      ],
+      "present": [],
+      "absent": [
+        "cmuwipe635000refine3d"
+      ],
+      "verdict": "RETIRED-SHADOW (every pinned id gone)"
+    },
+    {
+      "file": "t664-e2e.mjs",
+      "pinnedIds": [
+        "cmuwipe635000refine3d",
+        "cmuwipe6350motioncorr"
+      ],
+      "present": [],
+      "absent": [
+        "cmuwipe635000refine3d",
+        "cmuwipe6350motioncorr"
+      ],
+      "verdict": "RETIRED-SHADOW (every pinned id gone)"
+    },
+    {
+      "file": "t665-e2e.mjs",
+      "pinnedIds": [
+        "cmuwipe635000class2d",
+        "cmuwipe6350motioncorr"
+      ],
+      "present": [],
+      "absent": [
+        "cmuwipe635000class2d",
+        "cmuwipe6350motioncorr"
+      ],
+      "verdict": "RETIRED-SHADOW (every pinned id gone)"
+    },
+    {
+      "file": "t668-saved-view-deeplink.mjs",
+      "pinnedIds": [
+        "cmuwipe635000refine3d"
+      ],
+      "present": [],
+      "absent": [
+        "cmuwipe635000refine3d"
+      ],
+      "verdict": "RETIRED-SHADOW (every pinned id gone)"
+    },
+    {
+      "file": "t669-saved-view-notfound.mjs",
+      "pinnedIds": [
+        "cmuwipe635000refine3d"
+      ],
+      "present": [],
+      "absent": [
+        "cmuwipe635000refine3d"
+      ],
+      "verdict": "RETIRED-SHADOW (every pinned id gone)"
+    },
+    {
+      "file": "t670-palette-delete.mjs",
+      "pinnedIds": [
+        "cmuwipe635000refine3d"
+      ],
+      "present": [],
+      "absent": [
+        "cmuwipe635000refine3d"
+      ],
+      "verdict": "RETIRED-SHADOW (every pinned id gone)"
+    },
+    {
+      "file": "t671-third-mouth.mjs",
+      "pinnedIds": [
+        "cmuwipe635000refine3d"
+      ],
+      "present": [],
+      "absent": [
+        "cmuwipe635000refine3d"
+      ],
+      "verdict": "RETIRED-SHADOW (every pinned id gone)"
+    },
+    {
+      "file": "t675-fourth-ear.mjs",
+      "pinnedIds": [
+        "cmuwipe635000refine3d"
+      ],
+      "present": [],
+      "absent": [
+        "cmuwipe635000refine3d"
+      ],
+      "verdict": "RETIRED-SHADOW (every pinned id gone)"
+    },
+    {
+      "file": "t676-toast-eclipse.mjs",
+      "pinnedIds": [
+        "cmuwipe635000refine3d"
+      ],
+      "present": [],
+      "absent": [
+        "cmuwipe635000refine3d"
+      ],
+      "verdict": "RETIRED-SHADOW (every pinned id gone)"
+    },
+    {
+      "file": "t679-third-exit.mjs",
+      "pinnedIds": [
+        "cmuwipe635000refine3d"
+      ],
+      "present": [],
+      "absent": [
+        "cmuwipe635000refine3d"
+      ],
+      "verdict": "RETIRED-SHADOW (every pinned id gone)"
+    },
+    {
+      "file": "t680-judge-storm.mjs",
+      "pinnedIds": [
+        "cmuwipe635000class3d",
+        "cmuwipe635000class2d",
+        "cmuwipe6350000demoproject"
+      ],
+      "present": [],
+      "absent": [
+        "cmuwipe635000class3d",
+        "cmuwipe635000class2d",
+        "cmuwipe6350000demoproject"
+      ],
+      "verdict": "RETIRED-SHADOW (every pinned id gone)"
+    }
+  ],
+  "guards": {
+    "t651-e2e.mjs": "FIRES (exit 3)",
+    "t652-e2e.mjs": "FIRES (exit 3)",
+    "t657-e2e.mjs": "FIRES (exit 3)",
+    "t658-e2e.mjs": "FIRES (exit 3)",
+    "t660-e2e.mjs": "FIRES (exit 3)",
+    "t661-e2e.mjs": "FIRES (exit 3)",
+    "t662-e2e.mjs": "FIRES (exit 3)",
+    "t664-e2e.mjs": "FIRES (exit 3)",
+    "t665-e2e.mjs": "FIRES (exit 3)",
+    "t668-saved-view-deeplink.mjs": "FIRES (exit 3)",
+    "t669-saved-view-notfound.mjs": "FIRES (exit 3)",
+    "t670-palette-delete.mjs": "FIRES (exit 3)",
+    "t671-third-mouth.mjs": "FIRES (exit 3)",
+    "t675-fourth-ear.mjs": "FIRES (exit 3)",
+    "t676-toast-eclipse.mjs": "FIRES (exit 3)",
+    "t679-third-exit.mjs": "FIRES (exit 3)",
+    "t680-judge-storm.mjs": "FIRES (exit 3)",
+    "diag-t668-consumer.mjs": "FIRES (exit 3)",
+    "diag-t675-escape.mjs": "FIRES (exit 3)",
+    "diag-t675-escape2.mjs": "FIRES (exit 3)",
+    "diag-t675-escape3.mjs": "FIRES (exit 3)",
+    "qa-t664-warmup.mjs": "FIRES (exit 3)",
+    "smoke-t675-overlay.mjs": "FIRES (exit 3)",
+    "t636-lens-emph-probe.mjs": "NO GUARD",
+    "t639-ui-probe.mjs": "FIRES (exit 3)",
+    "t696-seed-gap-patch.mjs": "NO GUARD",
+    "t699-maskcreate-life-patch.mjs": "NO GUARD",
+    "t701-story-enrichment-patch.mjs": "NO GUARD",
+    "t702-defocus-verdict-patch.mjs": "NO GUARD",
+    "t705-fsc-forensics.mjs": "NO GUARD",
+    "t774-canon-reset.mjs": "NO GUARD",
+    "t794-grow-temp-view.mjs": "FIRES (exit 3)",
+    "t824-share-miss-link.mjs": "NO GUARD",
+    "t826-bookmark-net-read.mjs": "NO GUARD",
+    "t832-slack-audit-unit.mjs": "NO GUARD",
+    "t876-e2e-modernization-map.mjs": "NO GUARD",
+    "t877-saved-views-family.mjs": "NO GUARD",
+    "t878-judge-worker-family.mjs": "NO GUARD",
+    "t880-rename-family.mjs": "NO GUARD"
+  },
+  "passed": 7,
+  "failed": 0,
+  "total": 7,
+  "verdict": "the retirement audit holds: 17 pre-restore e2e walks shadowed and their guards PROVEN (exit 3), the census partitioned honestly, the fleet carries no unmarked shadow"
+}

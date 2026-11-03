@@ -1,0 +1,30 @@
+{
+  "task": "t1170",
+  "title": "the whale strike — the boot warm-up never compiles the canvas page",
+  "at": "2026-11-03T15:58:00Z",
+  "window": "2026-11-03 cron Job 362852, trace …-cron-202611032321",
+  "the_incident": {
+    "what": "the 109-seat certification census (first ride of this window, on the committed t1169 tree) went 105 GREEN / 4 RED — all four REDs in the live-leg lane (t1022 fuel-face socket error, t1023+t1024 FATAL the-server-never-answered-200, t1164 takehome python leg URLError Connection refused)",
+    "root_cause": "dmesg: `Out of memory: Killed process 795 (next-server (v1) total-vm:66011320kB, anon-rss:3379696kB` — the kernel's GLOBAL OOM; the server log showed `[warmup] boot routes precompiled: … / 200` with `GET / 200 in 58s (compile: 58s)` — the app's own boot warmup (src/instrumentation.ts, t427) fetched \"/\" at every boot and the canvas page's dev compile is a ~3.4 GB RESIDENCY the launcher's 2048 MB heap cap cannot reach (the cap bounds the V8 heap; the whale's compiled graph stays resident outside it); the census's live-lane law (t927: the canvas page is NEVER compiled by the census) had ONE mouth — the census never requests the page — while the warmup compiled it anyway on every boot the census made",
+    "the_earlier_war_reframed": "t1169's cap ladder (896 → 1536 → 2048) was fighting THIS whale without naming it — the strikes attributed the OOM to API-route compiles and raised the cap until the whale's compile survived; its residency then sank the ride anyway"
+  },
+  "the_cure": "src/instrumentation.ts: the \"/\" warm is gone; the warmup rides the API lane only (jobs · log · projects · ai/settings · judge-worker); the canvas compiles when a real visitor opens it, once, on demand; the law now has TWO mouths (the census never requests the page, the boot never compiles it)",
+  "c_units": {
+    "seat_110": "scripts/t1170-warmup-api-lane-unit.mjs — 15/15 green (A1 no bare page warm · A2 the five API fetches intact · A3 the measured bill in the file · A4 the second mouth named · A5 the t637 edge law, comments stripped before the test · A6 the 180s compile budget · A7 the marks receipt · B1 the census's law text · B2 no bare-origin fetch in the six live seats · B3 every :3000 URL in the live seats is an /api path · B4 the launcher's cap · C1 the reaper's defensive mount · C2 the judge worker's mount · C3 the runtime gate + fire-and-forget · C4 the Origin door)",
+    "enrollment": "census seat 110 (lane 0, bare node), arrays 110/110/110, bash -n green, header names the seat"
+  },
+  "live_rides": {
+    "certification_census": "110/110 GREEN · 0 RED (one call, boot→live seats→kill→serverless crowd); dmesg gained NO new OOM line (the buffer's last kill is still the diagnosed 795; the one before it, 29336 at anon-rss 3375912kB, is the t1169 window's whale)",
+    "warmup_receipt_after_cure": "[warmup] boot routes precompiled: /api/jobs 200 · /log 200 · /api/projects 200 · /api/ai/settings 200 · /api/ai/judge-worker 200 — no \"/\" in the list",
+    "whale_on_demand": "a real browser visit compiles the canvas once on demand: `GET / 200 in 44s (compile: 43s, render: 984ms)` cold, `GET / 200 in 2.8s` warm; the canvas renders (banner, Dashboard/Workflow tabs, workspace/project comboboxes, RELION status, AI assistant, palette); screenshot shots-qa/t1170-whale-on-demand.png (1280×577, 7.8% ink)",
+    "chunk_verdict": "the ChunkLoadError seen in rides #1–#3 (Lazy session-report-dialog chunk) is the STALE-TAB ARTIFACT — the agent-browser daemon's long-lived tab held an old webpack runtime across server restarts; after console --clear + a fresh navigation the console is CLEAN (dev-noise lines only) and page errors are EMPTY; the old chunk name 404s in the current dev build as expected"
+  },
+  "checks": { "tsc": 0, "eslint": 0, "census": "110/110", "seat_110": "15/15" },
+  "judge_lines": [
+    "「一法两嘴」: a law with one mouth is a wish — the census's live-lane law said the whale never compiles while the app's own warmup compiled it at every boot; the cure gives the law its second mouth",
+    "「热身不能杀死服务器」: a warm-up that OOMs the box it warms is not a warm-up — the first-hit latency of a page nobody is visiting is not worth 3.4 GB of residency",
+    "「帽够不到的地方，帽不是墙」: the 2048 MB heap cap bounds the V8 heap, not the residency — the whale's compiled graph lives outside the bound, so the only cure that fits the box is not building the whale at boot",
+    "「旧标签的枪声不立案」: the ChunkLoadError was the stale tab's old runtime shooting across server restarts — a fresh console is the verdict, the accumulated buffer is not evidence"
+  ],
+  "platform_notes": "the boundary reaper took the between-calls server once (ride #1's ERR_CONNECTION_REFUSED) — the whole ride lives in ONE call (tool-results/ride-t1170.sh, the orchestrate-final.sh shape); agent-browser's navigation can time out inside a 40+s first compile — poll the snapshot instead of trusting the open"
+}

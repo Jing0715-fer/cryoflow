@@ -1,0 +1,57 @@
+[
+  {
+    "name": "W1 seed bath",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "W2 dress — bare canvas with cards",
+    "ok": true,
+    "detail": "{\"cards\":15,\"dlgs\":0}"
+  },
+  {
+    "name": "W3 card located",
+    "ok": true,
+    "detail": "t1153card"
+  },
+  {
+    "name": "W4 inspector open on the completed job",
+    "ok": true,
+    "detail": "{\"hasName\":true,\"open\":true,\"ran\":true}"
+  },
+  {
+    "name": "W4.5 dialog closed for the run window",
+    "ok": true,
+    "detail": "{\"dlgs\":0}"
+  },
+  {
+    "name": "W5 run POSTed",
+    "ok": true,
+    "detail": "{\"job\":{\"id\":\"cmvz6i90q000mn9swp9v75wa3\",\"projectId\":\"cmvz6i5gy0000n9sw58bnn7qq\",\"type\":\"initialmodel\",\"name\":\"Initial M"
+  },
+  {
+    "name": "W6 the staged bytes ride the run's data (every phase carries the face's input)",
+    "ok": true,
+    "detail": "phase=staging render is source-pinned (t1152 B14); the mock's staging window is sub-200 ms (pending → running between two polls) — timeline: [{\"key\":\"pending/staging\",\"staged\":7060,\"at\":\"0.00s\"}]"
+  },
+  {
+    "name": "W7 the father's KB word — 7060 B speaks 6.9 KB, never the dead '7 KB'",
+    "ok": true,
+    "detail": "6.9 KB"
+  },
+  {
+    "name": "W8 the terminal strip returns (API-completed first)",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "W9 the world restored + staged unchanged",
+    "ok": true,
+    "detail": "{\"total\":15,\"done\":15,\"staged\":7060}"
+  },
+  {
+    "name": "W10 footprint cleared",
+    "ok": true,
+    "detail": ""
+  }
+]

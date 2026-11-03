@@ -1,0 +1,528 @@
+{
+  "instrument": "scripts/t883-panel-band-probe.mjs",
+  "instrumentRevision": 2,
+  "world": {
+    "mode": "dev",
+    "id": "dev@12791bef8303"
+  },
+  "date": "2026-10-11T13:32:58.328Z",
+  "bands": [
+    375,
+    640,
+    768,
+    1024,
+    1280,
+    1536
+  ],
+  "identical": true,
+  "passA": {
+    "ws": {
+      "375": {
+        "hidden": true,
+        "disp": "none",
+        "innerW": 375
+      },
+      "640": {
+        "hidden": true,
+        "disp": "none",
+        "innerW": 640
+      },
+      "768": {
+        "hidden": true,
+        "disp": "none",
+        "innerW": 768
+      },
+      "1024": {
+        "hidden": false,
+        "comp": 288,
+        "panel": {
+          "x": 0,
+          "w": 287,
+          "padL": 0,
+          "padR": 0
+        },
+        "label": {
+          "x": 34,
+          "w": 99.3,
+          "h": 16
+        },
+        "newBtn": {
+          "x": 211,
+          "w": 64,
+          "h": 28
+        },
+        "desc": {
+          "h": 56.8
+        },
+        "card": {
+          "x": 12,
+          "w": 263,
+          "h": 74
+        },
+        "innerOv": false,
+        "innerW": 1024
+      },
+      "1280": {
+        "hidden": false,
+        "comp": 288,
+        "panel": {
+          "x": 0,
+          "w": 287,
+          "padL": 0,
+          "padR": 0
+        },
+        "label": {
+          "x": 34,
+          "w": 99.3,
+          "h": 16
+        },
+        "newBtn": {
+          "x": 211,
+          "w": 64,
+          "h": 28
+        },
+        "desc": {
+          "h": 56.8
+        },
+        "card": {
+          "x": 12,
+          "w": 263,
+          "h": 74
+        },
+        "innerOv": false,
+        "innerW": 1280
+      },
+      "1536": {
+        "hidden": false,
+        "comp": 288,
+        "panel": {
+          "x": 0,
+          "w": 287,
+          "padL": 0,
+          "padR": 0
+        },
+        "label": {
+          "x": 34,
+          "w": 99.3,
+          "h": 16
+        },
+        "newBtn": {
+          "x": 211,
+          "w": 64,
+          "h": 28
+        },
+        "desc": {
+          "h": 56.8
+        },
+        "card": {
+          "x": 12,
+          "w": 263,
+          "h": 74
+        },
+        "innerOv": false,
+        "innerW": 1536
+      }
+    },
+    "pal": {
+      "375": {
+        "open": true,
+        "dlg": {
+          "x": 16,
+          "w": 343,
+          "h": 566
+        },
+        "input": {
+          "x": 53,
+          "w": 293,
+          "h": 48
+        },
+        "list": {
+          "x": 17,
+          "w": 341,
+          "h": 480
+        },
+        "opt0": {
+          "h": 44,
+          "w": 325
+        },
+        "hOv": false,
+        "closed": true
+      },
+      "640": {
+        "open": true,
+        "dlg": {
+          "x": 64,
+          "w": 512,
+          "h": 566
+        },
+        "input": {
+          "x": 101,
+          "w": 462,
+          "h": 48
+        },
+        "list": {
+          "x": 65,
+          "w": 510,
+          "h": 480
+        },
+        "opt0": {
+          "h": 44,
+          "w": 494
+        },
+        "hOv": false,
+        "closed": true
+      },
+      "768": {
+        "open": true,
+        "dlg": {
+          "x": 128,
+          "w": 512,
+          "h": 566
+        },
+        "input": {
+          "x": 165,
+          "w": 462,
+          "h": 48
+        },
+        "list": {
+          "x": 129,
+          "w": 510,
+          "h": 480
+        },
+        "opt0": {
+          "h": 44,
+          "w": 494
+        },
+        "hOv": false,
+        "closed": true
+      },
+      "1024": {
+        "open": true,
+        "dlg": {
+          "x": 256,
+          "w": 512,
+          "h": 566
+        },
+        "input": {
+          "x": 293,
+          "w": 462,
+          "h": 48
+        },
+        "list": {
+          "x": 257,
+          "w": 510,
+          "h": 480
+        },
+        "opt0": {
+          "h": 44,
+          "w": 494
+        },
+        "hOv": false,
+        "closed": true
+      },
+      "1280": {
+        "open": true,
+        "dlg": {
+          "x": 384,
+          "w": 512,
+          "h": 566
+        },
+        "input": {
+          "x": 421,
+          "w": 462,
+          "h": 48
+        },
+        "list": {
+          "x": 385,
+          "w": 510,
+          "h": 480
+        },
+        "opt0": {
+          "h": 44,
+          "w": 494
+        },
+        "hOv": false,
+        "closed": true
+      },
+      "1536": {
+        "open": true,
+        "dlg": {
+          "x": 512,
+          "w": 512,
+          "h": 566
+        },
+        "input": {
+          "x": 549,
+          "w": 462,
+          "h": 48
+        },
+        "list": {
+          "x": 513,
+          "w": 510,
+          "h": 480
+        },
+        "opt0": {
+          "h": 44,
+          "w": 494
+        },
+        "hOv": false,
+        "closed": true
+      }
+    }
+  },
+  "passB": {
+    "ws": {
+      "375": {
+        "hidden": true,
+        "disp": "none",
+        "innerW": 375
+      },
+      "640": {
+        "hidden": true,
+        "disp": "none",
+        "innerW": 640
+      },
+      "768": {
+        "hidden": true,
+        "disp": "none",
+        "innerW": 768
+      },
+      "1024": {
+        "hidden": false,
+        "comp": 288,
+        "panel": {
+          "x": 0,
+          "w": 287,
+          "padL": 0,
+          "padR": 0
+        },
+        "label": {
+          "x": 34,
+          "w": 99.3,
+          "h": 16
+        },
+        "newBtn": {
+          "x": 211,
+          "w": 64,
+          "h": 28
+        },
+        "desc": {
+          "h": 56.8
+        },
+        "card": {
+          "x": 12,
+          "w": 263,
+          "h": 74
+        },
+        "innerOv": false,
+        "innerW": 1024
+      },
+      "1280": {
+        "hidden": false,
+        "comp": 288,
+        "panel": {
+          "x": 0,
+          "w": 287,
+          "padL": 0,
+          "padR": 0
+        },
+        "label": {
+          "x": 34,
+          "w": 99.3,
+          "h": 16
+        },
+        "newBtn": {
+          "x": 211,
+          "w": 64,
+          "h": 28
+        },
+        "desc": {
+          "h": 56.8
+        },
+        "card": {
+          "x": 12,
+          "w": 263,
+          "h": 74
+        },
+        "innerOv": false,
+        "innerW": 1280
+      },
+      "1536": {
+        "hidden": false,
+        "comp": 288,
+        "panel": {
+          "x": 0,
+          "w": 287,
+          "padL": 0,
+          "padR": 0
+        },
+        "label": {
+          "x": 34,
+          "w": 99.3,
+          "h": 16
+        },
+        "newBtn": {
+          "x": 211,
+          "w": 64,
+          "h": 28
+        },
+        "desc": {
+          "h": 56.8
+        },
+        "card": {
+          "x": 12,
+          "w": 263,
+          "h": 74
+        },
+        "innerOv": false,
+        "innerW": 1536
+      }
+    },
+    "pal": {
+      "375": {
+        "open": true,
+        "dlg": {
+          "x": 16,
+          "w": 343,
+          "h": 566
+        },
+        "input": {
+          "x": 53,
+          "w": 293,
+          "h": 48
+        },
+        "list": {
+          "x": 17,
+          "w": 341,
+          "h": 480
+        },
+        "opt0": {
+          "h": 44,
+          "w": 325
+        },
+        "hOv": false,
+        "closed": true
+      },
+      "640": {
+        "open": true,
+        "dlg": {
+          "x": 64,
+          "w": 512,
+          "h": 566
+        },
+        "input": {
+          "x": 101,
+          "w": 462,
+          "h": 48
+        },
+        "list": {
+          "x": 65,
+          "w": 510,
+          "h": 480
+        },
+        "opt0": {
+          "h": 44,
+          "w": 494
+        },
+        "hOv": false,
+        "closed": true
+      },
+      "768": {
+        "open": true,
+        "dlg": {
+          "x": 128,
+          "w": 512,
+          "h": 566
+        },
+        "input": {
+          "x": 165,
+          "w": 462,
+          "h": 48
+        },
+        "list": {
+          "x": 129,
+          "w": 510,
+          "h": 480
+        },
+        "opt0": {
+          "h": 44,
+          "w": 494
+        },
+        "hOv": false,
+        "closed": true
+      },
+      "1024": {
+        "open": true,
+        "dlg": {
+          "x": 256,
+          "w": 512,
+          "h": 566
+        },
+        "input": {
+          "x": 293,
+          "w": 462,
+          "h": 48
+        },
+        "list": {
+          "x": 257,
+          "w": 510,
+          "h": 480
+        },
+        "opt0": {
+          "h": 44,
+          "w": 494
+        },
+        "hOv": false,
+        "closed": true
+      },
+      "1280": {
+        "open": true,
+        "dlg": {
+          "x": 384,
+          "w": 512,
+          "h": 566
+        },
+        "input": {
+          "x": 421,
+          "w": 462,
+          "h": 48
+        },
+        "list": {
+          "x": 385,
+          "w": 510,
+          "h": 480
+        },
+        "opt0": {
+          "h": 44,
+          "w": 494
+        },
+        "hOv": false,
+        "closed": true
+      },
+      "1536": {
+        "open": true,
+        "dlg": {
+          "x": 512,
+          "w": 512,
+          "h": 566
+        },
+        "input": {
+          "x": 549,
+          "w": 462,
+          "h": 48
+        },
+        "list": {
+          "x": 513,
+          "w": 510,
+          "h": 480
+        },
+        "opt0": {
+          "h": 44,
+          "w": 494
+        },
+        "hOv": false,
+        "closed": true
+      }
+    }
+  }
+}

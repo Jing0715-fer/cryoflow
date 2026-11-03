@@ -120,6 +120,21 @@ import { cn } from "@/lib/utils";
 import { filterSessions, groupSessionsByDay, matchIndex } from "@/lib/ai/session-groups";
 import { parseActionBlocks, type AssistantAction } from "@/lib/ai/action-blocks";
 import { hasAgedToolHistory } from "@/lib/ai/stale-history";
+// t902 — the geometry ARITHMETIC (the type, the mins, the clamp, the
+// home corner) lives in lib/geo-restore: the restore's whisper needs
+// the SAME clamp the drags apply, and the t653 law puts that meaning in
+// lib so the two faces can never drift. The panel imports the faces.
+import {
+  clampGeo,
+  defaultGeo,
+  GEO_MIN_H,
+  GEO_MIN_W,
+  GEO_MOBILE_BP,
+  restoreGeo,
+  restoreGeoSummary,
+  type GeoRestoreEdit,
+  type WinGeo,
+} from "@/lib/geo-restore";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useWorkflowStore } from "@/lib/store";
 import { CopyButton } from "@/components/workflow/copy-button";
@@ -133,6 +148,31 @@ import type {
   AiSettingsResponse,
   AiSessionSummaryDto,
 } from "@/lib/ai/types";
+import { formatCountFull } from "@/lib/result-counts"; // t1157 — the thousands word rides its ONE father (the locale pin lives in result-counts, the parser's own contract)
+
+/* t999 — the wall faces' ONE MOUTH (the t997 voice's second road): the
+ * keyboard road reads these words through aria-valuetext on focus; the
+ * pointer road hears them through the drag-end live echo. One builder
+ * per axis — the floor owns equality (<= GEO_MIN), the ceiling rides
+ * the clampGeo viewport formula (vw-16 / vh-16, floored at GEO_MIN),
+ * the plain branch speaks the human shape. The words are the t997
+ * strings VERBATIM — two roads, one voice, the strings can never
+ * drift apart again. The echo's wall test sniffs the builder's own
+ * refusal prefix (已到) instead of re-deriving the formula — one
+ * truth, no second arithmetic. */
+const wFace = (w: number, vw: number): string =>
+  w <= GEO_MIN_W
+    ? `已到最小宽度（${GEO_MIN_W} 像素）`
+    : w >= Math.max(vw - 16, GEO_MIN_W)
+      ? `已到最大宽度（${Math.max(vw - 16, GEO_MIN_W)} 像素）`
+      : `宽度 ${w} 像素`;
+
+const hFace = (h: number, vh: number): string =>
+  h <= GEO_MIN_H
+    ? `已到最小高度（${GEO_MIN_H} 像素）`
+    : h >= Math.max(vh - 16, GEO_MIN_H)
+      ? `已到最大高度（${Math.max(vh - 16, GEO_MIN_H)} 像素）`
+      : `高度 ${h} 像素`;
 
 /* ------------------------------------------------------------------ */
 /* Transcript items (flattened from server messages + live events)      */
@@ -389,7 +429,7 @@ function ToolCard({ item }: { item: Extract<UiItem, { kind: "tool" }> }) {
       <div className="flex items-stretch">
         <button
           type="button"
-          className="flex min-w-0 flex-1 items-start gap-2 px-2.5 py-2 text-left"
+          className="flex min-w-0 flex-1 items-start gap-2 px-2.5 py-2 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
         >
@@ -472,8 +512,8 @@ function ToolCard({ item }: { item: Extract<UiItem, { kind: "tool" }> }) {
                   and names the door that takes the rest. */}
               {detailTruncated && (
                 <p className="mt-1 text-[10px] text-muted-foreground/70">
-                  showing the first {detail.window.length.toLocaleString()} of{" "}
-                  {detail.full.length.toLocaleString()} characters — Copy takes all of it
+                  showing the first {formatCountFull(detail.window.length)} of{" "}
+                  {formatCountFull(detail.full.length)} characters — Copy takes all of it
                 </p>
               )}
             </div>
@@ -589,40 +629,10 @@ function ActionButtons({
  * resize from three edges/corners, double-click the header to snap back
  * home (top-right). Geometry persists in localStorage; mobile keeps the
  * honest full-screen face (a 380px-wide draggable window on a phone is
- * a joke, not a feature). */
-interface WinGeo {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
+ * a joke, not a feature). The arithmetic lives in lib/geo-restore
+ * (the t653 law — see the import at the file head). */
 
 const GEO_KEY = "cryoflow.assistant.geometry.v1";
-const GEO_MIN_W = 360;
-const GEO_MIN_H = 420;
-/** t500's mobile breakpoint, t638 — the full-screen face ignores geometry
- * (its narrow clamp would poison the persisted desktop shape), so every
- * WRITE path re-checks the live viewport rather than the useIsMobile
- * hook (whose matchMedia effect lags the first render — the restore
- * effect's comment owns that lesson). */
-const GEO_MOBILE_BP = 768;
-
-function clampGeo(g: WinGeo, vw: number, vh: number): WinGeo {
-  const w = Math.min(Math.max(g.w, GEO_MIN_W), Math.max(vw - 16, GEO_MIN_W));
-  const h = Math.min(Math.max(g.h, GEO_MIN_H), Math.max(vh - 16, GEO_MIN_H));
-  return {
-    w,
-    h,
-    x: Math.min(Math.max(g.x, 8), Math.max(vw - w - 8, 8)),
-    y: Math.min(Math.max(g.y, 8), Math.max(vh - h - 8, 8)),
-  };
-}
-
-function defaultGeo(vw: number, vh: number): WinGeo {
-  const w = Math.min(560, Math.max(vw - 32, GEO_MIN_W));
-  const h = Math.min(760, Math.max(vh - 96, GEO_MIN_H));
-  return clampGeo({ w, h, x: vw - w - 24, y: 64 }, vw, vh);
-}
 
 /* ------------------------------------------------------------------ */
 /* The panel                                                            */
@@ -754,6 +764,23 @@ export function AssistantPanel() {
 
   // ---- t500: the floating window (desktop) — geometry, drag, resize ----
   const [geo, setGeo] = React.useState<WinGeo | null>(null);
+  // t999 — the pointer road's wall echo (the sr-only live region's
+  // message): a drag that PARKS at a clamp wall speaks the wall's face
+  // through role="status" — one word per gesture, at its end. The
+  // keyboard road needs no echo (its valuetext is the focused face); the
+  // pointer hand gets no focused read, so the wall's word must travel
+  // to the live region instead.
+  const [wallEcho, setWallEcho] = React.useState("");
+  // t902 — the restore's edit receipt + its ownership flag (the whisper's
+  // fourth seat): a shrunken viewport silently EDITS the remembered shape
+  // (clampGeo hands back a smaller, pulled-in window); the whisper names
+  // the edit once at the panel's own voice level and goes silent the
+  // moment the user's first gesture takes ownership. The LIVE resize
+  // clamp whispers nothing — the user is watching that accommodation
+  // happen (the t500 view-time law); only the BOOT restore edits
+  // invisibly, so only the boot restore speaks.
+  const [geoEdits, setGeoEdits] = React.useState<GeoRestoreEdit[] | null>(null);
+  const [geoTouched, setGeoTouched] = React.useState(false);
   // t638 — storage echoes INTENT, one echo per gesture (the Task 153 #13
   // family law this panel was quietly minting against). The old
   // persist-on-change effect had two sins: it fired ~60×/s during a drag,
@@ -798,7 +825,9 @@ export function AssistantPanel() {
   // without remounting, which would dump leaf state). Cheap no-op when
   // already last.
   const rootRef = React.useRef<HTMLDivElement | null>(null);
-  const raiseToFront = () => {
+  // stable by construction (a ref read only) — the drag listeners below can
+  // close over it without ever re-subscribing
+  const raiseToFront = React.useCallback(() => {
     const el = rootRef.current;
     if (
       el &&
@@ -808,7 +837,7 @@ export function AssistantPanel() {
     ) {
       document.body.appendChild(el);
     }
-  };
+  }, []);
 
   // t503 — the origin stamp for the dialog-raise observer below: a dialog
   // opened BY a click inside this window (the AI-settings door in the
@@ -829,7 +858,18 @@ export function AssistantPanel() {
     document.addEventListener("pointerdown", onDocPointerDown, true);
     return () => document.removeEventListener("pointerdown", onDocPointerDown, true);
   }, [open]);
-  const onRootPointerDownCapture = () => {
+  /* t986 — the raise rides the CLICK (onClickCapture below), never the
+   * pointerdown: a DOM move inside the pointer dispatch breaks Chromium's
+   * click synthesis (the press chain is re-parented mid-gesture — the
+   * down lands on the button, the click event never fires, the control is
+   * dead). The dialog.tsx half of this law was proven live by the t986
+   * dissection (5/5 clicks lost with the pointerdown raise, 0/5 after);
+   * this root's raise is the same move on the same body-child node, so
+   * it rides the same safe road. A click-time move lands after the
+   * gesture's target resolution and can never eat the click that caused
+   * it; the titlebar's drag flow is untouched (beginDrag listens on its
+   * own pointerdown). */
+  const onRootClickCapture = () => {
     raiseToFront();
   };
 
@@ -918,7 +958,17 @@ export function AssistantPanel() {
           typeof g?.w === "number" &&
           typeof g?.h === "number"
         ) {
-          setGeo(clampGeo(g as WinGeo, window.innerWidth, window.innerHeight));
+          // t902 — the restore's edit receipt: the SAME clamp the drags
+          // apply, with the moved axis families named (lib/geo-restore —
+          // the t653 law). An exact fit carries no edits and the panel
+          // stays silent.
+          const { geo: restored, edits } = restoreGeo(
+            g as WinGeo,
+            window.innerWidth,
+            window.innerHeight
+          );
+          setGeo(restored);
+          setGeoEdits(edits);
           return;
         }
       }
@@ -964,6 +1014,20 @@ export function AssistantPanel() {
       if (!d) return;
       const dx = e.clientX - d.px;
       const dy = e.clientY - d.py;
+      // t989/t990 — the drag-raise cosmetic (carried since t986): the panel
+      // leads the drag itself, not just the release click. The raise rides
+      // the FIRST REAL MOVE of EVERY drag mode (t989 covered move — the
+      // titlebar; t990 extends it to the resize grips e/s/se, which drag
+      // the same buried window by its edges) — never the pointerdown
+      // (the t986 dissection's law: a mid-press re-parent breaks Chromium's
+      // click synthesis, 5/5 clicks lost; the bar carries no click of its
+      // own, the grips neither, and the header's double-click-to-reset
+      // rides dblclick, a click-derived pair). By the first move the
+      // press's target resolution is done, and the gesture itself rides
+      // these window-level listeners — immune to the node's re-parent.
+      // A no-op when the panel is already last (the common world: the
+      // summon raise put it there).
+      if (!dragMovedRef.current) raiseToFront();
       dragMovedRef.current = true; // t638 — this gesture actually moved
       setGeo((prev) => {
         const base = prev ?? d.start;
@@ -978,9 +1042,14 @@ export function AssistantPanel() {
       });
     };
     const onUp = () => {
-      if (dragRef.current) {
+      const d = dragRef.current;
+      if (d) {
         dragRef.current = null;
         document.body.style.userSelect = "";
+        // t902 — the user's hand took ownership of the shape: the restore
+        // edit is history now (the same disarm law the fsc-compare
+        // selection teaches — silence after the first touch).
+        if (dragMovedRef.current) setGeoTouched(true);
         // t638 — one echo per gesture, at its end: the shape is written
         // ONCE when the hand lets go (and only if it moved), instead of
         // ~60 setItem calls a second on the way there. The live viewport
@@ -993,6 +1062,28 @@ export function AssistantPanel() {
             /* private mode etc — position is a session-only luxury then */
           }
         }
+        // t999 — the POINTER road's wall echo: a drag that PARKS at a
+        // clamp wall speaks the same face the keyboard road's valuetext
+        // reads (the builders are the wall's ONE MOUTH — two roads, one
+        // voice). Once per gesture, at its end — the t638 echo law's
+        // live-region form; mid-drag announcements would flood (the wall
+        // bites on every pointermove past it). The plain shape stays
+        // silent here — the hand SAW it follow; only the refusal speaks.
+        // The wall test sniffs the builder's own prefix (已到), never a
+        // second arithmetic.
+        if (dragMovedRef.current && geoRef.current) {
+          const g = geoRef.current;
+          const words: string[] = [];
+          if (d.mode === "e" || d.mode === "se") {
+            const face = wFace(g.w, window.innerWidth);
+            if (face.startsWith("已到")) words.push(face);
+          }
+          if (d.mode === "s" || d.mode === "se") {
+            const face = hFace(g.h, window.innerHeight);
+            if (face.startsWith("已到")) words.push(face);
+          }
+          if (words.length > 0) setWallEcho(words.join("，"));
+        }
         dragMovedRef.current = false;
       }
     };
@@ -1003,6 +1094,45 @@ export function AssistantPanel() {
       window.removeEventListener("pointerup", onUp);
     };
   }, []);
+
+  // t991 — the KEYBOARD RESIZE ROAD (the ARIA window-splitter pattern).
+  // The spec read's find: the old comment's promised keyboard road — the
+  // header's double-click reset — never fires from the keyboard (two
+  // Enters do not synthesize a dblclick), so a keyboard user had NO
+  // resize at all; the grips were aria-hidden pointer affordances. The
+  // cure: the e/s grips become real separators (tabbable, arrow-key
+  // steppable). One step = 16px through the SAME clampGeo the pointer
+  // drag rides; the raise rides every step (raiseToFront is a no-op
+  // when already last — the t990 raise law's keyboard form); the echo
+  // is debounced 400ms — the t638 law's keyboard form: the shape is
+  // written once when the hand RESTS, not once per keypress.
+  const keyEchoTimer = React.useRef<number | null>(null);
+  const keyResize = React.useCallback((axis: "w" | "h", delta: number) => {
+    raiseToFront();
+    setGeo((prev) => {
+      const base = prev ?? defaultGeo(window.innerWidth, window.innerHeight);
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const w = axis === "w" ? Math.max(GEO_MIN_W, base.w + delta) : base.w;
+      const h = axis === "h" ? Math.max(GEO_MIN_H, base.h + delta) : base.h;
+      return clampGeo({ ...base, w, h }, vw, vh);
+    });
+    // t902's law rides the keyboard too: the user's hand took ownership
+    // of the shape — the restore edit is history now (idempotent; React
+    // bails out when the flag already stands).
+    setGeoTouched(true);
+    if (keyEchoTimer.current !== null) window.clearTimeout(keyEchoTimer.current);
+    keyEchoTimer.current = window.setTimeout(() => {
+      keyEchoTimer.current = null;
+      if (geoRef.current && window.innerWidth >= GEO_MOBILE_BP) {
+        try {
+          localStorage.setItem(GEO_KEY, JSON.stringify(geoRef.current));
+        } catch {
+          /* private mode etc — position is a session-only luxury then */
+        }
+      }
+    }, 400);
+  }, [raiseToFront]);
 
   const beginDrag = (e: React.PointerEvent, mode: "move" | "e" | "s" | "se") => {
     if (e.button !== 0) return;
@@ -1026,6 +1156,9 @@ export function AssistantPanel() {
   const resetGeo = () => {
     const home = defaultGeo(window.innerWidth, window.innerHeight);
     setGeo(home);
+    // t902 — snap-home is the user's own explicit choice: the restore's
+    // edit is history (ownership transferred by the same hand)
+    setGeoTouched(true);
     // t638 — snap-home is the user's own choice: one echo, immediately
     if (window.innerWidth >= GEO_MOBILE_BP) {
       try {
@@ -1523,7 +1656,7 @@ export function AssistantPanel() {
         ) : (
           <button
             type="button"
-            className="min-w-0 flex-1 text-left disabled:opacity-50"
+            className="min-w-0 flex-1 text-left disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             onClick={() => void switchSession(s.id)}
             disabled={busy}
             title={s.title ? `${s.title}（原文：${s.preview}）` : s.preview}
@@ -1572,7 +1705,7 @@ export function AssistantPanel() {
         {renamingId === s.id ? (
           <button
             type="button"
-            className="h-6 shrink-0 rounded-md border border-danger-600/40 px-1.5 text-[10px] font-medium text-danger-600 transition-colors hover:bg-danger-500/10 dark:text-danger-400"
+            className="h-6 shrink-0 rounded-md border border-danger-600/40 px-1.5 text-[10px] font-medium text-danger-600 transition-colors hover:bg-danger-500/10 dark:text-danger-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => void commitRename(s.id)}
           >
@@ -1583,7 +1716,7 @@ export function AssistantPanel() {
             {armedDelete === s.id ? (
               <button
                 type="button"
-                className="h-6 shrink-0 rounded-md border border-danger-600/40 px-1.5 text-[10px] font-medium text-danger-600 transition-colors hover:bg-danger-500/10 dark:text-danger-400"
+                className="h-6 shrink-0 rounded-md border border-danger-600/40 px-1.5 text-[10px] font-medium text-danger-600 transition-colors hover:bg-danger-500/10 dark:text-danger-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 onClick={() => void removeSession(s.id)}
               >
                 确认
@@ -1663,7 +1796,7 @@ export function AssistantPanel() {
       aria-modal="false"
       aria-label="AI 助手"
       onKeyDown={onWindowKeyDown}
-      onPointerDownCapture={onRootPointerDownCapture}
+      onClickCapture={onRootClickCapture}
       className={cn(
         // pointer-events-auto: some layer COULD still flip body-wide
         // pointer-events off (a modal Select, an AlertDialog) — the window
@@ -1771,7 +1904,7 @@ export function AssistantPanel() {
             className="size-8 shrink-0 text-muted-foreground hover:text-foreground"
             onClick={() => void resetChat()}
             disabled={busy}
-            aria-label="New chat"
+            aria-label={busy ? "New chat (the assistant is answering)" : "New chat"}
             title="新对话"
           >
             <RotateCcw className="size-4" />
@@ -1840,7 +1973,7 @@ export function AssistantPanel() {
                     type="button"
                     onClick={() => setSessionQuery("")}
                     aria-label="清除搜索"
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded text-muted-foreground/60 transition-colors hover:text-foreground"
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded text-muted-foreground/60 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
                     <X className="size-3" aria-hidden="true" />
                   </button>
@@ -1941,7 +2074,7 @@ export function AssistantPanel() {
                     key={s.text}
                     type="button"
                     onClick={() => void send(s.text)}
-                    className="group flex w-full items-start gap-2.5 rounded-lg border bg-card px-3 py-2.5 text-left transition-all hover:border-primary/40 hover:bg-primary/[0.04] hover:shadow-sm"
+                    className="group flex w-full items-start gap-2.5 rounded-lg border bg-card px-3 py-2.5 text-left transition-all hover:border-primary/40 hover:bg-primary/[0.04] hover:shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
                     <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
                       <s.icon className="size-3.5" aria-hidden="true" />
@@ -2094,6 +2227,23 @@ export function AssistantPanel() {
           </div>
         )}
 
+        {/* ---- t902: the geometry restore's whisper (the t899 grammar's
+            fourth seat) ---- the persisted shape can come back EDITED (a
+            shrunken viewport clamps it) and the edit is invisible — this
+            names it once, at whisper level, and goes silent the moment
+            the user's first gesture takes ownership. Silence is the
+            exact-restore voice; the live resize clamp never speaks (that
+            accommodation happens in front of the user). */}
+        {!isMobile && !geoTouched && geoEdits && geoEdits.length > 0 && (
+          <p
+            data-testid="assistant-geo-whisper"
+            role="status"
+            className="mx-3 mb-1 font-mono text-[10px] tracking-wide text-fuchsia-600/80 dark:text-fuchsia-400/80"
+          >
+            {restoreGeoSummary(geoEdits)}
+          </p>
+        )}
+
         {/* ---- composer ---- */}
         {/* safe-area: on notched phones the composer rides the home
             indicator — the footer's pb-[max(...)] law (iOS inset) */}
@@ -2113,7 +2263,7 @@ export function AssistantPanel() {
               <button
                 type="button"
                 onClick={() => void send(follow.text)}
-                className="mb-2 flex max-w-full items-center gap-1.5 rounded-full border bg-card px-2.5 py-1 text-[11px] leading-relaxed text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/[0.04] hover:text-foreground"
+                className="mb-2 flex max-w-full items-center gap-1.5 rounded-full border bg-card px-2.5 py-1 text-[11px] leading-relaxed text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/[0.04] hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 <FIcon className="size-3 shrink-0 text-primary" aria-hidden="true" />
                 <span className="truncate">{follow.text}</span>
@@ -2130,7 +2280,7 @@ export function AssistantPanel() {
               className="min-h-[52px] resize-none border-0 bg-transparent pb-9 pl-3 pr-3 pt-2.5 text-sm shadow-none focus-visible:ring-0 dark:bg-transparent"
               rows={2}
               disabled={busy}
-              aria-label="Message the AI assistant"
+              aria-label={busy ? "Message the AI assistant (the answer is still streaming)" : "Message the AI assistant"}
               maxLength={8000}
             />
             {busy ? (
@@ -2150,7 +2300,7 @@ export function AssistantPanel() {
                 className="absolute bottom-2 right-2 size-8"
                 onClick={() => void send(input)}
                 disabled={!input.trim()}
-                aria-label="Send"
+                aria-label={!input.trim() ? "Send (type a message first)" : "Send"}
                 title="发送 (Enter)"
               >
                 <CornerDownLeft className="size-4" aria-hidden="true" />
@@ -2178,22 +2328,70 @@ export function AssistantPanel() {
         </div>
 
         {/* ---- t500: the resize grips (desktop) — east, south, and the
-            corner. Wide hit areas, invisible until hover; keyboard users
-            reach the same geometry through the header's double-click
-            reset (a resize grip is a pointer affordance). */}
+            corner. Wide hit areas, invisible until hover.
+            t991 — the keyboard road is REAL now: the e/s grips are ARIA
+            window separators (the WAI-ARIA window-splitter pattern —
+            tabbable, arrow-key steppable, the valuenow speaking the live
+            shape). The spec read found the old comment's promise dead
+            (the header's dblclick reset never fires from the keyboard),
+            so a keyboard user had NO resize at all. The SE corner stays
+            pointer-only — it is the redundant affordance (e + s cover
+            both axes), and one extra tab stop per corner buys nothing.
+            t997 — the value plane learns to SPEAK: aria-valuenow alone
+            is a bare pixel count ("360"), opaque to a screen reader;
+            aria-valuetext carries the human shape ("宽度 560 像素") and
+            FLIPS at the clamp walls — the floor face ("已到最小宽度
+            （360 像素）") and the ceiling face ("已到最大宽度（N 像素）")
+            are the keyboard road's own refusal faces (the t982 zoom-clamp
+            dialect's valuetext seat: at the wall the shrinking press is
+            eaten silently by the clamp, so the FACE must say it). The
+            valuemax rides the same clampGeo ceiling the pointer drag
+            hits — the pattern's other half, never spoken before. The
+            cure is VOICE-ONLY: keyResize's arithmetic is untouched.
+            t999 — the pointer road joins the voice: the valuetext's
+            three-branch words moved into the wFace/hFace builders (the
+            wall's ONE MOUTH — the keyboard road reads them on focus,
+            the pointer road hears them through the drag-end live echo),
+            and the echo announces the wall's face when a drag PARKS at
+            a clamp wall — the words can never drift between the roads
+            again. */}
         {!isMobile && (
           <>
             <div
-              className="absolute inset-y-0 right-0 w-1.5 cursor-ew-resize touch-none transition-colors hover:bg-primary/20"
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="调整助手窗口宽度（左右方向键）"
+              aria-valuemin={GEO_MIN_W}
+              aria-valuemax={geo ? Math.max(window.innerWidth - 16, GEO_MIN_W) : undefined}
+              aria-valuenow={geo?.w}
+              aria-valuetext={geo ? wFace(geo.w, window.innerWidth) : undefined}
+              tabIndex={0}
+              className="absolute inset-y-0 right-0 w-1.5 cursor-ew-resize touch-none transition-colors hover:bg-primary/20 focus-visible:bg-primary/40 focus-visible:outline-none"
               onPointerDown={(e) => beginDrag(e, "e")}
-              aria-hidden="true"
-              role="presentation"
+              onKeyDown={(e) => {
+                if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+                  e.preventDefault();
+                  keyResize("w", e.key === "ArrowRight" ? 16 : -16);
+                }
+              }}
             />
             <div
-              className="absolute inset-x-0 bottom-0 h-1.5 cursor-ns-resize touch-none transition-colors hover:bg-primary/20"
+              role="separator"
+              aria-orientation="horizontal"
+              aria-label="调整助手窗口高度（上下方向键）"
+              aria-valuemin={GEO_MIN_H}
+              aria-valuemax={geo ? Math.max(window.innerHeight - 16, GEO_MIN_H) : undefined}
+              aria-valuenow={geo?.h}
+              aria-valuetext={geo ? hFace(geo.h, window.innerHeight) : undefined}
+              tabIndex={0}
+              className="absolute inset-x-0 bottom-0 h-1.5 cursor-ns-resize touch-none transition-colors hover:bg-primary/20 focus-visible:bg-primary/40 focus-visible:outline-none"
               onPointerDown={(e) => beginDrag(e, "s")}
-              aria-hidden="true"
-              role="presentation"
+              onKeyDown={(e) => {
+                if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+                  e.preventDefault();
+                  keyResize("h", e.key === "ArrowDown" ? 16 : -16);
+                }
+              }}
             />
             <div
               className="absolute bottom-0 right-0 size-4 cursor-nwse-resize touch-none transition-colors hover:bg-primary/25"
@@ -2203,6 +2401,15 @@ export function AssistantPanel() {
             >
               <span className="absolute bottom-1 right-1 block size-1.5 rounded-sm border-b border-r border-muted-foreground/50" />
             </div>
+            {/* t999 — the pointer road's wall echo: the drag that parks at
+                a clamp wall speaks the SAME face the keyboard road reads
+                (the builders' one mouth) — role="status" + aria-live, one
+                announcement per gesture at its end, visually silent. The
+                plain park adds no word (the hand saw it follow); the
+                refusal is the only news worth interrupting for. */}
+            <span data-wall-echo="" role="status" aria-live="polite" className="sr-only">
+              {wallEcho}
+            </span>
           </>
         )}
     </div>,

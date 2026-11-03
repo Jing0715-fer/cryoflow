@@ -15,7 +15,7 @@
  * update on the VolumeRepresentation3D node so undo/history stays intact.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Axis3d, BookOpen, Bookmark, BoxSelect, Camera, Check, ClipboardCopy, CopyPlus, Download, FileJson, FilePlus2, FileText, FolderOpen, FolderPlus, Layers, Link2, Loader2, Mountain, Orbit, Pencil, Plus, RefreshCcw, RotateCw, ScanLine, Scissors, TriangleAlert, Upload, Video, X, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -27,12 +27,17 @@ import { Kbd } from "@/components/ui/kbd"; // t830 — the door's keymap speaks 
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { PENDING_SHARE_KEY, PENDING_VIEW_KEY, SAVED_VIEWS_CHANGED_EVENT, SHARE_PAYLOAD_MAX, SharePayload, decodeSharePayload, encodeSharePayload } from "@/lib/view-link";
-import { ORTHO_SLICE_EVENT, ORTHO_SLICE_STATE_EVENT, ORTHO_CLIP_STATE_EVENT, ORTHO_FOCUS_EVENT, ORTHO_FOCUS_RESTORE_EVENT, ORTHO_SIGMA_STATE_EVENT, ORTHO_SIGMA_REQUEST_EVENT, ORTHO_SIGMA_SET_EVENT, OBLIQUE_VIEW_EVENT, OBLIQUE_CLIP_EVENT, OBLIQUE_CLIP_STATE_EVENT, ORTHO_CAMERA_REQUEST_EVENT, ORTHO_CAMERA_STATE_EVENT, OrthoCameraStateDetail } from "./map-ortho-panel";
+import { ORTHO_SLICE_EVENT, ORTHO_SLICE_STATE_EVENT, ORTHO_CLIP_STATE_EVENT, ORTHO_FOCUS_EVENT, ORTHO_FOCUS_RESTORE_EVENT, ORTHO_SIGMA_STATE_EVENT, ORTHO_SIGMA_REQUEST_EVENT, ORTHO_SIGMA_SET_EVENT, OBLIQUE_VIEW_EVENT, OBLIQUE_CLIP_EVENT, OBLIQUE_CLIP_STATE_EVENT, OBLIQUE_SHEET_EVENT, OBLIQUE_SHEET_LEGEND_EVENT, OBLIQUE_SHEET_LEGEND_HOVER_EVENT, OBLIQUE_VERB_EVENT, ORTHO_CAMERA_REQUEST_EVENT, ORTHO_CAMERA_STATE_EVENT, OrthoCameraStateDetail, ObliqueVerbDetail } from "./map-ortho-panel";
 import { useWorkflowStore } from "@/lib/store";
-import { fmtBytes } from "@/lib/canvas-export";
+import { fmtBytes } from "@/lib/relion/disk-usage"; // t1152 — the byte word rides its ONE father (canvas-export's dialect died in the census; the viewer's export toasts now speak the app's one byte word)
 import { encodeGifFrames } from "@/lib/gif-export";
+import { sanitizeMrcHeader } from "@/lib/mrc-axis";
+import { sceneFitChoice, FIT_PATIENCE } from "@/lib/camera-fit"; // t1145 — the camera-fit door's decision core (the unit runs the brain; the mol*-touching hands stay in the embed)
 import { canCopyImageToClipboard, copyViewerPng, drawFigureFooter, exportViewerPng, figureFooterHeightPx, figureTitleMeta, viewerFileSlug, viewerFileTimestamp } from "@/lib/viewer-export";
 import { downloadBlob } from "@/lib/download";
+import { keptIntervalOf, normalizeInterval } from "@/lib/clip-interval"; // t905 — the slab seat: both clip languages answer to one interval editor
+import { OBLIQUE_SHEET_ANNOTATION, axisIndex, buildObliqueSheetMesh, densityWindow, dimAlong, obliqueAnchorVox, obliqueCutAnnotation, obliqueDepthVox, obliqueDepthVoice, obliqueNormal, obliqueOffsetPctVoice, obliqueSupportVox, sheetLegendOf, voxelAriaText, voxelAnnotation, voxelIndexOf, voxelIntervalReadout, voxelPlaneVoice, voxelSliderVoice, type SheetLegend, type SheetMeshArrays } from "@/lib/voxel-voice"; // t906/t907 — one honest voice: the slice family speaks the voxel address the ortho tiles speak, the oblique cut speaks its depth along its own normal; t1129 — the cut's face rides the lib's anchor word; t1130 — the face's geometry words (densityWindow, buildObliqueSheetMesh) ride the lib too (the t1122 patchBoxRect precedent: geometry the family shares lives where node can ride it); t1131 — the face's legend is MADE of the mesh arrays (sheetLegendOf), never a second ramp
+import { pushContourLevel, readContourHistory, writeContourHistory } from "@/lib/contour-history"; // t1147 — the σ door's memory: the levels the user SETTLED on for THIS map ride back on the next open (the persistence doctrine's own shape: versioned envelope, one off-shape row drops the whole memory, a refusing store degrades to false, absence never written)
 import { downloadText } from "@/lib/download";
 // t197: the profile QC report family moved to @/lib/qc-report — the session
 // QC report is its second consumer, and the lib is the one honest home
@@ -173,6 +178,65 @@ const PRESETS = [1, 2, 3, 5];
 const SIGMA_MIN = 0.5;
 const SIGMA_MAX = 10;
 
+/* t1145 — the camera-fit door. The init fit read the scene ONCE, 300 ms
+ * after the commit; the isosurface geometry bakes async, so in a small
+ * strip viewport the first read can legitimately be radius 0 (nothing
+ * visible YET) — and the old code then fell to Camera.Reset, whose
+ * default pose has no opinion about the scene's actual extent. The map
+ * + sheet stayed invisible behind the CONTOUR overlay and never spoke
+ * again (the t1144 verdict: "the camera radius collapsed to 0"). The
+ * door now has PATIENCE (bounded retries on a short beat — the bake
+ * lands while we wait), a FALLBACK CHAIN (the visible sphere → the
+ * whole-scene sphere, which the map DATA fills even before the surface
+ * bakes → Reset last), and a FACE (the Fit button + the V key, so the
+ * user can re-ask at any time instead of living with a collapsed frame).
+ * The decision core (sceneFitChoice) lives in lib/camera-fit.ts — the
+ * unit runs the brain for real; only the mol*-touching hands stay here. */
+
+/** frame the camera on the scene: patience first, then the fallback
+ *  chain. Returns WHERE the camera landed ("visible" = the visible
+ *  sphere, "whole" = the whole-scene sphere, "reset" = the stock pose,
+ *  "gone" = the plugin left mid-fit). Cosmetic by contract — every
+ *  failure path stays silent; a lost fit must never become a toast. */
+async function fitSceneCamera(
+  plugin: MolPlugin,
+  opts: { beats?: number; beatMs?: number; disposed?: () => boolean } = {},
+): Promise<"visible" | "whole" | "reset" | "gone"> {
+  const c3d = plugin?.canvas3d;
+  if (!c3d) return "gone";
+  const beats = Math.max(1, opts.beats ?? 1);
+  const beatMs = Math.max(0, opts.beatMs ?? 200);
+  const { PluginCommands } = await import("molstar/lib/mol-plugin/commands");
+  const frame = (
+    sphere: { center: number[]; radius: number } | null | undefined,
+  ): boolean => {
+    if (!sphere) return false;
+    const c = sphere.center;
+    if (!Array.isArray(c) || c.length < 3 || !c.every((n) => Number.isFinite(n))) return false;
+    return sceneFitChoice(sphere.radius, null) === "visible";
+  };
+  const focus = async (sphere: { center: number[]; radius: number }, which: "visible" | "whole") => {
+    // frame slightly tighter than the full bounding sphere so the density
+    // fills more of the viewport (the t906-era ×0.7, floor 1 — never zero)
+    const snapshot = c3d.camera.getFocus(sphere.center, Math.max(sphere.radius * 0.7, 1));
+    await PluginCommands.Camera.SetSnapshot(plugin, { snapshot });
+    return which;
+  };
+  for (let i = 0; i < beats; i++) {
+    if (opts.disposed?.()) return "gone";
+    const visible = c3d.scene?.boundingSphereVisible;
+    if (frame(visible)) return await focus(visible, "visible");
+    // the whole-scene sphere does not need the surface to have baked —
+    // the parsed volume's data box fills it. Only worth ONE visit: it
+    // cannot grow between beats, so no patience is spent on it.
+    const whole = c3d.scene?.boundingSphere;
+    if (whole && frame(whole)) return await focus(whole, "whole");
+    if (i < beats - 1) await new Promise((r) => setTimeout(r, beatMs));
+  }
+  await PluginCommands.Camera.Reset(plugin, {});
+  return "reset";
+}
+
 /** overlay surface colors, in assignment order (distinct from the main
  *  map's orange and from each other; readable on both themes). The
  *  SWATCH palette adds three more for manual overrides in the Layers
@@ -284,8 +348,10 @@ export interface ObliqueClipGeometry {
 /**
  * ONE builder for the oblique cut plane in Mol*'s pixel-clip language —
  * the same plane family the 2D oblique tile samples (readMrcObliqueSlice /
- * obliqueFrame: normal from (θ,φ), support over the 8 grid corners, anchor
- * = center + frac·support·n). Grid == cartesian is the documented isotropic
+ * obliqueFrame: normal from (θ,φ), support over the 8 grid corners (the
+ * t907 shared walk — obliqueSupportVox, bit-identical to the server's),
+ * anchor = center + frac·support·n with the depth arithmetic the lib
+ * owns). Grid == cartesian is the documented isotropic
  * law (t556); the anchor converts through the grid-to-cartesian origin and
  * per-axis voxel sizes so non-cubic boxes still land the plane where the
  * tile cuts it.
@@ -323,24 +389,16 @@ export function buildObliqueClipPlane(
     Math.cos(t),
   ];
   const c: [number, number, number] = [(dims[0] - 1) / 2, (dims[1] - 1) / 2, (dims[2] - 1) / 2];
-  // support along the normal — max over the box's 8 corners (voxel units),
-  // the corner walk the server and the panel both mirror
-  let supportN = 0;
-  for (let i = 0; i < 2; i++)
-    for (let j = 0; j < 2; j++)
-      for (let k = 0; k < 2; k++) {
-        const d: [number, number, number] = [
-          (i ? dims[0] - 1 : 0) - c[0],
-          (j ? dims[1] - 1 : 0) - c[1],
-          (k ? dims[2] - 1 : 0) - c[2],
-        ];
-        supportN = Math.max(supportN, Math.abs(d[0] * n[0] + d[1] * n[1] + d[2] * n[2]));
-      }
-  const frac = Number.isFinite(ob.offset) ? Math.min(1, Math.max(-1, ob.offset)) : 0;
+  // support along the normal — the t907 shared walk (obliqueSupportVox,
+  // bit-identical to the server's historic inline; the depth arithmetic
+  // rides the same lib, so the plane and the voices obey ONE number)
+  const supportN = obliqueSupportVox(dims, ob.theta, ob.phi);
+  if (supportN === null) return null;
+  const depth = obliqueDepthVox(ob.offset, supportN);
   const anchorVox: [number, number, number] = [
-    c[0] + frac * supportN * n[0],
-    c[1] + frac * supportN * n[1],
-    c[2] + frac * supportN * n[2],
+    c[0] + depth * n[0],
+    c[1] + depth * n[1],
+    c[2] + depth * n[2],
   ];
   const pos: [number, number, number] = [
     geo.origin[0] + anchorVox[0] * (geo.extents[0] / dims[0]),
@@ -365,6 +423,35 @@ export function buildObliqueClipPlane(
     scale: [1, 1, 1],
     transform: CLIP_PLANE_IDENTITY_16,
   };
+}
+
+/** The cut's face (t1129) — the oblique plane as a DENSITY IMAGE, not just
+ *  a cutter: Mol*'s slice representation takes an arbitrary plane (mode
+ *  'plane', point + normal in the mesh's cartesian space), so the cut can
+ *  wear the data it crosses — the face the surface opens to reveal. The
+ *  point IS the cut's anchor (the same center + depth·n arithmetic, now
+ *  minted through the lib's obliqueAnchorVox so a cut and its face obey
+ *  ONE number), converted through the clip builder's own origin +
+ *  vox·(extents/dims) walk; the normal is the cut's own voxel normal
+ *  (obliqueNormal — the t556 isotropic law the clip builder speaks).
+ *  `invert` is deliberately ABSENT: the flip chooses which HALF-SPACE the
+ *  surface keeps, but the boundary plane itself does not move — the face
+ *  is identical from both sides. Returns null when the geometry is
+ *  unusable — the honest no-face beats a guessed sheet. Pure. */
+export function buildObliqueSheetPlane(
+  ob: { theta: number; phi: number; offset: number },
+  geo: ObliqueClipGeometry
+): { point: [number, number, number]; normal: [number, number, number] } | null {
+  const dims = geo.dims;
+  if (!Array.isArray(dims) || dims.length !== 3 || dims.some((d) => !(d >= 1))) return null;
+  const anchorVox = obliqueAnchorVox(ob, dims);
+  if (!anchorVox) return null;
+  const point: [number, number, number] = [
+    geo.origin[0] + anchorVox[0] * (geo.extents[0] / dims[0]),
+    geo.origin[1] + anchorVox[1] * (geo.extents[1] / dims[1]),
+    geo.origin[2] + anchorVox[2] * (geo.extents[2] / dims[2]),
+  ];
+  return { point, normal: obliqueNormal(ob.theta, ob.phi) };
 }
 
 /** The cut's 3D guide (t662) — WHERE the oblique plane crosses the volume.
@@ -532,6 +619,143 @@ export function buildObliqueGuidePlane(
   };
 }
 
+/* -------- the sheet's state kit (t1130): transform + mesh wrapper ------- */
+/* The face's GEOMETRY words (densityWindow, buildObliqueSheetMesh and their
+   types) live in the lib — voxel-voice.ts, the t1122 patchBoxRect precedent:
+   geometry the family shares lives where node can ride it. This block keeps
+   only the mol*-wrapping half: the kit, the transform, the state nodes. */
+
+/** The mol* runtime pieces the sheet's state nodes need — resolved ONCE,
+ *  lazily (the embed's dynamic-import doctrine: heavy mol* modules stay
+ *  out of the dialog's first chunk). All are CPU-side modules; nothing
+ *  here touches WebGL until the representation renders. */
+interface SheetKit {
+  PluginStateTransform: any;
+  SO: any;
+  StateTransformer: any;
+  Task: any;
+  PD: any;
+  Vec3: any;
+  MeshBuilder: any;
+  Mesh: any;
+  Shape: any;
+  ShapeGroup: any;
+}
+let sheetKitCache: SheetKit | null = null;
+async function ensureSheetKit(): Promise<SheetKit> {
+  if (sheetKitCache) return sheetKitCache;
+  const [objects, state, task, pd, la, mb, mesh, shape] = await Promise.all([
+    import("molstar/lib/mol-plugin-state/objects"),
+    import("molstar/lib/mol-state"),
+    import("molstar/lib/mol-task"),
+    import("molstar/lib/mol-util/param-definition"),
+    import("molstar/lib/mol-math/linear-algebra"),
+    import("molstar/lib/mol-geo/geometry/mesh/mesh-builder"),
+    import("molstar/lib/mol-geo/geometry/mesh/mesh"),
+    import("molstar/lib/mol-model/shape"),
+  ]);
+  sheetKitCache = {
+    PluginStateTransform: objects.PluginStateTransform,
+    SO: objects.PluginStateObject,
+    StateTransformer: state.StateTransformer,
+    Task: task.Task,
+    PD: pd.ParamDefinition,
+    Vec3: la.Vec3,
+    MeshBuilder: mb.MeshBuilder,
+    Mesh: mesh.Mesh,
+    Shape: shape.Shape,
+    // t1134 — the hover's address word: ShapeGroup.Loci(shape, groups) is
+    // how a band's gray mosaic is NAMED to the highlight manager (the
+    // group-loci kind — the same address the canvas's own picking speaks)
+    ShapeGroup: shape.ShapeGroup,
+  };
+  return sheetKitCache;
+}
+
+/** Wrap the mesh arrays into a mol* Shape (one GROUP per gray band — the
+ *  shape-group color theme reads Shape.getColor, so the bands ARE the
+ *  colors; no theme wiring). Pure CPU. Exported for the unit. */
+export function sheetArraysToShape(kit: SheetKit, arrays: SheetMeshArrays): unknown {
+  const { MeshBuilder, Mesh, Shape, Vec3 } = kit;
+  // t1130 — the namespace's own verbs: createState (not `create` — the live
+  // ride's cell confessed "MeshBuilder.create is not a function", the node
+  // probe named the real verbs) + getMesh to finalize.
+  const state = MeshBuilder.createState(arrays.indices.length, Math.max(256, arrays.positions.length / 3));
+  const triCount = arrays.indices.length / 3;
+  let group = -1;
+  for (let t = 0; t < triCount; t++) {
+    const b = arrays.bandOfTri[t];
+    if (b !== group) {
+      group = b;
+      state.currentGroup = b; // the builder's own group voice
+    }
+    const o0 = arrays.indices[t * 3] * 3;
+    const o1 = arrays.indices[t * 3 + 1] * 3;
+    const o2 = arrays.indices[t * 3 + 2] * 3;
+    const a = Vec3.create(arrays.positions[o0], arrays.positions[o0 + 1], arrays.positions[o0 + 2]);
+    const c = Vec3.create(arrays.positions[o1], arrays.positions[o1 + 1], arrays.positions[o1 + 2]);
+    const d = Vec3.create(arrays.positions[o2], arrays.positions[o2 + 1], arrays.positions[o2 + 2]);
+    MeshBuilder.addTriangle(state, a, c, d);
+  }
+  const mesh = MeshBuilder.getMesh(state);
+  return Shape.create(
+    "oblique-density-sheet",
+    arrays,
+    mesh,
+    (g: number, _i: number) => Color(arrays.bandColors[Math.min(g, arrays.bandColors.length - 1)]),
+    () => 1,
+    (g: number, _i: number) => arrays.bandLabels[Math.min(g, arrays.bandLabels.length - 1)] ?? "sheet"
+  );
+}
+
+/** The sheet's state transform: SO.Root → SO.Shape.Provider with the mesh
+ *  geometry riding IN THE PARAMS (PD.Value — the params ARE the geometry,
+ *  BoxShape3D's own pattern: no globals, no slot, no hidden state). A rev
+ *  bump drives the update; Recreate re-applies from the new params (the
+ *  repr child is torn down and reborn in the same transaction — one frame,
+ *  sanctioned semantics). Registered nowhere else: the embed applies it
+ *  programmatically and persists no state snapshots. */
+let sheetTransformCache: any = null;
+function ensureSheetTransform(kit: SheetKit): any {
+  if (sheetTransformCache) return sheetTransformCache;
+  const { PluginStateTransform, Task, PD } = kit;
+  sheetTransformCache = PluginStateTransform.BuiltIn({
+    name: "cryoflow-oblique-density-sheet",
+    display: { name: "Oblique density sheet", description: OBLIQUE_SHEET_ANNOTATION },
+    from: kit.SO.Root,
+    to: kit.SO.Shape.Provider,
+    params: {
+      geometry: (PD.Value as any)(null),
+      rev: PD.Numeric(0),
+    },
+  })({
+    canAutoUpdate: () => true,
+    apply({ params }: any) {
+      return Task.create("Oblique density sheet", async () => {
+        if (!params?.geometry) throw new Error("no sheet geometry");
+        const shape = sheetArraysToShape(kit, params.geometry);
+        const provider = {
+          label: "Oblique density sheet",
+          data: shape,
+          params: kit.Mesh.Utils.Params,
+          getShape: async () => shape,
+          geometryUtils: kit.Mesh.Utils,
+        };
+        return new kit.SO.Shape.Provider(provider, {
+          label: "Oblique density sheet",
+          description: OBLIQUE_SHEET_ANNOTATION,
+        });
+      });
+    },
+    update({ oldParams, newParams }: any) {
+      if (!newParams?.geometry) return kit.StateTransformer.UpdateResult.Null;
+      if (newParams.rev === oldParams?.rev) return kit.StateTransformer.UpdateResult.Unchanged;
+      return kit.StateTransformer.UpdateResult.Recreate;
+    },
+  });
+  return sheetTransformCache;
+}
+
 /** The viewport is a guest: it follows the room's theme. The Mol* canvas
  *  paints ITSELF — no computed-style audit can ever see its background, and
  *  the stock background is a near-white rectangle: a wound on a dark dialog.
@@ -587,6 +811,12 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
   const [sigma, setSigma] = useState(2);
   const [sign, setSign] = useState<1 | -1>(1);
   const [stats, setStats] = useState<GridStats | null>(null);
+  // t906 — the grid's dims, mirrored for the render side: the slice
+  // voices speak the voxel address only when the grid is known. The ref
+  // rides beside the state (the capture-time annotation builders read the
+  // ref — closure-safe), the state re-renders the voices.
+  const [gridDims, setGridDims] = useState<[number, number, number] | null>(null);
+  const gridDimsRef = useRef<[number, number, number] | null>(null);
   const [invertedNote, setInvertedNote] = useState(false);
 
   // ---- overlay maps (compare) -----------------------------------------
@@ -624,6 +854,10 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
   const volRef = useRef<any>(null);
   const sliceRef = useRef<any>(null);
   const VolumeReprRef = useRef<any>(null);
+  // t1130 — the mesh face's representation (SO.Shape.Provider → 3D repr):
+  // resolved in the same boot bundle as VolumeRepresentation3D (the same
+  // molstar transforms module exports both)
+  const ShapeRepresentation3DRef = useRef<any>(null);
   const IsoValueRef = useRef<any>(null);
   const GridRef = useRef<any>(null);
 
@@ -727,6 +961,28 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
         // volume grid transform when verifying clip/slice plane math).
         (window as unknown as { __molstar?: unknown }).__molstar = plugin;
 
+        // t1144 — the MARK provider. The t201 amputation kept the viewer's
+        // behaviors to the camera/axis/snapshot set; `representation-highlight-loci`
+        // (the ONLY stock behavior that registers a mark provider — the bridge
+        // from lociHighlights.highlight to canvas3d.mark) went out with the
+        // throwing structure observers, so every highlight the legend-hover
+        // applier ever requested landed on an EMPTY provider list:
+        // lm.highlight ran, nothing ever marked, zero pixels — the highlight
+        // was born dead on this viewer. This provider is the bridge,
+        // registered HERE (after the plugin exists — the race-free home) and
+        // scoped to THIS applier's marks: it fires on legend-hover highlights,
+        // never on pointer moves (no hover observer is resurrected — the t201
+        // disease does not return). The provider list dies with the plugin's
+        // own dispose (the managers are plugin-owned).
+        const markProvider = (current: Parameters<typeof plugin.canvas3d.mark>[0], action: Parameters<typeof plugin.canvas3d.mark>[1]) => {
+          if (!plugin.canvas3d) return;
+          // the contract passes the WHOLE {loci, repr} carrier — applyMark
+          // destructures it; a bare loci would arrive as {repr: undefined,
+          // loci: undefined} and every repr's mark would refuse the ghost
+          plugin.canvas3d.mark(current, action);
+        };
+        plugin.managers.interactivity.lociHighlights?.addProvider(markProvider as never);
+
         // fetch the raw map bytes through the (path-checked) outputs API.
         // Retry with backoff: in dev, Turbopack compiles the route on first
         // hit and a request can transiently fail mid-compile — an instant
@@ -761,10 +1017,18 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
             `map download failed (${lastErr instanceof Error ? lastErr.message : "network"})`
           );
         }
-        const buf = await res.arrayBuffer();
-        console.debug("[molstar] map fetched", buf.byteLength);
+        const fetched = new Uint8Array(await res.arrayBuffer());
+        console.debug("[molstar] map fetched", fetched.byteLength);
+        // t1113 — the header sanitizer: zero-filled MAPC/MAPR/MAPS threw
+        // "bad axis order" inside Mol*'s volume builder, and the zero-filled
+        // cell angles poisoned the grid transform (non-invertible matrix →
+        // RangeError in the isosurface geometry) — the isosurface never
+        // rendered (the survey's whole story). The sanitizer rewrites the
+        // MRC2014 defaults on a copy.
+        const { bytes: buf, corrected, cured } = sanitizeMrcHeader(fetched);
+        if (corrected) console.debug(`[molstar] header sanitized (${cured.join(" · ")})`, name);
 
-        const [{ RawData, ParseCcp4 }, { VolumeFromCcp4 }, { VolumeRepresentation3D }, { Volume }, { Grid }] =
+        const [{ RawData, ParseCcp4 }, { VolumeFromCcp4 }, { VolumeRepresentation3D, ShapeRepresentation3D }, { Volume }, { Grid }] =
           await Promise.all([
             import("molstar/lib/mol-plugin-state/transforms/data"),
             import("molstar/lib/mol-plugin-state/transforms/volume"),
@@ -773,6 +1037,9 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
             import("molstar/lib/mol-model/volume/grid"),
           ]);
         VolumeReprRef.current = VolumeRepresentation3D;
+        // t1130 — the same module exports the shape world's repr (the mesh
+        // face's visual node rides it)
+        ShapeRepresentation3DRef.current = ShapeRepresentation3D;
         IsoValueRef.current = Volume.IsoValue;
         GridRef.current = Grid;
 
@@ -785,11 +1052,18 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
 
         setStage("scene");
         const b = plugin.build();
-        const data = b.toRoot().apply(RawData, { data: new Uint8Array(buf), label: name });
+        const data = b.toRoot().apply(RawData, { data: buf, label: name }); // buf = the sanitized bytes (t1113)
         const parsed = data.apply(ParseCcp4, {});
         const vol = parsed.apply(VolumeFromCcp4, { entryId: "map" });
         const repr = vol.apply(VolumeRepresentation3D, {
-          type: { name: "isosurface", params: {} },
+          type: {
+            name: "isosurface",
+            // t1113 — an EXPLICIT inside-the-data creation isoValue (half a
+            // σ above the mean — inside ANY map with σ > 0), never the
+            // library's at-peak relative-2 default; the contour pump then
+            // applies the user's real σ through the empty-surface clamp.
+            params: { isoValue: IsoValueRef.current.relative(0.5) },
+          },
           colorTheme: { name: "uniform", params: { value: 0xffae42 } },
           sizeTheme: { name: "uniform", params: {} },
         });
@@ -813,6 +1087,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                 sigma: Number(s.sigma),
               };
               setStats(full);
+              statsRef.current = full;
               // inverted map: flip the contour to the negative side once,
               // automatically — otherwise a positive σ surface shows only
               // solvent noise and the map looks "empty"
@@ -827,28 +1102,39 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
           /* readout-only */
         }
 
-        // frame the map: focus on the visible scene's bounding sphere
-        // (non-blocking — camera framing is cosmetic)
+        // t906 — mirror the grid dims (readout-only): the FIRST Volume cell
+        // with usable dims, the same first-cell convention gridDims() and
+        // clipBox() speak inside the plugin callbacks (overlay maps land
+        // after the main map, so the first cell stays the main map).
+        try {
+          for (const cell of plugin.state.data.cells.values()) {
+            const obj = (cell as any)?.obj;
+            const v = obj?.type?.name === "Volume" ? obj.data : null;
+            const d = v?.grid?.cells?.space?.dimensions;
+            if (
+              Array.isArray(d) &&
+              d.length === 3 &&
+              d.every((n: unknown) => Number.isFinite(n) && Number.isInteger(n) && (n as number) > 1)
+            ) {
+              const triple = [Number(d[0]), Number(d[1]), Number(d[2])] as [number, number, number];
+              gridDimsRef.current = triple;
+              setGridDims(triple);
+              break;
+            }
+          }
+        } catch {
+          /* readout-only */
+        }
+
+        // frame the map: t1145's camera-fit door — patience (the isosurface
+        // geometry bakes async; a small viewport's first read can be radius
+        // 0) + the fallback chain (visible sphere → whole-scene sphere →
+        // Reset). Non-blocking — camera framing is cosmetic.
         void (async () => {
           try {
             await new Promise((r) => setTimeout(r, 300));
-            const c3d = plugin?.canvas3d;
-            if (!c3d || disposed) return;
-            const { PluginCommands } = await import("molstar/lib/mol-plugin/commands");
-            const sphere = c3d.scene?.boundingSphereVisible ?? c3d.scene?.boundingSphere;
-            if (
-              sphere &&
-              sphere.radius > 0 &&
-              Array.isArray(sphere.center) &&
-              Number.isFinite(sphere.center[0])
-            ) {
-              // frame slightly tighter than the full bounding box so the
-              // density fills more of the viewport
-              const snapshot = c3d.camera.getFocus(sphere.center, Math.max(sphere.radius * 0.7, 1));
-              await PluginCommands.Camera.SetSnapshot(plugin, { snapshot });
-            } else {
-              await PluginCommands.Camera.Reset(plugin, {});
-            }
+            if (disposed) return;
+            await fitSceneCamera(plugin, { ...FIT_PATIENCE.init, disposed: () => disposed });
           } catch {
             /* camera framing is cosmetic */
           }
@@ -933,6 +1219,9 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
   const sigmaRef = useRef(sigma);
   const signRef = useRef(sign);
   const updatePending = useRef(false);
+  // t1113 — the stats mirror the contour clamp reads (the pump runs async;
+  // React state would lag one render behind the commit it gates)
+  const statsRef = useRef<GridStats | null>(null);
   useEffect(() => {
     sigmaRef.current = sigma;
     signRef.current = sign;
@@ -966,6 +1255,27 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
   // slider's own restore bounds ([0.05, 10]), the sign follows the clicked
   // side of the mean, and the existing [sigma, sign] effect does the rest
   // (pump + STATE echo) — the chip and the cut line converge on their own.
+  /* ---------------- the σ door's memory (t1147) ---------------- */
+
+  // The levels the user SETTLED on for this map (a drag that never
+  // committed remembers nothing — the settle is the memory's unit).
+  // Restored per job on mount; written by the persist effect after real
+  // changes (never render — the #13 law rides the t1135 persist shape).
+  const [sigmaHistory, setSigmaHistory] = useState<number[]>([]);
+  const rememberSigma = useCallback((s: number) => {
+    if (!Number.isFinite(s)) return;
+    setSigmaHistory((prev) => pushContourLevel(prev, s));
+  }, []);
+  useEffect(() => {
+    // the restore face: this map's remembered levels ride back on open
+    setSigmaHistory(readContourHistory(window.localStorage, jobId));
+  }, [jobId]);
+  useEffect(() => {
+    // the persist face: write after real changes through the ONE father —
+    // an empty memory removes the key (absence is never written); a
+    // refusing store degrades to false (cosmetic memory, never a throw)
+    writeContourHistory(window.localStorage, jobId, sigmaHistory);
+  }, [sigmaHistory, jobId]);
   useEffect(() => {
     const onSigmaSet = (e: Event) => {
       const d = (e as CustomEvent<Partial<{ sigma: number; sign: number }>>).detail;
@@ -974,6 +1284,9 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       const sg: 1 | -1 = d.sign === -1 ? -1 : 1;
       if (Math.abs(sigmaRef.current - s) > 1e-6) setSigma(s);
       if (signRef.current !== sg) setSign(sg);
+      // t1147 — the histogram pick IS a settle: the user chose this level
+      // BY EYE on the 2D strip — exactly the level worth remembering.
+      rememberSigma(s);
     };
     window.addEventListener(ORTHO_SIGMA_SET_EVENT, onSigmaSet);
     return () => window.removeEventListener(ORTHO_SIGMA_SET_EVENT, onSigmaSet);
@@ -1022,6 +1335,24 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     try {
       let s = sigmaRef.current;
       let d = signRef.current;
+      // t1113 — the EMPTY-SURFACE clamp: a contour at-or-beyond the map's own
+      // peak marches zero voxels, and Mol*'s isosurface hands its spatial
+      // grid the degenerate bounding box (RangeError: new Uint32Array(-Infinity))
+      // — the viewport stays empty forever. A noise-grade map (σ ≈ half its
+      // range) puts the 2σ default right AT the peak. The clamp pulls the
+      // contour to 0.9 × the peak side's range (in σ units) — a real map
+      // (peaks ≫ 2σ) never feels it, and the UI chip speaks the clamped truth.
+      const st = statsRef.current;
+      if (st && Number.isFinite(st.sigma) && st.sigma > 0 && Number.isFinite(st.max) && Number.isFinite(st.min)) {
+        const abs = st.mean + d * s * st.sigma;
+        const over = d === 1 ? abs >= st.max : abs <= st.min;
+        if (over) {
+          const peak = d === 1 ? st.max - st.mean : st.mean - st.min;
+          s = Math.max(0.05, Math.round(((peak * 0.9) / st.sigma) * 100) / 100);
+          sigmaRef.current = s;
+          setSigma(s); // the chip and slider speak the clamped truth
+        }
+      }
       for (;;) {
         await commitContour(s, d);
         if (s === sigmaRef.current && d === signRef.current) break; // nothing newer arrived
@@ -1077,7 +1408,11 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
           `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(filePath)}&format=raw`
         );
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return new Uint8Array(await r.arrayBuffer());
+        // t1113 — same sanitizer as the main map path: overlays ride the
+        // same ParseCcp4 door and die on the same zero-filled headers
+        const fetched = sanitizeMrcHeader(new Uint8Array(await r.arrayBuffer()));
+        if (fetched.corrected) console.debug(`[molstar] header sanitized (overlay: ${fetched.cured.join(" · ")})`, filePath);
+        return fetched.bytes;
       } catch (err) {
         lastErr = err;
       }
@@ -1517,7 +1852,16 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
   // if it slept), and , / . (with shift: < / >) scrub the plane along its
   // axis once it is on — the panel is closed when the plane sleeps, so the
   // scrub keys deliberately do nothing then: no spooky action on an
-  // invisible plane. Scoped to the viewer being ready; form fields and
+  // invisible plane. t908 gives the OBLIQUE plane its verbs: C toggles the
+  // 3D cut (a cut out retires; none out wakes the sleeping block and cuts
+  // at its plane — the X/Y/Z wake law), J faces the camera down the block's
+  // plane (⌖ — the block refuses when it sleeps), A adopts the view (⤸ —
+  // the block wakes BY CAMERA), and ; / ' (shift: : / ") nudge the cut's
+  // depth along its own normal (fine = the slider's 2%, shift the coarser
+  // 10% — the < > law; the block refuses when it sleeps). The verbs ride
+  // the ONE verb wire and the block executes with its own hands — every
+  // provenance/flash/debounce law the buttons obey, the keys obey.
+  // Scoped to the viewer being ready; form fields and
   // open menus keep their keys.
   useEffect(() => {
     if (phase !== "ready") return;
@@ -1553,6 +1897,12 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       } else if (e.key === "0") {
         e.preventDefault();
         resetCamera();
+      } else if (e.key === "v" || e.key === "V") {
+        // t1145 — the fit door's keyboard face: re-frame the camera on the
+        // scene's actual extent (patience included — a fresh surface may
+        // still be baking). The button beside Reset speaks the same verb.
+        e.preventDefault();
+        void fitSceneCamera(pluginRef.current, FIT_PATIENCE.verb).catch(() => {});
       } else if (e.key === "b" || e.key === "B") {
         // quick-save: the whole point of a good angle is that it shows up
         // unannounced — B freezes it before it drifts, no naming detour
@@ -1572,7 +1922,11 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
         const next = e.key === "]"
           ? Math.min(SIGMA_MAX, sigmaRef.current * 1.05)
           : Math.max(SIGMA_MIN, sigmaRef.current / 1.05);
-        setSigma(Math.round(next * 100) / 100);
+        const settled = Math.round(next * 100) / 100;
+        setSigma(settled);
+        // t1147 — a key tap is a settle: the level the user landed on
+        // rides the memory (a re-picked level moves to the front)
+        rememberSigma(settled);
       } else if (e.key === "f" || e.key === "F") {
         // t829 — polarity flip: the flip button's exact verb, on the keys
         e.preventDefault();
@@ -1593,6 +1947,36 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
         const dir = e.key === "," || e.key === "<" ? -1 : 1;
         const next = Math.min(1, Math.max(0, sliceStateRef.current.pos + dir * step));
         applySliceIntent({ pos: Math.round(next * 100) / 100 });
+      } else if (e.key === "c" || e.key === "C") {
+        // t908 — the ✂ verb: a cut out retires (the chip's × verb, the ACK
+        // follows the block's ✂ face); none out wakes the sleeping block
+        // and cuts at its plane (the X/Y/Z wake law — the block expands,
+        // the tile loads, the cut rides its own settle debounce)
+        e.preventDefault();
+        if (obliqueClipRef.current.on) applyObliqueClipIntent({ on: false });
+        else window.dispatchEvent(new CustomEvent(OBLIQUE_VERB_EVENT, { detail: { verb: "cut" } satisfies ObliqueVerbDetail }));
+      } else if (e.key === "j" || e.key === "J") {
+        // t908 — the ⌖ verb: face the camera down the block's plane. The
+        // block refuses when it sleeps (the ,/. law — no spooky
+        // default-plane jumps); awake, its own jumpToView runs (the
+        // provenance chip, the roll-canonical up, the synchronous answer)
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent(OBLIQUE_VERB_EVENT, { detail: { verb: "jump" } satisfies ObliqueVerbDetail }));
+      } else if (e.key === "a" || e.key === "A") {
+        // t908 — the ⤸ verb: the view you're orbiting becomes the cut. The
+        // block wakes BY CAMERA (its answer handler sets on itself — the
+        // adopt is a wake verb), the provenance ⤸ and the violet flash ride
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent(OBLIQUE_VERB_EVENT, { detail: { verb: "adopt" } satisfies ObliqueVerbDetail }));
+      } else if (e.key === ";" || e.key === ":" || e.key === "'" || e.key === '"') {
+        // t908 — the depth dial: ; ' nudge the cut's offset along its own
+        // normal (fine = the slider's own 2%), : " the shift-coarser 10%
+        // (the < > law). The block refuses when it sleeps — the same
+        // silence the slice's scrub keys speak on an invisible plane
+        e.preventDefault();
+        const dir = e.key === ";" || e.key === ":" ? -1 : 1;
+        const coarse = e.key === ":" || e.key === '"';
+        window.dispatchEvent(new CustomEvent(OBLIQUE_VERB_EVENT, { detail: { verb: "offset", dir, coarse } satisfies ObliqueVerbDetail }));
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -1638,8 +2022,11 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     /** t661 — the oblique 3D cut (the ortho block's ✂ mirror); present
      *  only when the cut was ON at save time. Absent restores the live
      *  cut untouched — a view saved before the cut existed never promised
-     *  one, and switching nothing is the honest fly-back for it */
-    oblique?: { on: boolean; theta: number; phi: number; offset: number; invert: boolean };
+     *  one, and switching nothing is the honest fly-back for it.
+     *  t1129 — `sheet` rides INSIDE the cut (the face only ever exists
+     *  with its plane): an explicit true revives the density sheet, every
+     *  other shape restores off (legacy views never promised a face). */
+    oblique?: { on: boolean; theta: number; phi: number; offset: number; invert: boolean; sheet?: boolean };
   };
   type CamBookmark = { id: string; name: string; ts: number; thumb?: string; snapshot: Record<string, unknown>; view?: BookmarkView };
   // t279 — the ortho browser's tri-planar focus point, as last reported
@@ -2094,7 +2481,9 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     // planes where the inspection was happening
     ...(orthoFocusRef.current ? { focus: { ...orthoFocusRef.current } } : {}),
     // t661 — the oblique 3D cut rides along when it was on: the saved
-    // picture IS the cut surface, so fly-back means the plane too
+    // picture IS the cut surface, so fly-back means the plane too. t1129 —
+    // the face rides inside the same detail (it only ever exists WITH the
+    // cut, so the gate is the cut's own)
     ...(obliqueClipRef.current.on
       ? {
           oblique: {
@@ -2103,6 +2492,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
             phi: obliqueClipRef.current.phi,
             offset: obliqueClipRef.current.offset,
             invert: obliqueClipRef.current.invert,
+            sheet: sheetStateRef.current.on,
           },
         }
       : {}),
@@ -2354,7 +2744,9 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       )}
       {v.slice && v.slice.on && (
         <span className="rounded bg-running/10 px-1 py-px font-mono text-[8px] font-medium tabular-nums text-running-700 dark:text-running-400">
-          slice {v.slice.axis} {Math.round(v.slice.pos * 100)}%
+          {/* t906 — the chip re-voices the stored fraction against the LIVE
+              grid (the snapshot stays {axis, pos} — display-time voice) */}
+          slice {voxelAnnotation(v.slice.pos, v.slice.axis, dimAlong(gridDims, v.slice.axis))}
         </span>
       )}
       {v.clip && v.clip.on && (
@@ -2380,11 +2772,15 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
         </span>
       )}
       {v.oblique?.on && (
-        // t661 — the oblique 3D cut joins the chips: the saved view shows
-        // the surface was opened and at what plane. Violet, the oblique
-        // family's own hue since t556.
+        // t661/t907 — the oblique 3D cut joins the chips: the saved view
+        // shows the surface was opened, at what plane AND at what depth
+        // (the restore obeys the offset — the chip names it; the % is
+        // the fraction the restore applies). Violet, the oblique
+        // family's own hue since t556. No voxel depth here: a bookmark
+        // survives remounts where the grid may load late — the % is the
+        // stored fraction's own honest voice (the lib's boundary).
         <span className="rounded bg-violet-600/10 px-1 py-px font-mono text-[8px] font-medium tabular-nums text-violet-700 dark:text-violet-400">
-          cut {v.oblique.theta}°·{v.oblique.phi}°{v.oblique.invert ? " · flip" : ""}
+          cut {v.oblique.theta}°·{v.oblique.phi}° · {obliqueOffsetPctVoice(v.oblique.offset)}{v.oblique.invert ? " · flip" : ""}
         </span>
       )}
     </span>
@@ -2422,6 +2818,11 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
           offset: v.oblique.offset,
           invert: v.oblique.invert,
         });
+        // t1129 — the face flies back INSIDE the cut's own branch: an
+        // explicit true revives it, every other shape restores off (legacy
+        // views never promised a face — the same honesty the cut's absent
+        // field rides on)
+        applySheetIntent({ on: v.oblique.sheet === true });
       }
     }
   };
@@ -2767,6 +3168,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                     : "No saved views on this job"
               }
               className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                 "flex w-full items-center gap-1.5 rounded px-1 py-1 text-left transition-colors",
                 j.count !== 0 ? "hover:bg-muted" : "cursor-default opacity-50",
               )}
@@ -2932,16 +3334,25 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
         const ob = obliqueClipRef.current;
         const annotations: string[] = [];
         if (supersampled) annotations.push(`${mult}× supersampled`);
-        if (st.on) annotations.push(`slice ${st.axis} ${Math.round(st.pos * 100)}%`);
+        // t906 — the slice annotation speaks the voxel address when the
+        // grid is known (the fraction rides along in parens); the CLIP
+        // annotation keeps its fraction language (the t905 boundary — a
+        // clip box can be anchored/oblique, no single honest voxel axis)
+        if (st.on) annotations.push(`slice ${voxelAnnotation(st.pos, st.axis, dimAlong(gridDimsRef.current, st.axis))}`);
         if (cp.on) {
           const axes = (["x", "y", "z"] as const)
             .filter((ax) => cp[ax] < 0.999)
             .map((ax) => `${ax.toUpperCase()} ${Math.round(cp[ax] * 100)}%`);
           if (axes.length) annotations.push(`clip ${axes.join(" ")}${cp.invert ? " · flip" : ""}`);
         }
-        // t661 — a figure cut open by the oblique plane says so: the same
-        // θ/φ the 2D block's provenance chip and the 3D chip speak
-        if (ob.on) annotations.push(`oblique cut ${ob.theta}°·${ob.phi}°${ob.invert ? " · flip" : ""}`);
+        // t661/t907 — a figure cut open by the oblique plane says so:
+        // the angles AND the position (the % re-mints the plane with
+        // dims+angles, the depth is the address) — the same annotation
+        // voice the 2D block's provenance chip family speaks
+        if (ob.on) annotations.push(obliqueCutAnnotation(ob, obliqueSupportVox(gridDimsRef.current, ob.theta, ob.phi)));
+        // t1129 — a face ON the cut plane is one new fact the figure must
+        // confess (the address is the cut's own, already spoken)
+        if (ob.on && sheetStateRef.current.on) annotations.push(OBLIQUE_SHEET_ANNOTATION);
         if (overlays.length) {
           annotations.push(`${overlays.length} overlay map${overlays.length > 1 ? "s" : ""}`);
         }
@@ -3157,14 +3568,17 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       const ob = obliqueClipRef.current;
       const annotations: string[] = [];
       if (supersampled) annotations.push(`${mult}× supersampled`);
-      if (st.on) annotations.push(`slice ${st.axis} ${Math.round(st.pos * 100)}%`);
+      // t906 — the same voxel voice as the PNG footer (the ref, not the
+      // state: this builder runs at Record-press time)
+      if (st.on) annotations.push(`slice ${voxelAnnotation(st.pos, st.axis, dimAlong(gridDimsRef.current, st.axis))}`);
       if (cp.on) {
         const axes = (["x", "y", "z"] as const)
           .filter((ax) => cp[ax] < 0.999)
           .map((ax) => `${ax.toUpperCase()} ${Math.round(cp[ax] * 100)}%`);
         if (axes.length) annotations.push(`clip ${axes.join(" ")}${cp.invert ? " · flip" : ""}`);
       }
-      if (ob.on) annotations.push(`oblique cut ${ob.theta}°·${ob.phi}°${ob.invert ? " · flip" : ""}`);
+      if (ob.on) annotations.push(obliqueCutAnnotation(ob, obliqueSupportVox(gridDimsRef.current, ob.theta, ob.phi)));
+      if (ob.on && sheetStateRef.current.on) annotations.push(OBLIQUE_SHEET_ANNOTATION); // t1129 — the recorded figure confesses the face too
       if (overlays.length) {
         annotations.push(`${overlays.length} overlay map${overlays.length > 1 ? "s" : ""}`);
       }
@@ -3401,6 +3815,50 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
   const [slicePos, setSlicePos] = useState(0.5);
   const sliceStateRef = useRef({ on: false, axis: "Z" as SliceAxis, pos: 0.5, sigma: 2, sign: 1 as 1 | -1 });
   const slicePending = useRef(false);
+  // t1129 — the oblique cut's FACE (the density sheet ON the cut plane).
+  // Declared with the slice family because the sheet IS a slice node (the
+  // 'plane' mode of the same representation) and deleteAllSlices must know
+  // its ref; the commit/pump live with the oblique block below (they speak
+  // the cut's geometry). `sheetOn` is the PREFERENCE — it survives cut
+  // cycles (re-cutting the same plane re-hangs the face); the NODE only
+  // mounts while the cut is on, so the scene never shows a faceless plane
+  // nor a planeless face.
+  const [sheetOn, setSheetOn] = useState(false);
+  const sheetStateRef = useRef({ on: false });
+  const sheetRef = useRef<{ transform: { ref: string } } | null>(null);
+  const sheetPending = useRef(false);
+  // t1130 — the mesh face's geometry revision: every commitSheet builds a
+  // new lattice; the rev bump is what the transform's update hook reads to
+  // decide Unchanged vs Recreate (the params carry the geometry — the rev
+  // is their fingerprint)
+  const sheetRevRef = useRef(0);
+  // t1131 — the face's LEGEND: the last commit's own key (sheetLegendOf on
+  // the arrays the scene wears, null when the face retired or the lattice
+  // kept nothing). pumpSheet announces it ONCE per settled pump over
+  // OBLIQUE_SHEET_LEGEND_EVENT — the panel's strip can never disagree with
+  // the face because it only ever reads what the face last WORE.
+  const sheetLegendRef = useRef<SheetLegend | null>(null);
+  // t1131 — the scrub debounce: a drag (the trace's 120ms words, the walk
+  // dial's stops) storms the pump with plane moves; each is a full lattice
+  // rebuild (56×56 trilinear samples + a state commit). The 2D tiles' own
+  // law (PROBE_REFETCH_MS, the img chases the SETTLED pos) rides here as
+  // the face's breath: a numbers-only scrub schedules the rebuild on a
+  // trailing 180ms debounce — the newest plane wins, the build fires once
+  // after the hand rests; toggles (the cut's or the face's own) stay
+  // IMMEDIATE (a click must feel instant, the retirement law never waits).
+  const SHEET_SCRUB_DEBOUNCE_MS = 180; // the PROBE_REFETCH_MS law's own breath
+  const sheetDebounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      // unmount — never let a dying embed build a face for no one
+      if (sheetDebounceTimer.current) clearTimeout(sheetDebounceTimer.current);
+    },
+    []
+  );
+  // t906 — the dim along the ACTIVE axis (null until the grid is mirrored):
+  // every slice voice reads this one derivation, so the slider's address,
+  // the aria text and the landscape's plane label can never disagree
+  const sliceAxDim: number | null = gridDims ? dimAlong(gridDims, sliceAxis) : null;
 
   // Density landscape along the slice axis (t189) — mean density per
   // plane, served by /map-profile. One fetch per (map, axis) per viewer
@@ -3716,7 +4174,23 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     };
 
     const deleteAllSlices = async () => {
-      const cells = sliceCells();
+      // t1129 — the oblique sheet is ALSO a "Slice" cell (same provider
+      // label); the sweep must not eat the face: its own ref opts it out
+      // and its own commit path retires it. t1136 — the opt-out rides the
+      // TREE (the t1130 law): the cached builder node has a `ref`, not a
+      // `.transform`, and this phantom read returned null since the t1130
+      // re-plant — the sweep's protection was dead at the same address the
+      // hover's applier was (the optional chain swallowed the disease; the
+      // sweep would have eaten the face on every axis switch). The
+      // transformer-id witness speaks for all three readers.
+      let sheetCellRef: string | null = null;
+      for (const cell of plugin.state.data.cells.values()) {
+        if (String(cell?.transform?.transformer?.id || "").includes("oblique-density-sheet")) {
+          sheetCellRef = cell.transform.ref;
+          break;
+        }
+      }
+      const cells = sliceCells().filter((c) => c.transform.ref !== sheetCellRef);
       if (cells.length === 0) return;
       const b = plugin.build();
       for (const c of cells) b.delete(c.transform.ref);
@@ -3733,9 +4207,12 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
 
     const dims = gridDims();
     if (!dims) throw new Error("volume dims unavailable");
-    const axisIdx = st.axis === "X" ? 0 : st.axis === "Y" ? 1 : 2;
+    const axisIdx = axisIndex(st.axis);
     const dimName = ["x", "y", "z"][axisIdx];
-    const gridIndex = Math.min(dims[axisIdx] - 1, Math.max(0, Math.round(st.pos * (dims[axisIdx] - 1))));
+    // t906 — the ONE formula (lib-owned): the clamp is unreachable here
+    // (gridDims() gates d>1 and pos is a fraction) but the null is an
+    // honest guard, not a lie
+    const gridIndex = voxelIndexOf(st.pos, dims[axisIdx]) ?? 0;
 
     if (sliceAxisRef.current !== st.axis) {
       await deleteAllSlices(); // name switch ⇒ recreate
@@ -3975,6 +4452,13 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     sliceStateRef.current.sign = sign;
     void pumpSlice();
   }, [sigma, sign]);
+
+  // t1130 — the sheet's σ coupling RETIRES with the slice node it served:
+  // the old mode-'plane' sheet wore the contour's isoValue, so every σ/sign
+  // change re-pumped the face. The MESH face wears the FIELD (the tile
+  // stretch law, not the contour), the σ slider cuts the SURFACE — the same
+  // division the ortho tiles already live by. No σ effect, no re-pump: the
+  // face stays put while the surface opens and closes.
 
   /* ---------------- box clipping (crop the isosurface) ---------------- */
 
@@ -4240,8 +4724,27 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       y: 1,
       z: 1,
       invert: false,
-      box: { lo: [...lo], hi: [...hi] },
+      box: { lo: [...lo] as [number, number, number], hi: [...hi] as [number, number, number] },
     });
+  };
+
+  // t905 — the slab seat: dragging either face of an axis' two-thumb slider
+  // mints/updates the LIVE box. The other axes keep their CURRENT kept
+  // intervals (keptIntervalOf reads whichever language speaks for them), so
+  // a slab on one axis composes with planes/slabs on the others — the same
+  // intersection the box planes build in commitClip. The invert flag
+  // dissolves into the minted box (the kept REGION is preserved exactly;
+  // which side was kept stops mattering once both faces are in hand).
+  const applyClipAxisInterval = (axis: 0 | 1 | 2, rawLo: number, rawHi: number) => {
+    const st = clipStateRef.current;
+    const [lo, hi] = normalizeInterval(rawLo, rawHi);
+    const next = ([0, 1, 2] as const).map((i) =>
+      i === axis ? ([lo, hi] as [number, number]) : keptIntervalOf(st, i)
+    );
+    applyClipBoxIntent(
+      [next[0][0], next[1][0], next[2][0]],
+      [next[0][1], next[1][1], next[2][1]]
+    );
   };
 
   // t260 — the "show in parent" door's opening statement: once the volume
@@ -4287,6 +4790,17 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
   });
   const obliqueClipRef = useRef({ ...obliqueClip });
 
+  // t907 — the cut's depth voice: the offset's honest address (voxel
+  // pitches from the grid center along the cut's own normal). The % is
+  // a share of a support that VARIES with the angles (the same +30% is
+  // a different depth at θ 0 than at θ 45) — the voxels do not. Null
+  // grid → the empty suffix (the honest silence the lib pins; in
+  // practice a cut only exists over a loaded volume).
+  const obliqueDepthSuffix = () => {
+    const sup = gridDims ? obliqueSupportVox(gridDims, obliqueClip.theta, obliqueClip.phi) : null;
+    return sup === null ? "" : ` · ${obliqueDepthVoice(obliqueDepthVox(obliqueClip.offset, sup))}`;
+  };
+
   const applyObliqueClipIntent = (
     patch: Partial<{ on: boolean; theta: number; phi: number; offset: number; invert: boolean }>
   ) => {
@@ -4294,16 +4808,55 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     setObliqueClip({ ...obliqueClipRef.current });
     clipStateRef.current = { ...clipStateRef.current, rev: clipStateRef.current.rev + 1 };
     void pumpClip();
+    // t1129 — the face follows the plane it is the face OF: every cut
+    // intent keeps the density image and the surface opening agreed on
+    // where the plane sits. t1131 — HOW the face chooses to follow depends
+    // on the word: an existence word (the cut's or the sheet's own toggle,
+    // a retirement) walks in IMMEDIATELY — a click must feel instant and
+    // the retirement law never waits; a numbers-only scrub rides the
+    // trailing debounce (one lattice build after the hand rests); and an
+    // invert-only flip calls NO rebuild at all — the mesh reads the plane,
+    // never the kept half, so the face cannot move (the pumpSheet seen-set
+    // has ignored invert since t1130; now the pump isn't even scheduled).
+    const numberWords =
+      patch.theta !== undefined || patch.phi !== undefined || patch.offset !== undefined;
+    if (patch.on !== undefined) {
+      requestSheetPump(true); // existence word — instant (mount and retire)
+    } else if (numberWords) {
+      requestSheetPump(false); // the plane moved — the debounced chase
+    }
+    // else: invert-only (or an empty patch) — the face cannot move; no build
     // 3D → 2D ACK (t661): the block's ✂ follows the scene — chip clear and
     // bookmark restores retire/revive the cut outside its sliders, and the
-    // toggle must not lie about which of those states is live
+    // toggle must not lie about which of those states is live. t1129 — the
+    // detail also carries the face's LIVE truth (preference AND cut both
+    // on), so the block's ▣ is pressed exactly when a face is showing.
     window.dispatchEvent(
       new CustomEvent(OBLIQUE_CLIP_STATE_EVENT, {
-        detail: { ...obliqueClipRef.current },
+        detail: {
+          ...obliqueClipRef.current,
+          sheet: sheetStateRef.current.on && obliqueClipRef.current.on,
+        },
       })
     );
   };
 
+  // t1131 — THE STALE-LISTENER CURE (a real bug, live-caught this window):
+  // the t661 clip listener called applyObliqueClipIntent DIRECTLY inside a
+  // []-deps effect — the closure froze on the FIRST render, whose `phase`
+  // is still "loading", so the stale pumpClip/pumpSheet early-returned
+  // FOREVER on the event wire: the panel's ✂ updated the state mirrors
+  // (stable refs + the stable setter — the chip and the ACK kept lying
+  // convincingly) but the SCENE's surface clip and the face's rebuilds
+  // never ran on this path. The rides that showed the cut working were
+  // Fast-Refresh re-subscriptions (each hot edit re-runs the [] effect with
+  // the then-current closure — phase already "ready"); a fresh dialog was
+  // silently dead. THE FAMILY'S OWN LAW (the slice listener's comment says
+  // it: "the intent applier is read through a ref so the listener never
+  // goes stale" — sliceIntentRef, sheetIntentRef): read the applier through
+  // a ref. The off-heartbeat branch rides the same ref.
+  const obliqueClipIntentRef = useRef(applyObliqueClipIntent);
+  obliqueClipIntentRef.current = applyObliqueClipIntent;
   useEffect(() => {
     const onObliqueClip = (e: Event) => {
       const d = (e as CustomEvent<{ on?: unknown; theta?: unknown; phi?: unknown; offset?: unknown }>)
@@ -4312,7 +4865,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       if (d.on !== true) {
         // the block's off-heartbeats retire the plane only when one is
         // actually out (a fresh embed never pumps for a cut it never had)
-        if (obliqueClipRef.current.on) applyObliqueClipIntent({ on: false });
+        if (obliqueClipRef.current.on) obliqueClipIntentRef.current({ on: false });
         return;
       }
       const theta =
@@ -4328,10 +4881,310 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
           ? Math.min(1, Math.max(-1, d.offset))
           : null;
       if (theta === null || phi === null || offset === null) return;
-      applyObliqueClipIntent({ on: true, theta, phi, offset });
+      obliqueClipIntentRef.current({ on: true, theta, phi, offset });
     };
     window.addEventListener(OBLIQUE_CLIP_EVENT, onObliqueClip);
     return () => window.removeEventListener(OBLIQUE_CLIP_EVENT, onObliqueClip);
+  }, []);
+
+  /* ---------------- the cut's face (t1129, the oblique sheet) -------- */
+
+  // The density sheet ON the oblique cut plane — a second slice node in
+  // Mol*'s 'plane' mode, wearing the data the cut crosses. One geometry
+  // father (buildObliqueSheetPlane → the lib's anchor word), one pump
+  // family pattern (the settle loop re-reads BOTH gates — the sheet's own
+  // preference AND the cut's liveness — so a scrub during a commit lands
+  // the newest truth), and one retirement law: no cut, no face.
+  const deleteSheet = async () => {
+    // t1130 — delete by the TREE's own witness, not the cached builder node:
+    // the live ride's face-off threw "Cannot read properties of undefined
+    // (reading 'ref')" off the cached To while the tree still held the cell
+    // (pressed=false but cellExists=true — the state split). The tree is the
+    // one truth: find the sheet cell by its transformer id and delete THAT
+    // ref (the offline repro's working shape), then clear the cache either way.
+    const plugin = pluginRef.current;
+    if (!plugin) { sheetRef.current = null; return; }
+    let ref: string | null = null;
+    for (const cell of plugin.state.data.cells.values()) {
+      if (String(cell?.transform?.transformer?.id || "").includes("oblique-density-sheet")) {
+        ref = cell.transform.ref;
+        break;
+      }
+    }
+    if (!ref) { sheetRef.current = null; return; }
+    const b = plugin.build();
+    b.delete(ref);
+    await b.commit();
+    sheetRef.current = null;
+  };
+
+  const commitSheet = async () => {
+    const plugin = pluginRef.current;
+    if (!plugin || !volRef.current || !GridRef.current) throw new Error("not ready");
+    const ob = obliqueClipRef.current;
+    // t1131 — the legend is CLEARED at the gate and minted only after a
+    // commit actually lands: the ref holds a key only when a face is
+    // really wearing it, so the pump's one announcement per settle can
+    // never describe a face the scene no longer keeps (an error path —
+    // the throw below — announces the honest null too)
+    sheetLegendRef.current = null;
+    // the retirement law: the preference may sleep, the cut may be off —
+    // either way the face comes down (the scene never keeps a sheet whose
+    // plane is gone)
+    if (!sheetStateRef.current.on || !ob.on) {
+      await deleteSheet();
+      return;
+    }
+    const geo = clipBox();
+    const sheet = geo ? buildObliqueSheetPlane({ theta: ob.theta, phi: ob.phi, offset: ob.offset }, geo) : null;
+    if (!sheet) {
+      await deleteSheet(); // honest no-face — no guessed geometry
+      return;
+    }
+    // the plane∩box trace: the guide's polygon (the same world-space trace
+    // the 3D guide draws — one geometry father, the face is its inlay)
+    const guide = geo
+      ? buildObliqueGuidePlane({ theta: ob.theta, phi: ob.phi, offset: ob.offset }, false, geo, geo.cols)
+      : null;
+    if (!guide || guide.polygon.length < 3) {
+      await deleteSheet();
+      return;
+    }
+    // the volume's own grid: the sampler walks it trilinearly (the same
+    // CPU path the t1129 offline experiment verified healthy)
+    let grid: any = null;
+    for (const cell of plugin.state.data.cells.values()) {
+      const obj = (cell as any)?.obj;
+      if (obj?.type?.name !== "Volume") continue;
+      if (obj?.data?.grid?.cells?.space?.dimensions) { grid = obj.data.grid; break; }
+    }
+    if (!grid) {
+      await deleteSheet();
+      return;
+    }
+    const window_ = densityWindow(grid);
+    if (!window_) {
+      await deleteSheet();
+      return;
+    }
+    const sampler = GridRef.current.makeGetTrilinearlyInterpolated(grid, "none");
+    const arrays = buildObliqueSheetMesh({
+      polygon: guide.polygon,
+      point: sheet.point,
+      normal: sheet.normal,
+      sampler: (p) => sampler(p as never) as number,
+      grayLo: window_[0],
+      grayHi: window_[1],
+    });
+    if (!arrays) {
+      await deleteSheet(); // the honest no-face (empty lattice / no samples)
+      return;
+    }
+    let kit: SheetKit;
+    try {
+      kit = await ensureSheetKit();
+    } catch (err) {
+      console.debug("molstar] sheet kit unavailable — no face", err);
+      await deleteSheet();
+      return;
+    }
+    const SheetTransform = ensureSheetTransform(kit);
+    const params = { geometry: arrays, rev: ++sheetRevRef.current };
+    if (!sheetRef.current) {
+      // create WITH the geometry in the initial params (the axis slice's
+      // own create-with-state law — a node is never born empty then told);
+      // the provider node is the tracked one — deleting it takes the repr
+      // child down with it (the subtree dies with its root)
+      const b = plugin.build();
+      const provider = b
+        .to(volRef.current)
+        .apply(SheetTransform, params);
+      provider.apply(ShapeRepresentation3DRef.current, {});
+      await b.commit();
+      sheetRef.current = provider as unknown as { transform: { ref: string } };
+    } else {
+      // same-node update — the rev bump tells the transform the geometry
+      // changed; Recreate re-applies from the new params in one transaction.
+      // t1130 — ONE-ARG shape: the builder's update(paramsOrTransformer,
+      // provider) treats a second arg as an immer-style RECIPE over the old
+      // params (the offline repro: a two-arg call with a VALUE object drove
+      // the cell to its DEFAULTS — rev 0, no geometry, "no sheet geometry").
+      // The values ride alone; the transform argument was always cosmetic.
+      await plugin
+        .build()
+        .to(sheetRef.current)
+        .update(params)
+        .commit();
+    }
+    // t1131 — the commit landed: the legend is MADE of the arrays the
+    // scene now wears (the lib's sheetLegendOf — never a second ramp);
+    // the pump announces it once the settle loop breaks
+    sheetLegendRef.current = sheetLegendOf(arrays, window_[0], window_[1]);
+  };
+
+  const pumpSheet = async () => {
+    if (phase !== "ready") return;
+    if (sheetPending.current) return; // in-flight commit re-checks the gates
+    sheetPending.current = true;
+    try {
+      for (;;) {
+        // t1130 — the mesh face is σ-INDEPENDENT (the contour slider cuts
+        // the surface, the face wears the field): the seen-set tracks the
+        // sheet's preference and the cut's four numbers only — a σ scrub
+        // during a commit no longer forces a needless lattice rebuild
+        const seenSheet = sheetStateRef.current.on;
+        const seenCut = { ...obliqueClipRef.current };
+        await commitSheet();
+        const nowSheet = sheetStateRef.current.on;
+        const nowCut = obliqueClipRef.current;
+        if (
+          nowSheet === seenSheet &&
+          nowCut.on === seenCut.on && nowCut.theta === seenCut.theta &&
+          nowCut.phi === seenCut.phi && nowCut.offset === seenCut.offset
+        ) break; // nothing newer arrived while committing
+      }
+    } catch (err) {
+      console.debug("molstar] sheet update skipped", err);
+    } finally {
+      sheetPending.current = false;
+      // t1131 — ONE announcement per settled pump: the last commit's own
+      // key (or the honest null — the gates cleared it). The panel's strip
+      // is MADE of what the face last wore, so it can never lead the scene.
+      if (announcedSheetLegendRef.current !== sheetLegendRef.current) {
+        announcedSheetLegendRef.current = sheetLegendRef.current;
+        window.dispatchEvent(
+          new CustomEvent(OBLIQUE_SHEET_LEGEND_EVENT, { detail: { legend: sheetLegendRef.current } })
+        );
+      }
+    }
+  };
+
+  // t1131 — the pump's DOOR: toggles walk straight in (a click must feel
+  // instant, the retirement law never waits), a numbers-only scrub rides
+  // the trailing 180ms debounce (the newest plane wins, one lattice build
+  // after the hand rests — the 2D tiles' PROBE_REFETCH_MS law). The timer
+  // resets on every new word: a continuous drag holds the build until the
+  // breath arrives, exactly when the 2D tiles' img refetches.
+  const requestSheetPump = (immediate: boolean) => {
+    if (sheetDebounceTimer.current) {
+      clearTimeout(sheetDebounceTimer.current);
+      sheetDebounceTimer.current = null;
+    }
+    if (immediate) {
+      void pumpSheet();
+      return;
+    }
+    sheetDebounceTimer.current = setTimeout(() => {
+      sheetDebounceTimer.current = null;
+      void pumpSheet();
+    }, SHEET_SCRUB_DEBOUNCE_MS);
+  };
+  // the announcement's dedup seat: CustomEvents are cheap but a pump that
+  // rebuilt nothing (the settle loop's own honesty) must not re-speak an
+  // unchanged key — the panel keeps its state, the wire stays quiet
+  const announcedSheetLegendRef = useRef<SheetLegend | null>(null);
+
+  const applySheetIntent = (patch: Partial<{ on: boolean }>) => {
+    sheetStateRef.current = { ...sheetStateRef.current, ...patch };
+    if (patch.on !== undefined) setSheetOn(patch.on);
+    void pumpSheet();
+    // 3D → 2D ACK: the SAME wire the cut echoes on (one truth per plane)
+    // — the face field speaks the LIVE truth (preference AND cut both on),
+    // so the panel's ▣ is pressed exactly when a face is actually showing
+    window.dispatchEvent(
+      new CustomEvent(OBLIQUE_CLIP_STATE_EVENT, {
+        detail: {
+          ...obliqueClipRef.current,
+          sheet: sheetStateRef.current.on && obliqueClipRef.current.on,
+        },
+      })
+    );
+  };
+
+  // 2D → 3D (t1129): the ortho block's ▣ face toggle — the sheet rides
+  // its own wire (the cut's OBLIQUE_CLIP_EVENT speaks {on,theta,phi,offset}
+  // and must not grow a second meaning); the intent applier is read
+  // through a ref so the listener never goes stale across re-renders
+  // (the slice/clip listeners' own law)
+  const sheetIntentRef = useRef(applySheetIntent);
+  sheetIntentRef.current = applySheetIntent;
+  useEffect(() => {
+    const onObliqueSheet = (e: Event) => {
+      const d = (e as CustomEvent<{ on?: unknown }>).detail;
+      if (!d || typeof d !== "object") return;
+      sheetIntentRef.current({ on: d.on === true });
+    };
+    window.addEventListener(OBLIQUE_SHEET_EVENT, onObliqueSheet);
+    return () => window.removeEventListener(OBLIQUE_SHEET_EVENT, onObliqueSheet);
+  }, []);
+
+  // t1134 — the HOVER wire's 3D ear: the panel's swatch hover names a
+  // band, the embed lights THAT group in the scene (ShapeGroup.Loci →
+  // the highlight manager — the same address the canvas's own picking
+  // speaks). The refusal family: null/leave clears; a stale key (no
+  // sheet node, or a band past the shape's groupCount — the key lags the
+  // face by one pump at worst) paints NOTHING rather than the wrong
+  // band. The applier rides the family's ref law (the t1131 cure's own
+  // shape — the listener never goes stale across re-renders).
+  const applyObliqueSheetLegendHover = async (band: number | null) => {
+    const plugin = pluginRef.current;
+    // t1144 — the manager's real name in mol* 5.11 is `interactivity` (the
+    // live probe's own census: managers = structure · volume ·
+    // interactivity · camera · … — there is NO `interaction` manager). The
+    // old read was a dead optional chain: `lm` came back undefined on
+    // EVERY hover and the applier bailed silently at this first guard —
+    // the t1136 cell-address cure sat unexercised behind a broken door.
+    const lm = plugin?.managers?.interactivity?.lociHighlights;
+    if (!plugin || !lm) return;
+    if (band === null || !Number.isFinite(band) || band < 0) {
+      lm.clearHighlights();
+      return;
+    }
+    // t1136 — the address rides the TREE (the t1130 law's own shape: the
+    // tree is the one truth). The old read took `.transform?.ref` off the
+    // CACHED BUILDER NODE — a StateBuilder.To has a `ref`, NOT a
+    // `.transform`, so the optional chain swallowed the exact disease the
+    // deleteSheet live ride had already convicted (the "Cannot read
+    // properties of undefined (reading 'ref')" off the cached To) into a
+    // SILENT no-paint: the ghost-key guard bailed on every hover, and the
+    // `as unknown as` cast kept tsc honest-looking while the address was
+    // dead. Find the sheet cell by its transformer id — the same witness
+    // deleteSheet speaks — and address the band through the CELL's own
+    // live shape (the stale-key bound reads groupCount off the data).
+    let sheetCell: { transform: { ref: string }; obj?: { data?: unknown } } | null = null;
+    for (const cell of plugin.state.data.cells.values()) {
+      if (String(cell?.transform?.transformer?.id || "").includes("oblique-density-sheet")) {
+        sheetCell = cell;
+        break;
+      }
+    }
+    if (!sheetCell) return; // no face on the scene — a ghost key paints nothing
+    // t1144 — the transform's obj.data is the LAZY shape provider
+    // ({label, data, params, getShape, geometryUtils}); the REAL Shape
+    // (groupCount · getColor · geometry…) lives one `.data` deeper. The
+    // old read took groupCount off the provider — undefined — and the
+    // Loci addressed the provider, not the shape: even with the right
+    // manager the paint had no address to land on.
+    const shape = (sheetCell.obj?.data as { data?: unknown } | null | undefined)?.data as
+      | { groupCount: number }
+      | null
+      | undefined;
+    if (!shape || typeof shape.groupCount !== "number" || band >= shape.groupCount) return; // the stale-key bound
+    const kit = await ensureSheetKit();
+    const int = await import("molstar/lib/mol-data/int");
+    lm.highlight({
+      loci: kit.ShapeGroup.Loci(shape, [{ ids: int.OrderedSet.ofSortedArray([band]), instance: 0 }]),
+    });
+  };
+  const obliqueSheetLegendHoverRef = useRef(applyObliqueSheetLegendHover);
+  obliqueSheetLegendHoverRef.current = applyObliqueSheetLegendHover;
+  useEffect(() => {
+    const onLegendHover = (e: Event) => {
+      const d = (e as CustomEvent<{ band?: unknown }>).detail;
+      obliqueSheetLegendHoverRef.current(typeof d?.band === "number" ? d.band : null);
+    };
+    window.addEventListener(OBLIQUE_SHEET_LEGEND_HOVER_EVENT, onLegendHover);
+    return () => window.removeEventListener(OBLIQUE_SHEET_LEGEND_HOVER_EVENT, onLegendHover);
   }, []);
 
   /* ---------------- sub-volume export (t254) ---------------- */
@@ -4971,10 +5824,15 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                   <button
                     key={p}
                     type="button"
-                    onClick={() => setSigma(p)}
+                    onClick={() => {
+                      setSigma(p);
+                      // t1147 — the canon is worth remembering too: a
+                      // preset pick is a settle on this map's memory
+                      rememberSigma(p);
+                    }}
                     aria-label={`Set contour to ${p} sigma`}
                     className={
-                      "rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold tabular-nums transition-colors " +
+                      "rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring " +
                       (Math.abs(sigma - p) < 0.001
                         ? "bg-running-600 text-white"
                         : "bg-muted text-muted-foreground hover:bg-running/15 hover:text-running-700 dark:hover:text-running-300")
@@ -4995,7 +5853,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                       : "Contour on NEGATIVE density — flip back to positive (F key does the same)"
                   }
                   className={
-                    "rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold transition-colors " +
+                    "rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring " +
                     (sign < 0
                       ? "bg-warning-500 text-white"
                       : "bg-muted text-muted-foreground hover:bg-warning/20 hover:text-warning-700 dark:hover:text-warning-300")
@@ -5015,7 +5873,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                       : "Show a cross-section — a density slice through the box (shares the contour level)"
                   }
                   className={
-                    "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors " +
+                    "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring " +
                     (sliceOn
                       ? "bg-cyan-600 text-white"
                       : "bg-muted text-muted-foreground hover:bg-cyan-600/15 hover:text-cyan-700 dark:hover:text-cyan-300")
@@ -5033,10 +5891,10 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                   title={
                     clipOn
                       ? "Disable box clipping — show the full isosurface again"
-                      : "Clip the isosurface — drag the X/Y/Z sliders to crop into the box (ChimeraX-style clip planes)"
+                      : "Clip the isosurface — each axis has two faces; drag either to crop or keep a slab (ChimeraX-style clip planes)"
                   }
                   className={
-                    "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors " +
+                    "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring " +
                     (clipOn
                       ? "bg-violet-600 text-white"
                       : "bg-muted text-muted-foreground hover:bg-violet-600/15 hover:text-violet-700 dark:hover:text-violet-300")
@@ -5053,10 +5911,65 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
               max={SIGMA_MAX}
               step={0.05}
               onValueChange={(v) => setSigma(v[0] ?? 2)}
+              onValueCommit={(v) => {
+                const s = v[0] ?? 2;
+                // t1147 — the drag's SETTLE remembers, never the drag:
+                // onValueChange rides every pixel, the commit is the
+                // user's landing (the memory's own unit)
+                rememberSigma(s);
+              }}
               aria-label="Isosurface contour level in sigma"
               title="Contour σ — [ / ] step the level from the keyboard, F flips the density side"
               className="mt-2.5"
             />
+            {/* t1147 — the σ door's memory: the levels the user SETTLED on
+                for THIS map, newest first, remembered across opens (the
+                honest-empty law: the row exists only when it has rows; the
+                forget door exists only beside a memory) */}
+            {sigmaHistory.length > 0 && (
+              <div
+                className="mt-1.5 flex flex-wrap items-center gap-1"
+                role="group"
+                aria-label="Recent contour levels remembered for this map"
+              >
+                <span
+                  className="font-mono text-[9px] uppercase tracking-wide text-muted-foreground"
+                  aria-hidden="true"
+                >
+                  recent
+                </span>
+                {sigmaHistory.map((l) => (
+                  <button
+                    key={l}
+                    type="button"
+                    onClick={() => {
+                      setSigma(l);
+                      rememberSigma(l);
+                    }}
+                    aria-pressed={Math.abs(sigma - l) < 0.001}
+                    aria-label={`Set contour to ${l} sigma (your recent level)`}
+                    title="Your recent level for this map — remembered across opens"
+                    className={
+                      "rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring " +
+                      (Math.abs(sigma - l) < 0.001
+                        ? "bg-cyan-600 text-white"
+                        : "bg-muted text-muted-foreground hover:bg-cyan-600/15 hover:text-cyan-700 dark:hover:text-cyan-300")
+                    }
+                  >
+                    {l}σ
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setSigmaHistory([])}
+                  aria-label="Forget the remembered contour levels"
+                  title="Forget this map's remembered levels (the presets and the slider stay)"
+                  className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-warning/15 hover:text-warning-700 dark:hover:text-warning-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  <X className="h-3 w-3" aria-hidden="true" />
+                </button>
+              </div>
+            )}
             {/* cross-section panel — controls row + density landscape (t189) */}
             {sliceOn && (
               <div className="mt-2.5 space-y-1.5 rounded-lg border border-cyan-600/25 bg-cyan-600/5 px-2.5 py-2">
@@ -5071,7 +5984,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                       aria-pressed={sliceAxis === ax}
                       title={`Slice perpendicular to the ${ax} axis (${ax} key)`}
                       className={
-                        "rounded px-1.5 py-0.5 font-mono text-[10px] font-bold transition-colors " +
+                        "rounded px-1.5 py-0.5 font-mono text-[10px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring " +
                         (sliceAxis === ax
                           ? "bg-cyan-600 text-white"
                           : "bg-muted text-muted-foreground hover:bg-cyan-600/15 hover:text-cyan-700 dark:hover:text-cyan-300")
@@ -5090,8 +6003,21 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                   aria-label="Cross-section plane position (fraction of the box)"
                   className="flex-1"
                 />
-                <span className="w-9 shrink-0 text-right font-mono text-[10px] tabular-nums text-muted-foreground">
-                  {Math.round(slicePos * 100)}%
+                {/* t906 — the honest voice: the address when the grid is
+                    known, the % when it is not; the box widens for the
+                    combined form instead of truncating it */}
+                <span
+                  className={
+                    (sliceAxDim !== null ? "w-[86px]" : "w-9") +
+                    " shrink-0 text-right font-mono text-[10px] tabular-nums text-muted-foreground"
+                  }
+                  title={
+                    sliceAxDim !== null
+                      ? `voxel ${voxelIndexOf(slicePos, sliceAxDim)! + 1} of ${sliceAxDim} along ${sliceAxis} — the fraction of the box rides after the dot`
+                      : undefined
+                  }
+                >
+                  {voxelSliderVoice(slicePos, sliceAxDim)}
                 </span>
                 </div>
                 {profile ? (
@@ -5106,7 +6032,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                       aria-valuemin={0}
                       aria-valuemax={100}
                       aria-valuenow={Math.round(slicePos * 100)}
-                      aria-valuetext={`plane ${Math.round(slicePos * 100)}%`}
+                      aria-valuetext={voxelAriaText(slicePos, sliceAxis, sliceAxDim)}
                       tabIndex={0}
                       onPointerDown={onLandscapePointerDown}
                       onPointerMove={onLandscapePointerMove}
@@ -5620,9 +6546,9 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                           type="button"
                           onClick={() => void exportProfileCsv("copy")}
                           disabled={!profile}
-                          aria-label="Copy profile as CSV"
+                          aria-label={profile ? "Copy profile as CSV" : "Copy profile as CSV (no landscape profile yet)"}
                           title="Copy the density landscape (one row per bin) to the clipboard as CSV — falls back to a download when the clipboard is denied"
-                          className="flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide text-muted-foreground transition-colors hover:bg-cyan-600/15 hover:text-cyan-700 dark:hover:text-cyan-300 disabled:pointer-events-none disabled:opacity-40"
+                          className="flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide text-muted-foreground transition-colors hover:bg-cyan-600/15 hover:text-cyan-700 dark:hover:text-cyan-300 disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                         >
                           <ClipboardCopy className="size-2.5" aria-hidden="true" />
                           Copy CSV
@@ -5631,9 +6557,9 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                           type="button"
                           onClick={() => void exportProfileCsv("download")}
                           disabled={!profile}
-                          aria-label="Download profile as CSV"
+                          aria-label={profile ? "Download profile as CSV" : "Download profile as CSV (no landscape profile yet)"}
                           title="Save the density landscape as map-profile-<axis>-<stamp>.csv — same bytes as the clipboard copy"
-                          className="flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide text-muted-foreground transition-colors hover:bg-cyan-600/15 hover:text-cyan-700 dark:hover:text-cyan-300 disabled:pointer-events-none disabled:opacity-40"
+                          className="flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide text-muted-foreground transition-colors hover:bg-cyan-600/15 hover:text-cyan-700 dark:hover:text-cyan-300 disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                         >
                           <Download className="size-2.5" aria-hidden="true" />
                           Download CSV
@@ -5646,9 +6572,9 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                           type="button"
                           onClick={() => void exportProfileReport("copy")}
                           disabled={!profile}
-                          aria-label="Copy profile QC report"
+                          aria-label={profile ? "Copy profile QC report" : "Copy profile QC report (no landscape profile yet)"}
                           title="Copy a human-readable QC summary (peak, trough, comparison-map agreement) to the clipboard as Markdown — falls back to a download when the clipboard is denied"
-                          className="flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide text-muted-foreground transition-colors hover:bg-violet-600/15 hover:text-violet-700 dark:hover:text-violet-300 disabled:pointer-events-none disabled:opacity-40"
+                          className="flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide text-muted-foreground transition-colors hover:bg-violet-600/15 hover:text-violet-700 dark:hover:text-violet-300 disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                         >
                           <FileText className="size-2.5" aria-hidden="true" />
                           Copy Report
@@ -5657,9 +6583,9 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                           type="button"
                           onClick={() => void exportProfileReport("download")}
                           disabled={!profile}
-                          aria-label="Download profile QC report"
+                          aria-label={profile ? "Download profile QC report" : "Download profile QC report (no landscape profile yet)"}
                           title="Save the QC summary as map-qc-report-<axis>-<stamp>.md — same bytes as the clipboard copy"
-                          className="flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide text-muted-foreground transition-colors hover:bg-violet-600/15 hover:text-violet-700 dark:hover:text-violet-300 disabled:pointer-events-none disabled:opacity-40"
+                          className="flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide text-muted-foreground transition-colors hover:bg-violet-600/15 hover:text-violet-700 dark:hover:text-violet-300 disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                         >
                           <Download className="size-2.5" aria-hidden="true" />
                           Download Report
@@ -5671,7 +6597,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                           aria-label="Toggle all-axis landscapes"
                           title="Show the density landscape of ALL three axes — click a ghost row to adopt that axis and jump there"
                           className={
-                            "rounded-full px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide transition-colors " +
+                            "rounded-full px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring " +
                             (showAllAxes
                               ? "bg-cyan-600 text-white"
                               : "bg-muted text-muted-foreground hover:bg-cyan-600/15 hover:text-cyan-700 dark:hover:text-cyan-300")
@@ -5679,7 +6605,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                         >
                           XYZ
                         </button>
-                        <span>plane {Math.round(slicePos * 100)}%</span>
+                        <span>plane {voxelPlaneVoice(slicePos, sliceAxis, sliceAxDim)}</span>
                         {/* t209: the legend's door — the teaching toggle.
                             A real button (aria-expanded + aria-controls) so
                             the keyboard opens the lesson too; amber marks
@@ -5695,7 +6621,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                           aria-label="How to read the addresses"
                           title="Teach the depth dialect — what the strip's rows mean, what the equal-count cut is, why the Comparison table carries no Depth column"
                           className={
-                            "flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide transition-colors " +
+                            "flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring " +
                             (legendOpen
                               ? "bg-warning-600 text-white"
                               : "bg-muted text-muted-foreground hover:bg-warning/15 hover:text-warning-700 dark:hover:text-warning-300")
@@ -5719,7 +6645,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                                   onClick={() => applySliceIntent({ axis: ax.toUpperCase() as SliceAxis })}
                                   aria-label={`Adopt the ${ax.toUpperCase()} axis`}
                                   title={`Make ${ax.toUpperCase()} the active axis`}
-                                  className="w-3.5 shrink-0 rounded bg-muted py-px font-mono text-[8px] font-bold text-muted-foreground transition-colors hover:bg-cyan-600/15 hover:text-cyan-700 dark:hover:text-cyan-300"
+                                  className="w-3.5 shrink-0 rounded bg-muted py-px font-mono text-[8px] font-bold text-muted-foreground transition-colors hover:bg-cyan-600/15 hover:text-cyan-700 dark:hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                                 >
                                   {ax.toUpperCase()}
                                 </button>
@@ -5790,78 +6716,87 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                 )}
               </div>
             )}
-            {/* clip rows — one slider per axis + side flip (only when on).
-                t260 — when an anchored box owns the geometry the sliders
-                stand down: a readout carries the numbers (the slider
-                language cannot hold a two-sided cut) and a release button
-                hands the geometry back honestly. */}
+            {/* clip rows — one two-face slider per axis (only when on).
+                t260 anchored the crop's box; t905 gave it HANDS: both
+                languages answer to one interval editor — the rows read
+                keptIntervalOf (whichever language speaks) and any drag
+                mints/updates the live box; the old read-only readout
+                retired, the numbers live in the rows. */}
             {clipOn && (
               <div className="mt-2.5 space-y-1.5 rounded-lg border border-violet-600/25 bg-violet-600/5 px-2.5 py-2">
                 {clipStateRef.current.box ? (
-                  <div data-testid="clip-box-readout" className="space-y-1">
-                    <p className="flex items-center gap-1 text-[10px] font-semibold text-violet-700 dark:text-violet-300">
-                      <BoxSelect className="h-3 w-3 shrink-0" aria-hidden="true" />
-                      anchored to the crop&apos;s box
-                    </p>
-                    {(
-                      [
-                        ["X", clipStateRef.current.box.lo[0], clipStateRef.current.box.hi[0]],
-                        ["Y", clipStateRef.current.box.lo[1], clipStateRef.current.box.hi[1]],
-                        ["Z", clipStateRef.current.box.lo[2], clipStateRef.current.box.hi[2]],
-                      ] as const
-                    ).map(([ax, lo, hi]) => (
-                      <div key={ax} className="flex items-center justify-between gap-2">
-                        <span className="w-4 shrink-0 rounded bg-violet-600/90 px-1 py-0.5 text-center font-mono text-[10px] font-bold text-white">
-                          {ax}
-                        </span>
-                        <span className="flex-1 font-mono text-[10px] tabular-nums text-muted-foreground">
-                          {lo <= 0.001 && hi >= 0.999
-                            ? "full extent"
-                            : `${Math.round(lo * 100)}–${Math.round(hi * 100)}% kept`}
-                        </span>
-                      </div>
-                    ))}
-                    <button
-                      type="button"
-                      data-testid="clip-box-release"
-                      onClick={() => applyClipIntent({ on: false })}
-                      title="Release the anchored box — the clip planes come off and the full map returns"
-                      className="w-full rounded-md border border-violet-600/30 bg-background/60 px-2 py-1 text-[10px] font-medium text-violet-700 transition-colors hover:bg-violet-600/15 hover:text-violet-800 dark:text-violet-300 dark:hover:text-violet-200"
-                    >
-                      release the anchored box
-                    </button>
-                  </div>
+                  <p className="flex items-center gap-1 text-[10px] font-semibold text-violet-700 dark:text-violet-300" data-testid="clip-box-readout">
+                    <BoxSelect className="h-3 w-3 shrink-0" aria-hidden="true" />
+                    kept box — drag any face to reshape
+                  </p>
                 ) : (
-                ([
-                  ["X", clipX, (v: number) => applyClipIntent({ x: v })] as const,
-                  ["Y", clipY, (v: number) => applyClipIntent({ y: v })] as const,
-                  ["Z", clipZ, (v: number) => applyClipIntent({ z: v })] as const,
-                ] as const
-                ).map(([ax, val, set]) => (
-                  <div key={ax} className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => applyClipIntent({ [ax.toLowerCase()]: 1 } as Partial<{ x: number; y: number; z: number }> )}
-                      title={`Reset the ${ax} clip plane (1 = unclipped)`}
-                      aria-label={`Reset ${ax} clip`}
-                      className="w-4 shrink-0 rounded bg-violet-600/90 px-1 py-0.5 font-mono text-[10px] font-bold text-white transition-opacity hover:opacity-80"
-                    >
-                      {ax}
-                    </button>
-                    <Slider
-                      value={[val]}
-                      min={0.02}
-                      max={1}
-                      step={0.01}
-                      onValueChange={(v) => set(v[0] ?? 1)}
-                      aria-label={`Clip position along the ${ax} axis`}
-                      className="flex-1"
-                    />
-                    <span className="w-9 shrink-0 text-right font-mono text-[10px] tabular-nums text-muted-foreground">
-                      {val >= 0.999 ? "—" : `${Math.round(val * 100)}%`}
-                    </span>
-                  </div>
-                ))
+                  <p className="text-[10px] font-medium text-violet-700/80 dark:text-violet-300/80" data-testid="clip-slab-hint">
+                    two faces per axis — drag either to keep a slab
+                  </p>
+                )}
+                {(
+                  [
+                    ["X", 0],
+                    ["Y", 1],
+                    ["Z", 2],
+                  ] as const
+                ).map(([ax, axisIdx]) => {
+                  const [lo, hi] = keptIntervalOf(clipStateRef.current, axisIdx);
+                  const full = lo <= 0.001 && hi >= 0.999;
+                  // t1120 — the slab speaks voxels: the kept extent's
+                  // address rides the ONE formula (voxel-voice), null
+                  // when the grid is unknown (the bare percent stays
+                  // the honest fallback); full rows keep their —
+                  const vox = full
+                    ? null
+                    : voxelIntervalReadout(lo, hi, clipBox()?.dims?.[axisIdx] ?? null);
+                  return (
+                    <div key={ax} className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => applyClipAxisInterval(axisIdx, 0, 1)}
+                        title={`Reset the ${ax} clip — both faces come off (full extent kept)`}
+                        aria-label={`Reset ${ax} clip`}
+                        className="w-4 shrink-0 rounded bg-violet-600/90 px-1 py-0.5 font-mono text-[10px] font-bold text-white transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      >
+                        {ax}
+                      </button>
+                      <Slider
+                        value={[lo, hi]}
+                        min={0}
+                        max={1}
+                        step={0.01}
+                        onValueChange={(v) => applyClipAxisInterval(axisIdx, v[0] ?? 0, v[1] ?? 1)}
+                        aria-label={`Kept interval along the ${ax} axis — two faces; drag either to crop or slab the map`}
+                        className="flex-1"
+                      />
+                      <span
+                        className="w-24 shrink-0 text-right font-mono text-[10px] tabular-nums text-muted-foreground"
+                        data-testid={`clip-interval-${ax.toLowerCase()}`}
+                        title={vox ? `voxel planes ${vox} along ${ax.toLowerCase()}` : undefined}
+                      >
+                        {full ? (
+                          "—"
+                        ) : (
+                          <>
+                            {Math.round(lo * 100)}–{Math.round(hi * 100)}%
+                            {vox && <span className="opacity-70"> · {vox}</span>}
+                          </>
+                        )}
+                      </span>
+                    </div>
+                  );
+                })}
+                {clipStateRef.current.box && (
+                  <button
+                    type="button"
+                    data-testid="clip-box-release"
+                    onClick={() => applyClipIntent({ on: false })}
+                    title="Release the kept box — the clip planes come off and the full map returns"
+                    className="w-full rounded-md border border-violet-600/30 bg-background/60 px-2 py-1 text-[10px] font-medium text-violet-700 transition-colors hover:bg-violet-600/15 hover:text-violet-800 dark:text-violet-300 dark:hover:text-violet-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    release the kept box
+                  </button>
                 )}
                 {/* t254 — the crop, written out: the kept box downloads as a
                     standalone .mrc (the RELION box-subregion workflow). The
@@ -5875,7 +6810,8 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                       onClick={exportSubvolume}
                       disabled={!dims}
                       title="Download the kept box as a standalone MRC map — the RELION box-subregion workflow (crop a region of interest for focused processing)"
-                      className="flex w-full items-center justify-center gap-1.5 rounded-md border border-violet-600/40 bg-violet-600/15 px-2 py-1 text-[10.5px] font-semibold text-violet-700 transition-colors hover:bg-violet-600/25 hover:text-violet-800 dark:text-violet-300 dark:hover:text-violet-200 disabled:cursor-not-allowed disabled:opacity-50"
+                      aria-label={dims ? `Export sub-volume (${dims[0]}×${dims[1]}×${dims[2]} vox)` : "Export sub-volume — set a crop box first"}
+                      className="flex w-full items-center justify-center gap-1.5 rounded-md border border-violet-600/40 bg-violet-600/15 px-2 py-1 text-[10.5px] font-semibold text-violet-700 transition-colors hover:bg-violet-600/25 hover:text-violet-800 dark:text-violet-300 dark:hover:text-violet-200 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     >
                       <Download className="h-3 w-3 shrink-0" aria-hidden="true" />
                       <span>export sub-volume</span>
@@ -5896,9 +6832,10 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                       type="button"
                       onClick={sendSubvolumeToJob}
                       disabled={!dims || sendBusy}
+                      aria-busy={sendBusy}
                       data-testid="clip-send-job"
                       title="Send the kept box to a NEW Import Map job — the crop is materialized in this job's SubVolumes folder and wired into the workflow graph (box-subregion → focused refinement)"
-                      className="flex w-full items-center justify-center gap-1.5 rounded-md border border-violet-600/40 bg-background/60 px-2 py-1 text-[10.5px] font-semibold text-violet-700 transition-colors hover:bg-violet-600/25 hover:text-violet-800 dark:text-violet-300 dark:hover:text-violet-200 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex w-full items-center justify-center gap-1.5 rounded-md border border-violet-600/40 bg-background/60 px-2 py-1 text-[10.5px] font-semibold text-violet-700 transition-colors hover:bg-violet-600/25 hover:text-violet-800 dark:text-violet-300 dark:hover:text-violet-200 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     >
                       {sendBusy ? (
                         <Loader2 className="h-3 w-3 shrink-0 animate-spin" aria-hidden="true" />
@@ -5940,7 +6877,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                         : "Flip every plane to crop from the − side instead of the + side"
                     }
                     className={
-                      "rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors " +
+                      "rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring " +
                       (clipInvert
                         ? "bg-violet-600 text-white"
                         : "bg-muted text-muted-foreground hover:bg-violet-600/15 hover:text-violet-700 dark:hover:text-violet-300")
@@ -5951,7 +6888,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                   <button
                     type="button"
                     onClick={() => applyClipIntent({ x: 1, y: 1, z: 1 })}
-                    className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground transition-colors hover:bg-violet-600/15 hover:text-violet-700 dark:hover:text-violet-300"
+                    className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground transition-colors hover:bg-violet-600/15 hover:text-violet-700 dark:hover:text-violet-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
                     reset all
                   </button>
@@ -5974,9 +6911,9 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                 <span
                   data-testid="clip-oblique-readout"
                   className="truncate font-mono text-[10px] tabular-nums text-muted-foreground"
-                  title="The plane the isosurface opens along — mirrored live from the oblique section block (θ polar · φ azimuth · offset)"
+                  title="The plane the isosurface opens along — mirrored live from the oblique section block (θ polar · φ azimuth · offset · depth in voxels along the normal)"
                 >
-                  θ {obliqueClip.theta}° · φ {obliqueClip.phi}° · {obliqueClip.offset >= 0 ? "+" : ""}{Math.round(obliqueClip.offset * 100)}%
+                  θ {obliqueClip.theta}° · φ {obliqueClip.phi}° · {obliqueOffsetPctVoice(obliqueClip.offset)}{obliqueDepthSuffix()}
                 </span>
                 <span className="ml-auto flex shrink-0 items-center gap-1">
                   <button
@@ -5990,7 +6927,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                         : "The surface keeps the −n (camera-facing) half — flip to keep the other side"
                     }
                     className={
-                      "rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors " +
+                      "rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring " +
                       (obliqueClip.invert
                         ? "bg-violet-600 text-white"
                         : "bg-muted text-muted-foreground hover:bg-violet-600/15 hover:text-violet-700 dark:hover:text-violet-300")
@@ -6004,7 +6941,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                     onClick={() => applyObliqueClipIntent({ on: false })}
                     aria-label="Remove the oblique cut"
                     title="Remove the oblique cut — the full isosurface returns (the 2D block's ✂ goes dark with it)"
-                    className="rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-violet-600/15 hover:text-violet-700 dark:hover:text-violet-300"
+                    className="rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-violet-600/15 hover:text-violet-700 dark:hover:text-violet-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
                     <X className="h-3 w-3" aria-hidden="true" />
                   </button>
@@ -6057,7 +6994,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                 onClick={() => {
                   spinCancelRef.current = true;
                 }}
-                className="ml-0.5 rounded px-1 text-[9px] font-medium transition-colors hover:bg-white/20"
+                className="ml-0.5 rounded px-1 text-[9px] font-medium transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 aria-label="Cancel the turntable recording (partial clip is discarded)"
               >
                 cancel
@@ -6118,7 +7055,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                         <button
                           type="button"
                           className={cn(
-                            "size-2.5 shrink-0 rounded-full ring-1 ring-black/10 transition-transform",
+                            "size-2.5 shrink-0 rounded-full ring-1 ring-black/10 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:scale-125",
                             colorPickerFor === o.path && "scale-125 ring-2 ring-ring ring-offset-1 ring-offset-card"
                           )}
                           style={{ backgroundColor: o.color }}
@@ -6135,7 +7072,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                         <button
                           type="button"
                           onClick={() => void removeOverlay(o.path)}
-                          className="flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                          className="flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                           aria-label={`Remove overlay ${o.name}`}
                           title="Remove overlay"
                         >
@@ -6164,7 +7101,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                                     setColorPickerFor(null);
                                   }}
                                   className={cn(
-                                    "size-4 rounded-full ring-1 ring-black/15 transition-transform hover:scale-110",
+                                    "size-4 rounded-full ring-1 ring-black/15 transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                                     active && "ring-2 ring-ring ring-offset-1 ring-offset-card"
                                   )}
                                   style={{ backgroundColor: c }}
@@ -6264,7 +7201,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                           disabled={active || busy || overlayBusy !== null}
                           onClick={() => void addOverlay(c)}
                           className={cn(
-                            "flex w-full items-center gap-2 rounded-md px-1.5 py-1.5 text-left transition-colors",
+                            "flex w-full items-center gap-2 rounded-md px-1.5 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                             active ? "opacity-50" : "hover:bg-muted",
                             "disabled:cursor-default"
                           )}
@@ -6347,7 +7284,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                       data-testid={`export-scale-${v}`}
                       onClick={() => pickExportScale(v)}
                       className={cn(
-                        "flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left transition-colors",
+                        "flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                         active ? "bg-primary/10" : "hover:bg-muted"
                       )}
                     >
@@ -6389,7 +7326,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                     <button
                       type="button"
                       onClick={() => editCaption("")}
-                      className="flex items-center gap-0.5 text-[9px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+                      className="flex items-center gap-0.5 text-[9px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                       aria-label="Reset caption to the default"
                       data-testid="caption-reset"
                     >
@@ -6525,7 +7462,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                       }}
                       aria-pressed={active}
                       className={cn(
-                        "flex w-full items-center justify-between rounded-md border px-2 py-1.5 text-[11px] transition-colors",
+                        "flex w-full items-center justify-between rounded-md border px-2 py-1.5 text-[11px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                         active
                           ? "border-primary/50 bg-primary/10 text-primary"
                           : "bg-card text-foreground/90 hover:bg-muted"
@@ -6564,7 +7501,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                       }}
                       aria-pressed={active}
                       className={cn(
-                        "flex flex-col items-start rounded-md border px-2 py-1.5 text-[11px] transition-colors",
+                        "flex flex-col items-start rounded-md border px-2 py-1.5 text-[11px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                         active
                           ? "border-primary/50 bg-primary/10 text-primary"
                           : "bg-card text-foreground/90 hover:bg-muted"
@@ -6603,7 +7540,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                       }}
                       aria-pressed={active}
                       className={cn(
-                        "flex flex-col items-start rounded-md border px-2 py-1.5 text-[11px] transition-colors",
+                        "flex flex-col items-start rounded-md border px-2 py-1.5 text-[11px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                         active
                           ? "border-primary/50 bg-primary/10 text-primary"
                           : "bg-card text-foreground/90 hover:bg-muted"
@@ -6630,6 +7567,23 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
               </p>
             </PopoverContent>
           </Popover>
+          {/* t1145 — the camera-fit door's button face: re-frame on the
+              scene's actual extent. The init fit has patience + a fallback
+              chain (visible → whole-scene → Reset), but surfaces bake
+              async and slices/clips change what is visible — the user can
+              always re-ask. V key says the same verb. */}
+          <Button
+            variant="secondary"
+            size="icon"
+            className="size-8 rounded-lg shadow-sm"
+            onClick={() => {
+              void fitSceneCamera(pluginRef.current, FIT_PATIENCE.verb).catch(() => {});
+            }}
+            aria-label="Fit view to the density — frame the camera on the scene's extent"
+            title="Fit view (V) — re-frame the camera on the scene: waits briefly for a fresh surface, falls back to the whole-scene sphere when everything is sliced away"
+          >
+            <ZoomIn className="size-4" />
+          </Button>
           <Button
             variant="secondary"
             size="icon"
@@ -6670,7 +7624,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                     data-testid={`view-preset-${p.key}`}
                     onClick={() => applyViewPreset(p.dir, p.up)}
                     title={`${p.label} view (key ${i + 1})`}
-                    className="relative rounded-md border bg-card px-1 py-1.5 text-[11px] font-medium text-foreground/90 transition-colors hover:bg-primary/10 hover:text-primary"
+                    className="relative rounded-md border bg-card px-1 py-1.5 text-[11px] font-medium text-foreground/90 transition-colors hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
                     {p.label}
                     <span
@@ -6685,7 +7639,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
               <button
                 type="button"
                 onClick={resetCamera}
-                className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed px-1 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed px-1 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 <RotateCw className="size-3" />
                 Default ¾ view
@@ -6694,7 +7648,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                 </span>
               </button>
               <p className="border-t px-1 pb-0.5 pt-1.5 text-[10px] leading-tight text-muted-foreground">
-                Keys 1–6 / 0 work too — swing to an axis, zoom stays put. Press B to quick-save the current angle.
+                Keys 1–6 / 0 work too — swing to an axis, zoom stays put. V re-frames on the scene (fit); B quick-saves the current angle.
               </p>
             </PopoverContent>
           </Popover>
@@ -6773,6 +7727,23 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                   <Kbd>,</Kbd>
                   <Kbd>.</Kbd>
                   <span className="ml-0.5">scrub it</span>
+                </span>
+                <span className="inline-flex items-center gap-0.5">
+                  <Kbd>C</Kbd>
+                  <span className="ml-0.5">cut in 3D</span>
+                </span>
+                <span className="inline-flex items-center gap-0.5">
+                  <Kbd>J</Kbd>
+                  <span className="ml-0.5">face the cut</span>
+                </span>
+                <span className="inline-flex items-center gap-0.5">
+                  <Kbd>A</Kbd>
+                  <span className="ml-0.5">adopt the view</span>
+                </span>
+                <span className="inline-flex items-center gap-0.5">
+                  <Kbd>;</Kbd>
+                  <Kbd>'</Kbd>
+                  <span className="ml-0.5">depth</span>
                 </span>
               </div>
               <div className="flex gap-1">
@@ -6873,7 +7844,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                       <button
                         type="button"
                         onClick={() => restoreBookmark(b)}
-                        className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                        className="flex min-w-0 flex-1 items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                         title={`Fly back to “${b.name}”`}
                       >
                         {thumb}
@@ -6894,7 +7865,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                           onClick={() => updateBookmark(b)}
                           aria-label={`Update bookmark ${b.name} with the current view`}
                           title="Update — re-capture this bookmark from the current pose & optics"
-                          className="rounded p-0.5 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-primary"
+                          className="rounded p-0.5 text-muted-foreground/50 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:bg-muted hover:text-primary"
                         >
                           <RefreshCcw className="size-3" />
                         </button>
@@ -6902,7 +7873,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                           type="button"
                           onClick={() => removeBookmark(b.id)}
                           aria-label={`Delete bookmark ${b.name}`}
-                          className="rounded p-0.5 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-destructive"
+                          className="rounded p-0.5 text-muted-foreground/50 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:bg-muted hover:text-destructive"
                         >
                           <X className="size-3" />
                         </button>
@@ -6911,7 +7882,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                           onClick={() => beginRename(b)}
                           aria-label={`Rename bookmark ${b.name}`}
                           title="Rename this view"
-                          className="rounded p-0.5 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-primary"
+                          className="rounded p-0.5 text-muted-foreground/50 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:bg-muted hover:text-primary"
                         >
                           <Pencil className="size-3" />
                         </button>
@@ -6924,7 +7895,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                           onClick={() => duplicateBookmark(b)}
                           aria-label={`Duplicate bookmark ${b.name}`}
                           title="Save as copy — freezes this view's saved pose & optics into a new bookmark"
-                          className="rounded p-0.5 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-primary"
+                          className="rounded p-0.5 text-muted-foreground/50 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:bg-muted hover:text-primary"
                         >
                           <CopyPlus className="size-3" />
                         </button>
@@ -6938,7 +7909,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                           onClick={() => copyRowViewLink(b)}
                           aria-label={`Copy view link for ${b.name}`}
                           title="Copy view link — anyone opening this URL lands on this saved pose & optics"
-                          className="rounded p-0.5 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-primary"
+                          className="rounded p-0.5 text-muted-foreground/50 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:bg-muted hover:text-primary"
                         >
                           <Link2 className="size-3" />
                         </button>
@@ -6964,7 +7935,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                     onClick={exportBookmarks}
                     aria-label="Export view bookmarks to a JSON file"
                     title="Export — download these views as a JSON file"
-                    className="flex items-center gap-1 whitespace-nowrap rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    className="flex items-center gap-1 whitespace-nowrap rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
                     <Download className="size-3" />
                     Export
@@ -6974,7 +7945,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                     onClick={() => importInputRef.current?.click()}
                     aria-label="Import view bookmarks from JSON files"
                     title="Import — merge views from one or more JSON files into this job"
-                    className="flex items-center gap-1 whitespace-nowrap rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    className="flex items-center gap-1 whitespace-nowrap rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
                     <Upload className="size-3" />
                     Import
@@ -6986,7 +7957,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                     aria-label="Import view bookmarks from another job"
                     title="From job — pull saved views straight from another job in this project"
                     className={cn(
-                      "flex items-center gap-1 whitespace-nowrap rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+                      "flex items-center gap-1 whitespace-nowrap rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                       fromJobOpen && "bg-muted text-foreground",
                     )}
                   >
@@ -7010,7 +7981,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                     onClick={() => void copyViewLink()}
                     aria-label="Copy view link — share the current pose as a URL"
                     title="Copy view link — anyone opening this URL lands on this exact pose & optics"
-                    className="flex items-center gap-1 whitespace-nowrap rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    className="flex items-center gap-1 whitespace-nowrap rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
                     <ClipboardCopy className="size-3" />
                     Copy view link
@@ -7073,7 +8044,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                 type="button"
                 onClick={selectAllPicked}
                 title="Tick everything that fits (source order wins ties)"
-                className="rounded px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="rounded px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 Select all
               </button>
@@ -7081,7 +8052,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                 type="button"
                 onClick={clearPicked}
                 title="Untick everything — locked rows re-enable as room frees up"
-                className="rounded px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="rounded px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 Clear
               </button>
@@ -7226,7 +8197,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                   type="button"
                   onClick={() => importInputRef.current?.click()}
                   title="Add views from one or more JSON files"
-                  className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
                   <FilePlus2 className="size-3" />
                   File
@@ -7237,7 +8208,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                   aria-expanded={addJobOpen}
                   title="Add views from another job in this project"
                   className={cn(
-                    "flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+                    "flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                     addJobOpen && "bg-muted text-foreground",
                   )}
                 >
@@ -7259,7 +8230,16 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
               <Button variant="ghost" size="sm" onClick={closeImport}>
                 Cancel
               </Button>
-              <Button size="sm" disabled={importPreview.picked.size === 0} onClick={confirmImport}>
+              <Button
+                size="sm"
+                disabled={importPreview.picked.size === 0}
+                aria-label={
+                  importPreview.picked.size === 0
+                    ? "Import — nothing picked yet"
+                    : `Import ${importPreview.picked.size} picked file${importPreview.picked.size === 1 ? "" : "s"}`
+                }
+                onClick={confirmImport}
+              >
                 Import{importPreview.picked.size > 0 ? ` ${importPreview.picked.size}` : ""}
               </Button>
             </DialogFooter>

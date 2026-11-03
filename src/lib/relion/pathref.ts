@@ -28,9 +28,34 @@ export function pathrefFor(base: string): string {
   return `.${base}.pathref`;
 }
 
-/** True when `rel` (a workdir-relative path) points at a pathref marker. */
+/**
+ * True when `rel` (a workdir-relative path) points at a pathref marker —
+ * the CANONICAL shape, not just the suffix (t903, the #6/#14 verdict):
+ * the engine writes markers ONLY into a job's `micrographs/` directory
+ * (importFileSet's tail), ONLY as hidden dotfiles (`."<name>".pathref`).
+ * A file named `data/evil.pathref` or `micrographs/planted.pathref` does
+ * NOT speak for the engine — the escape hatch must not follow it.
+ */
 export function isPathrefPath(rel: string): boolean {
-  return path.basename(rel).endsWith(".pathref");
+  const base = path.basename(rel);
+  return path.dirname(rel) === "micrographs" && base.startsWith(".") && base.endsWith(".pathref");
+}
+
+/**
+ * The escape hatch's ONE gate (t1169 — the #6/#14 verdict COMPLETED):
+ * `rel` is the workdir-relative path the CLIENT named, `name` the
+ * basename the workdir resolver landed on. The hatch opens only when
+ * BOTH speak the canonical marker shape — the micrographs/-scoped
+ * hidden dotfile the engine writes (isPathrefPath) AND the resolved
+ * name still wearing the .pathref suffix. The bare suffix test alone
+ * (the pre-t903 shape two routes still carried when t903 pinned the
+ * law) lets a planted non-hidden file anywhere in the workdir —
+ * `data/evil.pathref`, `micrographs/planted.pathref` — open the hatch
+ * to any absolute path its content names. One gate, four carriers: the
+ * drift the compound condition allowed can never fork again.
+ */
+export function pathrefHatchApplies(rel: string, name: string): boolean {
+  return isPathrefPath(rel) && name.endsWith(".pathref");
 }
 
 /**

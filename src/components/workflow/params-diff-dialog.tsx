@@ -47,6 +47,21 @@
  * a block flex would break the sentence; the seat's physics is its
  * witness), the family's THIRTEENTH testid address. Unknown types keep
  * the bare sentence (the undefined law's fifth face).
+ *
+ * t904 — the swap REMEMBERS (the style round's third seat): the reset
+ * on a pair change was deliberately anti-noise (a leftover flip from
+ * the PREVIOUS comparison), but it also forgot the user's OWN choice
+ * for THIS pair — swap B left, compare elsewhere, come back, swap
+ * again, every visit. The chosen baseline now rides
+ * src/lib/pair-baseline.ts (the t653 law — the storage law lives in
+ * lib): stored as the BASELINE JOB ID (never a boolean — the pair
+ * arrives in either order across the three entries, a boolean keyed to
+ * arrival order would silently invert), keyed by the SORTED pair (one
+ * pair, one entry), restored at the pair change, written at the swap
+ * gesture (the #13 law — no localStorage writes in render paths; one
+ * write per gesture, like the t638 bucket). No whisper seats here —
+ * the restore is self-evident (the left column IS the baseline), and
+ * the lib's docblock pins the verdict.
  */
 
 import { useState } from "react";
@@ -59,10 +74,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils"; // t1087 — the pressed face joins the conditional-class law
 import { useWorkflowStore } from "@/lib/store";
+import { baselineFor, rememberBaseline } from "@/lib/pair-baseline";
 import { FscParamsDiff } from "./results/fsc-params-diff";
 import type { JobDTO } from "@/lib/types";
 import { jobType, pourKindsOf, PORT_COLORS } from "@/lib/workflow"; // t766 — the kind vocabulary's TWENTY-SIXTH reader joins the diff dialog
+import { usePrintedDate } from "@/lib/use-now"; // t1093 — the paper's clock (the t232 law: paper clocks do not hydrate)
 
 /** the two column colors, in column order (left first) */
 const COLUMN_COLORS = ["#0d9488", "#d97706"];
@@ -86,14 +104,19 @@ export function ParamsDiffDialog({
   // Swapping reverses the presentation order while colors stay positional.
   const pairKey = `${jobs[0]?.id ?? ""}|${jobs[1]?.id ?? ""}`;
   const [swapped, setSwapped] = useState(false);
-  // a new pair always opens unswapped — the default is each entry's
-  // natural order, not a leftover flip from the previous comparison.
+  // a new pair opens at the REMEMBERED baseline (t904): the user's own
+  // choice for THIS pair comes back (stored as the baseline job id, so
+  // the arrival order cannot invert it); a pair never compared — or
+  // whose remembered baseline left the pair — opens unswapped, the
+  // natural order (the old anti-noise default, still the honest one).
   // Render-time adjust (React's blessed alternative to set-state-in-effect):
   // resetting here avoids one swapped-flash frame that an effect would paint
   const [seenPair, setSeenPair] = useState(pairKey);
   if (seenPair !== pairKey) {
     setSeenPair(pairKey);
-    setSwapped(false);
+    const remembered =
+      jobs[0] && jobs[1] ? baselineFor(jobs[0].id, jobs[1].id) : null;
+    setSwapped(remembered != null && remembered === jobs[1]?.id);
   }
 
   // Task 90 — the compare→edit→rerun loop-closer. Same recipe as the
@@ -107,6 +130,11 @@ export function ParamsDiffDialog({
   const select = useWorkflowStore((s) => s.select);
   const inspect = useWorkflowStore((s) => s.inspect);
   const activeWorkspaceId = useWorkflowStore((s) => s.activeWorkspaceId);
+  // t1093 — the print face's paper clock (the t232 law: paper clocks do
+  // NOT hydrate — useSyncExternalStore with an empty server snapshot).
+  // Lives with the other hooks, ABOVE the early return (the rules-of-hooks
+  // law the closed renders run too).
+  const printed = usePrintedDate();
   const jumpTo = (j: (typeof jobs)[number]) => {
     onOpenChange(false);
     if (j.workspaceId && j.workspaceId !== activeWorkspaceId) {
@@ -133,8 +161,24 @@ export function ParamsDiffDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
+      {/* t1093 — the print face (globals.css's :has() block, the Task 114
+          doctrine's FOURTH seat): data-params-diff-dialog opts this dialog
+          out of the generic step-aside — a launch-params comparison IS a
+          document (the diff brain's row taxonomy: changed / partial /
+          same, the pair's actual values). The survey rode the step-aside
+          paper first and convicted it: with this dialog open, Ctrl+P
+          printed the inspector's job report and the comparison was
+          unreachable on the sheet. The verbs (the column swap, the
+          Task 90 open row) and the footnote offer stay chrome (the JSX
+          marks them .no-print — a verb that prints is a verb that lies,
+          the t945 law), and the provenance line carries the pair and
+          the paper's clock. The standalone-translate kill rides the
+          className (the t945 dialect: Lightning CSS folds a same-block
+          translate:none into an identity transform, so the kill must be
+          its own rule). */}
       <DialogContent
-        className="max-w-lg gap-3"
+        data-params-diff-dialog=""
+        className="sm:max-w-lg gap-3 print:[translate:none] print:[scale:none] print:[rotate:none]"
         data-canvas-ui="params-diff-dialog"
         data-testid="params-diff-dialog"
       >
@@ -145,12 +189,34 @@ export function ParamsDiffDialog({
             <Button
               variant="ghost"
               size="sm"
-              className="ml-1 h-6 w-6 gap-0 rounded-md p-0 text-muted-foreground hover:bg-muted hover:text-foreground"
-              onClick={() => setSwapped((v) => !v)}
+              className={cn(
+                "ml-1 h-6 w-6 gap-0 rounded-md p-0 text-muted-foreground hover:bg-muted hover:text-foreground",
+                // t1093 — chrome on paper: the swap is a verb (a verb
+                // that prints is a verb that lies, the t945 law); the
+                // printed column order is the frozen order and the
+                // provenance line speaks which job is which
+                "no-print",
+                // t1087 — the pressed state gets a face: aria-pressed was
+                // already spoken, but only to ears; a swapped pair now
+                // shows a muted wash + full-ink icon at a glance, so the
+                // state survives a screenshot (the memory law's visible
+                // half — the t904 store remembers, the face confirms)
+                swapped && "bg-muted text-foreground"
+              )}
+              onClick={() => {
+                const next = !swapped;
+                setSwapped(next);
+                // t904 — the gesture writes the memory (the #13 law: no
+                // writes in render paths): the NEW left column is the
+                // baseline the user chose, however the pair arrived
+                if (jobs[0] && jobs[1]) {
+                  rememberBaseline(jobs[0].id, jobs[1].id, next ? jobs[1].id : jobs[0].id);
+                }
+              }}
               aria-label="Swap column order"
               aria-pressed={swapped}
               data-testid="params-diff-swap"
-              title="Swap the left/right columns — colors stay with their position (teal = left)"
+              title="Swap the left/right columns — colors stay with their position (teal = left); your baseline is remembered for this pair"
             >
               <ArrowLeftRight className="size-3.5" aria-hidden="true" />
             </Button>
@@ -185,6 +251,19 @@ export function ParamsDiffDialog({
             side — left column:{" "}
             <span className="font-medium text-foreground">{ordered[0].name}</span>.
           </DialogDescription>
+          {/* t1093 — the paper's provenance line: the swap verb and the
+              open row are chrome (no-print below) and die on paper; the
+              table headers carry the names too (their own unroll — the
+              fsc-params-diff half of this window), but the line speaks
+              the pair AND the paper's clock in one breath, the t945
+              dialect verbatim. Screen-hidden (the description and the
+              headers speak the pair live). */}
+          <p
+            data-params-print-doc
+            className="hidden print:mt-2 print:block text-[11px] text-muted-foreground"
+          >
+            {`Run A: ${ordered[0]?.name ?? "—"} · Run B: ${ordered[1]?.name ?? "—"} · printed ${printed}`}
+          </p>
         </DialogHeader>
 
         <FscParamsDiff
@@ -199,9 +278,13 @@ export function ParamsDiffDialog({
            orphans (pre-workspace-era jobs) have no canvas to land on and
            are disabled with guidance instead of silently navigating. */}
         <div
-          className="flex items-center gap-1.5"
+          className="flex items-center gap-1.5 no-print"
           data-testid="params-diff-openrow"
         >
+          {/* t1093 — the whole row is chrome on paper: a jump button on a
+              sheet closes nothing and lands nowhere (the t946 law — the
+              funnel's copy row died whole). Its WHY (the footnote below)
+              dies with it: the offer it explains is screen-only. */}
           <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             Open
           </span>
@@ -235,11 +318,16 @@ export function ParamsDiffDialog({
         </div>
 
         <p
-          className="flex items-start gap-1.5 text-[10px] leading-snug text-muted-foreground"
+          className="flex items-start gap-1.5 text-[10px] leading-snug text-muted-foreground no-print"
           data-testid="params-diff-footnote"
         >
           <Info className="mt-px size-3 shrink-0" aria-hidden="true" />
           <span>
+            {/* t1093 — the offer dies on paper (the t1092 law: the paper
+                keeps what the job DID, drops what the screen OFFERS —
+                "open either job from the canvas to tweak" is an
+                instruction no sheet can follow; the diff's facts are the
+                table above) */}
             Idle copies can still be edited — open either job from the canvas
             to tweak the parameter that differs, then re-run it.
           </span>

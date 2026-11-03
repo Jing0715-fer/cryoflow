@@ -40,6 +40,7 @@ import {
   fmtBytes,
   type StorageCategoryId,
 } from "@/lib/relion/disk-usage";
+import { formatCountFull } from "@/lib/result-counts"; // t1157 — the thousands word rides its ONE father (the locale pin lives in result-counts, the parser's own contract)
 
 /* ------------------------------------------------------------------ */
 /* The census — every run, weighed                                     */
@@ -243,11 +244,11 @@ export function runLedgerState(
 export function runLedgerLine(ledgerCount: number, diskFiles: number): string {
   if (diskFiles <= 0) return "the walk counted no files in this directory";
   if (ledgerCount >= diskFiles) {
-    return `all ${diskFiles.toLocaleString()} file${
+    return `all ${formatCountFull(diskFiles)} file${
       diskFiles === 1 ? "" : "s"
     } on disk made the ledger`;
   }
-  return `the heaviest ${ledgerCount} of ${diskFiles.toLocaleString()} file${
+  return `the heaviest ${ledgerCount} of ${formatCountFull(diskFiles)} file${
     diskFiles === 1 ? "" : "s"
   } on disk — the ledger keeps only each category's whales`;
 }

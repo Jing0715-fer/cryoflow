@@ -6,6 +6,7 @@ import { formatElapsed } from "@/lib/elapsed";
 import { useNow } from "@/lib/use-now";
 import React from "react";
 import { FIND_STATUSES } from "./canvas-find-bar";
+import { WorldHealthBoard } from "./world-health-dialog"; // t1133 — the world's own door
 import { STATUS_CHIP } from "@/lib/status-style"; // t647 — straight from the map family, no re-export relays
 
 export function Footer() {
@@ -31,6 +32,15 @@ export function Footer() {
 
   const engineLabel = `REAL RELION${system?.version ? ` ${system.version}` : ""}${system?.execution === "wsl" ? " · WSL bridge" : ""}`;
   const modeLabel = project?.mode === "tomo" ? "tomography" : "single-particle";
+  // t1083 — the served lane. NODE_ENV is INLINED at bundle time (webpack's
+  // DefinePlugin), so this comparison is compiled into the very bundle the
+  // browser loaded — the chip cannot drift from the process that served it:
+  // the dev server's bundle says "development" forever, the built
+  // standalone's says "production" forever. The lane exam (t1083) measured
+  // the two lanes' appetites (dev ~1.85GB, prod ~190MB) — this chip is the
+  // product face of that exam: an operator can SEE which lane serves them
+  // before they trust a stamp, a badge, or a restart law.
+  const isProdLane = process.env.NODE_ENV === "production";
 
   // Task 140 — the status census: counts per status over present jobs,
   // in the order the find bar's chips speak them. Presence-derived like
@@ -96,6 +106,12 @@ export function Footer() {
           {jobs.length} {jobs.length === 1 ? "job" : "jobs"} · {edges.length}{" "}
           {edges.length === 1 ? "edge" : "edges"}
         </span>
+        {/* t1133 — the world health board: the three numbers beside it
+            learn a memory (the transition ledger) and the engine's
+            vitals learn a verdict row. It counts the SAME numbers this
+            footer counts — a board that disagreed with the footer
+            beside it would be a lie with a dialog. */}
+        <WorldHealthBoard />
         {census.length > 0 && (
           <>
             <span aria-hidden="true" className="text-border">
@@ -133,7 +149,7 @@ export function Footer() {
                     }
                     onClick={() => onCensusClick(value)}
                     className={cn(
-                      "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 tabular-nums transition-colors",
+                      "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                       armed
                         ? chip.active
                         : "border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground",
@@ -185,6 +201,29 @@ export function Footer() {
           </span>
           build{" "}
           <span className="font-mono">{process.env.NEXT_PUBLIC_BUILD_SHA ?? "?"}</span>
+        </span>
+        {/* t1083 — the served lane: the dot speaks the workshop (amber, dev)
+            or the serving hall (teal, prod); the words name it for the
+            colorblind reader. Its refresh law rides the tooltip: dev waits
+            for a server restart, prod waits for a rebuild — the same laws
+            the build stamp's tooltip carries, now one lane apart. */}
+        <span
+          data-testid="footer-lane"
+          title={
+            isProdLane
+              ? "Served lane: prod — the built .next/standalone trio. A git pull serves new code only after a rebuild (the t406 grinder); the build stamp names the commit the trio was built from."
+              : "Served lane: dev — the hot-reload workshop. A git pull is live on the next request, but the served-build stamp only moves after a dev-server restart. The lane exam measured this lane at ~1.85GB resident (prod: ~190MB)."
+          }
+          className="inline-flex items-center gap-1"
+        >
+          <span
+            aria-hidden="true"
+            className={cn(
+              "size-1.5 rounded-full",
+              isProdLane ? "bg-success-500" : "bg-warning-500",
+            )}
+          />
+          {isProdLane ? "prod lane" : "dev lane"}
         </span>
       </div>
     </footer>

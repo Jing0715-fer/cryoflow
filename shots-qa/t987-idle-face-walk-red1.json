@@ -1,0 +1,63 @@
+{
+  "walk": "t987-idle-face-walk",
+  "at": "2026-10-14T15:56:06.089Z",
+  "pass": 38,
+  "fail": 9,
+  "phaseTrace": [],
+  "results": [
+    {
+      "label": "a root entry clicked (the listing navigates; the mode toggle mounts)",
+      "cond": false,
+      "extra": "NO-ELEMENT"
+    },
+    {
+      "label": "the Folders toggle clicked (the dialog's own mode mouth)",
+      "cond": false,
+      "extra": "NO-ELEMENT"
+    },
+    {
+      "label": "A45's roots plane is LIVE (the refusal names the view — folder mode, roots view)",
+      "cond": false,
+      "extra": "disabled=undefined label=\"undefined\""
+    },
+    {
+      "label": "the roots refusal peels (the plain enabled name answers the navigation)",
+      "cond": false,
+      "extra": "disabled=undefined label=\"undefined\""
+    },
+    {
+      "label": "the browser closed through its Radix mouth (Escape) — nothing picked",
+      "cond": false,
+      "extra": ""
+    },
+    {
+      "label": "the Browse door reopened",
+      "cond": false,
+      "extra": "NEVER-OWN"
+    },
+    {
+      "label": "A44 (Use this path) recorded, not faked",
+      "ok": true,
+      "extra": "the singleFile host (the continue-picker's Browse) rides no idle job in this world — the completed jobs jump to the inspector; the witness carries"
+    },
+    {
+      "label": "the browser closed unpicked (zero mutation on the face's path)",
+      "cond": false,
+      "extra": ""
+    },
+    {
+      "label": "the world carries SEVENTEEN jobs (16 standing + the face)",
+      "cond": false,
+      "extra": "rows=19"
+    },
+    {
+      "label": "the standing sixteen untouched (15 completed + 1 failed, exactly as the world note says)",
+      "cond": false,
+      "extra": "completed=15 failed=1"
+    }
+  ],
+  "face": {
+    "name": "Idle Shape Face (t987)",
+    "jobId": "cmv85jpc00003us69xca0eynf"
+  }
+}

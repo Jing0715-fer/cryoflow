@@ -1,0 +1,23 @@
+{
+  "at": "2026-10-15T15:05:00Z",
+  "audit": "the t1028 window's debris audit — the as-found word BEFORE the standing sweep rode (the sweep itself is scripts/t1028-debris-sweep.mjs; its first ride swept all 11 + 1 planted fixture, receipt t1028-debris-sweep.json)",
+  "method": "live-suffix cross-check: every mock-side dir shaped <type>_<suffix> whose suffix matches no live job id (id.slice(-8)) is debris; a live job's twin is kept",
+  "liveJobs": 22,
+  "localPlane": "clean (0 orphans — the t1027 sweep's legacy held)",
+  "orphansAsFound": [
+    "autopick_9variyxh",
+    "autopick_gtrq6x6g",
+    "autopick_n7e0x8z0",
+    "autopick_o94htkbk",
+    "autopick_wyswoyrj",
+    "extract_84fesbju",
+    "import_2koix081",
+    "import_4jb9ryr7",
+    "import_dhz50ld2",
+    "import_hirub9r8",
+    "import_lfuy8ib1"
+  ],
+  "orphansRead": "five autopick + one extract = past t915 rides (the mint's remove predated the mock-side leg); five imports = past t916/t922-era rides (same class, pre-t1027 removes)",
+  "keptLiveTwins": 13,
+  "asLeft": "mock-side family = 13 live twins + micrographs (14 entries) — the plane cleaner than as-found, recorded in the worklog Task 1028"
+}

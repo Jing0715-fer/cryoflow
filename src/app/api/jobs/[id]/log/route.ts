@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { findEffectiveJob } from "@/lib/link";
 import { getLogTail, getRun } from "@/lib/relion/engine";
 import { isLocalRequest } from "@/lib/http-guard";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -83,6 +84,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
         // (never as console content that blanks the log mid-refresh)
         pending: remote.pending ?? false,
         note: remote.note,
+        // t1083 — the receipt's sibling: the cluster lane's record carries
+        // the same resumedFrom the local record has held since t1082
+        // (parsed from the final argv at the spawn faces by
+        // parseResumeIteration — the "Continue from here:" picker's
+        // self-round and any pipeliner-dialect continue both speak). The
+        // chip reads this branch with zero UI change.
+        resumedFrom: rec?.resumedFrom ?? null,
       });
     }
 
@@ -116,9 +124,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
       totalLines: tail.totalLines,
       truncated: tail.truncated,
       version: tail.version,
+      // t1082 — the resume's receipt rides the log response: the record
+      // holds the checkpoint iteration the run resumed from (written at
+      // spawn time by spawnTrackedRun), and the inspector's Log toolbar
+      // renders it as a quiet chip. null for fresh runs (the honest zero).
+      resumedFrom: rec?.resumedFrom ?? null,
     });
   } catch (error) {
-    console.error("GET /api/jobs/[id]/log failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/jobs/[id]/log", error);
   }
 }

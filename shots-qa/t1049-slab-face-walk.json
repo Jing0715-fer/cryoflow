@@ -1,0 +1,73 @@
+{
+  "walk": "t1049-slab-face-walk",
+  "at": "2026-10-16T08:26:06.699Z",
+  "pass": 14,
+  "fail": 7,
+  "phaseTrace": [],
+  "results": [
+    {
+      "label": "the Z row's hi thumb is located on the track",
+      "cond": false,
+      "extra": "no row"
+    },
+    {
+      "label": "the slab walk never ran (the row never located)",
+      "cond": false,
+      "extra": "leg 4 skipped"
+    },
+    {
+      "label": "the Z reset's click landed (the row's own door)",
+      "cond": false,
+      "extra": "NO-ELEMENT"
+    },
+    {
+      "label": "THE READOUT RETURNS TO — (the full extent restored)",
+      "cond": false,
+      "extra": "readout=\"undefined\""
+    },
+    {
+      "label": "THE TITLE RETURNS TO THE FULL-EXTENT VOICE",
+      "cond": false,
+      "extra": "undefined"
+    },
+    {
+      "label": "the clip chip's stand-down click landed",
+      "cond": false,
+      "extra": "NO-ELEMENT"
+    },
+    {
+      "label": "the clip chip stands down (aria-pressed false)",
+      "cond": false,
+      "extra": "pressed=undefined"
+    }
+  ],
+  "instrument": "t1049-slab-face-walk",
+  "born": "2026-10-16",
+  "contract": "the clip block's interval slider ridden by its pointer road end-to-end — the walk's ten wall moves shrink the Z extent on camera, the readout and the seat's title speak the slab (the N3 law's two faces live), the fold downloads a REAL slab figure whose bytes differ from the full-extent document, the reset restores the full-extent voice, the lens and the world left exactly as found",
+  "legs": {
+    "hiAim": 0.6,
+    "asFound": {
+      "downloads": [
+        "map-project-z0-100 (1).png",
+        "map-project-z0-100-mean.png",
+        "map-project-z0-100.png",
+        "map-project-z0-60-max (1).png",
+        "map-project-z0-60-max.png"
+      ],
+      "lensRaw": null
+    },
+    "walk": {
+      "thumbLocated": false,
+      "trackPx": null
+    },
+    "slab": {
+      "readout": null,
+      "title": null
+    },
+    "fold": {
+      "statusWord": null,
+      "file": null
+    },
+    "worldRestored": true
+  }
+}

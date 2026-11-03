@@ -1,12 +1,12 @@
 {
   "instrument": "scripts/t843-a11y-rewitness.mjs",
-  "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder -> title (the t867 growth — the tree's own tooltip voice, the accessible-name spec's own last resort) — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
-  "build": "r8GOxh-ymcGX-2mJMCj9w",
-  "worldMode": "build",
-  "date": "2026-11-02T04:00:24.595Z",
+  "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
+  "build": "dev@cf76fd9a5777",
+  "worldMode": "dev",
+  "date": "2026-10-11T18:58:16.743Z",
   "viewport": {
     "w": 1280,
-    "h": 800
+    "h": 577
   },
   "faces": {
     "canvas": {
@@ -17,7 +17,7 @@
       "live": [
         {
           "url": "/",
-          "btns": 144,
+          "btns": 125,
           "unBtns": 0,
           "unBtnsWho": [],
           "imgs": 0,
@@ -26,11 +26,11 @@
           "unCtrls": 0,
           "heading": "Main",
           "innerW": 1280,
-          "innerH": 800
+          "innerH": 577
         },
         {
           "url": "/",
-          "btns": 144,
+          "btns": 125,
           "unBtns": 0,
           "unBtnsWho": [],
           "imgs": 0,
@@ -39,7 +39,7 @@
           "unCtrls": 0,
           "heading": "Main",
           "innerW": 1280,
-          "innerH": 800
+          "innerH": 577
         }
       ]
     },
@@ -53,7 +53,7 @@
       "live": [
         {
           "url": "/",
-          "btns": 118,
+          "btns": 104,
           "unBtns": 0,
           "unBtnsWho": [],
           "imgs": 0,
@@ -62,11 +62,11 @@
           "unCtrls": 0,
           "heading": "β-Galactosidase Tutorial (demo)",
           "innerW": 1280,
-          "innerH": 800
+          "innerH": 577
         },
         {
           "url": "/",
-          "btns": 118,
+          "btns": 104,
           "unBtns": 0,
           "unBtnsWho": [],
           "imgs": 0,
@@ -75,7 +75,7 @@
           "unCtrls": 0,
           "heading": "β-Galactosidase Tutorial (demo)",
           "innerW": 1280,
-          "innerH": 800
+          "innerH": 577
         }
       ],
       "arrival": {
@@ -87,7 +87,7 @@
     {
       "label": "A1 canvas rides bit-identical",
       "pass": true,
-      "detail": "btns=144 imgs=0 ctrls=2"
+      "detail": "btns=125 imgs=0 ctrls=2"
     },
     {
       "label": "A2 canvas zero unnamed buttons",
@@ -100,9 +100,9 @@
       "detail": "unCtrls=0/2"
     },
     {
-      "label": "A4 canvas seat floor holds (census 142)",
+      "label": true,
       "pass": true,
-      "detail": "live=144 (census 142, drift +2)"
+      "detail": "live=125 (floor 109, drift +16)"
     },
     {
       "label": "A5a the switcher clicked",
@@ -112,12 +112,12 @@
     {
       "label": "A5b the dashboard face arrived",
       "pass": true,
-      "detail": "heading=\"β-Galactosidase Tutorial (demo)\" btns=118"
+      "detail": "heading=\"β-Galactosidase Tutorial (demo)\" btns=104"
     },
     {
       "label": "A6 dashboard rides bit-identical",
       "pass": true,
-      "detail": "btns=118 imgs=0"
+      "detail": "btns=104 imgs=0"
     },
     {
       "label": "A7 dashboard zero unnamed buttons",
@@ -130,18 +130,18 @@
       "detail": "imgs=0 altless=0"
     },
     {
-      "label": "A9 dashboard seat floor holds (census 114)",
+      "label": true,
       "pass": true,
-      "detail": "live=118 (census 114, drift +4)"
+      "detail": "live=104 (floor 71, drift +33)"
     },
     {
       "label": "A10 world unharmed (canvas back, switcher aboard)",
       "pass": true,
-      "detail": "btns=144 heading=\"Main\""
+      "detail": "btns=125 heading=\"Main\""
     }
   ],
   "passed": 11,
   "failed": 0,
   "total": 11,
-  "verdict": "the census's zero-unnamed invariant holds on the cheap honesty pair: 262 button-views across two faces, none without a name; the seats grew +2/+4 since the census and every newcomer still speaks; the decorative alt=\"\" trap caught the probe once (the t695 law's second bite) and the UI walked clean"
+  "verdict": "the census's zero-unnamed invariant holds on the cheap honesty pair: 229 button-views across two faces, none without a name; the floors are the re-seeded world's own (109/71 — the t698 census's 142/114 is the fossil provenance; the annihilate + migration replaced that DOM) and every seat still speaks; the decorative alt=\"\" trap caught the probe once (the t695 law's second bite) and the UI walked clean"
 }

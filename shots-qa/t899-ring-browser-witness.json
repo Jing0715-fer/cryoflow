@@ -1,0 +1,485 @@
+{
+  "jobId": "cmv44773d0009lt9jlwq1lp56",
+  "SLOW_MS": 9000,
+  "SAMPLE_MS": 1000,
+  "t0wall": 1791740816907,
+  "samples": [
+    {
+      "t": 292,
+      "strip": true,
+      "stats": [
+        {
+          "k": "micrographs",
+          "v": "4",
+          "f": null,
+          "ring": false
+        },
+        {
+          "k": "denoised-local",
+          "v": "1 / 4",
+          "f": null,
+          "ring": false
+        }
+      ],
+      "note": "1 of 4 denoised images synced home — 3 live on the cluster only",
+      "dlg": true,
+      "tab": "Results",
+      "jobStatus": "running"
+    },
+    {
+      "t": 2654,
+      "strip": true,
+      "stats": [
+        {
+          "k": "micrographs",
+          "v": "4",
+          "f": null,
+          "ring": false
+        },
+        {
+          "k": "denoised-local",
+          "v": "1 / 4",
+          "f": null,
+          "ring": false
+        }
+      ],
+      "note": "1 of 4 denoised images synced home — 3 live on the cluster only",
+      "dlg": true,
+      "tab": "Results"
+    },
+    {
+      "t": 4355,
+      "strip": true,
+      "stats": [
+        {
+          "k": "micrographs",
+          "v": "4",
+          "f": null,
+          "ring": false
+        },
+        {
+          "k": "denoised-local",
+          "v": "1 / 4",
+          "f": null,
+          "ring": false
+        }
+      ],
+      "note": "1 of 4 denoised images synced home — 3 live on the cluster only",
+      "dlg": true,
+      "tab": "Results"
+    },
+    {
+      "t": 5486,
+      "strip": true,
+      "stats": [
+        {
+          "k": "micrographs",
+          "v": "4",
+          "f": null,
+          "ring": false
+        },
+        {
+          "k": "denoised-local",
+          "v": "4 / 4",
+          "f": "on",
+          "ring": true
+        }
+      ],
+      "note": null,
+      "dlg": true,
+      "tab": "Results"
+    },
+    {
+      "t": 6606,
+      "strip": true,
+      "stats": [
+        {
+          "k": "micrographs",
+          "v": "4",
+          "f": null,
+          "ring": false
+        },
+        {
+          "k": "denoised-local",
+          "v": "4 / 4",
+          "f": null,
+          "ring": false
+        }
+      ],
+      "note": null,
+      "dlg": true,
+      "tab": "Results",
+      "jobStatus": "running"
+    },
+    {
+      "t": 7697,
+      "strip": true,
+      "stats": [
+        {
+          "k": "micrographs",
+          "v": "4",
+          "f": null,
+          "ring": false
+        },
+        {
+          "k": "denoised-local",
+          "v": "4 / 4",
+          "f": null,
+          "ring": false
+        }
+      ],
+      "note": null,
+      "dlg": true,
+      "tab": "Results"
+    },
+    {
+      "t": 8771,
+      "strip": true,
+      "stats": [
+        {
+          "k": "micrographs",
+          "v": "4",
+          "f": null,
+          "ring": false
+        },
+        {
+          "k": "denoised-local",
+          "v": "4 / 4",
+          "f": null,
+          "ring": false
+        }
+      ],
+      "note": null,
+      "dlg": true,
+      "tab": "Results"
+    },
+    {
+      "t": 9981,
+      "strip": true,
+      "stats": [
+        {
+          "k": "micrographs",
+          "v": "4",
+          "f": null,
+          "ring": false
+        },
+        {
+          "k": "denoised-local",
+          "v": "4 / 4",
+          "f": null,
+          "ring": false
+        }
+      ],
+      "note": null,
+      "dlg": true,
+      "tab": "Results"
+    },
+    {
+      "t": 11059,
+      "strip": true,
+      "stats": [
+        {
+          "k": "micrographs",
+          "v": "4",
+          "f": null,
+          "ring": false
+        },
+        {
+          "k": "denoised-local",
+          "v": "4 / 4",
+          "f": null,
+          "ring": false
+        }
+      ],
+      "note": null,
+      "dlg": true,
+      "tab": "Results",
+      "jobStatus": "running"
+    },
+    {
+      "t": 12308,
+      "strip": true,
+      "stats": [
+        {
+          "k": "micrographs",
+          "v": "4",
+          "f": null,
+          "ring": false
+        },
+        {
+          "k": "denoised-local",
+          "v": "4 / 4",
+          "f": null,
+          "ring": false
+        }
+      ],
+      "note": null,
+      "dlg": true,
+      "tab": "Results"
+    },
+    {
+      "t": 13464,
+      "strip": true,
+      "stats": [
+        {
+          "k": "micrographs",
+          "v": "4",
+          "f": null,
+          "ring": false
+        },
+        {
+          "k": "denoised-local",
+          "v": "4 / 4",
+          "f": null,
+          "ring": false
+        }
+      ],
+      "note": null,
+      "dlg": true,
+      "tab": "Results"
+    },
+    {
+      "t": 14654,
+      "strip": true,
+      "stats": [
+        {
+          "k": "micrographs",
+          "v": "4",
+          "f": null,
+          "ring": false
+        },
+        {
+          "k": "denoised-local",
+          "v": "4 / 4",
+          "f": null,
+          "ring": false
+        }
+      ],
+      "note": null,
+      "dlg": true,
+      "tab": "Results"
+    },
+    {
+      "t": 15780,
+      "strip": true,
+      "stats": [
+        {
+          "k": "micrographs",
+          "v": "4",
+          "f": null,
+          "ring": false
+        },
+        {
+          "k": "denoised-local",
+          "v": "4 / 4",
+          "f": null,
+          "ring": false
+        }
+      ],
+      "note": null,
+      "dlg": true,
+      "tab": "Results",
+      "jobStatus": "running"
+    },
+    {
+      "t": 17578,
+      "strip": true,
+      "stats": [
+        {
+          "k": "micrographs",
+          "v": "4",
+          "f": null,
+          "ring": false
+        },
+        {
+          "k": "denoised-local",
+          "v": "4 / 4",
+          "f": null,
+          "ring": false
+        }
+      ],
+      "note": null,
+      "dlg": true,
+      "tab": "Results"
+    },
+    {
+      "t": 18655,
+      "strip": true,
+      "stats": [
+        {
+          "k": "micrographs",
+          "v": "4",
+          "f": null,
+          "ring": false
+        },
+        {
+          "k": "denoised-local",
+          "v": "4 / 4",
+          "f": null,
+          "ring": false
+        }
+      ],
+      "note": null,
+      "dlg": true,
+      "tab": "Results"
+    },
+    {
+      "t": 19725,
+      "strip": true,
+      "stats": [
+        {
+          "k": "micrographs",
+          "v": "4",
+          "f": null,
+          "ring": false
+        },
+        {
+          "k": "denoised-local",
+          "v": "4 / 4",
+          "f": null,
+          "ring": false
+        }
+      ],
+      "note": null,
+      "dlg": true,
+      "tab": "Results"
+    },
+    {
+      "t": 21000,
+      "strip": true,
+      "stats": [
+        {
+          "k": "micrographs",
+          "v": "4",
+          "f": null,
+          "ring": false
+        },
+        {
+          "k": "denoised-local",
+          "v": "4 / 4",
+          "f": null,
+          "ring": false
+        }
+      ],
+      "note": null,
+      "dlg": true,
+      "tab": "Results",
+      "jobStatus": "running"
+    },
+    {
+      "t": 22384,
+      "strip": true,
+      "stats": [
+        {
+          "k": "micrographs",
+          "v": "4",
+          "f": null,
+          "ring": false
+        },
+        {
+          "k": "denoised-local",
+          "v": "4 / 4",
+          "f": null,
+          "ring": false
+        }
+      ],
+      "note": null,
+      "dlg": true,
+      "tab": "Results"
+    },
+    {
+      "t": 23468,
+      "strip": true,
+      "stats": [
+        {
+          "k": "micrographs",
+          "v": "4",
+          "f": null,
+          "ring": false
+        },
+        {
+          "k": "denoised-local",
+          "v": "4 / 4",
+          "f": null,
+          "ring": false
+        }
+      ],
+      "note": null,
+      "dlg": true,
+      "tab": "Results"
+    },
+    {
+      "t": 24692,
+      "strip": true,
+      "stats": [
+        {
+          "k": "micrographs",
+          "v": "4",
+          "f": null,
+          "ring": false
+        },
+        {
+          "k": "denoised-local",
+          "v": "4 / 4",
+          "f": null,
+          "ring": false
+        }
+      ],
+      "note": null,
+      "dlg": true,
+      "tab": "Results"
+    },
+    {
+      "t": 25733,
+      "strip": true,
+      "stats": [
+        {
+          "k": "micrographs",
+          "v": "4",
+          "f": null,
+          "ring": false
+        },
+        {
+          "k": "denoised-local",
+          "v": "4 / 4",
+          "f": null,
+          "ring": false
+        }
+      ],
+      "note": null,
+      "dlg": true,
+      "tab": "Results",
+      "jobStatus": "completed"
+    }
+  ],
+  "routeSamples": [
+    {
+      "wall": 1791740818907,
+      "covered": 1,
+      "total": 4,
+      "note": "1 of 4 denoised images synced home — 3 live on the cluster only"
+    },
+    {
+      "wall": 1791740819894,
+      "covered": 3,
+      "total": 4,
+      "note": "3 of 4 denoised images synced home — 1 live on the cluster only"
+    },
+    {
+      "wall": 1791740819988,
+      "covered": 4,
+      "total": 4,
+      "note": null
+    }
+  ],
+  "leverLogTail": [
+    "1791740815079 slow 9000ms on topazdenoise",
+    "1791740816500 slow 9000ms on topazdenoise",
+    "1791740819314 slow 9000ms on topazdenoise",
+    "1791740819369 slow 9000ms on topazdenoise",
+    "1791740819955 slow 9000ms on topazdenoise",
+    "1791740824156 slow 9000ms on topazdenoise",
+    "1791740833255 slow 9000ms on topazdenoise"
+  ],
+  "at": "2026-10-11T17:47:22.670Z"
+}

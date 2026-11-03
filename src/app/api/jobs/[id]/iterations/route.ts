@@ -17,6 +17,7 @@ import {
   type IterationsPayload,
   type StackEntry,
 } from "@/lib/remote/iteration-live";
+import { serverErrorReply } from "@/lib/server-error";
 import { derivedRemoteTargetForJob, localMirrorWorkdirForJob } from "@/lib/remote/derived-target";
 import { readRemoteManifest } from "@/lib/remote/remote-files";
 import { markLogWatch } from "@/lib/remote/remote-run";
@@ -264,7 +265,6 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
       headers: { "Cache-Control": "no-store" },
     });
   } catch (error) {
-    console.error("GET /api/jobs/[id]/iterations failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/jobs/[id]/iterations", error);
   }
 }

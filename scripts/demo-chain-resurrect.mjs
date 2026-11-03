@@ -172,6 +172,18 @@ must(existing === N_MIC ? true : true, `bundle ready at ${EMPIAR_DIR} (${N_MIC -
 /* 2. the mock cluster connection                                       */
 /* ------------------------------------------------------------------ */
 
+/* t1172 — --bundle-only: synthesize step 1 and stop. The film rides
+ * (t887) and the census's own seats need the BUNDLE, never the healer's
+ * full chain walk — a flag the ride can afford without a server up. */
+if (process.argv.includes("--bundle-only")) {
+  console.log(`bundle-only: ${fail} FAIL`);
+  process.exit(fail === 0 ? 0 : 1);
+}
+
+/* ------------------------------------------------------------------ */
+/* 2. the mock cluster connection                                       */
+/* ------------------------------------------------------------------ */
+
 console.log("== step 2: the Mock Cluster connection ==");
 const list0 = await api("GET", "/api/remote/connections");
 const conns0 = list0.body?.connections ?? [];

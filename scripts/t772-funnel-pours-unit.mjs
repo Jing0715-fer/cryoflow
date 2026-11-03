@@ -224,8 +224,8 @@ console.log("C — the face (seventeenth address, prose law's home turf)");
   const glues = (code.match(/\{" "\}/g) ?? []).length;
   const payments = (code.match(/truncate|min-w-0|overflow|whitespace-nowrap/g) ?? []).length;
   assert(
-    glues === 2 && payments === 11,
-    "C7b boundary clause two faces: the prose host's TWO {\" \"} glue payments intact + the text-flow ledger grown to ELEVEN (t804's house batch added three: the dialog's overflow-hidden, the reading region's overflow-y-auto, and the verdict's archived old override — block comments survive the stripper, the t760 meta-law's known compromise)",
+    glues === 2 && payments === 14,
+    "C7b boundary clause two faces: the prose host's TWO {\" \"} glue payments intact + the text-flow ledger at FOURTEEN (t1137 amendment 11→14: t804's house batch's three — the dialog's overflow-hidden, the reading region's overflow-y-auto, the verdict's archived old override — plus the t1136-era legend/scrub dress's one; block comments survive the stripper, the t760 meta-law's known compromise)",
     `glues ${glues}, payments ${payments}`,
   );
   assert(

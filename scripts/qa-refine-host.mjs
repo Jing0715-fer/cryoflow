@@ -31,7 +31,12 @@ const MANIFEST = "/home/z/my-project/data/old-world.json";
 const BASE = "http://localhost:3000";
 
 export function resolveRefineHost() {
-  const raw = execSync(`curl -s --max-time 20 "${BASE}/api/jobs"`, {
+  // t1130 — the JS twin learns the door's language: /api/jobs GET carries the
+  // isLocalRequest gate (t710's collection read-halves; the guard denies
+  // metadata-less curl on this surface), and the Python twin (qa_lib.py) has
+  // spoken Origin since t532. The guard's own comment names the cure:
+  // "QA scripts should send -H "Origin: http://localhost:3000"".
+  const raw = execSync(`curl -s --max-time 20 -H "Origin: ${BASE}" "${BASE}/api/jobs"`, {
     encoding: "utf8",
     timeout: 30_000,
   });

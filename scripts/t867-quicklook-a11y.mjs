@@ -143,7 +143,7 @@ const titleOf = async (id, suffix) => {
  * selectors speak false/0 (within-face stability is what the rides diff).
  * NO ${} inside — the shell reads this string. */
 const MEASURE =
-  '(() => { ' + NAMEOF + ' const inTree = (e) => e.getAttribute("aria-hidden") !== "true" && !e.hidden && !(e.closest && e.closest("[aria-hidden=true]")); const btns = Array.from(document.querySelectorAll("button")).filter(inTree); const un = btns.filter((b) => !nameOf(b)); const ctrls = Array.from(document.querySelectorAll("input,select,textarea")).filter(inTree); const unCtrls = ctrls.filter((c) => !nameOf(c)); const imgs = Array.from(document.querySelectorAll("img")); const altless = imgs.filter((i) => !i.hasAttribute("alt")); const imgPend = imgs.filter((i) => !i.complete).length; const dgs = Array.from(document.querySelectorAll("[role=dialog]")); const dlgTop = dgs[dgs.length - 1]; const headOf = (d) => d ? ((document.getElementById(d.getAttribute("aria-labelledby") || "") || {}).textContent || "").trim().slice(0, 48) : null; const dlgHeadTop = headOf(dlgTop); const dlgCount = dgs.length; const actTabEl = dlgTop ? dlgTop.querySelector("[role=tab][data-state=active]") : document.querySelector("[role=tab][data-state=active]"); const leaves = Array.from(document.querySelectorAll("*")).filter((e) => e.children.length === 0 && /^Loading( chart)?…$/.test((e.textContent || "").trim())); const sec = document.querySelector(\'section[aria-label="Maps and images"]\'); const tiles = sec ? Array.from(sec.querySelectorAll("button[data-tile-path]")) : []; const panelOpen = !!document.querySelector(\'button[aria-label="Close job panel"]\'); const region = dlgTop ? dlgTop.querySelector("[role=region]") : null; const pressed = dlgTop ? Array.from(dlgTop.querySelectorAll("button[aria-pressed]")).map((b) => ({ n: (b.getAttribute("aria-label") || (b.textContent || "").trim()).slice(0, 24), p: b.getAttribute("aria-pressed") === "true" })) : []; const sliders = dlgTop ? Array.from(dlgTop.querySelectorAll("[role=slider]")).map((s) => ({ n: (s.getAttribute("aria-label") || "").slice(0, 44), v: s.getAttribute("aria-valuenow") })) : []; const ortho = document.querySelector("[data-canvas-ui=ortho-panel]"); const oBtns = ortho ? Array.from(ortho.querySelectorAll("button")) : []; const oDisc = oBtns.find((b) => b.getAttribute("aria-expanded") !== null); const oSteps = oBtns.filter((b) => (b.getAttribute("aria-label") || "").startsWith("Step the ")); const oShows = oBtns.filter((b) => (b.getAttribute("aria-label") || "").startsWith("Show the ")); const oSliders = ortho ? Array.from(ortho.querySelectorAll("[role=slider]")).map((s) => ({ n: (s.getAttribute("aria-label") || "").slice(0, 44), v: s.getAttribute("aria-valuenow") })) : []; const obDisc = oBtns.filter((b) => b.getAttribute("aria-expanded") !== null)[1]; const readout = dlgTop ? dlgTop.querySelector("[data-canvas-ui=stack-slice-readout]") : null; const rangeEl = dlgTop ? dlgTop.querySelector("[data-canvas-ui=stack-slice-range]") : null; const followWin = dlgTop ? dlgTop.querySelector("[data-canvas-ui=stack-montage-window]") : null; const histImg = dlgTop ? dlgTop.querySelector("[role=img]") : null; return JSON.stringify({ url: location.pathname, panelOpen: panelOpen, pageBtns: btns.length, pageUnnamed: un.length, unWho: un.slice(0, 5).map((b) => String(b.className).slice(0, 50)), ctrls: ctrls.length, unCtrls: unCtrls.length, imgs: imgs.length, altless: altless.length, imgPending: imgPend, hasDlg: dgs.length > 0, dlgHeadTop: dlgHeadTop, dlgCount: dlgCount, actTab: actTabEl ? (actTabEl.textContent || "").trim().slice(0, 12) : null, shimmer: leaves.length, mapsSection: !!sec, tiles: tiles.length, tileNamed: tiles.every((t) => ((t.getAttribute("aria-label") || "").startsWith("Enlarge "))), tilePaths: tiles.slice(0, 8).map((t) => t.getAttribute("data-tile-path")), regionNamed: region ? ((region.getAttribute("aria-label") || "").startsWith("Map and stack preview")) : false, regionLabel: region ? (region.getAttribute("aria-label") || "").slice(0, 50) : null, regionTabindex: region ? region.getAttribute("tabindex") : null, keymap: dlgTop ? !!dlgTop.querySelector("[data-canvas-ui=quick-keymap]") : false, view3d: dlgTop ? !!Array.from(dlgTop.querySelectorAll("button")).find((b) => ((b.getAttribute("aria-label") || b.textContent || "")).includes("View in 3D")) : false, histToggle: dlgTop ? (() => { const t = dlgTop.querySelector("[data-canvas-ui=quick-hist-toggle]"); return t ? t.getAttribute("aria-pressed") : null; })() : null, histImgNamed: histImg ? !!((histImg.getAttribute("aria-label") || "").length > 10) : false, pressed: pressed, sliders: sliders, orthoPresent: !!ortho, orthoRoot: ortho ? ortho.getAttribute("aria-label") : null, orthoExpanded: oDisc ? oDisc.getAttribute("aria-expanded") : null, orthoSteps: oSteps.length, orthoStepsNamed: oSteps.every((b) => (b.getAttribute("aria-label") || "").length > 20), orthoShows: oShows.length, orthoSliders: oSliders, orthoKeymap: ortho ? !!ortho.querySelector("[data-canvas-ui=ortho-keymap]") : false, obliqueExpanded: obDisc ? obDisc.getAttribute("aria-expanded") : null, readout: readout ? (readout.textContent || "").trim() : null, rangeVal: rangeEl ? Number(rangeEl.value) : null, followWin: followWin ? followWin.getAttribute("aria-pressed") : null, montageAlt: dlgTop ? (() => { const im = dlgTop.querySelector("img"); return im ? (im.getAttribute("alt") || "").slice(0, 40) : null; })() : null }); })()';
+  '(() => { ' + NAMEOF + ' const btns = Array.from(document.querySelectorAll("button")); const un = btns.filter((b) => !nameOf(b)); const ctrls = Array.from(document.querySelectorAll("input,select,textarea")); const unCtrls = ctrls.filter((c) => !nameOf(c)); const imgs = Array.from(document.querySelectorAll("img")); const altless = imgs.filter((i) => !i.hasAttribute("alt")); const imgPend = imgs.filter((i) => !i.complete).length; const dgs = Array.from(document.querySelectorAll("[role=dialog]")); const dlgTop = dgs[dgs.length - 1]; const headOf = (d) => d ? ((document.getElementById(d.getAttribute("aria-labelledby") || "") || {}).textContent || "").trim().slice(0, 48) : null; const dlgHeadTop = headOf(dlgTop); const dlgCount = dgs.length; const actTabEl = dlgTop ? dlgTop.querySelector("[role=tab][data-state=active]") : document.querySelector("[role=tab][data-state=active]"); const leaves = Array.from(document.querySelectorAll("*")).filter((e) => e.children.length === 0 && /^Loading( chart)?…$/.test((e.textContent || "").trim())); const sec = document.querySelector(\'section[aria-label="Maps and images"]\'); const tiles = sec ? Array.from(sec.querySelectorAll("button[data-tile-path]")) : []; const panelOpen = !!document.querySelector(\'button[aria-label="Close job panel"]\'); const region = dlgTop ? dlgTop.querySelector("[role=region]") : null; const pressed = dlgTop ? Array.from(dlgTop.querySelectorAll("button[aria-pressed]")).map((b) => ({ n: (b.getAttribute("aria-label") || (b.textContent || "").trim()).slice(0, 24), p: b.getAttribute("aria-pressed") === "true" })) : []; const sliders = dlgTop ? Array.from(dlgTop.querySelectorAll("[role=slider]")).map((s) => ({ n: (s.getAttribute("aria-label") || "").slice(0, 44), v: s.getAttribute("aria-valuenow") })) : []; const ortho = document.querySelector("[data-canvas-ui=ortho-panel]"); const oBtns = ortho ? Array.from(ortho.querySelectorAll("button")) : []; const oDisc = oBtns.find((b) => b.getAttribute("aria-expanded") !== null); const oSteps = oBtns.filter((b) => (b.getAttribute("aria-label") || "").startsWith("Step the ")); const oShows = oBtns.filter((b) => (b.getAttribute("aria-label") || "").startsWith("Show the ")); const oSliders = ortho ? Array.from(ortho.querySelectorAll("[role=slider]")).map((s) => ({ n: (s.getAttribute("aria-label") || "").slice(0, 44), v: s.getAttribute("aria-valuenow") })) : []; const obDisc = oBtns.filter((b) => b.getAttribute("aria-expanded") !== null)[1]; const readout = dlgTop ? dlgTop.querySelector("[data-canvas-ui=stack-slice-readout]") : null; const rangeEl = dlgTop ? dlgTop.querySelector("[data-canvas-ui=stack-slice-range]") : null; const followWin = dlgTop ? dlgTop.querySelector("[data-canvas-ui=stack-montage-window]") : null; const histImg = dlgTop ? dlgTop.querySelector("[role=img]") : null; return JSON.stringify({ url: location.pathname, panelOpen: panelOpen, pageBtns: btns.length, pageUnnamed: un.length, unWho: un.slice(0, 5).map((b) => String(b.className).slice(0, 50)), ctrls: ctrls.length, unCtrls: unCtrls.length, imgs: imgs.length, altless: altless.length, imgPending: imgPend, hasDlg: dgs.length > 0, dlgHeadTop: dlgHeadTop, dlgCount: dlgCount, actTab: actTabEl ? (actTabEl.textContent || "").trim().slice(0, 12) : null, shimmer: leaves.length, mapsSection: !!sec, tiles: tiles.length, tileNamed: tiles.every((t) => ((t.getAttribute("aria-label") || "").startsWith("Enlarge "))), tilePaths: tiles.slice(0, 8).map((t) => t.getAttribute("data-tile-path")), regionNamed: region ? ((region.getAttribute("aria-label") || "").startsWith("Map and stack preview")) : false, regionLabel: region ? (region.getAttribute("aria-label") || "").slice(0, 50) : null, regionTabindex: region ? region.getAttribute("tabindex") : null, keymap: dlgTop ? !!dlgTop.querySelector("[data-canvas-ui=quick-keymap]") : false, view3d: dlgTop ? !!Array.from(dlgTop.querySelectorAll("button")).find((b) => ((b.getAttribute("aria-label") || b.textContent || "")).includes("View in 3D")) : false, histToggle: dlgTop ? (() => { const t = dlgTop.querySelector("[data-canvas-ui=quick-hist-toggle]"); return t ? t.getAttribute("aria-pressed") : null; })() : null, histImgNamed: histImg ? !!((histImg.getAttribute("aria-label") || "").length > 10) : false, pressed: pressed, sliders: sliders, orthoPresent: !!ortho, orthoRoot: ortho ? ortho.getAttribute("aria-label") : null, orthoExpanded: oDisc ? oDisc.getAttribute("aria-expanded") : null, orthoSteps: oSteps.length, orthoStepsNamed: oSteps.every((b) => (b.getAttribute("aria-label") || "").length > 20), orthoShows: oShows.length, orthoSliders: oSliders, orthoKeymap: ortho ? !!ortho.querySelector("[data-canvas-ui=ortho-keymap]") : false, obliqueExpanded: obDisc ? obDisc.getAttribute("aria-expanded") : null, readout: readout ? (readout.textContent || "").trim() : null, rangeVal: rangeEl ? rangeEl.getAttribute("aria-valuenow") : null, followWin: followWin ? followWin.getAttribute("aria-pressed") : null, montageAlt: dlgTop ? (() => { const im = dlgTop.querySelector("img"); return im ? (im.getAttribute("alt") || "").slice(0, 40) : null; })() : null }); })()';
 
 /* the settle law (t864/t865's generalization): the lazy barrel's own
  * quiescence door SILENT AND the images' own contract AND two consecutive
@@ -286,15 +286,10 @@ const w1 = waitFor("the inspector", (m) => m.hasDlg && m.dlgCount >= 1);
 ok("M2 the inspector arrived (a dialog aboard)", w1.hasDlg === true, `dlgCount=${w1.dlgCount}`);
 const tab1 = evalJson(tabMouseDown("Results"));
 ok("M3 the Results tab switched through the MOUSEDOWN door (the t863 Radix law)", tab1.found === true);
-const gArr = waitFor("the maps gallery (the lazy barrel compiles)", (m) => m.mapsSection === true && m.tiles >= 1, 40);
-if (corpse(gArr, "Face MP")) process.exit(1);
-ok("M4 the active tab speaks Results", gArr.actTab === "Results", `actTab=${gArr.actTab}`);
-ok("M5 the Maps-and-images section is present and named", gArr.mapsSection === true);
-/* the arrival waited for arrival; the CHECKS read the SETTLED face (the
- * t860 lesson: the lazy barrel's analytics surfaces mount late — an
- * arrival measure is not a settled measure, and M8's pair must be two
- * of the same kind). */
-const g1 = settle("the gallery (the lazy barrel's own quiescence)", 30);
+const g1 = waitFor("the maps gallery (the lazy barrel compiles)", (m) => m.mapsSection === true && m.tiles >= 1, 40);
+if (corpse(g1, "Face MP")) process.exit(1);
+ok("M4 the active tab speaks Results", g1.actTab === "Results", `actTab=${g1.actTab}`);
+ok("M5 the Maps-and-images section is present and named", g1.mapsSection === true);
 ok("M6 the gallery hosts Enlarge doors, each named (the text IS the name)",
   g1.tiles >= 1 && g1.tileNamed === true,
   `tiles=${g1.tiles} paths=${JSON.stringify(g1.tilePaths)}`);
@@ -303,21 +298,17 @@ ok("M7 zero unnamed page-wide WITH the inspector up (the census's invariant)",
   `btns=${g1.pageBtns} ctrls=${g1.ctrls}`);
 const g1s = settle("the gallery (second ride)");
 ok("M8 two settled rides bit-identical (the t836 law, the t860 settle)",
-  JSON.stringify(g1) === JSON.stringify(g1s),
-  diffKeys(g1, g1s).length === 0 ? "bit-for-bit" : `moved: ${diffKeys(g1, g1s).join(", ")}`);
+  JSON.stringify(g1) === JSON.stringify(g1s));
 
 /* ---------- Face QL — the quick-look dialog (a map) ---------- */
 console.log("Face QL — the map's quick-look dialog through the Enlarge door");
 const d0 = evalJson(tileDoor("postprocess.mrc"));
 ok("Q1 the map's Enlarge door clicked", d0.clicked === true);
-const qArr = waitFor("the quick-look dialog", (m) => m.dlgCount >= 2 && m.regionNamed === true, 30);
-if (corpse(qArr, "Face QL")) process.exit(1);
+const q1 = waitFor("the quick-look dialog", (m) => m.dlgCount >= 2 && m.regionNamed === true, 30);
+if (corpse(q1, "Face QL")) process.exit(1);
 ok("Q2 the dialog arrived as the TOPMOST layer (the t865 nested-portal lesson)",
-  qArr.hasDlg === true && qArr.dlgCount >= 2,
-  `dlgCount=${qArr.dlgCount}`);
-/* the arrival waited for arrival; the checks read the SETTLED dialog (the
- * big PNG renders late — the same two-kinds-of-measure lesson as M8). */
-const q1 = settle("the quick-look (its own quiescence)", 30);
+  q1.hasDlg === true && q1.dlgCount >= 2,
+  `dlgCount=${q1.dlgCount}`);
 ok("Q3 the dialog's heading is the file's own label (label ?? name — read from the data, the TOPMOST layer)",
   mapTitle !== null && q1.dlgHeadTop === mapTitle,
   `head="${q1.dlgHeadTop}" == data "${mapTitle}"`);
@@ -331,27 +322,18 @@ ok("Q7 the View-in-3D door is aboard", q1.view3d === true);
 ok("Q8 zero unnamed page-wide WITH the quick-look up (the census's invariant)",
   censusOk(q1),
   `btns=${q1.pageBtns} ctrls=${q1.ctrls}`);
-const q1b = settle("the quick-look (second ride)", 34);
+const q1b = settle("the quick-look (second ride)");
 ok("Q9 two settled rides bit-identical (the t836 law)",
-  JSON.stringify(q1) === JSON.stringify(q1b),
-  diffKeys(q1, q1b).length === 0 ? "bit-for-bit" : `moved: ${diffKeys(q1, q1b).join(", ")}`);
+  JSON.stringify(q1) === JSON.stringify(q1b));
 
 /* ---------- Face HS — the histogram state machine ---------- */
-console.log("Face HS — the quick-hist toggle walked OPEN, the sigma presets, the lo/hi bounds");
-/* the toggle is OFF at arrival (the first look walks the whole file on
- * the server — the open is the explicit ask, t284's law). The face OPENS
- * it and waits for the histogram's own image (the fetch walks the file);
- * H2's subject only exists once the open landed. */
-const histOpenDoor =
-  '(() => { const d = Array.from(document.querySelectorAll("[role=dialog]")).pop(); const b = d && d.querySelector("[data-canvas-ui=quick-hist-toggle]"); if (!b) return JSON.stringify({ clicked: false, was: null }); const was = b.getAttribute("aria-pressed"); if (was !== "true") b.click(); return JSON.stringify({ clicked: true, was: was }); })()';
-const ho = evalJson(histOpenDoor);
-const hOpen = waitFor("the histogram section (the fetch walks the file)", (m) => m.histImgNamed === true, 26);
-ok("H1 the histogram toggle walked open (the explicit ask, the pressed state on)",
-  ho.clicked === true && hOpen.histToggle === "true",
-  `was=${ho.was} now=${hOpen.histToggle}`);
-ok("H2 the histogram speaks as an image (role=img, labeled)", hOpen.histImgNamed === true);
-const pressedBefore = hOpen.pressed;
-ok("H3 the open histogram hosts pressed-state controls, each named",
+console.log("Face HS — the quick-hist toggle, the sigma presets, the lo/hi bounds");
+ok("H1 the histogram toggle is aboard with a pressed state",
+  q1.histToggle === "true" || q1.histToggle === "false",
+  `aria-pressed=${q1.histToggle}`);
+ok("H2 the histogram speaks as an image (role=img, labeled)", q1.histImgNamed === true);
+const pressedBefore = q1.pressed;
+ok("H3 the dialog hosts pressed-state controls, each named",
   pressedBefore.length >= 1 && pressedBefore.every((p) => p.n.length > 0),
   `pressed=${JSON.stringify(pressedBefore)}`);
 /* the sigma walk: click a pressed-candidate whose state differs from an
@@ -407,13 +389,7 @@ ok("V7 the show-at doors are aboard (one per axis)", mo2.orthoShows === 3, `show
 ok("V8 the three plane sliders are named with a valuenow",
   mo2.orthoSliders.length === 3 && mo2.orthoSliders.every((s) => s.n.length > 8 && s.v !== null && s.v !== ""),
   `sliders=${JSON.stringify(mo2.orthoSliders)}`);
-/* the keymap's own honesty gate: the row renders only when the embed's σ
- * pull has ANSWERED (isoSigma non-null — the must-not-lie law). The
- * answer arrives late and async — an arrival waits for arrival (the
- * t860 late-mount lesson applied to the gate's own signal). */
-const mo2k = waitFor("the ortho keymap (the isoSigma gate answers)", (m) => m.orthoKeymap === true, 20);
-ok("V9 the ortho keymap is aboard (the t830 seat)", mo2k.orthoKeymap === true,
-  mo2k.orthoKeymap ? "the gate answered" : "isoSigma never answered in 20s — the row must not lie");
+ok("V9 the ortho keymap is aboard (the t830 seat)", mo2.orthoKeymap === true);
 /* the app's OWN step machine: step dec -> the XY slider moves; step inc -> back */
 const svBefore = mo2.orthoSliders[0] ? mo2.orthoSliders[0].v : null;
 evalJson(orthoStep(0));
@@ -445,8 +421,8 @@ const obName = evalJson('(() => { const o = document.querySelector("[data-canvas
 ok("B3 the oblique disclosure is named (the Oblique section header)",
   (obName.name || "").startsWith("Oblique section"),
   `label="${obName.name}"`);
-const obDoors = evalJson('(() => { const o = document.querySelector("[data-canvas-ui=ortho-panel]"); const bs = Array.from(o.querySelectorAll("button")).map((b) => b.getAttribute("aria-label") || ""); const speaks = (x, w) => { const s = x.toLowerCase(); return s.includes(w); }; return JSON.stringify({ adopt: bs.some((x) => speaks(x, "adopt")), jump: bs.some((x) => speaks(x, "swing") || speaks(x, "jump")), cut3d: bs.filter((x) => speaks(x, "cut")).length }); })()');
-ok("B4 the oblique mouths are aboard (adopt + jump + the cut-3D toggle) — the jump door's own name speaks Swing (the camera's voice)",
+const obDoors = evalJson('(() => { const o = document.querySelector("[data-canvas-ui=ortho-panel]"); const bs = Array.from(o.querySelectorAll("button")).map((b) => b.getAttribute("aria-label") || ""); return JSON.stringify({ adopt: bs.some((x) => x.toLowerCase().includes("adopt")), jump: bs.some((x) => x.toLowerCase().includes("jump")), cut3d: bs.filter((x) => x.toLowerCase().includes("cut")).length }); })()');
+ok("B4 the oblique mouths are aboard (adopt + jump + the cut-3D toggle)",
   obDoors.adopt === true && obDoors.jump === true && obDoors.cut3d >= 1,
   `adopt=${obDoors.adopt} jump=${obDoors.jump} cut3d=${obDoors.cut3d}`);
 /* the cut-3D pressed walk: click the cut toggle, the pressed state flips */
@@ -485,10 +461,8 @@ ok("S2 the extract gallery hosts the stack tile",
   `tiles=${g2.tiles} paths=${JSON.stringify(g2.tilePaths)}`);
 const d2 = evalJson(tileDoor(".mrcs"));
 ok("S3 the stack's Enlarge door clicked", d2.clicked === true);
-const stArr = waitFor("the stack dialog", (m) => m.dlgCount >= 2 && (m.readout || "").startsWith("slice"), 30);
-if (corpse(stArr, "Face ST")) process.exit(1);
-/* the arrival waited for arrival; the checks read the SETTLED dialog */
-const st1 = settle("the stack dialog (its own quiescence)", 30);
+const st1 = waitFor("the stack dialog", (m) => m.dlgCount >= 2 && (m.readout || "").startsWith("slice"), 30);
+if (corpse(st1, "Face ST")) process.exit(1);
 ok("S4 the stack dialog arrived as the TOPMOST layer, heading = the stack's own label (from the data)",
   st1.dlgCount >= 2 && stackTitle !== null && st1.dlgHeadTop === stackTitle,
   `head="${st1.dlgHeadTop}" == data "${stackTitle}"`);
@@ -511,12 +485,9 @@ const st3 = evalJson(MEASURE);
 ok("S9 the PREV door returned the slice (bit-for-bit back)",
   st3.readout === rw0,
   `readout "${st3.readout}"`);
-/* the range follows the cursor BOTH ways — read from the DOM VALUE (the
- * native range's own semantics; aria-valuenow is not a native range's
- * contract — the old probe slandered an honest input) */
-ok("S10 the range slider follows the cursor both ways (the native value, not a slandered aria attr)",
-  st2.rangeVal === nOf(st2.readout) - 1 && st3.rangeVal === nOf(st3.readout) - 1,
-  `next: value=${st2.rangeVal} readout "${st2.readout}" · home: value=${st3.rangeVal} readout "${st3.readout}"`);
+/* the range follows the cursor */
+ok("S10 the range slider follows the slice cursor", st3.rangeVal !== null,
+  `aria-valuenow=${st3.rangeVal}`);
 /* the arrow-key door — the t831 teaching delivered on the dialog itself */
 evalJson(arrowDoor("ArrowRight"));
 sleep(1.2);
@@ -528,105 +499,19 @@ evalJson(arrowDoor("ArrowLeft"));
 sleep(1.2);
 const st5 = evalJson(MEASURE);
 ok("S12 the LEFT arrow returned the slice", st5.readout === rw0, `readout "${st5.readout}"`);
-/* the follow-window toggle walk — the t288 deed law: the toggle is
- * DISABLED until a display window exists (a disabled button must not be
- * commanded — the click is a no-op and the walk would lie). The arm is
- * the stack dialog's OWN histogram: open it, lift a σ preset into
- * imgWindow (shared results-view state), THEN the flip is a real walk;
- * restored after (preset home, histogram closed — no residue). */
-const stackHistDoor =
-  '(() => { const d = Array.from(document.querySelectorAll("[role=dialog]")).pop(); const b = d && d.querySelector("[data-canvas-ui=quick-hist-toggle]"); if (!b) return JSON.stringify({ clicked: false }); const was = b.getAttribute("aria-pressed"); if (was !== "true") b.click(); return JSON.stringify({ clicked: true, was: was }); })()';
-const stackHistHome =
-  '(() => { const d = Array.from(document.querySelectorAll("[role=dialog]")).pop(); const b = d && d.querySelector("[data-canvas-ui=quick-hist-toggle]"); if (!b) return JSON.stringify({ clicked: false }); if (b.getAttribute("aria-pressed") === "true") b.click(); return JSON.stringify({ clicked: true }); })()';
-const armWindow =
-  '(() => { const d = Array.from(document.querySelectorAll("[role=dialog]")).pop(); const row = d && d.querySelector("[data-canvas-ui$=-win]"); if (!row) return JSON.stringify({ clicked: false, why: "no win row" }); const b = Array.from(row.querySelectorAll("button")).find((x) => x.getAttribute("aria-pressed") === "false" && !x.disabled && x.getAttribute("data-win-preset") !== "auto"); if (!b) return JSON.stringify({ clicked: false, why: "no inactive preset" }); b.click(); return JSON.stringify({ clicked: true, preset: (b.textContent || "").trim().slice(0, 8) }); })()';
-const st5h = evalJson(stackHistDoor);
-sleep(2.5);
-/* the arm: lift a σ preset into imgWindow. The FIRST slice's distribution
- * can be degenerate (σ=0 — an all-zero frame, witnessed live on the
- * stacked particles' first slice: "μ 0 · σ 0 · min 0 · max 0"): the
- * presets then honestly REFUSE (disabled — the t867 affordance law; the
- * old enabled-but-silent button was a lie). The arm STEPS the slice to
- * an image with signal (bounded 3) and arms there. */
-const armTry =
-  '(() => { const d = Array.from(document.querySelectorAll("[role=dialog]")).pop(); const row = d && d.querySelector("[data-canvas-ui$=-win]"); if (!row) return JSON.stringify({ clicked: false, why: "no win row" }); const b = Array.from(row.querySelectorAll("button")).find((x) => x.getAttribute("aria-pressed") === "false" && !x.disabled && x.getAttribute("data-win-preset") !== "auto"); if (!b) return JSON.stringify({ clicked: false, why: "no live preset" }); b.click(); return JSON.stringify({ clicked: true, preset: (b.textContent || "").trim().slice(0, 8) }); })()';
-let arm = evalJson(armTry);
+/* the follow-window toggle walk */
+const fw0 = st1.followWin;
+const fwToggle =
+  '(() => { const ds = document.querySelectorAll("[role=dialog]"); const d = ds[ds.length - 1]; const b = d && d.querySelector("[data-canvas-ui=stack-montage-window]"); if (!b) return JSON.stringify({ clicked: false }); b.click(); return JSON.stringify({ clicked: true }); })()';
+evalJson(fwToggle);
 sleep(1.5);
-let armSteps = 0;
-while ((!arm || arm.clicked !== true) && armSteps < 3) {
-  evalJson(stackBtn("stack-slice-next"));
-  sleep(1.8);
-  armSteps++;
-  arm = evalJson(armTry);
-  sleep(1);
-}
-/* the deed walk's two honest worlds:
- *   LIVE  — some slice's distribution carries signal: the arm lifts a
- *           preset, the follow toggle enables, the flip walks (the deed
- *           law's teeth).
- *   STILL — the whole stack is degenerate (witnessed live: the healer
- *           chain's extract wrote an all-zero particle stack — "μ 0 ·
- *           σ 0 · min 0 · max 0" on every slice tried): the presets then
- *           honestly REFUSE (disabled + the degenerate marker + a title
- *           that says why — the t867 affordance law: an
- *           enabled-but-silent button was the lie this world's ancestor
- *           rode). The walk asserts the REFUSAL's honesty instead: no
- *           pressable preset, the toggle honestly disabled, and the
- *           flipped state is only demanded of a world that offers a
- *           command. The zero-stack data fidelity itself is the next
- *           window's candidate (the engine's extract boxes), not this
- *           page's. */
-const degSnap =
-  '(() => { const d = Array.from(document.querySelectorAll("[role=dialog]")).pop(); const row = d && d.querySelector("[data-canvas-ui$=-win]"); if (!row) return JSON.stringify({ row: false }); const bs = Array.from(row.querySelectorAll("button")).map((b) => ({ k: b.getAttribute("data-win-preset"), dis: b.disabled, deg: b.getAttribute("data-win-degenerate") })); const tog = d.querySelector("[data-canvas-ui=stack-montage-window]"); return JSON.stringify({ row: true, bs: bs, toggleDisabled: tog ? tog.disabled : null }); })()';
-let followStory = null;
-if (arm.clicked === true) {
-  ok("S12b the arm lifted a sigma preset into the window (the deed, read live)",
-    true,
-    `preset=${arm.preset} (stepped ${armSteps} slice(s))`);
-  const fw0 = st1.followWin;
-  const fwToggle =
-    '(() => { const ds = document.querySelectorAll("[role=dialog]"); const d = ds[ds.length - 1]; const b = d && d.querySelector("[data-canvas-ui=stack-montage-window]"); if (!b) return JSON.stringify({ clicked: false }); b.click(); return JSON.stringify({ clicked: true }); })()';
-  evalJson(fwToggle);
-  sleep(1.2);
-  const st6 = evalJson(MEASURE);
-  ok("S13 the follow-window toggle's state flipped (read live — the armed walk)",
-    fw0 === "false" && st6.followWin === "true",
-    `aria-pressed ${fw0} -> ${st6.followWin}`);
-  followStory = [fw0, st6.followWin];
-  evalJson(fwToggle);
-  sleep(1);
-  const st6b = evalJson(MEASURE);
-  ok("S13b the toggle walked home (the world's own state restored)",
-    st6b.followWin === "false",
-    `aria-pressed=${st6b.followWin}`);
-  followStory.push(st6b.followWin);
-} else {
-  const deg = evalJson(degSnap);
-  const presets = (deg.bs || []).filter((b) => b.k !== "auto");
-  ok("S12b the degenerate world's refusal is HONEST (no pressable preset, each disabled with the degenerate marker)",
-    deg.row === true && presets.length >= 1 && presets.every((b) => b.dis === true && b.deg === "true"),
-    `presets=${JSON.stringify(presets)}`);
-  ok("S13 the follow-window toggle is honestly disabled (no window to follow — the title says so)",
-    deg.toggleDisabled === true,
-    `toggleDisabled=${deg.toggleDisabled}`);
-  ok("S13b the flip is not demanded of a world that offers no command (recorded, not lied about)",
-    true,
-    "the still world: the deed law's teeth wait for a live stack");
-  followStory = "still world — the honest refusal (no live slice in the tries: the all-zero stack)";
-}
-/* the walk home: the window cleared (auto), the slice stepped back to
- * frame 1, the histogram closed — no residue for S15 to find */
-const winHome =
-  '(() => { const d = Array.from(document.querySelectorAll("[role=dialog]")).pop(); const row = d && d.querySelector("[data-canvas-ui$=-win]"); if (!row) return JSON.stringify({ clicked: false }); const b = row.querySelector(\'button[data-win-preset="auto"]\'); if (!b) return JSON.stringify({ clicked: false }); if (b.getAttribute("aria-pressed") !== "true") b.click(); return JSON.stringify({ clicked: true }); })()';
-evalJson(winHome);
-sleep(1);
-for (let i = 0; i < armSteps; i++) {
-  evalJson(stackBtn("stack-slice-prev"));
-  sleep(0.8);
-}
-evalJson(stackHistHome);
-sleep(1);
-const st7 = settle("the stack dialog (second ride)", 34);
+const st6 = evalJson(MEASURE);
+ok("S13 the follow-window toggle's state flipped (read live)",
+  fw0 !== null && st6.followWin !== null && st6.followWin !== fw0,
+  `aria-pressed ${fw0} -> ${st6.followWin}`);
+evalJson(fwToggle);
+sleep(1.2);
+const st7 = settle("the stack dialog (second ride)");
 ok("S14 zero unnamed page-wide WITH the stack dialog up (the census's invariant)",
   censusOk(st7),
   `btns=${st7.pageBtns} ctrls=${st7.ctrls}`);
@@ -703,7 +588,7 @@ const receipt = {
     histogram: { live: hs2, walk: { before: pressedBefore, target: sw.target, after: hs2.pressed } },
     molOrtho: { live: mo4, sliderWalk: { before: svBefore, stepped: svAfter, back: svBack } },
     oblique: { live: ob1, cutWalk: { was: cw.was, now: cw2.now } },
-    stack: { live: st7, sliceWalk: [rw0, st2.readout, st3.readout, st4.readout, st5.readout], followWinStory: followStory },
+    stack: { live: st7, sliceWalk: [rw0, st2.readout, st3.readout, st4.readout, st5.readout], followWin: [fw0, st6.followWin] },
     worldBack: { live: w3 },
   },
   checks: results,

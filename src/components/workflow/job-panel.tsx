@@ -38,6 +38,7 @@ import {
   SlidersHorizontal,
   Terminal,
   Trash2,
+  TriangleAlert,
   X,
 } from "lucide-react";
 import { PORT_COLORS, coerceParam, jobType, outputKindOf, portsCompatible, tabsFor, visibleOutputs } from "@/lib/workflow";
@@ -239,7 +240,7 @@ function EdgeChip({
         type="button"
         onClick={onRemove}
         aria-label={`Remove connection ${direction === "in" ? "from" : "to"} ${label}`}
-        className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+        className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       >
         <X className="size-3" />
       </button>
@@ -324,7 +325,7 @@ function LinkSourceControl({
         type="button"
         disabled
         title="No compatible output ports on other jobs yet"
-        className="flex w-full cursor-not-allowed items-center gap-1.5 rounded-md border border-dashed px-2 py-1.5 text-left text-[11px] italic text-muted-foreground/60"
+        className="flex w-full cursor-not-allowed items-center gap-1.5 rounded-md border border-dashed px-2 py-1.5 text-left text-[11px] italic text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       >
         <Plus className="size-3 shrink-0" aria-hidden="true" />
         <span className="sr-only">Link a source to {port.label}</span>
@@ -340,7 +341,7 @@ function LinkSourceControl({
           type="button"
           title="Pick an upstream job to feed this input"
           aria-label={`Link a source to ${port.label} input`}
-          className="flex w-full items-center gap-1.5 rounded-md border border-dashed px-2 py-1.5 text-left text-[11px] text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
+          className="flex w-full items-center gap-1.5 rounded-md border border-dashed px-2 py-1.5 text-left text-[11px] text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <Plus className="size-3 shrink-0 text-primary" aria-hidden="true" />
           <span className="sr-only">Link a source to {port.label}</span>
@@ -572,6 +573,7 @@ function ParamField({
   onChange,
   idPrefix,
   jobId,
+  fuelFace,
 }: {
   p: ParamSchema;
   value: ParamValue;
@@ -579,6 +581,11 @@ function ParamField({
   idPrefix: string;
   /** t394 — the round picker needs the row's job id (fn_cont only). */
   jobId?: string;
+  /** t1022 — the fuel face rides ONLY the import job's input path: its
+   * folder branch is the in-process enumeration the run-time fuel gate
+   * guards (mapimport takes one map, motioncor streams — neither piles
+   * the whole listing into memory). */
+  fuelFace?: boolean;
 }) {
   const inputId = `${idPrefix}-${p.key}`;
 
@@ -637,7 +644,7 @@ function ParamField({
             />
           </div>
         ) : p.type === "path" ? (
-          <PathParamField p={p} value={value} onChange={onChange} idPrefix={idPrefix} />
+          <PathParamField p={p} value={value} onChange={onChange} idPrefix={idPrefix} fuelFace={fuelFace} />
         ) : p.type === "text" ? (
           <Input
             id={inputId}
@@ -712,11 +719,14 @@ function PathParamField({
   value,
   onChange,
   idPrefix,
+  fuelFace,
 }: {
   p: ParamSchema;
   value: ParamValue;
   onChange: (v: ParamValue) => void;
   idPrefix: string;
+  /** t1022 — import-only fuel face (see ParamField). */
+  fuelFace?: boolean;
 }) {
   const inputId = `${idPrefix}-${p.key}`;
   const [browsing, setBrowsing] = React.useState(false);
@@ -746,6 +756,69 @@ function PathParamField({
     lines.map((l) => (l.includes("/") ? l.slice(0, l.lastIndexOf("/")) : l))
   ).size;
 
+  // t1022 — THE FUEL FACE: the run-time gate (engine.ts, at the loop's
+  // doorstep) refuses an import whose memory would outgrow the host, but
+  // its words land on the job row AFTER Start. The face names the number
+  // while the user is still looking at the field: the folder shape (one
+  // path, no wildcard, no file list — the engine's shape 1) pre-counts via
+  // GET /api/fs/browse?path=…&count=1, whose reply carries the gate's OWN
+  // arithmetic (fuel vs headroom, the constants imported from engine.ts —
+  // single source). Debounced (paste/keystroke quiet for 500 ms), aborted
+  // on supersede, and QUIET on every non-answer: a single-file path gets
+  // the route's 400 ("Not a folder") and renders nothing — the face only
+  // ever speaks when it has a count, the refusal at Start stays the honest
+  // voice for everything else. The effect lives here, NOT in a memo — the
+  // #13 lesson (no side effects inside useMemo) holds.
+  const fuelActive = !!fuelFace && !remoteBrowser;
+  const folderShape = fuelActive && trimmed.length > 0 && !isPattern && !isFileList;
+  const [fuel, setFuel] = React.useState<{
+    phase: "idle" | "loading" | "ready";
+    count: number;
+    fuelBytes: number;
+    headroomBytes: number;
+    overBudget: boolean;
+  }>({ phase: "idle", count: 0, fuelBytes: 0, headroomBytes: 0, overBudget: false });
+  React.useEffect(() => {
+    if (!folderShape) {
+      setFuel((f) => (f.phase === "idle" ? f : { phase: "idle", count: 0, fuelBytes: 0, headroomBytes: 0, overBudget: false }));
+      return;
+    }
+    const ctrl = new AbortController();
+    setFuel((f) =>
+      f.phase === "loading" ? f : { phase: "loading", count: 0, fuelBytes: 0, headroomBytes: 0, overBudget: false }
+    );
+    const t = setTimeout(() => {
+      fetch(`/api/fs/browse?path=${encodeURIComponent(trimmed)}&count=1`, {
+        signal: ctrl.signal,
+        headers: { "Content-Type": "application/json" },
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j: { ok: boolean; count?: number; fuelBytes?: number; headroomBytes?: number; overBudget?: boolean } | null) => {
+          if (ctrl.signal.aborted) return; // superseded — never speak a stale count
+          if (j && j.ok && typeof j.count === "number") {
+            setFuel({
+              phase: "ready",
+              count: j.count,
+              fuelBytes: j.fuelBytes ?? j.count * 6144,
+              headroomBytes: j.headroomBytes ?? 0,
+              overBudget: !!j.overBudget,
+            });
+          } else {
+            // not a folder / not accessible — the face stays quiet; the
+            // run's own refusal (with its full words) is the honest voice
+            setFuel({ phase: "idle", count: 0, fuelBytes: 0, headroomBytes: 0, overBudget: false });
+          }
+        })
+        .catch(() => {
+          /* aborted or the lane blinked — quiet, the gate still guards */
+        });
+    }, 500);
+    return () => {
+      clearTimeout(t);
+      ctrl.abort();
+    };
+  }, [folderShape, trimmed]);
+
   return (
     // t382 — the row's Label lives in ParamField's label column now; this
     // control owns only the entry side (textarea + browse button, or the
@@ -766,7 +839,7 @@ function PathParamField({
               </span>
               <button
                 type="button"
-                className="ml-auto inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+                className="ml-auto inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 onClick={() => setExpanded(true)}
                 aria-label={`Show all ${lines.length} file paths`}
                 title="Expand to the full editable path list"
@@ -892,11 +965,53 @@ function PathParamField({
                   ? "Folder on the cluster — every image inside (stays there, zero upload)"
                   : "Folder — imports every image inside"}
               </span>
+              {/* t1022 — the fuel face's verdict line: speaks only for the
+                  local import's folder shape, only when it has an answer.
+                  overBudget borrows the run-time gate's own arithmetic and
+                  previews its guidance — the gate at Start remains the law
+                  (the count here can go stale; the refusal re-computes). */}
+              {fuelActive && fuel.phase === "loading" && (
+                <span role="status" aria-live="polite" className="text-muted-foreground/60">
+                  · counting…
+                </span>
+              )}
+              {fuelActive && fuel.phase === "ready" && fuel.overBudget && (
+                <span
+                  role="status"
+                  aria-live="polite"
+                  className="inline-flex min-w-0 items-center gap-1 font-medium text-warning-600 dark:text-warning-400"
+                >
+                  <TriangleAlert className="h-3 w-3 shrink-0" aria-hidden="true" />
+                  <span className="truncate">
+                    {fuel.count.toLocaleString("en-US")} images ≈ {(fuel.fuelBytes / 1024 ** 3).toFixed(1)} GB vs{" "}
+                    {(fuel.headroomBytes / 1024 ** 3).toFixed(1)} GB headroom — the run will refuse: split into
+                    smaller batches
+                  </span>
+                </span>
+              )}
+              {fuelActive && fuel.phase === "ready" && !fuel.overBudget && fuel.count === 0 && (
+                <span role="status" aria-live="polite" className="text-muted-foreground/70">
+                  · 0 images here — the run will refuse
+                </span>
+              )}
+              {fuelActive && fuel.phase === "ready" && !fuel.overBudget && fuel.count > 0 && (
+                <span role="status" aria-live="polite" className="text-muted-foreground/80">
+                  · {fuel.count.toLocaleString("en-US")} images
+                  {/* fuel becomes a story only at scale — quoting "0.0 GB"
+                      for a four-file pick would be noise, not honesty */}
+                  {fuel.fuelBytes >= 268435456 && (
+                    <>
+                      {" "}· fuel ≈{(fuel.fuelBytes / 1024 ** 3).toFixed(1)} GB of{" "}
+                      {(fuel.headroomBytes / 1024 ** 3).toFixed(1)} GB headroom
+                    </>
+                  )}
+                </span>
+              )}
             </>
           )}
           <button
             type="button"
-            className="ml-auto rounded px-1 text-[10px] text-muted-foreground transition-colors hover:text-destructive"
+            className="ml-auto rounded px-1 text-[10px] text-muted-foreground transition-colors hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             onClick={() => onChange("")}
             aria-label={`Clear ${p.label}`}
           >
@@ -1096,7 +1211,7 @@ function ContinueField({
                   </p>
                   <button
                     type="button"
-                    className="text-[11px] font-medium text-primary hover:underline"
+                    className="text-[11px] font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     onClick={() => void load(true)}
                   >
                     Try again
@@ -1243,7 +1358,7 @@ function ContinueField({
               </p>
               <button
                 type="button"
-                className="inline-flex items-center gap-1 rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+                className="inline-flex items-center gap-1 rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 onClick={() => void load(true)}
                 aria-label="Re-read the rounds from the engine and the cluster"
               >
@@ -1349,7 +1464,7 @@ function ContinueField({
           )}
           <button
             type="button"
-            className="ml-auto inline-flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+            className="ml-auto inline-flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             onClick={() => onChange("")}
             aria-label="Clear the continue-from path"
             title="Clear — start fresh from iteration 0"
@@ -1551,6 +1666,7 @@ function ParamsTab({
                         onChange={(v) => setForm((f) => ({ ...f, [p.key]: v }))}
                         idPrefix={`param-${job.id}`}
                         jobId={job.id}
+                        fuelFace={spec?.key === "import"}
                       />
                     ))}
                   </div>
@@ -1570,6 +1686,7 @@ function ParamsTab({
                         onChange={(v) => setForm((f) => ({ ...f, [p.key]: v }))}
                         idPrefix={`param-${job.id}`}
                         jobId={job.id}
+                        fuelFace={spec?.key === "import"}
                       />
                     ))}
                   </div>
@@ -1640,6 +1757,7 @@ function ParamsTab({
             onClick={resetForm}
             disabled={!dirty}
             title="Revert the form to the last auto-saved values"
+            aria-label={!dirty ? "Reset (nothing to revert)" : "Reset"}
           >
             <RotateCcw aria-hidden="true" />
             Reset
@@ -1650,6 +1768,7 @@ function ParamsTab({
             className="flex-1"
             onClick={() => void commit()}
             disabled={!dirty && autoSave.phase !== "error"}
+            aria-busy={autoSave.phase === "saving"}
             title="Save immediately — normally unnecessary (edits persist on their own), but handy after a failed auto-save"
           >
             {autoSave.phase === "saving" ? (
@@ -1763,6 +1882,7 @@ function LogTab({ job }: { job: JobDTO }) {
           className="h-7 gap-1 px-2 text-[11px]"
           onClick={() => void refresh()}
           disabled={loading}
+          aria-label={loading ? "Refresh (the log tail is being fetched)" : "Refresh"}
         >
           <RefreshCw className={cn("size-3", loading && "animate-spin")} aria-hidden="true" />
           Refresh

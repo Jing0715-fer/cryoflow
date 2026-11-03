@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ensureJudgeWorker, judgeWorkerStatus } from "@/lib/ai/judge-worker";
 import { isLocalRequest } from "@/lib/http-guard";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +29,6 @@ export async function GET(request: Request) {
     ensureJudgeWorker();
     return NextResponse.json(judgeWorkerStatus());
   } catch (error) {
-    console.error("GET /api/ai/judge-worker failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/ai/judge-worker", error);
   }
 }

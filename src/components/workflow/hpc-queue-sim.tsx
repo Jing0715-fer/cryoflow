@@ -59,6 +59,7 @@ import {
   type SweepRow,
 } from "@/lib/qc-report";
 import { MODEL_BADGE } from "./hpc-profiles-editor";
+import { formatCountFull } from "@/lib/result-counts"; // t1157 — the thousands word rides its ONE father (the locale pin lives in result-counts, the parser's own contract)
 
 interface SimBar {
   key: string; type: string; slurmId: string;
@@ -243,8 +244,8 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
         );
         setParams(echoed);
       }
-    } catch {
-      setError("Request failed");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "the queue simulation could not be fetched");
     } finally {
       setLoading(false);
     }
@@ -416,7 +417,7 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
           variant="ghost"
           onClick={() => void compare()}
           disabled={sweeping}
-          aria-label="Compare cluster profiles"
+          aria-label={sweeping ? "Compare cluster profiles (a sweep is running)" : "Compare cluster profiles"}
           title="Simulate every GPU profile with its own declared shape (nodes × GPUs/node × throttle × speedup)"
         >
           {sweeping
@@ -429,7 +430,7 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
           variant="outline"
           onClick={() => void run()}
           disabled={loading}
-          aria-label="Run queue simulation"
+          aria-label={loading ? "Run queue simulation (running)" : "Run queue simulation"}
         >
           {loading
             ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
@@ -493,7 +494,7 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
 
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
                 <span>{sim.project.jobs} jobs · {sim.project.edges} deps</span>
-                <span>{sim.data.micrographs} micrographs · {sim.data.particles.toLocaleString()} particles</span>
+                <span>{sim.data.micrographs} micrographs · {formatCountFull(sim.data.particles)} particles</span>
                 {pendingEpisodes > 0 ? (
                   <span className="text-warning">
                     {pendingEpisodes} pending episode{pendingEpisodes === 1 ? "" : "s"} (Resources)
@@ -643,7 +644,7 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
                   className="h-6 gap-1 px-1.5 text-[10px]"
                   disabled={!sweep.length}
                   onClick={() => void exportCsv("copy")}
-                  aria-label="Copy comparison as CSV"
+                  aria-label={!sweep.length ? "Copy comparison as CSV (run a comparison first)" : "Copy comparison as CSV"}
                   title="Copy the race as CSV (raw minutes, machine-readable) — falls back to a download when the clipboard is denied"
                 >
                   <Copy className="size-3" aria-hidden="true" />
@@ -655,7 +656,7 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
                   className="h-6 gap-1 px-1.5 text-[10px]"
                   disabled={!sweep.length}
                   onClick={() => void exportCsv("download")}
-                  aria-label="Download comparison as CSV"
+                  aria-label={!sweep.length ? "Download comparison as CSV (run a comparison first)" : "Download comparison as CSV"}
                   title="Save the race as hpc-sweep-<timestamp>.csv — the same bytes the copy path puts on the clipboard"
                 >
                   <Download className="size-3" aria-hidden="true" />
@@ -667,7 +668,7 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
                   className="h-6 gap-1 px-1.5 text-[10px]"
                   disabled={!sweep.length}
                   onClick={() => void exportMd("copy")}
-                  aria-label="Copy comparison as Markdown"
+                  aria-label={!sweep.length ? "Copy comparison as Markdown (run a comparison first)" : "Copy comparison as Markdown"}
                   title="Copy the race as a Markdown report (verdict, table, failures) — falls back to a download when the clipboard is denied"
                 >
                   <Copy className="size-3" aria-hidden="true" />
@@ -679,7 +680,7 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
                   className="h-6 gap-1 px-1.5 text-[10px]"
                   disabled={!sweep.length}
                   onClick={() => void exportMd("download")}
-                  aria-label="Download comparison as Markdown"
+                  aria-label={!sweep.length ? "Download comparison as Markdown (run a comparison first)" : "Download comparison as Markdown"}
                   title="Save the race as hpc-sweep-report-<timestamp>.md — the same bytes the copy path puts on the clipboard"
                 >
                   <Download className="size-3" aria-hidden="true" />
@@ -701,6 +702,7 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
                       onClick={() => adopt(row)}
                       disabled={!row.r}
                       className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                         "block w-full rounded-md border px-2.5 py-2 text-left transition-colors",
                         row.r ? "cursor-pointer hover:bg-muted/50" : "cursor-not-allowed opacity-60",
                         isBest ? "border-success/40 bg-success/[0.06]" : "border-border/60",

@@ -1,0 +1,74 @@
+{
+ "walk": "t1144-swatch-hover-ab-testimony",
+ "at": "2026-11-02T01:55:00+00:00",
+ "window": "t1144 (cron 2026-11-02 08:20 +08:00, Job 362852)",
+ "feature": "the swatch hover → 3D band highlight — the A/B pixel testimony ride queued since t1134/t1135: the honest open line finally walked, and it convicted a THREE-LAYER dead chain in the applier (plus the root: the mark provider was never registered)",
+ "cars": {
+  "feat": "the applier's three cures (the manager name, the lazy shape unwrap, the MARK provider + the carrier contract)",
+  "qa": "the t1131 seat re-key 79→82 (G5/G6 re-keyed, G9/G10/G11 born) + the census annotation",
+  "chore": "receipts",
+  "docs": "the worklog entry"
+ },
+ "unit": {
+  "file": "scripts/t1131-sheet-legend-unit.mjs",
+  "pins": 82,
+  "rides": "82/82 green x2 (after the G9 pin-shape cure — the pin now speaks the FINAL registration home)"
+ },
+ "census": {
+  "seats": 83,
+  "seat76": "t1131-sheet-legend-unit 79→82 (the t1144 re-key)",
+  "rides": "83/83 zero RED x2 (rides 2+3; ride 1 logged 82 — a print-order artifact, zero RED)"
+ },
+ "liveWalk": {
+  "tool": "agent-browser, REAL clicks only (the mol* dialog's eval-click disease law)",
+  "path": "command palette (Ctrl+K, a real keyboard door) → Post-process (tutorial) → Enlarge Sharpened map → View in 3D (Mol*) → Orthogonal slices → Oblique section → ✂ cut → ▣ sheet face → the legend's 9 band chips",
+  "wireProof": "physical hover on band 4 → window event fired with band:3 (0-indexed); band 8 → band:7 — the mouth is alive (G3's onPointerEnter)",
+  "instrumentNotes": [
+   "the headless hover's CSS self-verification is blind: Tailwind v4's hover:brightness-125 is gated behind @media (hover:hover) — headless Chromium answers FALSE, so the chip's own pixels never change even when :hover matches (hovered:true, filter:none) — the wire's JS events are the honest instrument, not the CSS",
+   "the A/B/C three-phase protocol (baseline / hover b4 / hover b8) with the viewport-region pixel account — the differential also convicts band-SPECIFICITY, not just 'hover changed something'"
+  ]
+ },
+ "convictions": [
+  {
+   "layer": 1,
+   "bug": "plugin?.managers?.interaction?.lociHighlights — there is NO `interaction` manager in mol* 5.11 (the live census: structure · volume · interactivity · camera · animation · snapshot · lociLabels · toast · asset · task · markdownExtensions · dragAndDrop); the dead optional chain made `lm` undefined on EVERY hover — the applier bailed silently at its first guard, the t1136 cell-address cure sat unexercised behind a broken door",
+   "cure": "plugin?.managers?.interactivity?.lociHighlights"
+  },
+  {
+   "layer": 2,
+   "bug": "sheetCell.obj?.data read as {groupCount} — the transform's obj.data is the LAZY shape provider ({label, data, params, getShape, geometryUtils}); groupCount came back undefined and the ShapeGroup.Loci addressed the provider, not the shape",
+   "cure": "(sheetCell.obj?.data)?.data — the REAL Shape one `.data` deeper (groupCount 9 live-verified)"
+  },
+  {
+   "layer": 3,
+   "bug": "THE ROOT — the t201 behavior amputation (the throwing structure observers' cure) also removed `representation-highlight-loci`, the ONLY stock behavior that registers a mark provider; lociHighlights.mark() iterates its providers list, so every highlight the applier ever requested landed on an EMPTY provider list: lm.highlight ran, nothing ever marked, zero pixels — the highlight was born dead on this viewer",
+   "cure": "the embed registers its OWN mark provider in the plugin's creation effect (the race-free home; the provider dies with the plugin's own dispose) — no hover observer resurrected, the t201 disease does not return"
+  },
+  {
+   "layer": 4,
+   "bug": "the carrier contract — canvas3d.mark expects the WHOLE {loci, repr} carrier (applyMark destructures it); a bare loci arrives as {repr: undefined, loci: undefined} and every repr's mark refuses the ghost",
+   "cure": "plugin.canvas3d.mark(current, action) — the whole object"
+  }
+ ],
+ "liveProof": {
+  "markingPipeline": "markerAverage 0 → 0.5, markerStatus 0 → -1, prevCount 1 — the highlight NOW LANDS on the mesh's marker buffer (the deepest live evidence: the marking pipeline is proven end-to-end on the dev lane's live plugin)",
+  "pixelVerdict": "STILL ZERO changed pixels in the viewport — the 3D scene itself renders nothing in the strip viewport (camera radius collapsed to 0; the map + sheet surfaces invisible behind the CONTOUR overlay in the 181px-tall viewport) — the visible pixel account is HONESTLY OPEN and queued for the build day with the recipe: fit the camera to the scene first (the reset door / a focus call), then re-run the A/B/C protocol",
+  "screenshot": "shots-qa/t1144/v2-viewport-baseline.png + v2-viewport-hover.png (the empty-viewport state, recorded)"
+ },
+ "infrastructureNotes": [
+  "the dev lane on :3000 (the standalone retired for the walk — start-prod.sh revives it when needed); the dev lane OOM-died three times under the compile+browser load and the watchdog revived it each time (the single-keeper contention noted in its log)",
+  "the nohup orphan law re-ridden twice: hand-booted setsid orphans (direct bun server.js, direct next dev) died between tool calls; only the battle-tested scripts (start-prod.sh / dev-server.sh) spawn survivors",
+  "the t1134 walk-dance: the modal chain (inspector → enlarge → 3D) evicted by watchdog reloads at least twice; the t1128 inspector seed re-opened the inspector each time"
+ ],
+ "checks": [
+  {"name": "push law at open", "ok": true, "note": "HEAD = origin = dcd79e57 (the t1143 docs car), tree clean"},
+  {"name": "doctor at open", "ok": true, "note": "CLEAN — one world, ghost-free, BINDING conn-mvy782td sound, phantom 404-holds"},
+  {"name": "census at open", "ok": true, "note": "83/83 zero RED x2"},
+  {"name": "world gate", "ok": true, "note": "15 jobs · 15 done · 14 edges · db 143360"},
+  {"name": "lanes", "ok": true, "note": ":3000 200 (dev lane after the swap) · mock :3022 echo ok · avail 2249MB → non-build day"},
+  {"name": "tsc / eslint", "ok": true, "note": "0 / 0 on the embed"},
+  {"name": "unit", "ok": true, "note": "82/82 green x2"},
+  {"name": "census post-re-key", "ok": true, "note": "83/83 zero RED x2 (rides 2+3)"}
+ ],
+ "queuedLiveRides": "the pixel verdict joins the build-day queue WITH the recipe: (1) the camera must see the scene (the collapsed radius-0 door — fit/reset first), (2) the A/B/C protocol re-runs on the visible sheet, (3) the band-specificity diff (b4 vs b8) closes the t1134 honest line for real"
+}

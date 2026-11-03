@@ -1,0 +1,36 @@
+{
+  "fatal": "no class2d",
+  "at": "2026-10-15T12:59:55.661Z",
+  "stage1": {
+    "pass": 17,
+    "fail": 0,
+    "kill": {
+      "slurmId": "19",
+      "pid": 29015,
+      "roundsAtKill": [
+        "run_it000_optimiser.star",
+        "run_it001_optimiser.star"
+      ],
+      "killAt": "2026-10-15T12:56:25.268Z"
+    },
+    "mint": "?",
+    "worldBefore": 26
+  },
+  "stage2": {
+    "pass": 14,
+    "fail": 0,
+    "tombstone": "interrupted remotely (no exit status — node reboot or hard kill; 3 consecutive checks saw no trace of it); re-run resumes from the last synced checkpoint",
+    "realCont": "/projects/cryoflow/cmv8nhqxo0000sy8934xli45t/class2d_bkmx6gph/run_it001_optimiser.star"
+  },
+  "stage3": {
+    "pass": 42,
+    "fail": 0,
+    "films": 7
+  },
+  "stage4": {
+    "pass": 11,
+    "fail": 0,
+    "worldAfter": 22,
+    "doctor": "VERDICT: CLEAN — one world, ghost-free registry, an honest door"
+  }
+}

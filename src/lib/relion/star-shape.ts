@@ -17,9 +17,22 @@
  * reads the star's OWN bytes BEFORE dispatch and speaks the actionable
  * truth (the t195 law: evidence from bytes; the t416 law: the refusal
  * names the mechanism and the way out).
+ *
+ * t1168 — the read is a HEAD LADDER, not a whole-file read: a star's
+ * labels live in its first kilobytes, so a 256 KB head answers almost
+ * always (the file behind it can be gigabytes). When the head's evidence
+ * is INCONCLUSIVE — no data_ table seen yet and bytes remain — the
+ * ladder escalates (256 KB → 1 MB → 8 MB → whole file): memory bounded
+ * for the real world, correctness preserved for the pathological one.
+ * The honest-null contract is untouched (an unreadable star is not a
+ * verdict). The classification itself (starMoviesShapeOf) is byte-for-
+ * byte the same pure function — only the bytes it is HANDED changed.
  */
 
-import { readFileSync } from "node:fs";
+import { readTextHead } from "@/lib/fs-text";
+
+/** The head ladder: the rungs the classification escalates through. */
+const SHAPE_HEAD_LADDER = [256 * 1024, 1024 * 1024, 8 * 1024 * 1024, Number.POSITIVE_INFINITY];
 
 export type StarMicDialect = "movies" | "micrographs" | null;
 
@@ -63,11 +76,35 @@ export function starMoviesShapeOf(text: string): StarMoviesShape {
  * The gate's file-side wrapper: honest null on ANY read failure — an
  * unreadable star is not a verdict, and the binary (or the staging
  * lane's own unreadable-star error) still speaks for it.
+ *
+ * t1168 — the HEAD LADDER: the classification runs on progressively
+ * larger heads until the DIALECT is decided (movies / micrographs / a
+ * final whole-file null). Escalating on the dialect — never on "a data_
+ * table was seen" — keeps parity with the old whole-read in every case:
+ * a truncated head that only saw data_optics must NOT stop the ladder,
+ * because the micrograph table may live beyond it (the parity law: the
+ * bounded read answers exactly what the whole read answered, or it has
+ * not answered yet). A head whose dialect IS decided is final (a later
+ * block cannot un-speak _rlnMicrographMovieName — the classifier's own
+ * first-win rule). The Infinity rung exists for parity on the
+ * pathological file; real RELION stars decide within the first rung —
+ * their labels precede their rows.
+ *
+ * One honest refinement on the table field: a "movies" verdict is exact
+ * parity (the classifier itself early-returns at the win). A "micro-
+ * graphs" verdict decided on a TRUNCATED head names the block that
+ * spoke — for RELION output that is the file's last table anyway
+ * (data_micrographs closes the star); a table AFTER the micrograph
+ * block is not a RELION star, and naming the block that earned the
+ * dialect is the truer answer.
  */
 export function readStarMoviesShape(starPath: string): StarMoviesShape | null {
-  try {
-    return starMoviesShapeOf(readFileSync(starPath, "utf8"));
-  } catch {
-    return null;
+  for (const bytes of SHAPE_HEAD_LADDER) {
+    const head = readTextHead(starPath, bytes);
+    if (!head) return null;
+    const shape = starMoviesShapeOf(head.text);
+    if (shape.dialect !== null) return shape; // decided — a later block cannot un-speak it
+    if (!head.truncated) return shape; // whole file seen, dialect absent: final null
   }
+  return null;
 }

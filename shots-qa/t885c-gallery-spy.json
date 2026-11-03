@@ -1,0 +1,128 @@
+{
+  "task": "t885c",
+  "window": "cron 2026-11-02 16:05:38 +08:00 (trace 1a07549302235a99-cron-agent-loop-202611021605)",
+  "purpose": "the gallery's own consumer, spy-measured — arrows step AND escape peels through the frozen-safe clone trap; the comment's honesty debt ends",
+  "pick": {
+    "cards": [
+      "Import Movies 1completedImport Movies / Micrographs / Partic",
+      "Motion Correction 1completedMotion Correctionmotion correcte",
+      "CTF Estimation 1completedCTF EstimationCTF estimated for 24 ",
+      "Auto-pick (tutorial)completedAutomated Picking408 particles ",
+      "Extract (tutorial)completedParticle Extraction96 particles e",
+      "2D Classification (tutorial)completed2D Classification2D cla",
+      "Select 2D (tutorial)completed2D Class Selection96 of 96 part",
+      "Select (tutorial)completedParticle Selection96 of 96 particl",
+      "Initial Model (tutorial)completed3D Initial Modelde-novo 3D ",
+      "3D Classification (tutorial)completed3D Classificationclass3",
+      "Symmetry Expansion (tutorial)completedSymmetry Expansion96 ×",
+      "Rebalance (tutorial)completedOrientation Rebalancer5,672 of ",
+      "3D Refine (tutorial)completed3D Auto-Refinerefine3d exited 0",
+      "Mask Create (tutorial)completedMask Creationsoft-edged mask ",
+      "Post-process (tutorial)completedPost-Processingsharpened map"
+    ]
+  },
+  "census": {
+    "found": false
+  },
+  "arm": {
+    "armed": false,
+    "why": "no lightbox"
+  },
+  "titleBefore": null,
+  "afterArrow": {
+    "dlgCount": 1,
+    "dlgHeads": [
+      "Select 2D (tutorial) — job inspectorSele"
+    ],
+    "lbOpen": false,
+    "lbTitle": null
+  },
+  "fire1": {
+    "fired": false
+  },
+  "fire2": {
+    "fired": false
+  },
+  "peeled": 500,
+  "read": {
+    "sets": 0,
+    "mirrorReads": 0,
+    "calls": 0,
+    "keys": [],
+    "stack": null
+  },
+  "checks": [
+    {
+      "label": "C1 the world dressed bare",
+      "pass": true,
+      "detail": "dlgs=0 btns=168"
+    },
+    {
+      "label": "C2 the workflow canvas holds the cards",
+      "pass": true,
+      "detail": "cards=15"
+    },
+    {
+      "label": "C3 a select2d card exists (the gallery IS its parameter)",
+      "pass": true,
+      "detail": "picked=[Select 2D (tutorial)completed2D Class Selection96 of 96 part]"
+    },
+    {
+      "label": "C4 the inspector arrived with the class gallery mounted",
+      "pass": false,
+      "detail": "dlgs=1 gallery=false"
+    },
+    {
+      "label": "C5 a Zoom door is mounted",
+      "pass": false,
+      "detail": ""
+    },
+    {
+      "label": "C6 the lightbox floats over the inspector",
+      "pass": false,
+      "detail": "title=null"
+    },
+    {
+      "label": "C7 the lightbox carries its own onKeyDown carrier, frozen like every carrier",
+      "pass": false,
+      "detail": "frozen undefined/undefined"
+    },
+    {
+      "label": "C8 the frozen-safe trap armed on the lightbox",
+      "pass": false,
+      "detail": "pk=undefined rootPropsFrozen=undefined"
+    },
+    {
+      "label": "C9 ARROWS VERDICT: the handler was dispatched and stepZoom ran (the title stepped)",
+      "pass": false,
+      "detail": "calls-so-far proves below"
+    },
+    {
+      "label": "C10 ESCAPE VERDICT: one layer peeled, the inspector (the gallery) survived behind",
+      "pass": true,
+      "detail": "atMs=500 dlgs-after=1"
+    },
+    {
+      "label": "C11 THE SURFACE: the dispatch read the lightbox's element mirror",
+      "pass": false,
+      "detail": "mirrorReads=0"
+    },
+    {
+      "label": "C12 THE CALLS COUNTED: both keys reached the carrier through the clone (ArrowRight + Escape)",
+      "pass": false,
+      "detail": "calls=0 keys=[]"
+    },
+    {
+      "label": "C13 the dispatch path named (stack captured)",
+      "pass": false,
+      "detail": "none"
+    },
+    {
+      "label": "C14 the world restored bare",
+      "pass": true,
+      "detail": "dlgs=0 btns=168"
+    }
+  ],
+  "pass": 5,
+  "fail": 9
+}

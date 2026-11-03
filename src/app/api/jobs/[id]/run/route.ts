@@ -6,6 +6,7 @@ import { isLocalRequest } from "@/lib/http-guard";
 import { remoteInfoFor, remoteEligible } from "@/lib/remote/remote-run";
 import { projectRemoteTarget } from "@/lib/projects";
 import type { RemoteRunTarget } from "@/lib/remote/types";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -150,7 +151,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
       ...(waiting ? { waiting } : {}),
     });
   } catch (error) {
-    console.error("POST /api/jobs/[id]/run failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("POST /api/jobs/[id]/run", error);
   }
 }

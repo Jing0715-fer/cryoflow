@@ -22,6 +22,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { spawnSync } from "child_process";
 import { join } from "path";
 import { findPair, parseStar } from "../src/lib/starfile";
+import { fmtAngstrom } from "../src/lib/chart-rows"; // t1155 — the expected words derive from the FATHER (the local toFixed(1) oracle padded "6.0 Å" where the father honestly says "6 Å")
 import {
   crossingOf,
   postprocessVerdictOf,
@@ -370,9 +371,9 @@ console.log("FV4 — the headline");
   );
   ok(full != null, "FV4a the full table yields a verdict");
   ok(
-    (full?.headline ?? "").includes(`${OFFICIAL.toFixed(1)} Å final`) &&
-      (full?.headline ?? "").includes(`${crossAt(0.1, 0.4, 0.19, 0.05).toFixed(1)} Å`) &&
-      (full?.headline ?? "").includes(`${MASKED_CROSS.toFixed(1)} Å`),
+    (full?.headline ?? "").includes(`${fmtAngstrom(OFFICIAL)} final`) &&
+      (full?.headline ?? "").includes(fmtAngstrom(crossAt(0.1, 0.4, 0.19, 0.05))) &&
+      (full?.headline ?? "").includes(fmtAngstrom(MASKED_CROSS)),
     `FV4b the headline carries all three crossings ("${full?.headline}")`
   );
   ok(

@@ -1,0 +1,500 @@
+{
+  "instrument": "scripts/t886-remote-band-probe.mjs",
+  "instrumentRevision": 1,
+  "world": {
+    "mode": "dev",
+    "id": "dev@12791bef8303"
+  },
+  "date": "2026-10-11T13:31:40.207Z",
+  "bands": [
+    375,
+    640,
+    768,
+    1024,
+    1280,
+    1536
+  ],
+  "zone": [
+    639,
+    640,
+    672,
+    673
+  ],
+  "identical": true,
+  "passA": {
+    "bands": {
+      "375": {
+        "open": true,
+        "innerW": 375,
+        "dlg": {
+          "x": 16,
+          "w": 343,
+          "h": 752,
+          "maxW": "calc(100% - 32px)"
+        },
+        "hdrH": 130,
+        "cgCols": 1,
+        "cgW": 301,
+        "modeCards": [
+          146.5,
+          146.5
+        ],
+        "gpuKind": "stepper",
+        "stepper": [
+          28,
+          28
+        ],
+        "countW": 76.8,
+        "chipLines": 3,
+        "chipWs": [
+          86,
+          80,
+          258,
+          275
+        ],
+        "regH": 555,
+        "regScrolls": true,
+        "footH": 65,
+        "hOv": false
+      },
+      "640": {
+        "open": true,
+        "innerW": 640,
+        "dlg": {
+          "x": 0,
+          "w": 640,
+          "h": 752,
+          "maxW": "672px"
+        },
+        "hdrH": 113.5,
+        "cgCols": 2,
+        "cgW": 598,
+        "modeCards": [
+          295,
+          295
+        ],
+        "gpuKind": "stepper",
+        "stepper": [
+          28,
+          28
+        ],
+        "countW": 76.8,
+        "chipLines": 2,
+        "chipWs": [
+          86,
+          80,
+          258,
+          282
+        ],
+        "regH": 571.5,
+        "regScrolls": true,
+        "footH": 65,
+        "hOv": false
+      },
+      "768": {
+        "open": true,
+        "innerW": 768,
+        "dlg": {
+          "x": 48,
+          "w": 672,
+          "h": 752,
+          "maxW": "672px"
+        },
+        "hdrH": 113.5,
+        "cgCols": 2,
+        "cgW": 630,
+        "modeCards": [
+          311,
+          311
+        ],
+        "gpuKind": "stepper",
+        "stepper": [
+          28,
+          28
+        ],
+        "countW": 76.8,
+        "chipLines": 2,
+        "chipWs": [
+          86,
+          80,
+          258,
+          282
+        ],
+        "regH": 571.5,
+        "regScrolls": true,
+        "footH": 65,
+        "hOv": false
+      },
+      "1024": {
+        "open": true,
+        "innerW": 1024,
+        "dlg": {
+          "x": 176,
+          "w": 672,
+          "h": 752,
+          "maxW": "672px"
+        },
+        "hdrH": 113.5,
+        "cgCols": 2,
+        "cgW": 630,
+        "modeCards": [
+          311,
+          311
+        ],
+        "gpuKind": "stepper",
+        "stepper": [
+          28,
+          28
+        ],
+        "countW": 76.8,
+        "chipLines": 2,
+        "chipWs": [
+          86,
+          80,
+          258,
+          282
+        ],
+        "regH": 571.5,
+        "regScrolls": true,
+        "footH": 65,
+        "hOv": false
+      },
+      "1280": {
+        "open": true,
+        "innerW": 1280,
+        "dlg": {
+          "x": 304,
+          "w": 672,
+          "h": 752,
+          "maxW": "672px"
+        },
+        "hdrH": 113.5,
+        "cgCols": 2,
+        "cgW": 630,
+        "modeCards": [
+          311,
+          311
+        ],
+        "gpuKind": "stepper",
+        "stepper": [
+          28,
+          28
+        ],
+        "countW": 76.8,
+        "chipLines": 2,
+        "chipWs": [
+          86,
+          80,
+          258,
+          282
+        ],
+        "regH": 571.5,
+        "regScrolls": true,
+        "footH": 65,
+        "hOv": false
+      },
+      "1536": {
+        "open": true,
+        "innerW": 1536,
+        "dlg": {
+          "x": 432,
+          "w": 672,
+          "h": 752,
+          "maxW": "672px"
+        },
+        "hdrH": 113.5,
+        "cgCols": 2,
+        "cgW": 630,
+        "modeCards": [
+          311,
+          311
+        ],
+        "gpuKind": "stepper",
+        "stepper": [
+          28,
+          28
+        ],
+        "countW": 76.8,
+        "chipLines": 2,
+        "chipWs": [
+          86,
+          80,
+          258,
+          282
+        ],
+        "regH": 571.5,
+        "regScrolls": true,
+        "footH": 65,
+        "hOv": false
+      }
+    },
+    "zone": {
+      "639": {
+        "open": true,
+        "innerW": 639,
+        "x": 16,
+        "w": 607,
+        "maxW": "calc(100% - 32px)"
+      },
+      "640": {
+        "open": true,
+        "innerW": 640,
+        "x": 0,
+        "w": 640,
+        "maxW": "672px"
+      },
+      "672": {
+        "open": true,
+        "innerW": 672,
+        "x": 0,
+        "w": 672,
+        "maxW": "672px"
+      },
+      "673": {
+        "open": true,
+        "innerW": 673,
+        "x": 0.5,
+        "w": 672,
+        "maxW": "672px"
+      }
+    }
+  },
+  "passB": {
+    "bands": {
+      "375": {
+        "open": true,
+        "innerW": 375,
+        "dlg": {
+          "x": 16,
+          "w": 343,
+          "h": 752,
+          "maxW": "calc(100% - 32px)"
+        },
+        "hdrH": 130,
+        "cgCols": 1,
+        "cgW": 301,
+        "modeCards": [
+          146.5,
+          146.5
+        ],
+        "gpuKind": "stepper",
+        "stepper": [
+          28,
+          28
+        ],
+        "countW": 76.8,
+        "chipLines": 3,
+        "chipWs": [
+          86,
+          80,
+          258,
+          275
+        ],
+        "regH": 555,
+        "regScrolls": true,
+        "footH": 65,
+        "hOv": false
+      },
+      "640": {
+        "open": true,
+        "innerW": 640,
+        "dlg": {
+          "x": 0,
+          "w": 640,
+          "h": 752,
+          "maxW": "672px"
+        },
+        "hdrH": 113.5,
+        "cgCols": 2,
+        "cgW": 598,
+        "modeCards": [
+          295,
+          295
+        ],
+        "gpuKind": "stepper",
+        "stepper": [
+          28,
+          28
+        ],
+        "countW": 76.8,
+        "chipLines": 2,
+        "chipWs": [
+          86,
+          80,
+          258,
+          282
+        ],
+        "regH": 571.5,
+        "regScrolls": true,
+        "footH": 65,
+        "hOv": false
+      },
+      "768": {
+        "open": true,
+        "innerW": 768,
+        "dlg": {
+          "x": 48,
+          "w": 672,
+          "h": 752,
+          "maxW": "672px"
+        },
+        "hdrH": 113.5,
+        "cgCols": 2,
+        "cgW": 630,
+        "modeCards": [
+          311,
+          311
+        ],
+        "gpuKind": "stepper",
+        "stepper": [
+          28,
+          28
+        ],
+        "countW": 76.8,
+        "chipLines": 2,
+        "chipWs": [
+          86,
+          80,
+          258,
+          282
+        ],
+        "regH": 571.5,
+        "regScrolls": true,
+        "footH": 65,
+        "hOv": false
+      },
+      "1024": {
+        "open": true,
+        "innerW": 1024,
+        "dlg": {
+          "x": 176,
+          "w": 672,
+          "h": 752,
+          "maxW": "672px"
+        },
+        "hdrH": 113.5,
+        "cgCols": 2,
+        "cgW": 630,
+        "modeCards": [
+          311,
+          311
+        ],
+        "gpuKind": "stepper",
+        "stepper": [
+          28,
+          28
+        ],
+        "countW": 76.8,
+        "chipLines": 2,
+        "chipWs": [
+          86,
+          80,
+          258,
+          282
+        ],
+        "regH": 571.5,
+        "regScrolls": true,
+        "footH": 65,
+        "hOv": false
+      },
+      "1280": {
+        "open": true,
+        "innerW": 1280,
+        "dlg": {
+          "x": 304,
+          "w": 672,
+          "h": 752,
+          "maxW": "672px"
+        },
+        "hdrH": 113.5,
+        "cgCols": 2,
+        "cgW": 630,
+        "modeCards": [
+          311,
+          311
+        ],
+        "gpuKind": "stepper",
+        "stepper": [
+          28,
+          28
+        ],
+        "countW": 76.8,
+        "chipLines": 2,
+        "chipWs": [
+          86,
+          80,
+          258,
+          282
+        ],
+        "regH": 571.5,
+        "regScrolls": true,
+        "footH": 65,
+        "hOv": false
+      },
+      "1536": {
+        "open": true,
+        "innerW": 1536,
+        "dlg": {
+          "x": 432,
+          "w": 672,
+          "h": 752,
+          "maxW": "672px"
+        },
+        "hdrH": 113.5,
+        "cgCols": 2,
+        "cgW": 630,
+        "modeCards": [
+          311,
+          311
+        ],
+        "gpuKind": "stepper",
+        "stepper": [
+          28,
+          28
+        ],
+        "countW": 76.8,
+        "chipLines": 2,
+        "chipWs": [
+          86,
+          80,
+          258,
+          282
+        ],
+        "regH": 571.5,
+        "regScrolls": true,
+        "footH": 65,
+        "hOv": false
+      }
+    },
+    "zone": {
+      "639": {
+        "open": true,
+        "innerW": 639,
+        "x": 16,
+        "w": 607,
+        "maxW": "calc(100% - 32px)"
+      },
+      "640": {
+        "open": true,
+        "innerW": 640,
+        "x": 0,
+        "w": 640,
+        "maxW": "672px"
+      },
+      "672": {
+        "open": true,
+        "innerW": 672,
+        "x": 0,
+        "w": 672,
+        "maxW": "672px"
+      },
+      "673": {
+        "open": true,
+        "innerW": 673,
+        "x": 0.5,
+        "w": 672,
+        "maxW": "672px"
+      }
+    }
+  }
+}

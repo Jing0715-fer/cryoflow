@@ -37,6 +37,7 @@ import {
   Server,
   Square,
   Terminal,
+  TriangleAlert,
   X,
   Zap,
 } from "lucide-react";
@@ -55,6 +56,7 @@ import { Chip } from "@/components/ui/chip";
 import { cn } from "@/lib/utils";
 import { BROWSER_LIST_MAX } from "@/lib/browse-caps";
 import { parseBrowserSeed, type BrowserMode } from "@/lib/browser-seed";
+import { formatCountFull } from "@/lib/result-counts"; // t1157 — the thousands word rides its ONE father (the locale pin lives in result-counts, the parser's own contract)
 
 interface BrowseEntry {
   name: string;
@@ -238,6 +240,72 @@ export function PathBrowserDialog({
       cancelled = true;
     };
   }, [open, cwd, remote]);
+
+  // t1024 — THE FUEL FACE'S DIALOG-SIDE SEAT: the field face (job-panel,
+  // t1022) speaks the fuel arithmetic only AFTER the pick lands in the
+  // field; this seat arms the warning BEFORE it — while the user is still
+  // looking at the folder they are about to pick. The listing already
+  // carries the count (micrographs); what it lacks is the budget, so the
+  // seat fetches the SAME count mode the field face rides
+  // (GET /api/fs/browse?path=…&count=1 — a NEW MODE on the EXISTING doored
+  // route, t1022's own weighing: zero new doors, the arithmetic stays at
+  // its ONE seat in the route, the reply ships four compact numbers) on
+  // every folder-mode navigation, so the verdict is computed fresh per
+  // folder instead of going stale behind a one-shot. SEAT LAWS: the LOCAL
+  // lane only (the remote variant browses the CLUSTER — its budget is the
+  // cluster's own arithmetic and has no count mode; the field face keeps
+  // the same exclusion), FOLDER MODE only (the folder shape is the only
+  // one the gate's folder branch prices — files mode picks named files,
+  // the engine prices those differently), and the QUIET ARM: a failed or
+  // non-folder answer resets to idle — the face only ever speaks when it
+  // has an answer. THE RUN-TIME GATE REMAINS THE LAW (engine.ts, at the
+  // loop's doorstep): the count here can go stale the moment a file lands
+  // in the folder; the refusal at Start re-computes. No fetch inside a
+  // memo — the #13 lesson holds; the arithmetic constants are never
+  // copied client-side (the t1022 single-source law) — the reply carries
+  // them already priced.
+  const [fuel, setFuel] = React.useState<{
+    phase: "idle" | "ready";
+    count: number;
+    fuelBytes: number;
+    headroomBytes: number;
+    overBudget: boolean;
+  }>({ phase: "idle", count: 0, fuelBytes: 0, headroomBytes: 0, overBudget: false });
+  React.useEffect(() => {
+    if (!open || remote || mode !== "folder" || !cwd) {
+      setFuel((f) => (f.phase === "idle" ? f : { phase: "idle", count: 0, fuelBytes: 0, headroomBytes: 0, overBudget: false }));
+      return;
+    }
+    const ctrl = new AbortController();
+    fetch(`/api/fs/browse?path=${encodeURIComponent(cwd)}&count=1`, {
+      signal: ctrl.signal,
+      headers: { "Content-Type": "application/json" },
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { ok: boolean; count?: number; fuelBytes?: number; headroomBytes?: number; overBudget?: boolean } | null) => {
+        if (ctrl.signal.aborted) return; // superseded — never speak a stale count
+        if (j && j.ok && typeof j.count === "number") {
+          setFuel({
+            phase: "ready",
+            count: j.count,
+            fuelBytes: j.fuelBytes ?? 0,
+            headroomBytes: j.headroomBytes ?? 0,
+            overBudget: !!j.overBudget,
+          });
+        } else {
+          // not a folder / not accessible — the quiet arm: the dialog's
+          // own listing error line is the voice; the run's refusal at
+          // Start stays the honest verdict for everything else
+          setFuel({ phase: "idle", count: 0, fuelBytes: 0, headroomBytes: 0, overBudget: false });
+        }
+      })
+      .catch(() => {
+        /* aborted or the lane blinked — quiet, the gate still guards */
+      });
+    return () => {
+      ctrl.abort();
+    };
+  }, [open, cwd, remote, mode]);
 
   // a wildcard pattern listing is always a file listing — force files mode
   const patternView = data?.ok && data.pattern === true;
@@ -454,6 +522,7 @@ export function PathBrowserDialog({
               role="tab"
               aria-selected={mode === "folder"}
               className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                 "inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium transition-colors",
                 mode === "folder"
                   ? "bg-background text-foreground shadow-sm"
@@ -469,6 +538,7 @@ export function PathBrowserDialog({
               role="tab"
               aria-selected={mode === "files"}
               className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                 "inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium transition-colors",
                 mode === "files"
                   ? "bg-background text-foreground shadow-sm"
@@ -538,7 +608,7 @@ export function PathBrowserDialog({
               <button
                 key={q.path}
                 type="button"
-                className="inline-flex items-center gap-1 rounded-full border bg-background px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+                className="inline-flex items-center gap-1 rounded-full border bg-background px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 onClick={() => setCwd(q.path)}
                 title={q.path}
               >
@@ -602,6 +672,7 @@ export function PathBrowserDialog({
                     id={`pb-root-${idx}`}
                     aria-selected={false}
                     className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                       "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-secondary/60",
                       // t784 — the cursor row's persistent tone: hover paints
                       // the pointer's candidate, this paints the keyboard's —
@@ -666,6 +737,7 @@ export function PathBrowserDialog({
                       aria-setsize={visibleEntries.length}
                       title={e.name}
                       className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                         "mb-0.5 flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-xs transition-colors hover:bg-secondary/60",
                         cursor === rowIdx && "bg-secondary/70 hover:bg-secondary/70"
                       )}
@@ -693,6 +765,7 @@ export function PathBrowserDialog({
                       aria-label={singleFile ? `Pick file ${e.name}` : `Select file ${e.name}`}
                       title={singleFile ? e.abs : e.name}
                       className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                         "mb-0.5 flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-xs transition-colors hover:bg-secondary/60",
                         singleFile
                           ? "hover:bg-primary/10"
@@ -759,8 +832,8 @@ export function PathBrowserDialog({
                   <div className="px-2 pb-1 pt-2">
                     <p className="text-[10px] leading-relaxed text-muted-foreground">
                       {patternView
-                        ? `Preview capped at ${(data.entries?.length ?? BROWSER_LIST_MAX).toLocaleString()} matches — ${data.totalMatched?.toLocaleString() ?? "?"} files match in total (import takes them all).`
-                        : `Listing shows the first ${(data.entries?.length ?? BROWSER_LIST_MAX).toLocaleString()} of ${data.totalEntries?.toLocaleString() ?? "many"} entries.`}
+                        ? `Preview capped at ${formatCountFull(data.entries?.length ?? BROWSER_LIST_MAX)} matches — ${data.totalMatched?.toLocaleString("en-US") ?? "?"} files match in total (import takes them all).`
+                        : `Listing shows the first ${formatCountFull(data.entries?.length ?? BROWSER_LIST_MAX)} of ${data.totalEntries?.toLocaleString("en-US") ?? "many"} entries.`}
                     </p>
                     {!patternView && (
                       <Button
@@ -812,7 +885,7 @@ export function PathBrowserDialog({
                 <button
                   type="button"
                   onClick={() => setFilter("")}
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground/70 transition-colors hover:text-foreground"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground/70 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   aria-label="Clear filter"
                 >
                   <X className="h-3.5 w-3.5" aria-hidden="true" />
@@ -939,6 +1012,35 @@ export function PathBrowserDialog({
                 {data?.truncated
                   ? "Select this folder imports EVERY image in it (the import enumerates the whole folder)"
                   : "switch to the Files tab to pick individual files"}
+                {/* t1024 — the dialog-side fuel verdict, armed BEFORE the
+                    pick: overBudget borrows the run-time gate's own
+                    arithmetic (the count mode's reply, priced server-side)
+                    and previews its guidance — the gate at Start remains
+                    the law (the count here can go stale; the refusal
+                    re-computes). The words mirror the field face's
+                    dialect so one sentence means one thing everywhere. */}
+                {fuel.phase === "ready" && fuel.overBudget && (
+                  <span
+                    className="ml-1.5 inline-flex min-w-0 items-center gap-1 font-medium text-warning-600 dark:text-warning-400"
+                    aria-live="polite"
+                  >
+                    <TriangleAlert className="h-3 w-3 shrink-0" aria-hidden="true" />
+                    <span className="truncate">
+                      {fuel.count.toLocaleString("en-US")} images ≈ {(fuel.fuelBytes / 1024 ** 3).toFixed(1)} GB vs{" "}
+                      {(fuel.headroomBytes / 1024 ** 3).toFixed(1)} GB headroom — the run will refuse: split into
+                      smaller batches
+                    </span>
+                  </span>
+                )}
+                {/* the scale-honesty arm — the field face's own threshold:
+                    fuel becomes a story only at ≥256 MB, quoting "0.0 GB"
+                    for a four-file pick would be noise, not honesty */}
+                {fuel.phase === "ready" && !fuel.overBudget && fuel.count > 0 && fuel.fuelBytes >= 268435456 && (
+                  <span className="ml-1.5 text-muted-foreground/80" aria-live="polite">
+                    · fuel ≈{(fuel.fuelBytes / 1024 ** 3).toFixed(1)} GB of{" "}
+                    {(fuel.headroomBytes / 1024 ** 3).toFixed(1)} GB headroom
+                  </span>
+                )}
               </>
             ) : (
               "No micrograph files directly in this folder — they may be in a subfolder"
@@ -976,6 +1078,7 @@ export function PathBrowserDialog({
               size="sm"
               className="h-8 shrink-0"
               disabled={!manual.trim()}
+              aria-label={!manual.trim() ? "Go (type a path first)" : "Go"}
               onClick={() => {
                 if (/[*?]/.test(manual.trim())) setMode("files");
                 setCwd(manual.trim());
@@ -992,6 +1095,7 @@ export function PathBrowserDialog({
               size="sm"
               className="shrink-0"
               disabled={!manual.trim()}
+              aria-label={!manual.trim() ? "Use this path (type a path first)" : "Use this path"}
               onClick={() => manual.trim() && pick(manual.trim())}
               title="Pick the typed path exactly as written"
             >
@@ -1013,6 +1117,13 @@ export function PathBrowserDialog({
               size="sm"
               className="shrink-0"
               disabled={inRootsView || !currentPath}
+              aria-label={
+                inRootsView
+                  ? "Select this folder (the roots view is open)"
+                  : !currentPath
+                    ? "Select this folder (no folder is open yet)"
+                    : "Select this folder"
+              }
               onClick={() => !inRootsView && currentPath && pick(currentPath)}
             >
               <FolderOpen className="h-3.5 w-3.5" aria-hidden="true" />

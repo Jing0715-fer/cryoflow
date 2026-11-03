@@ -1,0 +1,142 @@
+{
+  "instrument": "scripts/t881-delegation-topology.mjs",
+  "world": {
+    "mode": "dev",
+    "id": "dev@db12463b2621",
+    "buildId": null,
+    "srcHash": "db12463b2621",
+    "note": "dev-server world — no production build; the world key is the src tree's content hash"
+  },
+  "date": "2026-11-01T13:31:42.626Z",
+  "question": "where does React's synthetic keydown delegation actually attach — and does it reach portal content? (the t880 comment's generalization on trial)",
+  "topology": {
+    "root": {
+      "listening": false,
+      "fiber": true,
+      "props": true,
+      "container": false
+    },
+    "body": {
+      "listening": true,
+      "fiber": true,
+      "props": true,
+      "container": false
+    },
+    "html": {
+      "listening": false,
+      "fiber": true,
+      "props": true,
+      "container": false
+    },
+    "canvasChain": [
+      {
+        "tag": "SECTION.no-drag-select.canvas-grid",
+        "listening": false,
+        "fiber": true,
+        "props": true,
+        "container": false
+      },
+      {
+        "tag": "MAIN.flex.min-h-0",
+        "listening": false,
+        "fiber": true,
+        "props": true,
+        "container": false
+      },
+      {
+        "tag": "DIV.flex.h-dvh",
+        "listening": false,
+        "fiber": true,
+        "props": true,
+        "container": false
+      },
+      {
+        "tag": "BODY.geist_a71539c9-module__T19VSG__variable.geist_mono_8d43a2aa-module__8Li5zG__variable",
+        "listening": true,
+        "fiber": true,
+        "props": true,
+        "container": false
+      },
+      {
+        "tag": "HTML.light",
+        "listening": false,
+        "fiber": true,
+        "props": true,
+        "container": false
+      }
+    ],
+    "fscChain": {
+      "open": true,
+      "chain": [
+        {
+          "tag": "DIV#radix-_r_6e_.bg-background.data-[state=open]:animate-in[dialog-content]",
+          "listening": false,
+          "fiber": true,
+          "props": true
+        },
+        {
+          "tag": "BODY.geist_a71539c9-module__T19VSG__variable.geist_mono_8d43a2aa-module__8Li5zG__variable",
+          "listening": true,
+          "fiber": true,
+          "props": true
+        },
+        {
+          "tag": "HTML.light",
+          "listening": false,
+          "fiber": true,
+          "props": true
+        }
+      ]
+    }
+  },
+  "live": {
+    "armCanvas": {
+      "armed": true
+    },
+    "fireCanvas": {
+      "sent": true,
+      "synth": 0
+    },
+    "armCapture": {
+      "armed": true
+    },
+    "armFsc": {
+      "armed": true
+    },
+    "fireFsc": {
+      "sent": true,
+      "on": "BUTTON",
+      "synth": 0
+    },
+    "escAfter": {
+      "esc": 1,
+      "dlgCount": 2,
+      "fscOpen": true
+    },
+    "palette": {
+      "open": {
+        "open": true,
+        "items": 104,
+        "ph": "Jump to a job, add a type, run an action…"
+      },
+      "typing": {
+        "tested": true,
+        "before": 104,
+        "after": 23,
+        "value": "refine",
+        "filtered": true,
+        "arrowTest": {
+          "tested": true,
+          "before": "3D Refine (tutorial)completed↵",
+          "after": "3D Refine (tutorial)completed↵",
+          "moved": false
+        }
+      }
+    }
+  },
+  "verdict": "MIXED/UNEXPECTED SHAPE — read the receipt's parts together (in-root=false, portal=false, bodyMarker=true, palette=true, arrow=false, zero-gap fsc synth=? canvas synth=0)",
+  "restored": {
+    "cards": 16,
+    "dlgCount": 0
+  }
+}

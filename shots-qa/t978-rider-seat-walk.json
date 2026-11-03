@@ -1,0 +1,45 @@
+{
+  "instrument": "t978-rider-seat-walk",
+  "mode": "GATE",
+  "at": "2026-10-13T15:40:28.959Z",
+  "world": {
+    "class2d": "2D Classification 1 (t978)",
+    "class3d": "3D Classification 1 (t978)"
+  },
+  "class2dHost": {
+    "title": "Class A/B — Occupancy share",
+    "region": true,
+    "text": "Class A/B — Occupancy sharePaired per-class verdict between two completed classification runs — where did the particles go, and which classes did run B concentrate?Run A: 2D Classification 1 (t978) · Run B: 3D Classification 1 (t978) · printed Oct 13, 2026Run A2D Classification 1 (t978) (this run)Run B3D Classification 1 (t978) · Main1 gained1 lost1 heldmedian Δ 0.0%of 3 pairedunpaired: 1 in A · 0 in B18.825.832.846.318.825.832.846.3 gained lost held· dashed line = no change (B equals A)Biggest gains (Occupancy share)Class 00225.0% → 45.0% (+20.0%)Biggest losses (Occupancy share)Class 00140.0% → 35.0% (−5.0%)Concentration census: the top 5 classes hold 85.0% → 100.0% of the particles; classes above the 1% bar: 3 → 3, across 3 paired classes — the distribution's own health check.Continue downstream from run BContinue downstream, selecting these(1)Open run AOpen run BClose",
+    "rider": {
+      "present": true,
+      "disabled": true,
+      "aria": "Continue downstream with these classes selected — unavailable: All 1 downstream wire(s) refused — port",
+      "title": "All 1 downstream wire(s) refused — port",
+      "label": "Continue downstream, selecting these(1)"
+    },
+    "plain": {
+      "disabled": true,
+      "aria": "Continue downstream from run B — unavailable: All 1 downstream wire(s) refused — port",
+      "label": "Continue downstream from run B"
+    },
+    "shellOverX": false
+  },
+  "class3dHost": {
+    "title": "Class A/B — Occupancy share",
+    "region": true,
+    "text": "Class A/B — Occupancy sharePaired per-class verdict between two completed classification runs — where did the particles go, and which classes did run B concentrate?Run A: 3D Classification 1 (t978) · Run B: 2D Classification 1 (t978) · printed Oct 13, 2026Run A3D Classification 1 (t978) (this run)Run B2D Classification 1 (t978) · Main1 gained1 lost1 heldmedian Δ 0.0%of 3 pairedunpaired: 0 in A · 1 in B18.825.832.846.318.825.832.846.3 gained lost held· dashed line = no change (B equals A)Biggest gains (Occupancy share)Class 00135.0% → 40.0% (+5.0%)Biggest losses (Occupancy share)Class 00245.0% → 25.0% (−20.0%)Concentration census: the top 5 classes hold 100.0% → 85.0% of the particles; classes above the 1% bar: 3 → 3, across 3 paired classes — the distribution's own health check.Adoption re-wires 3D Classification 1 (t978)'s 1 downstream job to consume 2D Classification 1 (t978) — their c",
+    "rider": {
+      "present": false
+    },
+    "plain": {
+      "disabled": false,
+      "aria": "Continue downstream from 2D Classification 1 (t978) — re-wires 1 of 3D Classification 1 (t978)'s downstream jobs",
+      "label": "Continue downstream from run B(1)"
+    },
+    "shellOverX": false
+  },
+  "doors": {
+    "class2d": "Class A/B — compare with another completed run (1 sibling runs available)",
+    "class3d": "Class A/B — compare with another completed run (1 sibling runs available)"
+  }
+}

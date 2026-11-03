@@ -1,0 +1,18 @@
+{
+  "walk": "t987-idle-face-walk",
+  "at": "2026-10-14T16:00:26.867Z",
+  "pass": 47,
+  "fail": 0,
+  "phaseTrace": [],
+  "results": [
+    {
+      "label": "A44 (Use this path) recorded, not faked",
+      "ok": true,
+      "extra": "the singleFile host (the continue-picker's Browse) rides no idle job in this world — the completed jobs jump to the inspector; the witness carries"
+    }
+  ],
+  "face": {
+    "name": "Idle Shape Face (t987)",
+    "jobId": "cmv85jpc00003us69xca0eynf"
+  }
+}

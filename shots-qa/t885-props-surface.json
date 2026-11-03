@@ -1,0 +1,108 @@
+{
+  "task": "t885",
+  "window": "cron 2026-11-02 16:05:38 +08:00 (trace 1a07549302235a99-cron-agent-loop-202611021605)",
+  "purpose": "the wrap-zero surface question — a replacement-proof trap on the mirror KEY (accessor) + the onKeyDown accessor + the suffix census",
+  "census": {
+    "els": 4088,
+    "pkSuffixes": [
+      "wfsthgbgao"
+    ],
+    "fkSuffixes": [
+      "wfsthgbgao"
+    ],
+    "carriers": 201
+  },
+  "arm": {
+    "armed": true,
+    "pk": "__reactProps$awfsthgbgao",
+    "fk": "__reactFiber$awfsthgbgao",
+    "propsFrozen": true,
+    "hadKeyDown": true
+  },
+  "settle": {
+    "sets": 2,
+    "mirrorReads": 2
+  },
+  "fire": {
+    "fired": true,
+    "target": "BUTTON:fsc-compare-rescan"
+  },
+  "landed": 500,
+  "read": {
+    "sets": 4,
+    "mirrorReads": 10,
+    "keyReads": 0,
+    "calls": 0,
+    "freezeBlocked": 0,
+    "stack": null
+  },
+  "checks": [
+    {
+      "label": "C1 the world dressed bare",
+      "pass": false,
+      "detail": "pageBtns=0 dlgs=0"
+    },
+    {
+      "label": "C2 the workflow canvas holds the cards",
+      "pass": true,
+      "detail": "cards=15"
+    },
+    {
+      "label": "C3 the inspector arrived",
+      "pass": true,
+      "detail": "heads=[3D Refine (tutorial) — job inspector3D R]"
+    },
+    {
+      "label": "C4 the fsc door mounted",
+      "pass": false,
+      "detail": "tab={\"found\":true,\"selected\":true}"
+    },
+    {
+      "label": "C5 the fsc dialog floats over the inspector",
+      "pass": true,
+      "detail": "dlgs=2"
+    },
+    {
+      "label": "C6 one react-dom copy owns the document (single mirror-suffix family)",
+      "pass": true,
+      "detail": "pk=1 fk=1"
+    },
+    {
+      "label": "C7 the replacement-proof trap armed on the fsc root",
+      "pass": true,
+      "detail": "pk=__reactProps$awfsthgbgao frozen=true freezeBlocked=undefined"
+    },
+    {
+      "label": "C8 the mirror was replaced since the arm (a commit minted fresh props)",
+      "pass": true,
+      "detail": "sets=2 (pre-fire mirrorReads=2)"
+    },
+    {
+      "label": "C9 the Escape fired",
+      "pass": true,
+      "detail": "target=BUTTON:fsc-compare-rescan"
+    },
+    {
+      "label": "C10 the peel landed",
+      "pass": true,
+      "detail": "atMs=500"
+    },
+    {
+      "label": "C11 THE SURFACE: the dispatch read the element's mirror (trapA getter fired)",
+      "pass": true,
+      "detail": "mirrorReads=10"
+    },
+    {
+      "label": "C12 THE CALL: the dispatched listener came from the trapped surface",
+      "pass": false,
+      "detail": "calls=0 keyReads=0"
+    },
+    {
+      "label": "C13 the world restored bare",
+      "pass": false,
+      "detail": "dlgs=0 pageBtns=0"
+    }
+  ],
+  "pass": 9,
+  "fail": 4
+}

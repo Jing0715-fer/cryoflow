@@ -28,6 +28,7 @@ import { Loader2, Play, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import type { JobDTO } from "@/lib/types";
+import { httpErrorFrom } from "@/lib/http-error";
 import { useWorkflowStore } from "@/lib/store";
 import {
   checkpointOf,
@@ -48,7 +49,7 @@ async function fetchContinueSources(jobId: string): Promise<ContinueSourceLite[]
   const res = await fetch(`/api/jobs/${jobId}/continue-sources`, {
     headers: { Origin: window.location.origin },
   });
-  if (!res.ok) throw new Error(`route said ${res.status}`);
+  if (!res.ok) throw await httpErrorFrom(res); // t959 — the door's own reason rides
   const data = (await res.json()) as { sources?: ContinueSourceLite[] };
   return data.sources ?? [];
 }
@@ -216,7 +217,13 @@ export function ContinueVerbRow({
         </div>
       ) : null}
       <div className="mt-2 flex items-center gap-3">
-        <Button size="sm" className="h-7" onClick={fire} disabled={firing}>
+        <Button
+          size="sm"
+          className="h-7"
+          onClick={fire}
+          disabled={firing}
+          aria-label={firing ? "Continue the run (the continue request is running)" : "Continue the run"}
+        >
           {firing ? (
             <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
           ) : (

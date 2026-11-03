@@ -28,6 +28,7 @@
 import { useEffect, useState } from "react";
 import { ArrowUpRight, Sparkles } from "lucide-react";
 import type { VerdictStamp } from "@/lib/ai/verdict-stamp-core";
+import { fmtStampChip } from "@/lib/duration";
 import { useWorkflowStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { Chip } from "@/components/ui/chip";
@@ -135,14 +136,8 @@ export function AiVerdictStamp({
   const shown = classes.slice(0, CHIP_CAP);
   const overflow = classes.length - shown.length;
 
-  const askedLabel = stamp.at
-    ? new Date(stamp.at).toLocaleString(undefined, {
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : null;
+  // t1158: the compact chip stamp rides its ONE father (the byte-twin died).
+  const askedLabel = stamp.at ? fmtStampChip(stamp.at) : null;
 
   return (
     <section

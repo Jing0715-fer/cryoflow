@@ -1,0 +1,29 @@
+{
+  "pass": 32,
+  "fail": 0,
+  "world": {
+    "a": "cmv692lty000hppoy8qw8zcj8",
+    "b": "cmv693c4o000jppoyy9diquqr",
+    "c": "cmv693toy000lppoyvzmrjeta"
+  },
+  "face": {
+    "plain": {
+      "disabled": false,
+      "aria": "Continue downstream from 3D Classification 2 (t954) — re-wires 1 of 3D Classification 1 (t954)'s downstream jobs",
+      "title": "Re-wires 3D Classification 1 (t954)'s 1 downstream wire to 3D Classification 2 (t954) — their current results stay until re-run",
+      "label": "Continue downstream from run B(1)"
+    },
+    "selectPresent": false,
+    "contract": "Adoption re-wires 3D Classification 1 (t954)'s 1 downstream job to consume 3D Classification 2 (t954) — their current results stay until re-run.",
+    "unpaired": {
+      "text": "unpaired: 1 in A · 0 in B",
+      "title": "Only in A: Class 004\nOnly in B: "
+    }
+  },
+  "fired": "fired@try0",
+  "toast": {
+    "title": null,
+    "all": "Downstream adopted by 3D Classification 2 (t954)1 downstream wire re-wired from 3D Classification 1 (t954) to 3D Classification 2 (t954) · Particles Consumer (t954) now consumes 3D Classification 2 (t954) · their current results stay until re-run"
+  },
+  "at": "2026-10-13T05:44:04.220Z"
+}

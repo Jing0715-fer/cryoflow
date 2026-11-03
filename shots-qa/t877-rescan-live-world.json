@@ -1,0 +1,405 @@
+{
+  "instrument": "scripts/t877-rescan-live-world.mjs",
+  "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder -> title (the t867 growth — the tree's own tooltip voice, the accessible-name spec's own last resort) — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
+  "build": "dev@8b65320b3087",
+  "worldMode": "dev",
+  "date": "2026-11-01T14:02:45.928Z",
+  "chain": "A the live world seeded → B the overlay opened with the poller attached (attempt loop) → C FILM the re-scan in the live world (same-task catch) → D one cadence, no manual help → E the live flip on the open door + the quiet manual scan → W the world back",
+  "doors": {
+    "probe": "the t876 probe re-issued via POST run with the mock cluster's remote body; the /fsc route's first shell is the door gate (the restage law)",
+    "film": "the probe's own FSC compare overlay, a second completed pick aboard, the header re-scan clicked while the poller was attached"
+  },
+  "verdict": "1 red — the strip's manual half moved; call the census's own instruments before any UI work",
+  "driftLedger": {
+    "prevFound": true,
+    "prevBuild": "dev@8b65320b3087",
+    "sameBuild": true,
+    "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
+    "faces": {
+      "canvasFace": {
+        "prev": 149,
+        "live": 150,
+        "drift": 1,
+        "identical": false,
+        "moved": {
+          "lens": [
+            "dlgHeads",
+            "unWho",
+            "url"
+          ],
+          "world": [
+            "altless",
+            "cards",
+            "ctrls",
+            "dlgCount",
+            "fscAutolive",
+            "fscAutoliveText",
+            "fscCap",
+            "fscChartSvg",
+            "fscFresh",
+            "fscIndexLine",
+            "fscLegend",
+            "fscLegendPressed",
+            "fscOpen",
+            "fscProbeChecked",
+            "fscQuietText",
+            "fscRows",
+            "fscScanDis",
+            "fscScanLbl",
+            "fscTutChecked",
+            "imgPending",
+            "imgs",
+            "liveDots",
+            "pageBtns",
+            "pageUnnamed",
+            "probeRow",
+            "resProbe",
+            "resTut",
+            "unCtrls"
+          ]
+        }
+      },
+      "overlayLive": {
+        "prev": 13,
+        "live": 13,
+        "drift": 0,
+        "identical": false,
+        "moved": {
+          "lens": [
+            "fscCap",
+            "fscProbeChecked",
+            "fscScanLbl",
+            "fscTutChecked",
+            "resProbe",
+            "resTut"
+          ],
+          "world": [
+            "altless",
+            "fscAutolive",
+            "fscChartSvg",
+            "fscFresh",
+            "fscIndexLine",
+            "fscLegend",
+            "fscLegendPressed",
+            "fscOpen",
+            "fscQuietText",
+            "fscRows",
+            "fscScanDis",
+            "liveDots",
+            "pageUnnamed",
+            "unCtrls"
+          ]
+        }
+      },
+      "overlayQuiet": {
+        "prev": 14,
+        "live": 16,
+        "drift": 2,
+        "identical": false,
+        "moved": {
+          "lens": [
+            "fscCap",
+            "fscIndexLine",
+            "fscProbeChecked",
+            "fscQuietText",
+            "fscScanLbl",
+            "fscTutChecked",
+            "resProbe",
+            "resTut"
+          ],
+          "world": [
+            "altless",
+            "fscAutolive",
+            "fscChartSvg",
+            "fscFresh",
+            "fscLegend",
+            "fscLegendPressed",
+            "fscOpen",
+            "fscRows",
+            "fscScanDis",
+            "liveDots",
+            "pageBtns",
+            "pageUnnamed",
+            "unCtrls"
+          ]
+        }
+      },
+      "worldBack": {
+        "prev": 150,
+        "live": 150,
+        "drift": 0,
+        "identical": false,
+        "moved": {
+          "lens": [
+            "dlgHeads",
+            "unWho",
+            "url"
+          ],
+          "world": [
+            "altless",
+            "cards",
+            "ctrls",
+            "dlgCount",
+            "fscAutolive",
+            "fscAutoliveText",
+            "fscCap",
+            "fscChartSvg",
+            "fscFresh",
+            "fscIndexLine",
+            "fscLegend",
+            "fscLegendPressed",
+            "fscOpen",
+            "fscProbeChecked",
+            "fscQuietText",
+            "fscRows",
+            "fscScanDis",
+            "fscScanLbl",
+            "fscTutChecked",
+            "imgPending",
+            "imgs",
+            "liveDots",
+            "pageUnnamed",
+            "probeRow",
+            "resProbe",
+            "resTut",
+            "unCtrls"
+          ]
+        }
+      }
+    }
+  },
+  "checks": [
+    {
+      "label": "A1 the demo project resolved",
+      "pass": true,
+      "detail": "β-Galactosidase Tutorial (demo)"
+    },
+    {
+      "label": "A2 the canonical rebalance found",
+      "pass": true,
+      "detail": "uxji2z"
+    },
+    {
+      "label": "A3 the probe resolved (a previous ride's — part of the world now)",
+      "pass": true,
+      "detail": "fj37wi"
+    },
+    {
+      "label": "A4 the spine edge already in place",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "A5 the probe's window widened (50 fixed iterations)",
+      "pass": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "label": "B1 the Mock Cluster connection resolved",
+      "pass": true,
+      "detail": "conn-mvxd1fwg"
+    },
+    {
+      "label": "O1 the canvas arrives named",
+      "pass": true,
+      "detail": "btns=150 (the 16-card world)"
+    },
+    {
+      "label": "O1b the canvas fully dressed (every job's card present)",
+      "pass": true,
+      "detail": "cards=16/16 btns=150"
+    },
+    {
+      "label": "B2 the run issued (attempt 1)",
+      "pass": true,
+      "detail": "HTTP 200 (waiting: not-ready)"
+    },
+    {
+      "label": "B3 the probe's own overlay carried the band (the poller attached)",
+      "pass": true,
+      "detail": "rows=6"
+    },
+    {
+      "label": "B4 THE AUTOLIVE PRESENT while a picked job runs",
+      "pass": true,
+      "detail": "text=\"Live — curves for the running job refresh every 12 s; the badge flips \""
+    },
+    {
+      "label": "B5 the freshness strip in its live dress",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "B6 the Scan button at rest (enabled, its own name)",
+      "pass": true,
+      "detail": "lbl=\"Scan\" dis=false"
+    },
+    {
+      "label": "B7 the film's face fully named",
+      "pass": true,
+      "detail": "unnamed=0 unCtrls=0"
+    },
+    {
+      "label": "B8 the second pick added (the completed tutorial)",
+      "pass": true,
+      "detail": "cap=2/6 legend=2"
+    },
+    {
+      "label": "B9 both curves speaking (the row's own fetched-resolution spans)",
+      "pass": true,
+      "detail": "probe=\"3.19 Å\" tut=\"7.08 Å\""
+    },
+    {
+      "label": "C-guard the band still attached at the film's start",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "C1 THE SCANNING DRESS — disabled + 'Scanning…'",
+      "pass": true,
+      "detail": "path=in-eval beat before=\"Scan\" (dis=false) beats=[Scan, Scanning…!, Scanning…!, Scan, Scan]"
+    },
+    {
+      "label": "C2 THE BAND STAYED while scanning (the strip's halves move together)",
+      "pass": true,
+      "detail": "5 beats, the teal dress in every one"
+    },
+    {
+      "label": "C3 THE CURVES DROPPED — 'Reading curves…' in the scan's window",
+      "pass": true,
+      "detail": "beats=[-, reading, reading, -, -]"
+    },
+    {
+      "label": "C4 the recovery — the button back at rest",
+      "pass": true,
+      "detail": "lbl=\"Scan\" dis=false"
+    },
+    {
+      "label": "C5 THE ATTACHMENT SURVIVED — the band still present (or the flip landed mid-recovery)",
+      "pass": true,
+      "detail": "text=\"Live — curves for the running job refresh every 12 s; the ba\""
+    },
+    {
+      "label": "C6 the probe's curve re-landed (the row's own span)",
+      "pass": true,
+      "detail": "probe=\"3.19 Å\""
+    },
+    {
+      "label": "C7 the second pick's curve re-landed (the full-map drop's re-read)",
+      "pass": true,
+      "detail": "tut=\"7.08 Å\""
+    },
+    {
+      "label": "C8 the selection survived the re-scan (the restore latch)",
+      "pass": true,
+      "detail": "probe=true tut=true"
+    },
+    {
+      "label": "C9 the re-scanned face fully named",
+      "pass": true,
+      "detail": "unnamed=0 unCtrls=0"
+    },
+    {
+      "label": "D1 the cadence crossed honestly (held while running / flipped on completion)",
+      "pass": true,
+      "detail": "the band held across one 12s cadence"
+    },
+    {
+      "label": "E0 the probe's API truth before the flip wait",
+      "pass": true,
+      "detail": "status=running"
+    },
+    {
+      "label": "E1 the probe completed",
+      "pass": true,
+      "detail": "status=completed"
+    },
+    {
+      "label": "E2 THE LIVE FLIP — the band honestly absent on the SAME open door",
+      "pass": true,
+      "detail": "door open=true (no interaction closed it; the pre-wait sample: open=true band=false)"
+    },
+    {
+      "label": "E3 the quiet dress speaks (the indexed count)",
+      "pass": true,
+      "detail": "line=\"6 curves indexed\" fresh=true quiet=\"6 curves indexed\" rows=6 cap=2/6"
+    },
+    {
+      "label": "E4 the row's live dot gone (the row's own dress flipped)",
+      "pass": true,
+      "detail": "liveDots=0"
+    },
+    {
+      "label": "E5 THE QUIET SCAN'S DRESS — the button's other canonical half",
+      "pass": true,
+      "detail": "beats=[Scan, Scanning…!, Scanning…!, Scan, Scan]"
+    },
+    {
+      "label": "E6 the band stayed ABSENT through the quiet scan",
+      "pass": true,
+      "detail": "the quiet dress did not flicker on in any beat"
+    },
+    {
+      "label": "E7 the quiet recovery — the count unchanged, the curves re-read",
+      "pass": true,
+      "detail": "line=\"6 curves indexed\" (before \"6 curves indexed\") probe=\"3.19 Å\""
+    },
+    {
+      "label": "E8 the quiet face fully named",
+      "pass": true,
+      "detail": "unnamed=0 unCtrls=0"
+    },
+    {
+      "label": "W1 Escape peeled the overlay — the inspector survives",
+      "pass": false,
+      "detail": "dlgs=2 heads=[3D Refine (live probe t876) — job inspec | Compare FSC curves2/6] | the window's counter: esc=1 synth=0 fire={\"sent\":true,\"target\":\"DIV\"} wrap={\"wrapped\":true} | the late trace: {\"landed\":true,\"atMs\":500} | the fiber's truth: {\"gone\":true,\"dlgCount\":1,\"dlgHeads\":[\"3D Refine (live probe t876) — job inspec\"],\"counters\":{\"esc\":1,\"synth\":0},\"url\":\"/\"}"
+    },
+    {
+      "label": "W2 every dialog closed",
+      "pass": true,
+      "detail": "dlgs=0"
+    },
+    {
+      "label": "W3 the canvas re-loaded at the world's own truth",
+      "pass": true,
+      "detail": "post-film=152 (the SPA's stale dress) reloaded=150 cards=16/16 — the reload is the truth"
+    },
+    {
+      "label": "W3b the post-reload canvas fully named",
+      "pass": true,
+      "detail": "unnamed=0 unCtrls=0 altless=0"
+    },
+    {
+      "label": "W4 the clean room's keys restored to absence",
+      "pass": true,
+      "detail": "cleared=1"
+    },
+    {
+      "label": "W5 the census speaks the world's truth (all completed)",
+      "pass": true,
+      "detail": "16 completed — the re-run changed nothing in the count"
+    },
+    {
+      "label": "L canvasFace face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@8b65320b3087), same-key ride drift +1 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause) — the moved fields named: lens [dlgHeads, unWho, url]; world [altless, cards, ctrls, dlgCount, fscAutolive, fscAutoliveText, fscCap, fscChartSvg, fscFresh, fscIndexLine, fscLegend, fscLegendPressed, fscOpen, fscProbeChecked, fscQuietText, fscRows, fscScanDis, fscScanLbl, fscTutChecked, imgPending, imgs, liveDots, pageBtns, pageUnnamed, probeRow, resProbe, resTut, unCtrls]"
+    },
+    {
+      "label": "L overlayLive face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@8b65320b3087), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause) — the moved fields named: lens [fscCap, fscProbeChecked, fscScanLbl, fscTutChecked, resProbe, resTut]; world [altless, fscAutolive, fscChartSvg, fscFresh, fscIndexLine, fscLegend, fscLegendPressed, fscOpen, fscQuietText, fscRows, fscScanDis, liveDots, pageUnnamed, unCtrls]"
+    },
+    {
+      "label": "L overlayQuiet face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@8b65320b3087), same-key ride drift +2 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause) — the moved fields named: lens [fscCap, fscIndexLine, fscProbeChecked, fscQuietText, fscScanLbl, fscTutChecked, resProbe, resTut]; world [altless, fscAutolive, fscChartSvg, fscFresh, fscLegend, fscLegendPressed, fscOpen, fscRows, fscScanDis, liveDots, pageBtns, pageUnnamed, unCtrls]"
+    },
+    {
+      "label": "L worldBack face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@8b65320b3087), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause) — the moved fields named: lens [dlgHeads, unWho, url]; world [altless, cards, ctrls, dlgCount, fscAutolive, fscAutoliveText, fscCap, fscChartSvg, fscFresh, fscIndexLine, fscLegend, fscLegendPressed, fscOpen, fscProbeChecked, fscQuietText, fscRows, fscScanDis, fscScanLbl, fscTutChecked, imgPending, imgs, liveDots, pageUnnamed, probeRow, resProbe, resTut, unCtrls]"
+    }
+  ],
+  "passed": 45,
+  "failed": 1
+}

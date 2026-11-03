@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { isLocalRequest } from "@/lib/http-guard";
+import { serverErrorMessage, serverErrorReply, badJsonReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -80,8 +81,12 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
       entries = []; // corrupt row reads as empty — the client rewrites it
     }
     return NextResponse.json({ entries, updatedAt: row.updatedAt });
-  } catch {
-    return NextResponse.json({ entries: [], error: "read failed" }, { status: 500 });
+  } catch (error) {
+    console.error("GET /api/jobs/[id]/overlay-session failed:", error);
+    return NextResponse.json(
+      { entries: [], error: serverErrorMessage("GET /api/jobs/[id]/overlay-session", error) },
+      { status: 500 }
+    );
   }
 }
 
@@ -100,8 +105,8 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
   } | null;
   try {
     body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
+  } catch (error) {
+    return badJsonReply("PUT /api/jobs/[id]/overlay-session", error);
   }
   const entries = sanitize(body?.entries);
   const mode = body?.mode === "replace" ? "replace" : "merge";
@@ -151,7 +156,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
       });
     }
     return NextResponse.json({ ok: true, count: final.length });
-  } catch {
-    return NextResponse.json({ error: "persist failed" }, { status: 500 });
+  } catch (error) {
+    return serverErrorReply("PUT /api/jobs/[id]/overlay-session", error);
   }
 }

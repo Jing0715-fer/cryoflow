@@ -1,0 +1,28 @@
+{
+  "walk": "t993-workspace-alert-walk",
+  "at": "2026-10-14T16:46:02.720Z",
+  "pass": 30,
+  "fail": 0,
+  "phaseTrace": [],
+  "results": [],
+  "instrument": "t993-workspace-alert-walk",
+  "born": "2026-10-15",
+  "contract": "the A36 face cashed in — the second workspace minted through the product's own create door, the alert's Cancel honored, the confirm arc restoring the world",
+  "legs": {
+    "asFoundOneWorkspace": true,
+    "restingDoorDisabled": true,
+    "mintClicked": true,
+    "badgeFlip": {
+      "before": "1",
+      "minted": "2",
+      "after": "1"
+    },
+    "a36CancelFace": {
+      "disabled": false,
+      "label": "Cancel"
+    },
+    "cancelHonored": true,
+    "confirmDeleted": true,
+    "worldRestored": true
+  }
+}

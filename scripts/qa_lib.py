@@ -162,6 +162,20 @@ def resolve_refine_host(project_id):
     name = os.environ.get("QA_REFINE", "QA Refine3D")
     job = find_by_name(name)
     if job is None:
+        # t1130 — the t407/qa67 type fallback, finally in the lib twin: the
+        # legacy name ("QA Refine3D") was only ever one world's spelling of
+        # the promise (t705's verdict); the healed chain carries the SAME
+        # type, completed. The type tier beats the manifest while the
+        # active world speaks (qa67's order: name → type → manifest).
+        done = [
+            j for j in list_jobs()
+            if j.get("type") == "refine3d" and j.get("status") == "completed"
+        ]
+        if done:
+            job = done[0]
+            print(f"qa_lib: '{name}' not found — seeding into this world's "
+                  f"completed refine3d job '{job.get('name')}' ({job['id']})")
+    if job is None:
         # t532 — /api/jobs is ACTIVE-POINTER-scoped: when another world is
         # active (the t531/t532 exam grind), the type-matching host is
         # invisible. The old-world manifest (qa-t531-old-world-seed.mjs)
@@ -174,8 +188,8 @@ def resolve_refine_host(project_id):
                 host_id = (json.load(f).get("chain") or {}).get("refine3d")
         if not host_id:
             raise SystemExit(
-                f"qa_lib: refine3d host '{name}' missing — run scripts/qa-t531-old-world-seed.mjs "
-                f"(no manifest fallback either)"
+                f"qa_lib: refine3d host '{name}' missing — no completed refine3d in this "
+                f"world and no manifest fallback — run scripts/qa-t531-old-world-seed.mjs"
             )
         print(f"qa_lib: no host in the active world — manifest fallback: old-world refine3d {host_id}")
         job = {"id": host_id, "type": "refine3d", "name": name}

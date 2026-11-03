@@ -1,0 +1,333 @@
+{
+  "instrument": "t971-log-strip-walk",
+  "mode": "GATE",
+  "at": "2026-10-13T13:19:01.757Z",
+  "face": "Failed Diagnosis Face (t970)",
+  "wide": {
+    "panelW": 1227,
+    "panelSW": 1227,
+    "panelCW": 1227,
+    "panelOverX": false,
+    "shellOverX": false,
+    "offenders": [
+      {
+        "tag": "span",
+        "cls": "sr-only",
+        "sw": 409,
+        "cw": 1,
+        "over": 408,
+        "text": "— the log console is a focusable scroll region; the Home and",
+        "selfClip": true
+      },
+      {
+        "tag": "div",
+        "cls": "",
+        "sw": 42,
+        "cw": 34,
+        "over": 8,
+        "text": "",
+        "selfClip": false
+      },
+      {
+        "tag": "button",
+        "cls": "inline-flex items-center justify-center whitespace-nowrap font-medium transition-all disabled:pointer-events-none disabl",
+        "sw": 42,
+        "cw": 34,
+        "over": 8,
+        "text": "",
+        "selfClip": false
+      }
+    ],
+    "unclipped": 2,
+    "strip": {
+      "aria": "Failure diagnosis: 2 findings",
+      "sw": 1151,
+      "cw": 1151,
+      "over": 0,
+      "findingCount": 2
+    },
+    "headRow": {
+      "sw": 1127,
+      "cw": 1127,
+      "over": 0
+    },
+    "list": {
+      "sw": 1127,
+      "cw": 1127,
+      "over": 0,
+      "maxH": "208px",
+      "scrollableY": false,
+      "ownScrollY": "auto",
+      "focusable": true
+    },
+    "findings": [
+      {
+        "id": "gpu-oom",
+        "over": 0,
+        "labelTrunc": true,
+        "badge": "L19 · ×2",
+        "excerptTrunc": true,
+        "hintWraps": true
+      },
+      {
+        "id": "oom-kill",
+        "over": 0,
+        "labelTrunc": true,
+        "badge": "L24 · ×2",
+        "excerptTrunc": true,
+        "hintWraps": true
+      }
+    ],
+    "console": {
+      "sw": 1177,
+      "cw": 1177,
+      "over": 0,
+      "selfClip": true
+    },
+    "toolbar": {
+      "sw": 1177,
+      "cw": 1177,
+      "over": 0
+    },
+    "leakButtons": [
+      {
+        "aria": "Run on cluster (SSH)",
+        "over": 6,
+        "pseudoAbs": true
+      },
+      {
+        "aria": "Clean intermediates (local + cluster)",
+        "over": 6,
+        "pseudoAbs": true
+      },
+      {
+        "aria": "More job tools",
+        "over": 6,
+        "pseudoAbs": true
+      },
+      {
+        "aria": "Copy",
+        "over": 8,
+        "pseudoAbs": true
+      },
+      {
+        "aria": "Copy",
+        "over": 8,
+        "pseudoAbs": true
+      }
+    ]
+  },
+  "fold": {
+    "panelW": 305,
+    "panelSW": 305,
+    "panelCW": 305,
+    "panelOverX": false,
+    "shellOverX": false,
+    "offenders": [
+      {
+        "tag": "pre",
+        "cls": "m-0 whitespace-pre",
+        "sw": 908,
+        "cw": 239,
+        "over": 669,
+        "text": "RELION motioncorr (t970 failed diagnosis face) command: reli",
+        "selfClip": false
+      },
+      {
+        "tag": "span",
+        "cls": "block px-1 bg-white/[0.025]",
+        "sw": 908,
+        "cw": 239,
+        "over": 669,
+        "text": "[2026-10-13 20:55:36.403] motioncor2: GPU 0 has 4.2 GB free,",
+        "selfClip": false
+      },
+      {
+        "tag": "div",
+        "cls": "min-h-0 flex-1 overflow-y-auto p-3 font-mono text-[11px] leading-[1.55] text-zinc-300 outline-none focus-visible:ring-2 ",
+        "sw": 920,
+        "cw": 263,
+        "over": 657,
+        "text": "RELION motioncorr (t970 failed diagnosis face) command: reli",
+        "selfClip": true
+      },
+      {
+        "tag": "span",
+        "cls": "block px-1 bg-white/[0.025]",
+        "sw": 776,
+        "cw": 239,
+        "over": 537,
+        "text": "bash: line 1: 84231 Killed relion_motioncorr --i Movies/*.mr",
+        "selfClip": false
+      },
+      {
+        "tag": "span",
+        "cls": "block px-1",
+        "sw": 710,
+        "cw": 239,
+        "over": 471,
+        "text": "[2026-10-13 20:55:36.402] motioncor2: cudaMalloc returned ou",
+        "selfClip": false
+      },
+      {
+        "tag": "span",
+        "cls": "block px-1 bg-warning/10 text-warning-300",
+        "sw": 691,
+        "cw": 239,
+        "over": 452,
+        "text": "[ 8423.117901] Tasks state (memory values in pages): the CPU",
+        "selfClip": false
+      },
+      {
+        "tag": "p",
+        "cls": "diag-excerpt mt-1 truncate font-mono text-[10px] leading-relaxed text-zinc-400",
+        "sw": 642,
+        "cw": 193,
+        "over": 449,
+        "text": "[2026-10-13 20:55:36.402] motioncor2: cudaMalloc returned ou",
+        "selfClip": true
+      },
+      {
+        "tag": "span",
+        "cls": "block px-1 bg-white/[0.025]",
+        "sw": 638,
+        "cw": 239,
+        "over": 399,
+        "text": "[ 8423.117664] oom-killer: invoked oom-killer: gfp_mask=0x10",
+        "selfClip": false
+      },
+      {
+        "tag": "p",
+        "cls": "diag-excerpt mt-1 truncate font-mono text-[10px] leading-relaxed text-zinc-400",
+        "sw": 570,
+        "cw": 193,
+        "over": 377,
+        "text": "[ 8423.117664] oom-killer: invoked oom-killer: gfp_mask=0x10",
+        "selfClip": true
+      },
+      {
+        "tag": "span",
+        "cls": "block px-1 bg-danger-500/10 text-danger-400",
+        "sw": 605,
+        "cw": 239,
+        "over": 366,
+        "text": "[2026-10-13 20:55:36.404] CUDA error: out of memory (tried t",
+        "selfClip": false
+      },
+      {
+        "tag": "span",
+        "cls": "block px-1 bg-white/[0.025]",
+        "sw": 598,
+        "cw": 239,
+        "over": 359,
+        "text": "[2026-10-13 20:55:36.410] motioncor2: falling back to CPU al",
+        "selfClip": false
+      },
+      {
+        "tag": "span",
+        "cls": "block px-1 bg-white/[0.025]",
+        "sw": 552,
+        "cw": 239,
+        "over": 313,
+        "text": "command: relion_motioncorr --i Movies/*.mrcs --o . --j 8 --g",
+        "selfClip": false
+      },
+      {
+        "tag": "span",
+        "cls": "block px-1",
+        "sw": 539,
+        "cw": 239,
+        "over": 300,
+        "text": "[2026-10-13 20:55:09.431] motioncor2: movie 0001 aligned — s",
+        "selfClip": false
+      },
+      {
+        "tag": "span",
+        "cls": "block px-1 bg-white/[0.025]",
+        "sw": 539,
+        "cw": 239,
+        "over": 300,
+        "text": "[2026-10-13 20:55:11.208] motioncor2: movie 0002 aligned — s",
+        "selfClip": false
+      }
+    ],
+    "unclipped": 27,
+    "strip": {
+      "aria": "Failure diagnosis: 2 findings",
+      "sw": 237,
+      "cw": 237,
+      "over": 0,
+      "findingCount": 2
+    },
+    "headRow": {
+      "sw": 213,
+      "cw": 213,
+      "over": 0
+    },
+    "list": {
+      "sw": 213,
+      "cw": 213,
+      "over": 0,
+      "maxH": "208px",
+      "scrollableY": true,
+      "ownScrollY": "auto",
+      "focusable": true
+    },
+    "findings": [
+      {
+        "id": "gpu-oom",
+        "over": 0,
+        "labelTrunc": true,
+        "badge": "L19 · ×2",
+        "excerptTrunc": true,
+        "hintWraps": true
+      },
+      {
+        "id": "oom-kill",
+        "over": 0,
+        "labelTrunc": true,
+        "badge": "L24 · ×2",
+        "excerptTrunc": true,
+        "hintWraps": true
+      }
+    ],
+    "console": {
+      "sw": 263,
+      "cw": 263,
+      "over": 0,
+      "selfClip": true
+    },
+    "toolbar": {
+      "sw": 263,
+      "cw": 263,
+      "over": 0
+    },
+    "leakButtons": [
+      {
+        "aria": "Run on cluster (SSH)",
+        "over": 6,
+        "pseudoAbs": true
+      },
+      {
+        "aria": "Clean intermediates (local + cluster)",
+        "over": 6,
+        "pseudoAbs": true
+      },
+      {
+        "aria": "More job tools",
+        "over": 6,
+        "pseudoAbs": true
+      },
+      {
+        "aria": "Copy",
+        "over": 8,
+        "pseudoAbs": true
+      },
+      {
+        "aria": "Copy",
+        "over": 8,
+        "pseudoAbs": true
+      }
+    ]
+  }
+}

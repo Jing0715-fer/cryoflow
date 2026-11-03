@@ -1,0 +1,101 @@
+{
+  "pass": 16,
+  "fail": 0,
+  "wide": {
+    "rows": 303,
+    "mounted": true
+  },
+  "fold": {
+    "standing": {
+      "rows": 303,
+      "counts": "303",
+      "dialogW": 307,
+      "dialogOverX": false,
+      "noteH": 36,
+      "noteOverX": false,
+      "boxOverflowX": "auto",
+      "tableSW": 563,
+      "boxCW": 263,
+      "nonClip": [
+        {
+          "tag": "span",
+          "cls": "ml-auto shrink-0",
+          "over": 8,
+          "selfClip": false,
+          "sibOverlap": false,
+          "escapesDialog": false
+        },
+        {
+          "tag": "button",
+          "cls": "inline-flex items-center justify-center whitespace-nowrap font-medium transition",
+          "over": 8,
+          "selfClip": false,
+          "sibOverlap": false,
+          "escapesDialog": false
+        },
+        {
+          "tag": "div",
+          "cls": "text-lg leading-none font-semibold",
+          "over": 6,
+          "selfClip": false,
+          "sibOverlap": false,
+          "escapesDialog": false
+        },
+        {
+          "tag": "div",
+          "cls": "space-y-2.5",
+          "over": 6,
+          "selfClip": false,
+          "sibOverlap": false,
+          "escapesDialog": false
+        },
+        {
+          "tag": "div",
+          "cls": "flex flex-wrap items-center gap-x-3 gap-y-2",
+          "over": 6,
+          "selfClip": false,
+          "sibOverlap": false,
+          "escapesDialog": false
+        },
+        {
+          "tag": "div",
+          "cls": "no-print flex max-w-full shrink-0 flex-wrap items-center justify-end gap-1.5",
+          "over": 6,
+          "selfClip": false,
+          "sibOverlap": false,
+          "escapesDialog": false
+        },
+        {
+          "tag": "button",
+          "cls": "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-",
+          "over": 6,
+          "selfClip": false,
+          "sibOverlap": false,
+          "escapesDialog": false
+        },
+        {
+          "tag": "button",
+          "cls": "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-",
+          "over": 6,
+          "selfClip": false,
+          "sibOverlap": false,
+          "escapesDialog": false
+        }
+      ]
+    },
+    "appended": {
+      "rows": 603,
+      "countsLine": "603 files",
+      "mounted": true,
+      "dialogOverX": false
+    },
+    "refreshed": {
+      "rows": 303,
+      "mounted": true
+    }
+  },
+  "consoleClean": true,
+  "act4Trace": [
+    "t0:rows=603 mounted=true line=\"603 files\""
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "task": "t884c",
+  "window": "cron 2026-11-02 15:20:37 +08:00 (trace 1a07549302235a99-cron-agent-loop-202611021520)",
+  "purpose": "the fsc reconciliation — every onKeyDown carrier enumerated and counted in one breath; the stop's owner named by stack",
+  "trace": {
+    "armed": true,
+    "fired": true,
+    "target": "BUTTON:fsc-compare-rescan",
+    "carrierCount": 1,
+    "carriers": [
+      "DIV{dialog-content}<ROOT>"
+    ],
+    "reads": {
+      "DIV{dialog-content}<ROOT>": 0
+    },
+    "fiberPatched": true,
+    "fiberHop": 0,
+    "fiberRead": 0,
+    "stops": [
+      {
+        "m": "stop",
+        "ph": 3,
+        "self": "BODY",
+        "key": "Escape",
+        "stack": "    at Event.stopPropagation (<anonymous>:1:1959) <<     at SyntheticBaseEvent.stopPropagation (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2330:57) <<     at onKeyDown (http://localhost:3000/_next/static/chunks/src_85c7c2ef._.js:2879:23) <<     at overrideProps.<computed> (http://localhost:3000/_next/static/chunks/node_modules_07a1a564._.js:1371:36) <<     at executeDispatch (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:10314:13) <<     at runWithFiberInDEV (http://localhost:3000/_next/s"
+      }
+    ],
+    "rootContainer": {
+      "doc": 1,
+      "body": 0
+    }
+  },
+  "checks": [
+    {
+      "label": "E1 the workflow canvas holds the cards",
+      "pass": true,
+      "detail": "cards=15"
+    },
+    {
+      "label": "E2 the inspector arrived",
+      "pass": true,
+      "detail": "heads=[3D Refine (tutorial) — job inspector3D R]"
+    },
+    {
+      "label": "E3 the fsc door mounted",
+      "pass": true,
+      "detail": "tab={\"found\":true,\"selected\":true}"
+    },
+    {
+      "label": "E4 the fsc dialog floats over the inspector",
+      "pass": true,
+      "detail": "dlgs=2"
+    },
+    {
+      "label": "E5 the atomic instrument armed and fired",
+      "pass": true,
+      "detail": "target=BUTTON:fsc-compare-rescan carriers=1"
+    },
+    {
+      "label": "E6 at least one carrier counted (the synthetic dispatch reached a carrier)",
+      "pass": false,
+      "detail": "alive=NONE fiber=0"
+    },
+    {
+      "label": "E7 the stop's owner named (stack captured)",
+      "pass": true,
+      "detail": "stack above"
+    },
+    {
+      "label": "E8 the peel landed",
+      "pass": true,
+      "detail": "atMs=500"
+    },
+    {
+      "label": "E9 the world restored",
+      "pass": true,
+      "detail": "dlgs=0"
+    }
+  ],
+  "pass": 8,
+  "fail": 1
+}

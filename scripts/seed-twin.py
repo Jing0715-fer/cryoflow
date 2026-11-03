@@ -78,6 +78,14 @@ def main():
         twin = find_by_name(TWIN_NAME)
         if twin:
             api(f"/api/jobs/{twin['id']}", "DELETE")
+            # t1095 — the stray law's seeder edition (the qa55 lesson): the
+            # delete's own 200 is not the proof, the WORLD READ is. A twin
+            # that stands after its delete exits 2 (the fossil collector's
+            # next round must not inherit a lie).
+            after = find_by_name(TWIN_NAME)
+            if after is not None:
+                print(f"twin REFUSAL — {TWIN_NAME} still stands after its DELETE")
+                sys.exit(2)
             print(f"twin deleted: {twin['id']}")
         else:
             print("twin absent — nothing to clean")

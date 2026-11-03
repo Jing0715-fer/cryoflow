@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isLocalRequest } from "@/lib/http-guard";
 import { listSessionsForActiveProject } from "@/lib/ai/agent";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,6 @@ export async function GET(request: NextRequest) {
     }
     return NextResponse.json(await listSessionsForActiveProject());
   } catch (error) {
-    console.error("GET /api/ai/sessions failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/ai/sessions", error);
   }
 }

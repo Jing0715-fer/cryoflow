@@ -9,7 +9,7 @@
 //   C  console errors + close
 // Usage: QA_PHASES=A,B,C node scripts/qa51-e2e.mjs
 import { execSync } from "node:child_process";
-import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, writeFileSync } from "node:fs";
 import { resolveRefineHost } from "./qa-refine-host.mjs";
 
 const AB = "agent-browser";
@@ -38,11 +38,25 @@ const SEED = "python3 /home/z/my-project/scripts/qa51-seed-report.py";
 const SEED_CLEAN = "python3 /home/z/my-project/scripts/qa51-seed-report.py --clean";
 // t705 — the name is the world's own spelling, never a pin (qa-refine-host.mjs:
 // the JS twin of qa_lib.resolve_refine_host — manifest contract + type fallback)
-const JOB = resolveRefineHost().name;
+// t1130 — the HOST OBJECT stays in scope: the source-honesty disk check derives
+// the canonical workdir from the same job the report came from (the world's
+// own witness), not from the stale t531 manifest (data/ is runtime-only and
+// died with the t1125 epoch rollback; the t703 law: expectations derive from
+// the world, not from history).
+const REFINE_HOST = resolveRefineHost();
+const JOB = REFINE_HOST.name;
+// the canonical workdir law: data/relion/<projectId>/<type>_<id8> (qa_lib.job_workdir)
+const HOST_WORKDIR = `/home/z/my-project/data/relion/${REFINE_HOST.projectId}/refine3d_${REFINE_HOST.id.slice(-8)}`;
 
 const openJobResults = async () => {
   sh(`${AB} open http://localhost:3000`);
   await sleep(6000);
+  // t1130 — close any auto-opened inspector (the t1128 inspect seed restores
+  // it on a persistent-profile landing); a modal dialog would eat the card
+  // click and the Results tab would never open (NO-TAB). Radix only hears
+  // TRUSTED Escape (the synthetic KeyboardEvent left it open, live-proven).
+  sh(`${AB} press Escape`);
+  await sleep(800);
   let node = "";
   for (let i = 0; i < 15 && !node.includes("clicked@"); i++) {
     node = await (async () => {
@@ -216,9 +230,11 @@ const phaseA = async () => {
  *  workdir's run_it020_model.star), so the FSC section legitimately
  *  survives the cleanup and the law that survives the world's evolution is
  *  SOURCE HONESTY: the FSC section names the source it actually used (and
- *  that file exists on disk), the seeded families stay gone (Resolution
- *  progress has no other source — its run_itXXX files were the seed's),
- *  and the postprocess-only section (Guinier) vanishes with its evidence. */
+ *  that file exists on disk), nothing claims the removed seed, and the
+ *  postprocess-only section (Guinier) vanishes with its evidence.
+ *  t1130 — the t1125 world carries its own PERMANENT run_itXXX family, so
+ *  the Resolution progress section survives too (world-adaptive: the seed's
+ *  exclusive it-30 row is the fingerprint that must stay gone). */
 const phaseB = async () => {
   console.log("== PHASE B: source honesty (seed data removed) ==");
   sh(SEED_CLEAN);
@@ -233,21 +249,26 @@ const phaseB = async () => {
   const { toasts, blobs } = await hookAndClickReport();
   if (!/Run report downloaded/i.test(toasts)) throw new Error(`toast missing: ${toasts}`);
   const md = norm(await blobText());
-  // seeded family stays gone — the run_itXXX model stars WERE its only source
-  if (md.includes("## Resolution progress"))
-    throw new Error("Resolution progress should be absent without the seed");
+  // t1130 — world-adaptive honesty: the t1125 world carries its own permanent
+  // run_itXXX model family (it 000-025), so the Resolution progress section
+  // legitimately survives the seed cleanup. The invariant that survives the
+  // world's evolution is SOURCE HONESTY: no section may claim the removed
+  // seed, and the seed's EXCLUSIVE iteration (30 — the world's own family
+  // tops out at 25) must be gone from the table.
+  if (/## Resolution progress/.test(md) && /\| 30 \|/.test(md))
+    throw new Error("Resolution progress still claims the seed's it-30 row after cleanup");
   // FSC survives on the world's own second source — it must name it,
   // never claim the removed seed, and the named file must exist on disk
-  // (canonical workdir law: data/relion/<project>/<type>_<id8>, manifest)
+  // (canonical workdir law: data/relion/<project>/<type>_<id8> — from the
+  // resolved host, t1130)
   const srcLine = (md.match(/`Source: ([^`]+)`/) || [])[1];
   if (!srcLine) throw new Error("FSC section names no source file");
   if (srcLine.includes("postprocess.star"))
     throw new Error(`FSC still claims the removed seed: ${srcLine}`);
-  const manifest = JSON.parse(readFileSync("/home/z/my-project/data/old-world.json", "utf8"));
-  const hostId = manifest.chain.refine3d;
-  const wd = `/home/z/my-project/data/relion/${manifest.project.id}/refine3d_${hostId.slice(-8)}`;
-  if (!existsSync(`${wd}/${srcLine}`))
-    throw new Error(`FSC source file missing on disk: ${srcLine}`);
+  // t1130 — the disk check follows the RESOLVED HOST (the job whose report we
+  // downloaded), not the stale manifest: same world, same spelling.
+  if (!existsSync(`${HOST_WORKDIR}/${srcLine}`))
+    throw new Error(`FSC source file missing on disk: ${srcLine} (looked in ${HOST_WORKDIR})`);
   // the postprocess-only section must vanish with its evidence
   if (md.includes("## Guinier plot"))
     throw new Error("Guinier section should be absent without postprocess data");

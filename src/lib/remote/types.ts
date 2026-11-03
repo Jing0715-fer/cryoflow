@@ -506,7 +506,35 @@ export interface RemoteRunState {
    * name WHICH promise it fulfills (the missed receipt's row promised the
    * ledger's word; the killed receipt's row named the user).
    */
-  accountingPending?: { at: number; missed: boolean };
+  accountingPending?: {
+    at: number;
+    missed: boolean;
+    /**
+     * t936 — WHICH miss class opened the question. "wire-down" = the
+     * connection itself was gone at stop time (remoteStopRun could not
+     * even reach scancel): the run's fate was UNKNOWABLE at stop time —
+     * it may finish before OR after the attempt — so the landing's
+     * sentence must never claim "already finished"; it names the missing
+     * wire instead. Absent = the refused class (the wire answered and
+     * refused — scancel's exit 1; the t935 lane, whose words are pinned).
+     */
+    class?: "wire-down";
+    /**
+     * t941 — WHICH WORD the cluster spoke when it refused the kill (the
+     * refused class's second knowledge shape). "lost" = the cluster's own
+     * word was "Invalid job id specified" — the controller no longer knew
+     * the job (a controller restart's state loss, an over-eager purge):
+     * the run's fate was UNKNOWABLE at stop time, and the run may be alive
+     * and go on to finish AFTER the attempt — the landing's sentence must
+     * never claim "already finished" (that would be the t935 arc's word
+     * for a fate this arc never saw). Absent = the refused class's first
+     * shape: the cluster said "has already finished" — the fate WAS known
+     * at stop time, the t935 words hold byte-for-byte. (The same law as
+     * the class field: the field rides only the lane whose words it
+     * changes — the t935/t938 question shapes stay untouched.)
+     */
+    refusal?: "lost";
+  };
   /**
    * t626 — the OUTPUTS LEDGER's open question, opened by the accounting
    * landing itself (the fourth level's first slice): a landed run's row may

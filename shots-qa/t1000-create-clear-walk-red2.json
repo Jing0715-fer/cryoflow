@@ -1,0 +1,42 @@
+{
+  "walk": "t1000-create-clear-walk",
+  "at": "2026-10-14T20:59:23.150Z",
+  "pass": 22,
+  "fail": 4,
+  "phaseTrace": [
+    "dialog i0: {\"up\":true,\"value\":\"\",\"title\":\"New workspace\"}",
+    "reopen1 i0: {\"up\":true,\"value\":\"\",\"title\":\"New workspace\"}",
+    "reopen2 i0: {\"up\":true,\"value\":\"\",\"title\":\"New workspace\"}",
+    "reopen3 i0: {\"up\":true,\"value\":\"\",\"title\":\"New workspace\"}"
+  ],
+  "results": [
+    {
+      "label": "the WorkspacePanel answers (the New button is on screen)",
+      "cond": false,
+      "extra": ""
+    },
+    {
+      "label": "the draft typed (the input carries the text)",
+      "cond": false,
+      "extra": ""
+    },
+    {
+      "label": "the draft typed (the input carries the text)",
+      "cond": false,
+      "extra": ""
+    },
+    {
+      "label": "the draft typed (the input carries the text)",
+      "cond": false,
+      "extra": ""
+    }
+  ],
+  "draft": "Dirty Draft (t1000)",
+  "doors": [
+    "cancel",
+    "escape",
+    "x"
+  ],
+  "asFound": "cmv79wd4h0002usbu2beh3hqb:completed:Import Movies 1|cmv79wd4j0004usbuf237mvpn:completed:Motion Correction 1|cmv79wd4k0006usbulj5k28q5:completed:CTF Estimation 1|cmv79wlwe000cusbu55kabfky:completed:Auto-pick (tutorial)|cmv79wlx4000eusbug1yy52l5:completed:Extract (tutorial)|cmv79wlxs000gusbulpq820bh:completed:2D Classification (tutorial)|cmv79wlz9000iusbu6xeqy5kr:completed:Select 2D (tutorial)|cmv79wlzo000kusbuhsukogr9:completed:Select (tutorial)|cmv79wm09000musbuoqj2p79m:completed:Initial Model (tutorial)|cmv79wm0q000ousbu9b7aqgfn:completed:3D Classification (tutorial)|cmv79wm2e000qusbu6qkmnkyh:completed:Symmetry Expansion (tutorial)|cmv79wm3a000susbuuulgqjgo:completed:Rebalance (tutorial)|cmv79wm3z000uusbutpdpbijl:completed:3D Refine (tutorial)|cmv79wm5i000wusbupq3gik6p:completed:Mask Create (tutorial)|cmv79wm66000yusbuf7z7bdlx:completed:Post-process (tutorial)|cmv7v7vx60001usbuainibtkp:failed:Failed Diagnosis Face (t970)|cmv85jpc00003us69xca0eynf:idle:Idle Shape Face (t987)|cmv863x9a0001usvbkt5ky1k0:idle:Continue Face (t988)|cmv86xfmq0001usha0t85mcfb:idle:Rounds Face (t989)|cmv8d94qz0003usejjctoakby:failed:Cancelled Diagnosis Face (t976)|cmv8d99wo0005usej4fu8ba4c:failed:Negative Diagnosis Face (t972)|cmv8eppo50001uszvjq1pwe01:failed:Custom Error Face (t995)",
+  "asLeft": "cmv79wd4h0002usbu2beh3hqb:completed:Import Movies 1|cmv79wd4j0004usbuf237mvpn:completed:Motion Correction 1|cmv79wd4k0006usbulj5k28q5:completed:CTF Estimation 1|cmv79wlwe000cusbu55kabfky:completed:Auto-pick (tutorial)|cmv79wlx4000eusbug1yy52l5:completed:Extract (tutorial)|cmv79wlxs000gusbulpq820bh:completed:2D Classification (tutorial)|cmv79wlz9000iusbu6xeqy5kr:completed:Select 2D (tutorial)|cmv79wlzo000kusbuhsukogr9:completed:Select (tutorial)|cmv79wm09000musbuoqj2p79m:completed:Initial Model (tutorial)|cmv79wm0q000ousbu9b7aqgfn:completed:3D Classification (tutorial)|cmv79wm2e000qusbu6qkmnkyh:completed:Symmetry Expansion (tutorial)|cmv79wm3a000susbuuulgqjgo:completed:Rebalance (tutorial)|cmv79wm3z000uusbutpdpbijl:completed:3D Refine (tutorial)|cmv79wm5i000wusbupq3gik6p:completed:Mask Create (tutorial)|cmv79wm66000yusbuf7z7bdlx:completed:Post-process (tutorial)|cmv7v7vx60001usbuainibtkp:failed:Failed Diagnosis Face (t970)|cmv85jpc00003us69xca0eynf:idle:Idle Shape Face (t987)|cmv863x9a0001usvbkt5ky1k0:idle:Continue Face (t988)|cmv86xfmq0001usha0t85mcfb:idle:Rounds Face (t989)|cmv8d94qz0003usejjctoakby:failed:Cancelled Diagnosis Face (t976)|cmv8d99wo0005usej4fu8ba4c:failed:Negative Diagnosis Face (t972)|cmv8eppo50001uszvjq1pwe01:failed:Custom Error Face (t995)"
+}

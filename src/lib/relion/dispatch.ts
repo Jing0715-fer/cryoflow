@@ -141,6 +141,13 @@ async function resolveLinkRoot(job: Job): Promise<Job> {
  * Engine-native types ignore the remote target — they are local fs work and
  * their outputs stage to the cluster when a downstream remote job needs them.
  */
+/** t1015 — the P2025 belt: a native run's writes can land after the row is
+ * gone (the delete door's stop-first unwind races the delete itself). A
+ * P2025 on a settle write is not a crash — the job left mid-run; the engine
+ * stands down honestly instead of 500-ing the run route. */
+const isP2025 = (e: unknown): boolean =>
+  typeof e === "object" && e !== null && (e as { code?: string }).code === "P2025";
+
 export async function startJob(
   job: Job,
   opts: { remote?: RemoteRunTarget } = {}
@@ -200,21 +207,31 @@ export async function startJob(
     }
 
     const startedAtMs = Date.now();
-    let updated = await db.job.update({
-      where: { id: job.id },
-      data: {
-        status: "running",
-        startedAt: new Date(startedAtMs),
-        // t445 — the recipe snapshot rides the SAME instant startedAt is
-        // written (only a real run refreshes the evidence). The drift face
-        // reads it against the CURRENT params: a later edit that was never
-        // re-run shows as "recipe changed since this run".
-        ranParams: job.params,
-        progress: 0,
-        result: null,
-        duration: REAL_DURATION_HINT,
-      },
-    });
+    let updated: Job;
+    try {
+      updated = await db.job.update({
+        where: { id: job.id },
+        data: {
+          status: "running",
+          startedAt: new Date(startedAtMs),
+          // t445 — the recipe snapshot rides the SAME instant startedAt is
+          // written (only a real run refreshes the evidence). The drift face
+          // reads it against the CURRENT params: a later edit that was never
+          // re-run shows as "recipe changed since this run".
+          ranParams: job.params,
+          progress: 0,
+          result: null,
+          duration: REAL_DURATION_HINT,
+        },
+      });
+    } catch (e) {
+      if (isP2025(e)) {
+        // the row left between the route's findUnique and the flip — nothing
+        // to run; the caller's next roster read already knows
+        return { job, error: "the job was deleted before the run could start" };
+      }
+      throw e;
+    }
 
     const outcome = await runRealJob(
       {
@@ -232,31 +249,46 @@ export async function startJob(
         // failed: a failed import no longer cascades red CTF/extract/… errors
         // down the pipeline. The result line says exactly what to fix. The
         // job auto-starts the moment its inputs become ready (see below).
-        updated = await db.job.update({
-          where: { id: job.id },
-          data: { status: "pending", progress: 0, result: outcome.error },
-        });
+        try {
+          updated = await db.job.update({
+            where: { id: job.id },
+            data: { status: "pending", progress: 0, result: outcome.error },
+          });
+        } catch (e) {
+          if (!isP2025(e)) throw e; // t1015 — the row left mid-run: stand down
+          return { job, error: outcome.error };
+        }
         return { job: updated, waiting: outcome.waiting };
       }
       // honest failure (RELION missing / bad params / external missing)
-      updated = await db.job.update({
-        where: { id: job.id },
-        data: { status: "failed", progress: 0, result: outcome.error ?? "failed" },
-      });
+      try {
+        updated = await db.job.update({
+          where: { id: job.id },
+          data: { status: "failed", progress: 0, result: outcome.error ?? "failed" },
+        });
+      } catch (e) {
+        if (!isP2025(e)) throw e; // t1015 — the row left mid-run: stand down
+        return { job, error: outcome.error ?? "failed" };
+      }
       return { job: updated, error: outcome.error };
     }
 
     if (outcome.native) {
       // engine-native job completed synchronously
-      updated = await db.job.update({
-        where: { id: job.id },
-        data: {
-          status: "completed",
-          progress: 100,
-          result: outcome.result ?? "completed",
-          duration: Math.max(500, Date.now() - startedAtMs),
-        },
-      });
+      try {
+        updated = await db.job.update({
+          where: { id: job.id },
+          data: {
+            status: "completed",
+            progress: 100,
+            result: outcome.result ?? "completed",
+            duration: Math.max(500, Date.now() - startedAtMs),
+          },
+        });
+      } catch (e) {
+        if (!isP2025(e)) throw e; // t1015 — the row left mid-run: the delete won; no ghost write
+        return { job };
+      }
       // its outputs just landed → pending downstream jobs auto-start now
       void autoStartPendingDownstream(job.id);
       return { job: updated };
