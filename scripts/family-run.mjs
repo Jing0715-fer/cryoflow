@@ -225,6 +225,30 @@ const readReborn = () => {
   }
 };
 
+// t1162 — the world probe (the snapshot doctor's THIRD face): ONE cheap
+// reading (count+head only — no nine-model dump, no job-ID ledger)
+// stamped onto every batch entry, so the freshness verdict rides the
+// report the cron family already reads. A RED probe (NO-SNAPSHOT /
+// LIED / DRIFTED) is a DOORBELL, not a diagnosis — the full doctor
+// (node scripts/world-snapshot.mjs doctor) holds the hearing; and by
+// the t548 doctrine the runner reports verdicts, it does not repair
+// worlds: the probe NEVER moves the exit code. A mute probe (spawn
+// failure, timeout, unparseable output) is reported as null — the
+// report says so honestly, it does not invent a verdict.
+const probeWorld = () => {
+  try {
+    const r = spawnSync("node", [path.join(SCRIPTS, "world-snapshot.mjs"), "probe"], {
+      encoding: "utf8",
+      timeout: 30_000,
+    });
+    const line = (r.stdout ?? "").trim().split("\n").filter(Boolean).slice(-1)[0] ?? "";
+    const parsed = JSON.parse(line);
+    return parsed && parsed.verdict ? parsed : null;
+  } catch {
+    return null; // the probe went mute — honesty over invention
+  }
+};
+
 // ---- paint (defined BEFORE the CLI reads it — the --batches/--summary
 // branches above the old location would have hit the temporal dead zone)
 const C = {
@@ -250,6 +274,8 @@ if (args.includes("--help") || args.includes("-h")) {
       "  --batches        list the batches and their members (coverage-checked), run nothing\n" +
       "  --summary        print the family summary from scripts/.family-report.json, run nothing\n" +
       "  --reset          delete the accumulated report file, run nothing\n" +
+      "  world probe      every batch entry carries a cheap doctor reading (t1162); --summary speaks it —\n" +
+      "                   a RED probe (NO-SNAPSHOT/LIED/DRIFTED) is a doorbell, never an exit code\n" +
       "  FAMILY_DRILL=<suite>  drill the solo-retry path (first attempt of <suite> fails)\n" +
       "  signals          SIGTERM/SIGINT/SIGHUP kill the in-flight suite's whole group and write an\n" +
       "                   interrupted report entry — the runner dies with its children (exit 143/130)",
@@ -297,6 +323,20 @@ if (args.includes("--summary")) {
         paint.dim(` (${reborn.causes ?? "rebuilt"}${reborn.by ? ` · ${reborn.by}` : ""}) — batches run after this speak from a resurrected world`),
     );
   }
+  // t1162 — the world's freshness, spoken AT reading time (not the
+  // batch entries' stamped past): the report is only as trustworthy
+  // as the world it was gathered in.
+  const worldNow = probeWorld();
+  if (worldNow) {
+    const where = `live ${worldNow.liveJobs ?? "∅"} job${worldNow.liveJobs === 1 ? "" : "s"} · snapshot ${worldNow.snapshotJobs ?? "∅"} @ ${worldNow.snapshotHead ?? "∅"} vs tree ${worldNow.treeHead ?? "∅"}`;
+    console.log(
+      worldNow.red
+        ? paint.red(`  ◆ world probe: ${worldNow.verdict} — ${where} — the doorbell rings; node scripts/world-snapshot.mjs doctor holds the hearing`)
+        : paint.dim(`  ◆ world probe: ${worldNow.verdict} — ${where}`),
+    );
+  } else {
+    console.log(paint.dim("  ◆ world probe: mute (no reading — the report carries no fresh verdict)"));
+  }
   let totPass = 0, totSolo = 0, totFail = 0, totWall = 0, totReborn = 0;
   for (const k of keys) {
     const b = report.batches[k];
@@ -308,6 +348,13 @@ if (args.includes("--summary")) {
       `  ${flag} ${k.padEnd(12)} pass ${String(b.pass).padStart(2)}  solo ${b.soloRecovery}  real-fail ${b.realFail}` +
         paint.dim(`  wall ${(b.wallMs / 1000).toFixed(1)}s  ${b.lastRun}`) +
         (inRebornWorld ? paint.bold("  ⟳ reborn-world") : "") +
+        // t1162 — the stamped world reading: a batch whose entry is
+        // doctor-RED is named AT the batch, not only at the header.
+        (b.world?.red
+          ? paint.red(`  ◆ world-RED(${b.world.verdict} @ ${String(b.world.probedAt).slice(0, 16)}Z)`)
+          : b.world === null
+            ? paint.dim("  ◆ world ∅ (probe mute)")
+            : "") +
         (b.interrupted
           ? paint.bold(
               `  ⚡ INTERRUPTED by ${b.interruptedBy ?? "a signal"} at ${b.interruptedAt ?? "the first breath"}` +
@@ -523,6 +570,21 @@ console.log(
     "\n",
 );
 
+// t1162 — the world is announced BEFORE the family rides it (the t548
+// preflight's sibling): a doctor-RED world is named at the top, with
+// the hearing named, instead of being discovered in the report hours
+// later. Non-fatal: the ride proceeds — verdicts, not repairs.
+{
+  const preWorld = probeWorld();
+  if (preWorld?.red) {
+    console.log(
+      paint.yellow(
+        `  ⚠ preflight: WORLD PROBE ${preWorld.verdict} (live ${preWorld.liveJobs ?? "∅"} vs snapshot ${preWorld.snapshotJobs ?? "∅"} @ ${preWorld.snapshotHead ?? "∅"}) — the ride proceeds (verdicts, not repairs); hearing: node scripts/world-snapshot.mjs doctor`,
+      ),
+    );
+  }
+}
+
 const verdicts = { PASS: [], "SOLO-RECOVERY": [], "REAL-FAIL": [], "SKIPPED(SERVER)": [] };
 const runSuiteMs = new Map(); // the deciding attempt's wall time, per suite (the report's ledger)
 const t0 = Date.now();
@@ -593,6 +655,7 @@ const signalDeath = (sig) => {
       realFail: verdicts["REAL-FAIL"].length,
       skippedServer: verdicts["SKIPPED(SERVER)"].length,
       wallMs: Date.now() - t0,
+      world: probeWorld(), // t1162 — even a killed batch leaves its world reading (testimony, not silence)
     };
     writeReport(report);
     console.log(
@@ -706,6 +769,7 @@ try {
     realFail: realFail.length,
     skippedServer: verdicts["SKIPPED(SERVER)"].length,
     wallMs: Math.round((Date.now() - t0)),
+    world: probeWorld(), // t1162 — the freshness verdict rides the report
   };
   writeReport(report);
   console.log(paint.dim(`  report → ${REPORT_FILE.replace(ROOT + "/", "")} · key "${reportKey}" (--summary speaks the accumulated truth)`));

@@ -38,6 +38,35 @@
  *                       aligned.
  *            Exit codes: 0 FRESH/STALE (restore may proceed) ·
  *            1 LIED/DRIFTED (the drift is named, not guessed).
+ *   probe    the doctor's THIRD face (t1162): the CHEAP reading for the
+ *            family batch runner — count+head only, ONE live query
+ *            (job count + newest updatedAt, one aggregate; no nine-model
+ *            dump, no job-ID ledger). Machine face: ONE JSON line on
+ *            stdout, {verdict, red, ...} — the freshness verdict rides
+ *            the batch report the cron family already reads. Verdicts,
+ *            loudest first:
+ *              NO-SNAPSHOT  the snapshot file is gone or unparseable —
+ *                           the family is riding a world whose only
+ *                           tracked home vanished.
+ *              LIED         meta.counts.job disagrees with the
+ *                           snapshot's own job rows (the self-truth —
+ *                           the one tooth the probe keeps, free once
+ *                           the JSON is in hand).
+ *              EMPTY-LIVE   the live lane has ZERO jobs while the
+ *                           snapshot carries its spine — the recycle's
+ *                           signature, recovery step 3.5 is about to
+ *                           speak; NOT a disease (the snapshot is the
+ *                           cure here), exit 0.
+ *              DRIFTED      the live job count moved off the snapshot's,
+ *                           or a live job was updated after exportedAt
+ *                           (+1s slack) — the world moved on without
+ *                           the snapshot.
+ *              STALE        counts faithful, the snapshot rides an
+ *                           older commit (the docs/qa cars' footprint).
+ *              FRESH        counts faithful, same head.
+ *            Exit codes: 0 EMPTY-LIVE/STALE/FRESH · 1 NO-SNAPSHOT/
+ *            LIED/DRIFTED (doctor-RED). A RED probe is a DOORBELL, not
+ *            a diagnosis — the full doctor holds the hearing.
  *
  * The URL: CRYOFLOW_DB_URL overrides; default is the dev lane
  * (file:<repo>/db/cryoflow.db) — the t921 split-brain cure's own
@@ -394,15 +423,110 @@ async function cmdDoctor(snapPath) {
   process.exit(0);
 }
 
+/**
+ * Probe (t1162): the doctor's third face — the CHEAP reading for the
+ * family batch runner (see the header). The self-truth is free (the
+ * JSON is already read); the live truth costs ONE aggregate. READ-ONLY
+ * like the doctor: the probe speaks, it never touches.
+ */
+async function cmdProbe(snapPath) {
+  const emit = (obj, code) => {
+    console.log(JSON.stringify(obj));
+    process.exit(code);
+  };
+  const gone = () =>
+    emit(
+      {
+        verdict: "NO-SNAPSHOT",
+        red: true,
+        snapshotJobs: null,
+        liveJobs: null,
+        snapshotHead: null,
+        treeHead: null,
+        exportedAt: null,
+        liveMaxUpdatedAt: null,
+        probedAt: new Date().toISOString(),
+      },
+      1,
+    );
+  if (!existsSync(snapPath)) gone();
+  let snap;
+  try {
+    snap = JSON.parse(readFileSync(snapPath, "utf8"));
+  } catch {
+    gone(); // an unparseable home is no home — same verdict, honestly
+  }
+  if (!snap.data || !snap.meta) gone();
+  const snapJobs = (snap.data.job || []).length;
+  const exportedAt = new Date(snap.meta.exportedAt).getTime();
+
+  // The self-truth, kept: the one tooth that is FREE once the JSON is
+  // in hand (the full doctor keeps all nine; the probe keeps job only).
+  const selfLie =
+    (snap.meta.counts?.job ?? -1) !== snapJobs ||
+    (snap.meta.engineStateJobs ?? -1) !==
+      (snap.engineState ? Object.keys(snap.engineState).length : 0);
+
+  // The live truth, ONE aggregate: count + newest updatedAt.
+  const prisma = openClient(DB_URL);
+  let liveJobs, liveMax;
+  try {
+    const agg = await prisma.job.aggregate({
+      _count: { _all: true },
+      _max: { updatedAt: true },
+    });
+    liveJobs = agg._count._all;
+    liveMax = agg._max.updatedAt;
+  } finally {
+    await prisma.$disconnect();
+  }
+
+  let treeHead = null;
+  try {
+    treeHead = execSync("git rev-parse --short HEAD", { cwd: REPO })
+      .toString()
+      .trim();
+  } catch {}
+  const base = {
+    snapshotJobs: snapJobs,
+    liveJobs,
+    snapshotHead: snap.meta.head ?? null,
+    treeHead,
+    exportedAt: snap.meta.exportedAt ?? null,
+    liveMaxUpdatedAt: liveMax ? new Date(liveMax).toISOString() : null,
+    probedAt: new Date().toISOString(),
+  };
+
+  if (selfLie) {
+    emit({ verdict: "LIED", red: true, ...base }, 1);
+  }
+  if (liveJobs === 0 && snapJobs > 0) {
+    // The recycle's signature: the recovery's step 3.5 is about to
+    // rebuild from this very snapshot — the snapshot is the CURE here,
+    // not a disease. Exit 0.
+    emit({ verdict: "EMPTY-LIVE", red: false, ...base }, 0);
+  }
+  const moved =
+    liveMax && new Date(liveMax).getTime() > exportedAt + 1000;
+  if (liveJobs !== snapJobs || moved) {
+    emit({ verdict: "DRIFTED", red: true, ...base }, 1);
+  }
+  if (snap.meta.head !== treeHead) {
+    emit({ verdict: "STALE", red: false, ...base }, 0);
+  }
+  emit({ verdict: "FRESH", red: false, ...base }, 0);
+}
+
 const cmd = process.argv[2] || "export";
 const arg = process.argv[3];
 if (cmd === "export") await cmdExport(arg || DEFAULT_OUT);
 else if (cmd === "restore") await cmdRestore(arg || DEFAULT_OUT);
 else if (cmd === "selftest") await cmdSelftest();
 else if (cmd === "doctor") await cmdDoctor(arg || DEFAULT_OUT);
+else if (cmd === "probe") await cmdProbe(arg || DEFAULT_OUT);
 else {
   console.error(
-    "usage: world-snapshot.mjs export|restore|selftest|doctor [path]",
+    "usage: world-snapshot.mjs export|restore|selftest|doctor|probe [path]",
   );
   process.exit(1);
 }
