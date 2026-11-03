@@ -1,0 +1,21 @@
+{
+ "task": "t1161",
+ "lane": "the snapshot doctor \u2014 the freshness gate (the durability vein's second face)",
+ "doctor_tracked_world": {
+  "exit": 0,
+  "verdict": "world-snapshot doctor: STALE \u2014 data faithful (project:1 \u00b7 workspace:1 \u00b7 job:15 \u00b7 edge:14 \u00b7 worldLedger:1, engine-state:15) but the snapshot rides 6cb3556a while the tree is at be9c8e80 \u2014 re-export when convenient"
+ },
+ "selftest_after_doctor": "7/7 pins \u2014 live 32 rows, roundtrip linkedJobId clean, temp DB deleted",
+ "unit": {
+  "file": "scripts/t1161-snapshot-doctor-unit.mjs",
+  "verdict": "SNAPSHOT-DOCTOR-UNIT t1161: 16/16 green",
+  "faces": "A6 verdicts provoked on doctored temp copies (LIED x2, DRIFTED both directions, past-dated exportedAt, just-exported FRESH; the tracked snapshot never touched) \u00b7 B6 source law (ladder order, read-only body, exit codes 1/1/0/0, two-sided ledger, 1s slack, URL jurisdiction) \u00b7 C4 doctrine (tracked oath, header ladder, usage line, 3.5 integration)"
+ },
+ "census": "99 seats: 99 GREEN \u00b7 0 RED \u2014 seat 99 born 16/16, enrolled by scripts/t1161-census-rekey.mjs (idempotent x2, 4 edits: NAMES + RUNNERS(0, bare node) + EXPECTED(16) + history clause)",
+ "recovery_integration": "reboot-recover.sh step 3.5 \u2014 job_count probe verified live (15, alive branch); bash -n OK; empty db \u2192 doctor \u2192 restore \u2192 mark_reborn snapshot-restored; living world \u2192 doctor speaks, NO auto-restore (REBOOT_SNAPSHOT_RESTORE=1 forces, the operator owns the wipe); header step list updated",
+ "tsc": 0,
+ "eslint_note": "13 problems (5 errors, 8 warnings) \u2014 ALL pre-existing (t1013/t1014 .cjs require-imports; files untouched this window; src/ clean)",
+ "mem_avail_mb": 794,
+ "build_day": false,
+ "stale_doctrine": "the tracked snapshot is left STALE on purpose \u2014 its data is faithful (doctor-verified) and the STALE verdict is the docs/qa cars' normal footprint; a re-export rides the next world-changing window"
+}
