@@ -90,9 +90,24 @@ echo "[dev-server] DATABASE_URL=$DATABASE_URL  (the runtime world; .env's templa
 # killed it mid-census, and the fuel family's live legs died with it
 # (t1021's world gate read `undefined` where the world should have
 # spoken). A dev server that eats the box is not a dev server. The cap
-# is override-able (DEV_HEAP_MB) and the ancestor's proven default
-# stands: 896 MB.
-export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--max-old-space-size=${DEV_HEAP_MB:-896}"
+# is override-able (DEV_HEAP_MB); the ancestor carried 896 for the older
+# app — webpack's compile of the root page peaked past it (the third
+# strike: a boot OOM INSIDE the cap) so the standing default is 1536 —
+# ~1.7 GB RSS worst case, under half the box, matching the t1166-era
+# server the censuses survived.
+export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--max-old-space-size=${DEV_HEAP_MB:-1536}"
 echo "[dev-server] NODE_OPTIONS=$NODE_OPTIONS (the heap cap — the census rides this server; the box is 4 GB)"
 
-exec npx next dev "$@"
+# ── THE BUNDLER (t1169 — the second strike's cure) ──────────────────────
+# The cap alone did not save the second census ride: Turbopack (Next 16's
+# default dev bundler) keeps its compiled graphs in NATIVE (Rust) memory,
+# which --max-old-space-size cannot bound — anon-rss still hit 2.7 GB and
+# the global OOM killed the server again, mid-census, at seat t1164. The
+# cure is to stop feeding the whale: dev rides --webpack — the SAME
+# bundler the prod lane builds with (`npx next build --webpack`, the
+# build-day command) — and webpack's memory lives in the V8 heap the cap
+# above actually bounds. One bundler, one memory story, one cap that
+# holds. Webpack's compiles are slower than Turbopack's; the census's
+# 60-retry fetch budgets were sized for that and the boot warm-up
+# absorbs the first hits.
+exec npx next dev --webpack "$@"

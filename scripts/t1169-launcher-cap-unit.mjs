@@ -18,11 +18,16 @@
 // 2 — the quoted export post still sits at L82 (the t1167 sentence's
 //     address holds — the cap joined AFTER it, never displacing it)
 // 3 — the cap precedes the exec (the spawned tree inherits it)
-// 4 — the cap is override-able (DEV_HEAP_MB, the ancestor's 896 default)
+// 4 — the cap is override-able (DEV_HEAP_MB, the 1536 standing default)
 // 5 — the exec spawns next THROUGH the cap (the launcher's last word)
 // 6 — the ancestor's cap still present (the two-launcher story honest)
 // 7 — the cap's why rides in the file (the OOM story, the next
 //     rebirth's reading)
+// 8 — the x-bit still on (the t1159 restitution law, seat 105's B7c
+//     agrees)
+// 9 — dev rides the SAME bundler prod builds with (--webpack in the
+//     exec; Turbopack's native memory is what the cap cannot bound —
+//     the second OOM strike's cure)
 //
 // node scripts/unit-runner.mjs scripts/t1169-launcher-cap-unit.mjs
 //
@@ -54,11 +59,12 @@ const execIdx = lines.findIndex((l) => l.startsWith("exec npx next dev"));
 ok("1 the cap is real: NODE_OPTIONS carries --max-old-space-size", capLineIdx !== -1 && /export NODE_OPTIONS=.*--max-old-space-size=/.test(launcherSrc));
 ok("2 the quoted export post still sits at L82 (the cap never displaced it)", (lines[81] ?? "").startsWith("export DATABASE_URL=") === true, `L82 = ${(lines[81] ?? "").slice(0, 40)}…`);
 ok("3 the cap precedes the exec (the spawned tree inherits it)", capLineIdx !== -1 && execIdx !== -1 && capLineIdx < execIdx);
-ok("4 the cap is override-able: DEV_HEAP_MB with the ancestor's 896 default", /\$\{DEV_HEAP_MB:-896\}/.test(launcherSrc));
+ok("4 the cap is override-able: DEV_HEAP_MB with the 1536 standing default", /\$\{DEV_HEAP_MB:-1536\}/.test(launcherSrc));
 ok("5 the exec spawns next through the cap (the launcher's last meaningful line)", execIdx !== -1 && lines.slice(execIdx + 1).every((l) => l.trim() === ""));
 ok("6 the ancestor's cap still present (the two-launcher story honest)", ancestorSrc.includes("--max-old-space-size="));
 ok("7 the cap's why rides in the file (the OOM story for the next rebirth)", launcherSrc.includes("global OOM") && launcherSrc.includes("2.8 GB"));
 ok("8 the x-bit still on (the t1159 restitution law, seat 105's B7c agrees)", (statSync(launcherPath).mode & 0o100) !== 0);
+ok("9 dev rides the SAME bundler prod builds with (--webpack in the exec)", /^exec npx next dev --webpack( |$)/m.test(launcherSrc), lines[execIdx] ?? "");
 
 console.log(`\nt1169 launcher cap unit: ${pass}/${pass + fail} green`);
 process.exit(fail === 0 ? 0 : 1);

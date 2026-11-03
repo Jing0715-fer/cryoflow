@@ -79,8 +79,8 @@ if (!out.includes('"t1169-launcher-cap-unit"')) {
   }
   const pins = m[1].trim().split(/\s+/).filter(Boolean).map(Number);
   if (pins.length === 109) {
-    if (pins[108] !== 8) {
-      console.error(`rekey: seat 109's expectation is ${pins[108]}, expected 8`);
+    if (pins[108] !== 9) {
+      console.error(`rekey: seat 109.s expectation is ${pins[108]}, expected 8`);
       process.exit(1);
     }
     edits.push("EXPECTED (already)");
