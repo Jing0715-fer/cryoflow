@@ -82,4 +82,17 @@ fi
 export DATABASE_URL="file:${REPO}/db/cryoflow.db"
 echo "[dev-server] DATABASE_URL=$DATABASE_URL  (the runtime world; .env's template is NOT load-bearing)"
 
+# ── THE HEAP CAP (t1169 — the rebirth restitution) ──────────────────────
+# The reborn launcher dropped the cap its ancestor carried
+# (scripts/dev-server.sh's own NODE_OPTIONS line) and the 2026-11-03
+# 22:2x census caught the consequence LIVE: an uncapped next-server
+# ballooned to 2.8 GB anon on the 4 GB box, the kernel's global OOM
+# killed it mid-census, and the fuel family's live legs died with it
+# (t1021's world gate read `undefined` where the world should have
+# spoken). A dev server that eats the box is not a dev server. The cap
+# is override-able (DEV_HEAP_MB) and the ancestor's proven default
+# stands: 896 MB.
+export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--max-old-space-size=${DEV_HEAP_MB:-896}"
+echo "[dev-server] NODE_OPTIONS=$NODE_OPTIONS (the heap cap — the census rides this server; the box is 4 GB)"
+
 exec npx next dev "$@"
