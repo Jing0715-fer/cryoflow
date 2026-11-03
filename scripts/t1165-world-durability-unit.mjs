@@ -76,7 +76,7 @@ const live = readWorldDurability();
 const SIX = new Set(WORLD_DURABILITY_VERDICTS);
 ok("A1 the probe instrument answers ok:true", live.ok === true);
 if (live.ok) {
-  ok("A2 the verdict is one of the six ladder words", SIX.has(live.verdict));
+  ok("A2 the verdict is one of the ladder words", SIX.has(live.verdict));
   ok("A3 red rides a boolean", typeof live.red === "boolean");
   ok("A4 liveJobs is a non-negative number", typeof live.liveJobs === "number" && live.liveJobs >= 0);
   ok(
@@ -110,14 +110,14 @@ ok("A15 absent stamp → null (never a guessed 0m)", relativeAgeWord(null, NOW) 
 ok("A16 unparseable stamp → null", relativeAgeWord("not-a-date", NOW) === null);
 
 const notes = WORLD_DURABILITY_VERDICTS.map((v) => worldVerdictNote(v));
-ok("A17 the six notes are all non-empty", notes.every((n) => n.length > 20));
-ok("A18 the six notes are distinct words", new Set(notes).size === 6);
+ok("A17 the seven notes are all non-empty", notes.every((n) => n.length > 20));
+ok("A18 the seven notes are distinct words", new Set(notes).size === 7);
 ok(
-  "A19 every note names a MOVE (restore or re-export or read the probe)",
-  notes.every((n) => /restore|re-export|read the probe/i.test(n))
+  "A19 every note names a MOVE (restore or re-export or read the probe or check the lane)",
+  notes.every((n) => /restore|re-export|read the probe|check the db lane/i.test(n))
 );
 ok("A20 an unknown verdict fails to the unknown word", /unknown verdict/.test(worldVerdictNote("MYSTERY")));
-ok("A21 the ladder rides in t1162 order", WORLD_DURABILITY_VERDICTS.join(",") === "NO-SNAPSHOT,LIED,EMPTY-LIVE,DRIFTED,STALE,FRESH");
+ok("A21 the ladder rides in t1162 order (t1166 grew the seventh word)", WORLD_DURABILITY_VERDICTS.join(",") === "NO-SNAPSHOT,LIED,EMPTY-LIVE,MUTE-LIVE,DRIFTED,STALE,FRESH");
 
 console.log("A — parseProbeStdout (the shape law)");
 

@@ -1,24 +1,27 @@
 /**
- * CryoFlow — the world durability WORDS (t1165).
+ * CryoFlow — the world durability WORDS (t1165, grown to seven in
+ * t1166).
  *
- * The pure, client-safe half of the world's durability face: the six
+ * The pure, client-safe half of the world's durability face: the
  * verdicts' ladder order, the relative age word and the verdict's own
  * prose. ZERO node imports — the System diagnostics dialog (a client
  * component) and the server's diagnostics reader (src/lib/diagnostics.ts)
  * both speak from this ONE birthplace; a second formatter is how two
  * faces drift.
  *
- * The verdicts are the t1162 probe ladder's own words — this module
- * never re-derives a verdict (the doorbell law: one probe, many
- * mouths); it only gives the quoted verdict its color bucket, its age
- * word and its recommended move.
+ * The verdicts are the t1162 probe ladder's own words (t1166 added
+ * MUTE-LIVE, the lane's own silence) — this module never re-derives a
+ * verdict (the doorbell law: one probe, many mouths); it only gives the
+ * quoted verdict its color bucket, its age word and its recommended
+ * move.
  */
 
-/** The six verdicts the probe ladder speaks, in ladder order. */
+/** The seven verdicts the probe ladder speaks, in ladder order. */
 export const WORLD_DURABILITY_VERDICTS = [
   "NO-SNAPSHOT",
   "LIED",
   "EMPTY-LIVE",
+  "MUTE-LIVE",
   "DRIFTED",
   "STALE",
   "FRESH",
@@ -56,6 +59,8 @@ export function worldVerdictNote(verdict: string): string {
       return "The snapshot contradicts itself (its own counts disagree with its rows) — do not trust it; re-export.";
     case "EMPTY-LIVE":
       return "The live lane is empty while the snapshot carries a spine — the recycle's signature. Restore is the recovery's business.";
+    case "MUTE-LIVE":
+      return "The live lane did not answer at all (locked, corrupt, or not a database) — the probe is blind, not the world empty; check the db lane before trusting any verdict.";
     case "DRIFTED":
       return "The live world moved since the export (count shift or fresher rows) — restore to turn back, or re-export to adopt.";
     case "STALE":

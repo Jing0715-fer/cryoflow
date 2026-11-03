@@ -27,6 +27,15 @@
  *              LIED     meta.counts disagree with the snapshot's own
  *                       data rows — a snapshot that lies about itself
  *                       is worse than no snapshot.
+ *              EMPTY-LIVE the live lane holds ZERO readable jobs (zero
+ *                       rows, or NO tables at all — the 0-byte db lane,
+ *                       t1166) while the snapshot carries its spine —
+ *                       the recycle's signature; the snapshot is the
+ *                       cure (restore), exit 0.
+ *              MUTE-LIVE the live lane did not answer at all (locked,
+ *                       corrupt, or not a database) — the doctor is
+ *                       BLIND, not the world empty; a blind guard is a
+ *                       doorbell, exit 1, the why quoted.
  *              DRIFTED  the live world has moved since the snapshot
  *                       (count or job-ID differences, or rows updated
  *                       after exportedAt) — a restore now would
@@ -36,8 +45,9 @@
  *                       re-export when convenient.
  *              FRESH    counts faithful, job IDs equal, engine-state
  *                       aligned.
- *            Exit codes: 0 FRESH/STALE (restore may proceed) ·
- *            1 LIED/DRIFTED (the drift is named, not guessed).
+ *            Exit codes: 0 EMPTY-LIVE/FRESH/STALE (restore may
+ *            proceed) · 1 LIED/MUTE-LIVE/DRIFTED (the drift or the
+ *            blindness is named, not guessed).
  *   probe    the doctor's THIRD face (t1162): the CHEAP reading for the
  *            family batch runner — count+head only, ONE live query
  *            (job count + newest updatedAt, one aggregate; no nine-model
@@ -56,7 +66,14 @@
  *                           snapshot carries its spine — the recycle's
  *                           signature, recovery step 3.5 is about to
  *                           speak; NOT a disease (the snapshot is the
- *                           cure here), exit 0.
+ *                           cure here), exit 0. The no-tables lane
+ *                           (P2021, the 0-byte db) speaks this too,
+ *                           with a why (t1166).
+ *              MUTE-LIVE    the live lane did not answer at all (the
+ *                           db is locked, corrupt, or not a database)
+ *                           — the probe is BLIND, not the world empty;
+ *                           a blind guard is a doorbell, exit 1, the
+ *                           why quoted (t1166, the worded-absence law).
  *              DRIFTED      the live job count moved off the snapshot's,
  *                           or a live job was updated after exportedAt
  *                           (+1s slack) — the world moved on without
@@ -65,7 +82,7 @@
  *                           older commit (the docs/qa cars' footprint).
  *              FRESH        counts faithful, same head.
  *            Exit codes: 0 EMPTY-LIVE/STALE/FRESH · 1 NO-SNAPSHOT/
- *            LIED/DRIFTED (doctor-RED). A RED probe is a DOORBELL, not
+ *            LIED/MUTE-LIVE/DRIFTED (doctor-RED). A RED probe is a DOORBELL, not
  *            a diagnosis — the full doctor holds the hearing.
  *
  * The URL: CRYOFLOW_DB_URL overrides; default is the dev lane
@@ -111,6 +128,30 @@ function openClient(url) {
   });
 }
 
+/**
+ * The why of a silent lane (t1166): a mute says WHY, not a stack trace.
+ * Prisma wraps the useful words two layers deep (the invocation
+ * boilerplate owns line one; the connector's own words sit in
+ * `message: Some("…")`) — dig for the connector's words first, then the
+ * first informative line, then anything at all. Never an empty why.
+ */
+function whyOf(e) {
+  const raw = String((e && e.message) || e || "");
+  const inner = raw.match(/message: Some\("([^"]+)"\)/);
+  if (inner) return inner[1];
+  const line = raw
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(
+      (s) =>
+        s.length > 0 &&
+        !s.startsWith("Invalid `prisma") &&
+        !s.startsWith("Error occurred during query execution"),
+    )[0];
+  if (line) return line;
+  return raw.slice(0, 160) || "the lane raised an unnamed error";
+}
+
 async function dumpModels(prisma) {
   const data = {};
   for (const m of MODELS) {
@@ -123,7 +164,12 @@ async function dumpModels(prisma) {
 
 async function wipeModels(prisma) {
   for (const m of [...MODELS].reverse()) {
-    await prisma[m].deleteMany();
+    try {
+      await prisma[m].deleteMany();
+    } catch (e) {
+      if (e && e.code === "P2021") continue; // nothing to wipe — the bare lane IS this cure's patient (t1166)
+      throw e;
+    }
   }
 }
 
@@ -339,14 +385,34 @@ async function cmdDoctor(snapPath) {
   const engineLie = (snap.meta.engineStateJobs ?? -1) !== engineKeys;
 
   // 2-4. the live truth: count every model in the lane the URL names.
+  // The lane can be SILENT — the 0-byte db holds NO tables (P2021), or
+  // worse, is locked/corrupt and answers nothing (t1166): the doctor
+  // speaks the silence instead of crashing (a mute says why, a blind
+  // guard is a doorbell — never an unhandled stack trace).
   const prisma = openClient(DB_URL);
   let liveCounts, liveJobs, liveEngineKeys;
+  let liveMute = null;
   try {
     const live = await dumpModels(prisma);
     liveCounts = Object.fromEntries(
       MODELS.map((m) => [m, (live[m] || []).length]),
     );
     liveJobs = live.job || [];
+  } catch (e) {
+    // both mute kinds keep SAFE shapes: the moved/ledger computations
+    // below run before the mute speaks, so the silence reads as zero.
+    liveCounts = Object.fromEntries(MODELS.map((m) => [m, 0]));
+    liveJobs = [];
+    if (e && e.code === "P2021") {
+      // the 0-byte lane: zero readable rows, the recycle's sharpest
+      // signature — the snapshot is the cure, restore decides.
+      liveMute = {
+        kind: "EMPTY-LIVE",
+        why: "the live lane has no tables (the 0-byte db lane)",
+      };
+    } else {
+      liveMute = { kind: "MUTE-LIVE", why: whyOf(e) };
+    }
   } finally {
     await prisma.$disconnect();
   }
@@ -393,6 +459,20 @@ async function cmdDoctor(snapPath) {
       `world-snapshot doctor: LIED — ${bits.join("; ")} — a snapshot that lies about itself is worse than no snapshot; re-export (node scripts/world-snapshot.mjs export)`,
     );
     process.exit(1);
+  }
+  if (liveMute && liveMute.kind === "MUTE-LIVE") {
+    console.error(
+      `world-snapshot doctor: MUTE-LIVE — ${liveMute.why} — the doctor is blind, not the world drifted; check the db lane the URL names`,
+    );
+    process.exit(1);
+  }
+  if (liveMute) {
+    // EMPTY-LIVE: zero readable jobs under a carrying snapshot — the
+    // recycle's signature; the snapshot is the cure, exit 0.
+    console.log(
+      `world-snapshot doctor: EMPTY-LIVE — ${liveMute.why} — the recycle's signature: the snapshot is the cure (node scripts/world-snapshot.mjs restore)`,
+    );
+    process.exit(0);
   }
   if (countDrift.length || liveOnly.length || snapOnly.length || moved.length) {
     const bits = [
@@ -480,9 +560,14 @@ async function cmdProbe(snapPath) {
     (snap.meta.engineStateJobs ?? -1) !==
       (snap.engineState ? Object.keys(snap.engineState).length : 0);
 
-  // The live truth, ONE aggregate: count + newest updatedAt.
+  // The live truth, ONE aggregate: count + newest updatedAt. The lane
+  // can be SILENT — the 0-byte db holds NO tables (P2021), or is locked
+  // /corrupt and answers nothing (t1166): the probe speaks the silence
+  // instead of crashing — the worded-absence law, extended to the lane.
   const prisma = openClient(DB_URL);
-  let liveJobs, liveMax;
+  let liveJobs = null;
+  let liveMax = null;
+  let liveMute = null;
   try {
     const agg = await prisma.job.aggregate({
       _count: { _all: true },
@@ -490,6 +575,21 @@ async function cmdProbe(snapPath) {
     });
     liveJobs = agg._count._all;
     liveMax = agg._max.updatedAt;
+  } catch (e) {
+    if (e && e.code === "P2021") {
+      // the 0-byte lane: zero readable jobs, the recycle's signature —
+      // the snapshot is the cure; EMPTY-LIVE speaks it below, exit 0.
+      liveJobs = 0;
+      liveMax = null;
+      liveMute = {
+        kind: "EMPTY-LIVE",
+        why: "the live lane has no tables (the 0-byte db lane)",
+      };
+    } else {
+      // the lane did not answer at all — the probe is BLIND, not the
+      // world empty; a blind guard is a doorbell (MUTE-LIVE, exit 1).
+      liveMute = { kind: "MUTE-LIVE", why: whyOf(e) };
+    }
   } finally {
     await prisma.$disconnect();
   }
@@ -508,10 +608,15 @@ async function cmdProbe(snapPath) {
     exportedAt: snap.meta.exportedAt ?? null,
     liveMaxUpdatedAt: liveMax ? new Date(liveMax).toISOString() : null,
     probedAt: new Date().toISOString(),
+    ...(liveMute ? { why: liveMute.why } : {}),
   };
 
   if (selfLie) {
     emit({ verdict: "LIED", red: true, ...base }, 1);
+  }
+  if (liveMute && liveMute.kind === "MUTE-LIVE") {
+    // the probe is blind — the doorbell rings, the why rides the JSON.
+    emit({ verdict: "MUTE-LIVE", red: true, ...base }, 1);
   }
   if (liveJobs === 0 && snapJobs > 0) {
     // The recycle's signature: the recovery's step 3.5 is about to

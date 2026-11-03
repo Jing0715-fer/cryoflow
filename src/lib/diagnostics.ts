@@ -229,7 +229,7 @@ export function readBuildProvenance(root = process.cwd()): BuildProvenance {
 
 /**
  * The world-snapshot probe's verdict, quoted verbatim. The ok face is
- * the probe's own machine JSON (the t1162 six-verdict ladder); the
+ * the probe's own machine JSON (the t1162 verdict ladder); the
  * mute face says WHY the instrument was silent — the card speaks the
  * reason instead of inventing a verdict (honest-nulls law, extended
  * from null to a worded absence).
@@ -248,7 +248,7 @@ export type WorldDurability =
     }
   | { ok: false; why: string };
 
-/** The six verdicts the probe ladder speaks, in ladder order — the words live in ONE birthplace (world-durability-words.ts, client-safe; this server module re-speaks them verbatim when quoting the probe). */
+/** The seven verdicts the probe ladder speaks, in ladder order — the words live in ONE birthplace (world-durability-words.ts, client-safe; this server module re-speaks them verbatim when quoting the probe). */
 export { WORLD_DURABILITY_VERDICTS } from "@/lib/world-durability-words";
 
 /**

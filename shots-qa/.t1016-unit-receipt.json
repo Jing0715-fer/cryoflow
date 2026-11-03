@@ -3,7 +3,7 @@
   "verdict": "GREEN",
   "pass": 48,
   "fail": 0,
-  "at": "2026-11-03T06:21:23.724Z",
+  "at": "2026-11-03T11:53:26.937Z",
   "bands": [
     "M mirror",
     "L lifted oracle + projection",

@@ -63,11 +63,12 @@ function verdictTone(verdict: "healthy" | "watch" | "danger") {
 }
 
 /**
- * The durability verdict's color bucket (t1165) — the same rail
- * grammar: FRESH runs teal, STALE/EMPTY-LIVE are the amber "watch"
- * band (the recovery's business, not an alarm), the doctor-RED trio
- * (NO-SNAPSHOT · LIED · DRIFTED) is danger red, and an unknown word
- * fails safe to amber (never dressed as green).
+ * The durability verdict's color bucket (t1165, seven words since
+ * t1166) — the same rail grammar: FRESH runs teal, STALE/EMPTY-LIVE
+ * are the amber "watch" band (the recovery's business, not an alarm),
+ * the doctor-RED family is danger red — NO-SNAPSHOT · LIED · DRIFTED
+ * by name, MUTE-LIVE by its red flag (a blind guard is a doorbell) —
+ * and an unknown word fails safe to amber (never dressed as green).
  */
 function durabilityTone(verdict: string, red: boolean) {
   if (verdict === "FRESH") return { dot: "bg-running-500", text: "text-running" };
