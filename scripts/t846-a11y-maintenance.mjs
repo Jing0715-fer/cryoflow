@@ -198,7 +198,7 @@ if (pick.found) {
 }
 sleep(2);
 const i1 = settle("the inspector (the analytics surfaces mount late — t860's probe)");
-ok("M9 inspector arrived: dialog + inspector heading (the SHAPE — the name is world-state, t859's law)", i1.hasDlg && typeof i1.dlgHeading === "string" && /— job inspector/.test(i1.dlgHeading), `heading="${i1.dlgHeading}"`); // t899 re-pin: the door is now world-independent, so the heading asserts only its shape — any job's name rides the front, the "— job inspector" tail is the contract. CONTAINS, not endsWith: the aria-labelledby chain carries the description after the title (the extractor's 40-char window is noise, not world)
+ok("M9 inspector arrived: dialog + inspector heading (the SHAPE — the name is world-state, t859's law)", i1.hasDlg && typeof i1.dlgHeading === "string" && /Job inspector: .+/.test(i1.dlgHeading), `heading="${i1.dlgHeading}"`); // t1159 re-key (the gate's first ride since t899 — it slept while the census took the standing seat): the dialect's word order flipped in the t900→t1157 stretch — the sr-only DialogTitle now LEADS with the instrument's name ("Job inspector: <name>", job-inspector.tsx:4791) where the t899 dialect trailed it ("<name> — job inspector"). The t899 law stands unchanged — the door is world-independent, the name still rides the heading, only its seat moved; the pin follows the source's intent, not the fossil's word order. CONTAINS, not endsWith: the aria-labelledby chain carries the description after the title (the extractor's 40-char window is noise, not world)
 /* t900 — the wart is FIXED: the inspector's onOpenAutoFocus now seats
  * focus on the CONTENT node (the t391 ghost-tooltip law kept — no
  * focusable trigger focused — while the opener lives inside; the t900
