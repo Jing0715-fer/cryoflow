@@ -23,7 +23,7 @@
  */
 
 import * as React from "react";
-import { Activity, Boxes, Cpu, HardDrive, MemoryStick, RefreshCw } from "lucide-react";
+import { Activity, Boxes, Cpu, HardDrive, MemoryStick, RefreshCw, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -36,8 +36,12 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useWorkflowStore } from "@/lib/store";
 import { EngineBuildRail } from "@/components/workflow/engine-guidance";
-import type { DiagnosticsClient } from "@/lib/types";
+import type { DiagnosticsClient, WorldDurabilityClient } from "@/lib/types";
 import { formatCountFull } from "@/lib/result-counts"; // t1157 — the thousands word rides its ONE father (the locale pin lives in result-counts, the parser's own contract)
+import {
+  relativeAgeWord,
+  worldVerdictNote,
+} from "@/lib/world-durability-words"; // t1165 — the words ride their ONE birthplace (client-safe; the server reader and the presenter speak the same fathers)
 
 /* ------------------------------------------------------------------ */
 /* primitives                                                          */
@@ -56,6 +60,22 @@ function verdictTone(verdict: "healthy" | "watch" | "danger") {
     case "danger":
       return { dot: "bg-danger", text: "text-danger", label: "Danger" };
   }
+}
+
+/**
+ * The durability verdict's color bucket (t1165) — the same rail
+ * grammar: FRESH runs teal, STALE/EMPTY-LIVE are the amber "watch"
+ * band (the recovery's business, not an alarm), the doctor-RED trio
+ * (NO-SNAPSHOT · LIED · DRIFTED) is danger red, and an unknown word
+ * fails safe to amber (never dressed as green).
+ */
+function durabilityTone(verdict: string, red: boolean) {
+  if (verdict === "FRESH") return { dot: "bg-running-500", text: "text-running" };
+  if (verdict === "STALE" || verdict === "EMPTY-LIVE")
+    return { dot: "bg-warning-500", text: "text-warning" };
+  if (red || verdict === "NO-SNAPSHOT" || verdict === "LIED" || verdict === "DRIFTED")
+    return { dot: "bg-danger", text: "text-danger" };
+  return { dot: "bg-warning-500", text: "text-warning" };
 }
 
 /**
@@ -188,6 +208,10 @@ export default function SystemDiagnosticsDialog({
   }, [open, diag, loading, fetchDiag]);
 
   const memory = diag?.memory ?? null;
+  const durability: WorldDurabilityClient | null = diag?.durability ?? null;
+  const durOk = durability?.ok === true ? durability : null;
+  const durTone = durOk ? durabilityTone(durOk.verdict, durOk.red) : null;
+  const durAge = durOk ? relativeAgeWord(durOk.exportedAt) : null;
   const tone = memory ? verdictTone(memory.verdict) : null;
   const laneMax = memory ? Math.max(memory.memTotalMb, 1) : 1;
   const guardAvailablePct = memory ? (2600 / laneMax) * 100 : null;
@@ -230,7 +254,7 @@ export default function SystemDiagnosticsDialog({
         <div
           tabIndex={0}
           role="region"
-          aria-label="System diagnostics readings — memory lanes, engine, disk, world census"
+          aria-label="System diagnostics readings — memory lanes, engine, disk, world durability, world census"
           className="min-h-0 flex-1 space-y-3 overflow-y-auto px-6 pb-6 pt-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50"
         >
           {/* ---- memory lanes ------------------------------------ */}
@@ -346,6 +370,62 @@ export default function SystemDiagnosticsDialog({
               </div>
             ) : (
               <HonestEmpty what="Disk vitals" />
+            )}
+          </SectionCard>
+
+          {/* ---- world durability (t1165) ------------------------ */}
+          <SectionCard
+            testid="diag-durability"
+            icon={<ShieldCheck />}
+            title="World durability"
+            caption="the probe's verdict"
+          >
+            {durOk ? (
+              <div className="space-y-2" data-testid="diag-durability-verdict">
+                <div className="flex items-center gap-2">
+                  <span className={cn("size-2 rounded-full", durTone?.dot)} aria-hidden="true" />
+                  <span className={cn("text-xs font-semibold", durTone?.text)}>
+                    {durOk.verdict}
+                  </span>
+                  {durOk.red && (
+                    <Badge variant="outline" className="px-1.5 py-0 text-[9px] uppercase">
+                      doctor-RED
+                    </Badge>
+                  )}
+                  <span
+                    className="ml-auto font-mono text-[10px] tabular-nums text-muted-foreground"
+                  >
+                    snapshot {durOk.snapshotJobs ?? "—"} · live {durOk.liveJobs ?? "—"}
+                  </span>
+                </div>
+                {(durOk.snapshotHead || durOk.treeHead) && (
+                  <p
+                    className="font-mono text-[10px] text-muted-foreground"
+                    data-testid="diag-durability-heads"
+                  >
+                    snapshot head {durOk.snapshotHead ?? "—"} → tree head {durOk.treeHead ?? "—"}
+                  </p>
+                )}
+                {durAge && durOk.exportedAt && (
+                  <p className="text-[10px] text-muted-foreground">
+                    exported {durAge} ({new Date(durOk.exportedAt).toLocaleTimeString()}) · probed{" "}
+                    {relativeAgeWord(durOk.probedAt) ?? "just now"}
+                  </p>
+                )}
+                <p className="rounded-md bg-muted/60 px-2.5 py-2 text-[11px] leading-relaxed text-foreground/80">
+                  {worldVerdictNote(durOk.verdict)}
+                </p>
+              </div>
+            ) : durability?.ok === false ? (
+              <p
+                data-testid="diag-durability-mute"
+                className="rounded-md bg-muted/50 px-2.5 py-2 text-xs text-muted-foreground"
+              >
+                The probe instrument is silent on this lane: {durability.why} — the card says so
+                instead of inventing a verdict.
+              </p>
+            ) : (
+              <HonestEmpty what="World durability" />
             )}
           </SectionCard>
 

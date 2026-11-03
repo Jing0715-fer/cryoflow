@@ -20,10 +20,20 @@
  *  - THE GUARD'S DOOR — /api/diagnostics is a sensitive read surface
  *    (it reveals host memory topology); the route speaks through
  *    isLocalRequest exactly like /api/system (t259 law).
+ *  - ONE INSTRUMENT, MANY MOUTHS (t1165) — the world's durability
+ *    verdict is NOT re-derived here: readWorldDurability spawns the
+ *    probe instrument itself (scripts/world-snapshot.mjs probe, the
+ *    t1162 doorbell) and quotes its machine JSON verbatim. A second
+ *    verdict ladder in the product would drift from the instrument the
+ *    cron family rides — the doorbell law's jurisdictions hold because
+ *    there is exactly ONE probe. A mute instrument is an honest face
+ *    ({ ok: false, why }), never a guessed verdict.
  */
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { spawnSync } from "node:child_process";
+import { relativeAgeWord } from "@/lib/world-durability-words";
 
 /* ------------------------------------------------------------------ */
 /* Canonical lines — the campaign's numbers, now product constants     */
@@ -214,6 +224,148 @@ export function readBuildProvenance(root = process.cwd()): BuildProvenance {
 }
 
 /* ------------------------------------------------------------------ */
+/* World durability — the probe's product face (t1165)                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The world-snapshot probe's verdict, quoted verbatim. The ok face is
+ * the probe's own machine JSON (the t1162 six-verdict ladder); the
+ * mute face says WHY the instrument was silent — the card speaks the
+ * reason instead of inventing a verdict (honest-nulls law, extended
+ * from null to a worded absence).
+ */
+export type WorldDurability =
+  | {
+      ok: true;
+      verdict: string;
+      red: boolean;
+      snapshotJobs: number | null;
+      liveJobs: number | null;
+      snapshotHead: string | null;
+      treeHead: string | null;
+      exportedAt: string | null;
+      probedAt: string;
+    }
+  | { ok: false; why: string };
+
+/** The six verdicts the probe ladder speaks, in ladder order — the words live in ONE birthplace (world-durability-words.ts, client-safe; this server module re-speaks them verbatim when quoting the probe). */
+export { WORLD_DURABILITY_VERDICTS } from "@/lib/world-durability-words";
+
+/**
+ * Parse the probe's stdout into the ok face. The instrument's contract
+ * (t1162): ONE machine-JSON line on stdout — take the LAST non-empty
+ * line (a chatty future stays parseable), JSON.parse it, and shape-
+ * check the named fields; anything else is null (the caller words the
+ * mute). A nonzero exit is NOT a mute by itself — the probe exits 1 on
+ * doctor-RED verdicts while still speaking valid JSON; the verdict
+ * rides and red tells the story.
+ */
+export function parseProbeStdout(stdout: string): Extract<WorldDurability, { ok: true }> | null {
+  const lines = stdout.split("\n").map((l) => l.trim()).filter(Boolean);
+  if (lines.length === 0) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(lines[lines.length - 1]);
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== "object" || parsed === null) return null;
+  const p = parsed as Record<string, unknown>;
+  if (typeof p.verdict !== "string" || p.verdict.length === 0) return null;
+  if (typeof p.red !== "boolean") return null;
+  if (typeof p.probedAt !== "string" || p.probedAt.length === 0) return null;
+  const numOrNull = (v: unknown): number | null =>
+    typeof v === "number" && Number.isFinite(v) ? v : null;
+  const strOrNull = (v: unknown): string | null =>
+    typeof v === "string" && v.length > 0 ? v : null;
+  return {
+    ok: true,
+    verdict: p.verdict,
+    red: p.red,
+    snapshotJobs: numOrNull(p.snapshotJobs),
+    liveJobs: numOrNull(p.liveJobs),
+    snapshotHead: strOrNull(p.snapshotHead),
+    treeHead: strOrNull(p.treeHead),
+    exportedAt: strOrNull(p.exportedAt),
+    probedAt: p.probedAt,
+  };
+}
+
+/** Module-level memo — the cwd never changes mid-process. */
+let probeScriptPath: string | null | undefined;
+
+/**
+ * Locate scripts/world-snapshot.mjs by walking up from cwd (the dev
+ * lane lands on the first step; the prod standalone lane lives two
+ * steps down inside .next/standalone and the walk reaches it). Cache
+ * the miss too — a lane without the instrument stays without it.
+ */
+export function findProbeScript(): string | null {
+  if (probeScriptPath !== undefined) return probeScriptPath;
+  probeScriptPath = null;
+  let dir = process.cwd();
+  for (let i = 0; i < 5; i++) {
+    const candidate = join(dir, "scripts", "world-snapshot.mjs");
+    if (existsSync(candidate)) {
+      probeScriptPath = candidate;
+      break;
+    }
+    const parent = join(dir, "..");
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return probeScriptPath;
+}
+
+/** The probe's spawn budget — a diagnostics read must not hang the dialog. */
+export const PROBE_TIMEOUT_MS = 10_000;
+
+/**
+ * Run the REAL probe instrument and quote its verdict (read-only — the
+ * probe is count+head, the doorbell's own cheapness; this reader never
+ * exports, restores or vacuums). spawnSync argv-direct: code through a
+ * shell is code the shell edits first (the t1164 pin). A mute returns
+ * the worded absence: instrument missing / spawn error / timeout /
+ * unparseable stdout — each said, never guessed.
+ */
+export function readWorldDurability(): WorldDurability {
+  const script = findProbeScript();
+  if (!script) {
+    return {
+      ok: false,
+      why: "the probe instrument (scripts/world-snapshot.mjs) was not found on this lane",
+    };
+  }
+  const res = spawnSync(process.execPath, [script, "probe"], {
+    encoding: "utf8",
+    timeout: PROBE_TIMEOUT_MS,
+  });
+  if (res.error) {
+    const word =
+      res.error instanceof Error && res.error.message.includes("ETIMEDOUT")
+        ? `the probe did not answer within ${Math.round(PROBE_TIMEOUT_MS / 1000)}s`
+        : `the probe could not run: ${res.error.message}`;
+    return { ok: false, why: word };
+  }
+  const face = parseProbeStdout(res.stdout ?? "");
+  if (face) return face;
+  const tail = (res.stderr ?? "").trim().split("\n").filter(Boolean).pop();
+  return {
+    ok: false,
+    why: tail
+      ? `the probe's answer was unreadable (${tail.slice(0, 120)})`
+      : "the probe's answer was unreadable (no machine line on stdout)",
+  };
+}
+
+/**
+ * The age word and the verdict's prose live in ONE birthplace
+ * (world-durability-words.ts — the client-safe module the dialog
+ * renders from); the presenter imports the age word from there. The
+ * bench imports the words module directly.
+ */
+
+/* ------------------------------------------------------------------ */
 /* World census                                                       */
 /* ------------------------------------------------------------------ */
 
@@ -242,6 +394,8 @@ export interface DiagnosticsPayload {
   disk: DiskVitals | null;
   provenance: BuildProvenance;
   world: WorldCensus | null;
+  /** t1165 — the probe's verdict, quoted from the ONE instrument. */
+  durability: WorldDurability | null;
   generatedAt: string;
 }
 
@@ -251,11 +405,18 @@ export async function readDiagnostics(): Promise<DiagnosticsPayload> {
     readDiskVitals(),
     readWorldCensus().catch(() => null),
   ]);
+  let durability: WorldDurability | null = null;
+  try {
+    durability = readWorldDurability();
+  } catch {
+    durability = null; // the guard's catch — the card speaks the honest absence
+  }
   return {
     memory,
     disk,
     provenance: readBuildProvenance(),
     world,
+    durability,
     generatedAt: new Date().toISOString(),
   };
 }
@@ -294,6 +455,7 @@ export function presentSystemDiagnostics(payload: DiagnosticsPayload | null): Di
   const m = payload.memory;
   const d = payload.disk;
   const w = payload.world;
+  const dur = payload.durability;
   const memoryLine = m
     ? `available ${m.memAvailableMb}MB (guard GO line ${m.availableLane === "go" ? "passed" : "NOT passed"}) · page cache ${m.buffCacheMb}MB (${m.cacheLane}) · verdict ${m.verdict}`
     : "memory lanes unreadable on this host";
@@ -301,12 +463,17 @@ export function presentSystemDiagnostics(payload: DiagnosticsPayload | null): Di
   const worldLine = w
     ? `${w.projects} projects · ${w.jobs} jobs · ${w.runningJobs} running`
     : "census unreadable";
+  const durLine = dur
+    ? dur.ok
+      ? `world durability ${dur.verdict} (${dur.red ? "doctor-RED" : "not red"}), snapshot ${dur.snapshotJobs ?? "?"} · live ${dur.liveJobs ?? "?"}${relativeAgeWord(dur.exportedAt) ? `, exported ${relativeAgeWord(dur.exportedAt)}` : ""}`
+      : `world durability unreadable (${dur.why})`
+    : "world durability unreadable";
   const buildLine = payload.provenance.commit
     ? `running build ${payload.provenance.commit}${payload.provenance.standalone ? " (standalone lane)" : ""}`
     : "running build carries no provenance stamp (dev or legacy lane)";
   return {
     ok: true,
-    summary: `The box: ${memoryLine}. ${diskLine}. ${worldLine}. ${buildLine}.`,
+    summary: `The box: ${memoryLine}. ${diskLine}. ${worldLine}. ${durLine}. ${buildLine}.`,
     detail: payload,
   };
 }

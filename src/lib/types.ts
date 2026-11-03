@@ -432,12 +432,28 @@ export interface WorldCensusClient {
   runningJobs: number;
 }
 
+/** t1165 — the probe's verdict (or its worded mute), quoted verbatim. */
+export type WorldDurabilityClient =
+  | {
+      ok: true;
+      verdict: string;
+      red: boolean;
+      snapshotJobs: number | null;
+      liveJobs: number | null;
+      snapshotHead: string | null;
+      treeHead: string | null;
+      exportedAt: string | null;
+      probedAt: string;
+    }
+  | { ok: false; why: string };
+
 /** GET /api/diagnostics payload — the box's vitals in one read. */
 export interface DiagnosticsClient {
   memory: MemoryLanesClient | null;
   disk: DiskVitalsClient | null;
   provenance: BuildProvenanceClient;
   world: WorldCensusClient | null;
+  durability: WorldDurabilityClient | null;
   generatedAt: string;
 }
 
