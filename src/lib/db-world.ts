@@ -30,7 +30,7 @@ export function templateWorldWarnOf(
   const isRuntime = /(^|[/=:])cryoflow\.db$/.test(filePart);
   if (isRuntime) return null;
   return (
-    `[db] DATABASE_URL points at "${url}" — that is the TEMPLATE world, ` +
+    `[db] the db url points at "${url}" — that is the TEMPLATE world, ` +
     `not the runtime one (dev-server.sh L82 exports file:${RUNTIME_DB_BASELINE}). ` +
     `Reads here will not see the live project, jobs, edges, or fleet ring.`
   );
