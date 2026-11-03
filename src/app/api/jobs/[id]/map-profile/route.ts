@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
-import { readPathrefTarget } from "@/lib/relion/pathref";
+import { readPathrefTarget, pathrefHatchApplies } from "@/lib/relion/pathref";
 import { resolveInsideJobWorkdir } from "@/lib/relion/jobfile";
 import { isLocalRequest } from "@/lib/http-guard";
 import { cachedCompute } from "@/lib/relion/statcache";
@@ -67,10 +67,15 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: resolved.error }, { status: resolved.status });
     }
     let { abs } = resolved;
-    // pathref markers: engine-written only; maps live in workdirs so this
-    // is defensive — a marker's content is not an MRC and fails the header
-    // check below with an honest 400.
-    if (resolved.name.endsWith(".pathref")) {
+    // pathref markers — the ONE gate (pathrefHatchApplies, t1169's
+    // completion of the t903 verdict): the hatch speaks ONLY for the
+    // engine's canonical markers (micrographs/-scoped hidden dotfiles).
+    // The bare suffix test this route carried before ("defensive — the
+    // header check below will refuse", the old comment said) let a
+    // planted non-hidden `anything/evil.pathref` naming a REAL MRC file
+    // elsewhere on the host pass both the gate and the header check —
+    // the drift /outputs/file's t903 gate had already closed.
+    if (pathrefHatchApplies(rel, resolved.name)) {
       const target = readPathrefTarget(abs);
       if (!target) {
         return NextResponse.json({ error: "Broken path reference (source moved or deleted)" }, { status: 404 });
