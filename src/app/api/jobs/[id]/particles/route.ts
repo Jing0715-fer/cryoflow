@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { existsSync, readFileSync, readdirSync } from "fs";
+import { existsSync, readdirSync } from "fs";
 import path from "path";
 import { db } from "@/lib/db";
 import { findEffectiveJob } from "@/lib/link";
@@ -7,6 +7,7 @@ import { getRun } from "@/lib/relion/engine";
 import { isLocalRequest } from "@/lib/http-guard";
 import { cachedFileCompute } from "@/lib/relion/statcache";
 import { serverErrorReply } from "@/lib/server-error";
+import { readTextHead } from "@/lib/fs-text"; // t1168 — the head probe, not the whole file
 import {
   decodeParticlesRows, // t1101 — the pure decode rides the ONE lib (and the ONE cache slot with its parse)
   parseParticlesStarText,
@@ -112,12 +113,13 @@ function findParticlesStar(workdir: string): string | null {
     for (const f of readdirSync(workdir)) {
       if (!f.endsWith(".star")) continue;
       const p = path.join(workdir, f);
-      try {
-        const head = readFileSync(p, "utf8").slice(0, 4000);
-        if (head.includes("_rlnImageName")) return p;
-      } catch {
-        /* unreadable — skip */
-      }
+      // t1168 — the HEAD, not the file: the old probe read the WHOLE star
+      // (a real Extract's particles.star is gigabytes) and sliced 4000
+      // characters off it — the intent was always a bounded head, and the
+      // well (lib/fs-text's readTextHead) now prices the intent, not the
+      // file. Unreadable → null text → next candidate, exactly as before.
+      const head = readTextHead(p, 4000);
+      if (head?.text.includes("_rlnImageName")) return p;
     }
   } catch {
     /* workdir unreadable */

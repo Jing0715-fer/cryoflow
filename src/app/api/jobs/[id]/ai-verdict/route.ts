@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { isLocalRequest } from "@/lib/http-guard";
 import { findEffectiveJob } from "@/lib/link";
 import { getVerdictStamp } from "@/lib/ai/verdict-stamps";
-import { db } from "@/lib/db";
+// (t1168 — the sweep's smallest cut: the direct `import { db }` here was
+// dead — the route never touched the client; findEffectiveJob owns the db
+// access it needs. An import that drags the Prisma engine into a route
+// that does not query it is a lie of dependency, even when link.ts would
+// pull the same module anyway: the route's own imports must tell the
+// truth about what the route itself uses.)
 
 export const dynamic = "force-dynamic";
 
