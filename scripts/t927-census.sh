@@ -130,9 +130,47 @@ declare -a NAMES=(
   "t1169-launcher-cap-unit"
 )
 declare -a RUNNERS=(1 0 1 1 1 1 2 2 0 0 0 0 1 0 0 0 0 1 0 1 1 1 1 0 1 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 2 2 2 2 2 0 2 2 2 2 2 2 2 2 2 2 2 2 2 0 0 2 2 2 0 2 0 1 1 1 1 1 0 1 1 1 1 1 1 1 1 1 1 1 1 0 0 0 0 0 1 1 1 0 1 1 0) #   +seat 103: t1165 rides unit-runner (the @/lib diagnostics import — the t1148 pure-presenter family's lane) · +seat 102: t1164 rides bare node (the unit imports node: builtins only — no @/lib alias needed) · +seat 101: t1163 rides bare node (the unit imports node: builtins + createRequire only — no @/lib alias needed) · +seat 100: t1162 rides bare node (the unit imports node: builtins + createRequire only — no @/lib alias needed) · +seat 99: t1161 rides bare node (the unit imports node: builtins + child_process only — no @/lib alias needed) · +seat 98: t1160 rides bare node (the snapshot script imports node: builtins + @prisma/client via createRequire — no @/lib alias needed) · +seat 97: t1158 rides unit-runner (the duration father's import, the t1148 family's lane) · +seat 96: t1157 rides unit-runner (the thousands father's import, the t1156 family's lane) · +seat 95: t1156 rides unit-runner (the pixel father's import, the t1155 family's lane) · +seat 94: t1155 rides unit-runner (the fathers' import, the t1148 family's lane) · +seat 93: t1154 rides unit-runner (the scale father's import, the t1148 family's lane) · +seat 92: t1153 rides unit-runner (the duration father's import, the t1148 family's lane) · +seat 91: t1152 rides unit-runner (the father import, the t1148/t1149/t1150 family's lane) · +seat 88: t1149 rides unit-runner (the pure presenter import — the same lane as the t1148 family) · +seat 87: t1148 rides unit-runner (the pure presenter import — the same lane as the t1140 family) · +seat 85: t1146 rides bare node (the brain is a scripts/-module .mjs, zero deps — no jiti alias needed) · +seat 84: t1145 rides unit-runner (the lib brain import, the same lane as the t1140 family) · +seat 89: t1150 rides unit-runner (the counts-father import, the t1148/t1149 family's lane) · +seat 90: t1151 rides unit-runner (the pure presenter import, the t1148/t1149/t1150 family's lane)
-i=0
-for name in "${NAMES[@]}"; do
+# ── the live-leg lane (t1169): the census's server-riding seats need the
+# server UP, and the other 100+ seats never touch it. The old shape rode
+# ONE server through the WHOLE ride — on the 4 GB box the dev server's
+# module graph (~2.5 GB RSS warm: the canvas imports molstar/three;
+# Turbopack's native graphs and webpack's external buffers alike) plus
+# minutes of seat processes ended in the kernel's global OOM twice this
+# window (t1021's world gate reading `undefined`, the takehome's refused
+# connection). Two laws cure it:
+#
+#   1. THE SERVER LIVES ONLY AS LONG AS ITS SEATS DO — boot through the
+#      canonical launcher, run the live seats, kill, then the serverless
+#      crowd rides with the box to itself. An already-running server is
+#      ridden but not killed (not mine to stop).
+#
+#   2. THE LIVE LANE IS API-ONLY — the readiness poll and every live
+#      seat's fetches ride /api/* routes; the canvas page (the whale:
+#      its webpack compile alone was the 2.7 GB boot this window) is
+#      NEVER compiled by the census. t911 fetches /api/jobs, the fuel
+#      family mints through /api/jobs, the takehome's python probe rides
+#      the APIs — no seat needs a page render, so no seat pays the
+#      canvas's compile. (t912 is a pure source seat — it rides the
+#      serverless crowd.)
+declare -a LIVE_SEATS=(
+  "t911-canvas-strip-unit"
+  "t1021-import-fuel-unit"
+  "t1022-fuel-face-unit"
+  "t1023-watchdog-guard-unit"
+  "t1024-dialog-fuel-unit"
+  "t1164-takehome-proof-unit"
+)
+is_live_seat() {
+  local s
+  for s in "${LIVE_SEATS[@]}"; do
+    [ "$s" = "$1" ] && return 0
+  done
+  return 1
+}
+run_one() {
+  local i=$1 name=$2
   unset DATABASE_URL
+  local OUT CODE COUNT
   if [ "${RUNNERS[$i]}" = "1" ]; then
     OUT=$(node scripts/unit-runner.mjs "scripts/${name}.mjs" 2>&1)
   elif [ "${RUNNERS[$i]}" = "2" ]; then
@@ -157,5 +195,35 @@ for name in "${NAMES[@]}"; do
     echo "RED   ${name}: exit=${CODE} count=${COUNT:-?} expected=${EXPECTED[$i]}"
     echo "$OUT" | tail -6 | sed 's/^/    /'
   fi
-  i=$((i+1))
+}
+SERVER_MINE=0
+if curl -s -o /dev/null -m 2 -H "Origin: http://localhost:3000" http://localhost:3000/api/jobs; then
+  echo "census: an external server is already up — riding it for the live-leg seats (not mine to kill)"
+else
+  echo "census: booting the dev server for the live-leg seats (the canonical launcher, heap cap and all)"
+  setsid nohup bash dev-server.sh > /tmp/census-dev-server.log 2>&1 &
+  SERVER_MINE=1
+  for _ in $(seq 1 120); do
+    sleep 2
+    curl -s -o /dev/null -m 2 -H "Origin: http://localhost:3000" http://localhost:3000/api/jobs && break
+  done
+  if curl -s -o /dev/null -m 2 -H "Origin: http://localhost:3000" http://localhost:3000/api/jobs; then
+    echo "census: the live-leg server is up (api lane — the canvas page never compiles)"
+  else
+    echo "census: WARNING the server never came up — the live seats will answer honestly"
+  fi
+fi
+for idx in "${!NAMES[@]}"; do
+  is_live_seat "${NAMES[$idx]}" || continue
+  run_one "$idx" "${NAMES[$idx]}"
+done
+if [ "$SERVER_MINE" = "1" ]; then
+  pkill -f "next dev" 2>/dev/null || true
+  pkill -f next-server 2>/dev/null || true
+  sleep 1
+  echo "census: the live-leg server's shift is over — the serverless crowd rides with the box to itself"
+fi
+for idx in "${!NAMES[@]}"; do
+  is_live_seat "${NAMES[$idx]}" && continue
+  run_one "$idx" "${NAMES[$idx]}"
 done

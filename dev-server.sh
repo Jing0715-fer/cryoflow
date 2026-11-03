@@ -92,10 +92,10 @@ echo "[dev-server] DATABASE_URL=$DATABASE_URL  (the runtime world; .env's templa
 # spoken). A dev server that eats the box is not a dev server. The cap
 # is override-able (DEV_HEAP_MB); the ancestor carried 896 for the older
 # app — webpack's compile of the root page peaked past it (the third
-# strike: a boot OOM INSIDE the cap) so the standing default is 1536 —
-# ~1.7 GB RSS worst case, under half the box, matching the t1166-era
-# server the censuses survived.
-export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--max-old-space-size=${DEV_HEAP_MB:-1536}"
+# strike: a boot OOM INSIDE the cap) so the standing default rose 896 → 1536 → 2048 —
+# ~2.3 GB RSS worst case; the live lane is short (the census kills the
+# server after its seats) so the peak never meets the global OOM.
+export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--max-old-space-size=${DEV_HEAP_MB:-2048}"
 echo "[dev-server] NODE_OPTIONS=$NODE_OPTIONS (the heap cap — the census rides this server; the box is 4 GB)"
 
 # ── THE BUNDLER (t1169 — the second strike's cure) ──────────────────────
