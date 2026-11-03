@@ -204,6 +204,19 @@ async function cmdRestore(snapPath) {
         return [m, rows.length];
       }),
     );
+    // t1163 — the file half's own hygiene: wipe+rebuild leaves SQLite
+    // pages behind (the freelist the deleteMany never returns), and the
+    // page-quantized db size is a PINNED face (the t1021 fuel family
+    // asserts it — 143360 held across the epochs). VACUUM compacts the
+    // rebuilt world back to its canonical shape, so a restored world is
+    // bit-for-bit the tracked world on BOTH faces: the rows (the t1160
+    // roundtrip law) and the bytes (the t1021 family's own law).
+    try {
+      await prisma.$executeRawUnsafe("VACUUM");
+    } catch {
+      /* a locked or exotic lane still keeps its rows — the size face
+         just says so on the next probe, honestly */
+    }
     console.log(
       `world-snapshot: restored ${Object.values(counts).reduce((a, b) => a + b, 0)} rows into ${DB_URL.replace(/file:.*\//, "file:…/")} — the file half rides the chain (scripts/demo-chain-resurrect.mjs)`,
     );
