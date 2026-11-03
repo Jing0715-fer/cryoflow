@@ -32,6 +32,13 @@
 #   2. DEPS           the tar's narrow .gitignore (skills/ + node_modules/)
 #                     means a fresh restore can land without the toolkit.
 #   3. SCHEMA         `prisma db push` — the tar-era schema trails src.
+#   3.5 SNAPSHOT      (t1161) the snapshot doctor speaks, then: an EMPTY
+#                     db (the recycle's signature) is rebuilt from the
+#                     tracked snapshot BEFORE the seed door — a born
+#                     world is the tracked 15-job spine, not a starter.
+#                     A LIVING world is NEVER auto-restored (the doctor's
+#                     drift is the operator's word; REBOOT_SNAPSHOT_
+#                     RESTORE=1 forces and the operator owns the wipe).
 #   4. BUILD          the startable trio gate (BUILD_ID + standalone +
 #                     static). Not green? ONE grinder round per invocation,
 #                     then exit 42: re-run the script, the webpack cache
@@ -159,7 +166,6 @@ if [ ! -f .env ] || ! grep -qF "$PIN" .env; then
 else
   say "1. .env already pinned to db/cryoflow.db"
 fi
-
 # ------------------------------------------------------------------- 2. deps
 if [ "${REBOOT_NEEDS_DEPS:-0}" = "1" ] || [ ! -f node_modules/next/dist/bin/next ]; then
   [ "${REBOOT_NEEDS_DEPS:-0}" = "1" ] \
@@ -176,6 +182,55 @@ if bun run db:push >> "$LOG" 2>&1; then
   say "3. schema in place (prisma db push)"
 else
   say "3. FAILED — db:push died, read $LOG"; exit 1
+fi
+
+# ------------------------------------------------- 3.5 snapshot doctor (t1161)
+# t1160's cure rides the recovery now (the durability vein's second face):
+# an EMPTY live db (the recycle's signature — the tar ate db/, step 3 just
+# recreated an empty shell) is rebuilt from the tracked snapshot BEFORE the
+# seed door, so a born world is the TRACKED world (the completed 15-job
+# spine), not a 3-node starter waiting for the chain to grow it. The doctor
+# (world-snapshot.mjs doctor — READ-ONLY) speaks first: LIED/DRIFTED exit 1.
+#   · on an EMPTY db the restore proceeds anyway — an old world beats no
+#     world, and the drift is named in the log, not discovered at 2am;
+#   · on a LIVING world there is NO automatic restore — the doctor's drift
+#     is the operator's word (REBOOT_SNAPSHOT_RESTORE=1 forces, the operator
+#     owns the wipe); the world rides on.
+# On a living, aligned world this step is one doctor line — a no-op pass.
+job_count="$(node -e "
+const {PrismaClient}=require('@prisma/client');
+const p=new PrismaClient({datasources:{db:{url:'$DB_URL'}}});
+p.job.count().then(c=>{console.log(c);return p.\$disconnect()}).catch(()=>console.log(-1));
+" 2>/dev/null || echo -1)"
+if [ "$job_count" = "0" ]; then
+  say "3.5 EMPTY world (jobs:0 — the recycle's signature) — the tracked snapshot rebuilds it (t1160's cure, one command)"
+  node scripts/world-snapshot.mjs doctor >> "$LOG" 2>&1 \
+    || say "3.5 doctor named a drift (read $LOG) — restoring anyway: an old world beats no world on an empty db"
+  if node scripts/world-snapshot.mjs restore >> "$LOG" 2>&1; then
+    mark_reborn snapshot-restored
+    say "3.5 world restored from fixtures/world-snapshot.json — the file half rides the chain (step 9)"
+  else
+    say "3.5 FAILED — snapshot restore died, read $LOG"; exit 1
+  fi
+elif [ "$job_count" = "-1" ]; then
+  say "3.5 job count unreadable (schema race?) — snapshot step skipped"
+else
+  say "3.5 world alive (jobs:$job_count) — snapshot doctor speaks:"
+  if node scripts/world-snapshot.mjs doctor; then
+    :
+  else
+    if [ "${REBOOT_SNAPSHOT_RESTORE:-0}" = "1" ]; then
+      say "3.5 REBOOT_SNAPSHOT_RESTORE=1 — forcing restore (the operator's word over the doctor's drift)"
+      if node scripts/world-snapshot.mjs restore >> "$LOG" 2>&1; then
+        mark_reborn snapshot-restored
+        say "3.5 world restored (forced) — the file half rides the chain (step 9)"
+      else
+        say "3.5 FAILED — forced restore died, read $LOG"; exit 1
+      fi
+    else
+      say "3.5 doctor RED (drift above) — NO restore on a living world; re-export when the tree is quiet (REBOOT_SNAPSHOT_RESTORE=1 forces)"
+    fi
+  fi
 fi
 
 # ----------------------------------------------------------------- 4. build

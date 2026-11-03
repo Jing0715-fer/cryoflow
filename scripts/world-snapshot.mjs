@@ -20,6 +20,24 @@
  *            target URL says so — the URL is the jurisdiction.
  *   selftest export live → restore into a TEMP sqlite → re-export →
  *            deep-compare (data payloads byte-equal, meta ignored).
+ *   doctor   is the tracked snapshot still FRESH — does it still tell
+ *            the truth about the live world? READ-ONLY (no file
+ *            writes, no DB writes): the doctor names the drift before
+ *            a restore lies with it (t1161). Verdicts, loudest first:
+ *              LIED     meta.counts disagree with the snapshot's own
+ *                       data rows — a snapshot that lies about itself
+ *                       is worse than no snapshot.
+ *              DRIFTED  the live world has moved since the snapshot
+ *                       (count or job-ID differences, or rows updated
+ *                       after exportedAt) — a restore now would
+ *                       resurrect an OLD world; re-export first.
+ *              STALE    data faithful, but the snapshot rides an older
+ *                       commit (the docs/qa cars' usual footprint) —
+ *                       re-export when convenient.
+ *              FRESH    counts faithful, job IDs equal, engine-state
+ *                       aligned.
+ *            Exit codes: 0 FRESH/STALE (restore may proceed) ·
+ *            1 LIED/DRIFTED (the drift is named, not guessed).
  *
  * The URL: CRYOFLOW_DB_URL overrides; default is the dev lane
  * (file:<repo>/db/cryoflow.db) — the t921 split-brain cure's own
@@ -245,12 +263,146 @@ async function cmdSelftest() {
   process.exit(pass === 7 ? 0 : 1);
 }
 
+/**
+ * Doctor (t1161): the snapshot's second face — the freshness gate.
+ * A stale snapshot restored after a recycle would resurrect an OLD
+ * world and PRESENT it as the truth; the doctor names the drift before
+ * it lies. Four checks, loudest first: (1) the self-truth — meta.counts
+ * against the data rows it describes (the t1160 tooth); (2) the live
+ * truth — every model counted in the lane the URL names; (3) the
+ * freshness — any live job updated after exportedAt means the world
+ * moved on without the snapshot; (4) the job-ID ledger — BOTH loss
+ * directions named: live-only IDs a restore would not bring back,
+ * snapshot-only IDs it would resurrect from a dead world. READ-ONLY:
+ * the doctor writes nothing, deletes nothing, decides nothing — it
+ * speaks, and the operator (or reboot-recover's step 3.5) decides.
+ */
+async function cmdDoctor(snapPath) {
+  const snap = JSON.parse(readFileSync(snapPath, "utf8"));
+  if (!snap.data || !snap.meta) {
+    console.error("world-snapshot doctor: not a snapshot file — no meta/data");
+    process.exit(1);
+  }
+  const dataCounts = Object.fromEntries(
+    MODELS.map((m) => [m, (snap.data[m] || []).length]),
+  );
+  const engineKeys = snap.engineState
+    ? Object.keys(snap.engineState).length
+    : 0;
+
+  // 1. the self-truth: meta.counts must match the rows it describes.
+  const lied = MODELS.filter(
+    (m) => (snap.meta.counts?.[m] ?? -1) !== dataCounts[m],
+  );
+  const engineLie = (snap.meta.engineStateJobs ?? -1) !== engineKeys;
+
+  // 2-4. the live truth: count every model in the lane the URL names.
+  const prisma = openClient(DB_URL);
+  let liveCounts, liveJobs, liveEngineKeys;
+  try {
+    const live = await dumpModels(prisma);
+    liveCounts = Object.fromEntries(
+      MODELS.map((m) => [m, (live[m] || []).length]),
+    );
+    liveJobs = live.job || [];
+  } finally {
+    await prisma.$disconnect();
+  }
+  liveEngineKeys = existsSync(ENGINE_STATE)
+    ? Object.keys(JSON.parse(readFileSync(ENGINE_STATE, "utf8"))).length
+    : 0;
+
+  // 3. the freshness: live rows updated after the snapshot = the world
+  //    moved on (1s slack — the dump and the timestamp share an instant).
+  const exportedAt = new Date(snap.meta.exportedAt).getTime();
+  const moved = liveJobs.filter(
+    (j) =>
+      j.updatedAt && new Date(j.updatedAt).getTime() > exportedAt + 1000,
+  );
+  // 4. the job-ID ledger — both loss directions, named.
+  const snapIds = new Set((snap.data.job || []).map((j) => j.id));
+  const liveIds = new Set(liveJobs.map((j) => j.id));
+  const liveOnly = [...liveIds].filter((id) => !snapIds.has(id));
+  const snapOnly = [...snapIds].filter((id) => !liveIds.has(id));
+  const countDrift = MODELS.filter((m) => liveCounts[m] !== dataCounts[m]);
+
+  let headNow = "unknown";
+  try {
+    headNow = execSync("git rev-parse --short HEAD", { cwd: REPO })
+      .toString()
+      .trim();
+  } catch {}
+
+  const rows = MODELS.filter((m) => dataCounts[m] > 0)
+    .map((m) => `${m}:${dataCounts[m]}`)
+    .join(" · ");
+
+  if (lied.length || engineLie) {
+    const bits = [
+      ...lied.map(
+        (m) =>
+          `meta says ${m}:${snap.meta.counts?.[m] ?? "∅"} but data carries ${dataCounts[m]}`,
+      ),
+      engineLie
+        ? `meta says engine-state:${snap.meta.engineStateJobs ?? "∅"} but carries ${engineKeys}`
+        : null,
+    ].filter(Boolean);
+    console.error(
+      `world-snapshot doctor: LIED — ${bits.join("; ")} — a snapshot that lies about itself is worse than no snapshot; re-export (node scripts/world-snapshot.mjs export)`,
+    );
+    process.exit(1);
+  }
+  if (countDrift.length || liveOnly.length || snapOnly.length || moved.length) {
+    const bits = [
+      ...countDrift.map(
+        (m) => `${m}: live ${liveCounts[m]} vs snapshot ${dataCounts[m]}`,
+      ),
+      liveOnly.length
+        ? `restore would NOT bring back ${liveOnly.length} live-only job(s) (${liveOnly.slice(0, 3).join(", ")}${liveOnly.length > 3 ? "…" : ""})`
+        : null,
+      snapOnly.length
+        ? `restore would resurrect ${snapOnly.length} job(s) the live world no longer has (${snapOnly.slice(0, 3).join(", ")}${snapOnly.length > 3 ? "…" : ""})`
+        : null,
+      moved.length
+        ? `${moved.length} job(s) updated after the snapshot (${moved
+            .slice(0, 2)
+            .map(
+              (j) =>
+                `${j.id} @ ${new Date(j.updatedAt).toISOString().slice(0, 16)}Z`,
+            )
+            .join(", ")})`
+        : null,
+    ].filter(Boolean);
+    console.error(
+      `world-snapshot doctor: DRIFTED — ${bits.join("; ")} — a restore now would resurrect an OLD world; re-export first (node scripts/world-snapshot.mjs export)`,
+    );
+    process.exit(1);
+  }
+  const engineNote =
+    liveEngineKeys === engineKeys
+      ? `engine-state:${engineKeys}`
+      : `engine-state snapshot:${engineKeys} vs live:${liveEngineKeys}`;
+  if (snap.meta.head !== headNow) {
+    console.log(
+      `world-snapshot doctor: STALE — data faithful (${rows}, ${engineNote}) but the snapshot rides ${snap.meta.head} while the tree is at ${headNow} — re-export when convenient`,
+    );
+    process.exit(0);
+  }
+  console.log(
+    `world-snapshot doctor: FRESH — ${dataCounts.job}/${liveCounts.job} job IDs equal, counts faithful (${rows}), ${engineNote}, exported ${String(snap.meta.exportedAt).slice(0, 16)}Z`,
+  );
+  process.exit(0);
+}
+
 const cmd = process.argv[2] || "export";
 const arg = process.argv[3];
 if (cmd === "export") await cmdExport(arg || DEFAULT_OUT);
 else if (cmd === "restore") await cmdRestore(arg || DEFAULT_OUT);
 else if (cmd === "selftest") await cmdSelftest();
+else if (cmd === "doctor") await cmdDoctor(arg || DEFAULT_OUT);
 else {
-  console.error("usage: world-snapshot.mjs export|restore|selftest [path]");
+  console.error(
+    "usage: world-snapshot.mjs export|restore|selftest|doctor [path]",
+  );
   process.exit(1);
 }
