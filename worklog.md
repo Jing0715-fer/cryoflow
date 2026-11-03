@@ -22226,3 +22226,38 @@ Next-window entry (t1175):
 Ledger: **the chain COMPLETE** (15/15 legs; the payoff surfaces green; the official number on the merged tree — the healer's own output this window is the receipt); **the launcher's reaper defense** (restore + refresh, both boot paths, tsc n/a — scripts only; bash -n green); the store `.nm-store` (1.24s build, survived every reap); OOM corpses this window: ZERO (the calm box + warm cache + the hardlink discipline); the reaper: six+ strikes, all outlived; receipts: `shots-qa/t1174-escape-cure.json` (CANVAS_NOT_READY, honest) + `scripts/t1174-cure-ride.sh` + the launcher patch; exit honest (worklog this entry, the tree pushed). 样式更细，功能更多。
 
 Shape note: the window's best moment was arithmetic — `cp -al` measured at 1.24 seconds, the cleaner's whole threat model collapsed by a metadata trick the archive already knew was necessary (no symlinks allowed) but had never needed until the reaper showed up. The chain's last three legs needed nothing new — just a calm box and the resume flag the t412 chunked-foreground law built. The worst moment remains the canvas that boots ghost-less and card-less — named now, untouched, one API read from a verdict.
+
+---
+
+## Task 1175 (2026-11-04, 05:51 dispatch, Job 362852 — trace `…-cron-agent-loop-202611040559`) — the one API read that exonerated the world and indicted five instruments (t1175)
+
+**The t1174 promise, kept.** The window opened on t1174's closing line — "the canvas that boots ghost-less and card-less, one API read from a verdict" — and the read was taken three ways: the DB (python sqlite3, no node_modules needed — the reaper had eaten better-sqlite3 with everything else), the live lane (`GET /api/projects`, `GET /api/jobs` with the Origin header), and the raw `data/projects.json`. All three AGREE: one project `cmw140u7s…` (β-Galactosidase Tutorial (demo)), 15 jobs, 13 completed, one workspace "Main", job names intact. **The mismatch hypothesis is dead** — the zero-card canvas was never a data problem.
+
+**The world renders; the instruments didn't see it.** The canvas reached cards:15 at least three times tonight (22:14, 22:31 raw counts; 23:12 the ride itself read cards:1) — and five separate instruments were indicted in the post-mortem:
+1. **The escaped-JSON blindness (the big one)**: agent-browser eval returns `"{\"cards\":1,…}"` — and every readiness grep since t1174 matched literal `"cards":1`, which never matches the escaped form. The 23:12 canvas was READY and the script declared CANVAS_NOT_READY. Fixed (`tr -d '\\'` before grep, 4 sites in the walk). Some of t1174's "zero cards" were this.
+2. **The partial harvest**: the reaper emptied node_modules to exactly ONE entry (`next` — the entry point itself, so the server STARTS and dies on first require, `MODULE_NOT_FOUND requireStack:[]`). Every guard was `[ ! -d node_modules ]` — an exists-check never fires on a partial harvest. **The launcher's t1174 cure was blind to the reaper's most common shape.** Fixed to COUNT guards (`< 600 of 643`) in `scripts/dev-server.sh` (both boot paths), `t1174-cure-ride.sh`, and the two new walk scripts.
+3. **The zombie-tab order**: about:blank must precede ALL server contact; the 22:04 boot fed a stale tab's HMR reconnect a reload fan-out that made the ride's own lane checks time out. `t1174-cure-ride.sh` patched (neuter moved above the lane check).
+4. **The dead-page detector**: a Chrome "This site can't be reached" page keeps `location.href = http://localhost:3000/` — grepping href never fires. Now reads body text.
+5. **The over-farm**: curling all ~20 greppable API routes chrome-less re-inflated the server past the box — the farm OOM'd its own server mid-farm. Trimmed to the surgical 8-route boot pre-load.
+
+**The cure method that worked (the window's feat): the quiet compile.** chrome dies (~862MB freed) → server boots → **curl fetches `/` itself — the whale compiles for a browser that never arrives** (200 in 29s cold, then persisted; 0s warm) → the HTML-referenced chunks are farmed chrome-less (10+1) → the 8 boot API routes are pre-loaded into the require cache (a loaded module survives the harvest's unlink) → chrome returns to cards in ~12s. The whale that kills every visitor fits the box alone.
+
+**The OOM anatomy** (dmesg, 6+ corpses): every server death tonight was the KERNEL OOM killer (next-server at anon-rss 2.27–3.20GB), not a platform reaper. The structural deficit: dev server (canvas graph + route graphs, 2.5–2.8GB) + chrome (862MB) + system (~1GB) > 4GB. The successful rounds were the coin flips that landed. `drop_caches` denied (read-only /proc).
+
+**The build day, third attempt: honest 52-second corpse.** `npx next build --webpack` (cap 1792, chrome dead, available 3263MB) OOM'd in 52s — the merged tree's build graph needs a bigger calmer box; the bill carries again.
+
+Judge-lines:
+- **「仪器会瞎，世界不会」**: the canvas rendered twice while the instruments read zero — an escaped-JSON grep blind from birth outlived four honest rides. Calibrate the instrument before re-indicting the world.
+- **「清道夫连收割都是部分的」**: one surviving entry (`next`) was enough to make the tree look alive and die on first require. A guard that asks "does it exist" is not a guard — ask "how much of it exists".
+- **「给不来的浏览器编译」**: the whale that kills every visitor fits the box alone. The quiet compile is the t1170 warm-up law inverted — warm-up doesn't kill, PROVIDED no mouth is there to feed.
+
+Next-window entry (t1176):
+1. **The walk stands armed**: calm box (available ≥ 3GB at window open) → `bash scripts/t1175-whale-quiet-compile.sh` (ONE call, ~5 min) reads the Escape verdict (dialogs 2→1). On a squeezed box the verdict stays unproven — the instrument waits, the world doesn't rot.
+2. **The build day** needs available ≥ 3.5GB AND no chrome AND no reaper strike mid-build; tonight's 3.26GB lost by a breath. The quiet-compile trick may apply to the build itself (chrome-less was already the shape — the 52s corpse says the graph is just bigger than the box).
+3. **The census** resumes when the lane holds two consecutive calls; the fleet rotation (t846 gate) behind it.
+4. The film's hunt list (t1172's four) unchanged.
+5. Don't restart the persistent watchdog on a thrashed box — it boot-loops against the OOM wall (the t1173 70-boots lesson); the launcher's private guard rides every boot.
+
+Ledger: **the launcher's partial-harvest guard shipped** (the t1174 cure's blind spot closed, both boot paths); **the escaped-JSON instrument fix**; **the mismatch verdict recorded** (t1174's debt); the quiet-compile + farm + pre-load method proven (canvas 12s best); build attempt 3 = 52s corpse; OOM corpses this window: 6+ (all kernel, dmesg witnessed); receipts: `shots-qa/t1175-ledger.json` + `shots-qa/t1175-escape-cure.json` (honest CANVAS_NOT_READY) + `shots-qa/t1175-escape-cure.png` + scripts `t1175-whale-quiet-compile.sh` / `t1175-cure-walk.sh`; census skipped (the refusal recorded); exit honest. 样式更细，功能更多。
+
+Shape note: the window's best moment was negative space — the canvas was FINE, twice, while four scripts swore otherwise. The worst moment was the farm that killed its own server: generosity (compile everything) is just gluttony on a 4GB box. The cure for the loop was quietness: chrome gone, one curl, a persisted graph, and a visitor who finds the door already open.
