@@ -130,3 +130,4 @@ services/mock-cluster/fs/home/cryo/.slurm/
 # with the untracked ledger (83b5abdd's 191-file sweep) — quarantined.
 __pycache__/
 *.pyc
+.nm-store/

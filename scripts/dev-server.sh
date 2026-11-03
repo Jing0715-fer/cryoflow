@@ -18,6 +18,23 @@
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT" || exit 1
 
+# t1174 — THE NODE_MODULES REAPER'S CURE. The platform's disk-pressure
+# cleaner unlinks node_modules BETWEEN tool calls (six witnesses across
+# the t1173/t1174 windows: a verified 643-entry tree at call end, gone at
+# the next call start; every boot-after-reap dies with MODULE_NOT_FOUND on
+# the ENTRY itself — requireStack: [] — and the watchdog looped 70
+# hardened boots against that wall). The hardlink store .nm-store shares
+# every inode with node_modules: `cp -al` is metadata-only (~1.2s for 643
+# packages, zero data copied), needs no symlink (the sandbox refuses
+# `ln -s` — the t874 lesson), and survives the cleaner's unlink of the
+# node_modules NAME. Restore on boot; refresh the store just before the
+# boot spawn below (idempotent re-link; new files from fresh installs
+# join, the store always tracks the healthy tree).
+if [ ! -d node_modules ] && [ -d .nm-store ]; then
+  echo "[dev-server] node_modules reaped between calls — hardlink-restore from .nm-store"
+  cp -al .nm-store node_modules
+fi
+
 # t524 — THE GUARD RIDES WITH THE SERVER. The watchdog's own header says
 # "Run detached: (nohup bash scripts/dev-server-watchdog.sh …)" — a line a
 # human must remember, and five windows of bare-OOM deaths (t520's five
@@ -106,6 +123,11 @@ mkdir -p "$QA_LOG_DIR"
 # Pinned, the busy case fails LOUD instead (Next exits EADDRINUSE, the
 # watchdog's boot-fail streak handles it) — and the cleanup pkill above
 # now matches the spawn it was written for.
+# t1174 — the store refresh rides the healthy-tree moment: node_modules is
+# complete right now (the restore above or the operator's own install), so
+# hardlink any file the store is missing (new installs, post-merge dep
+# changes) into it. Idempotent; ~1s; keeps the cure armed for the next reap.
+[ -d node_modules ] && cp -al node_modules/. .nm-store/ 2>/dev/null
 setsid node node_modules/next/dist/bin/next dev -p 3000 ${DEV_NEXT_ARGS:-} > "$QA_LOG_DIR/dev-server.log" 2>&1 < /dev/null &
 # this script exits immediately → server re-parents to init → survives
 ensure_watchdog
