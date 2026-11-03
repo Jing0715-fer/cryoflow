@@ -1,0 +1,77 @@
+{
+  "task": "t1162",
+  "title": "the world probe — the snapshot doctor's third face and the family report's world marker",
+  "date": "2026-11-03",
+  "units": {
+    "seat": "t1162-world-probe-unit",
+    "result": "25/25 green at birth",
+    "coverage": {
+      "A_instrument": [
+        "A1 tracked snapshot → STALE exit 0 red=false",
+        "A2 NO-SNAPSHOT (absent home) exit 1",
+        "A3 NO-SNAPSHOT (unparseable home) exit 1",
+        "A4 LIED (counts.job=99) exit 1",
+        "A5 EMPTY-LIVE (pushed-empty temp DB) exit 0 red=false",
+        "A6 DRIFTED count (live-only job in restored temp DB) exit 1",
+        "A7 DRIFTED freshness (past-dated exportedAt) exit 1",
+        "A8 STALE (doctored head deadbeef) exit 0",
+        "A9 FRESH (just-exported snapshot, head==tree) exit 0"
+      ],
+      "B_source_law": [
+        "B1 ladder order NO-SNAPSHOT→LIED→EMPTY-LIVE→DRIFTED→STALE→FRESH",
+        "B2 cheapness: ONE aggregate, no findMany/dumpModels in cmdProbe",
+        "B3 exit codes: LIED/DRIFTED 1 · EMPTY-LIVE/STALE/FRESH 0",
+        "B4 machine face: JSON.stringify is the probe's mouth",
+        "B5 freshness slack exportedAt+1000",
+        "B6 URL jurisdiction: openClient(DB_URL)",
+        "B7 read-only body",
+        "B8 usage line carries probe"
+      ],
+      "C_family_integration": [
+        "C1 runner spawns the real probe via spawnSync",
+        "C2 both write sites stamp world (close + death testimony)",
+        "C3 non-fatal law static: exit codes stay pure suite arithmetic",
+        "C4 --summary faces: worldNow + world-RED marker + mute line",
+        "C5 preflight names a RED world before the ride",
+        "C6 non-fatal law LIVE: world-RED batch with zero real-fails exits 0",
+        "C7 family help line speaks the doorbell law",
+        "C8 header speaks the third face"
+      ]
+    }
+  },
+  "integration": {
+    "world-snapshot.mjs": "probe command added (count+head only, ONE live aggregate, machine JSON line); usage: export|restore|selftest|doctor|probe",
+    "family-run.mjs": [
+      "probeWorld() helper (30s timeout, mute → null, honesty over invention)",
+      "both report write sites stamp world: probeWorld()",
+      "--summary: live world probe line at the top + per-batch ◆ world-RED(verdict @ time) marker + ◆ world ∅ mute marker",
+      "preflight names a doctor-RED world before the ride (non-fatal)",
+      "--help speaks the doorbell law"
+    ]
+  },
+  "live_rides": [
+    {
+      "what": "family-run --filter qa63-smoke (real suite, real server)",
+      "result": "PASS 19.7s, wall 22.8s, exit 0",
+      "stamped_world": "STALE red=false snapshotJobs=15 liveJobs=15 snapshotHead=6cb3556a treeHead=bedc04a4",
+      "meaning": "the freshness verdict rides the report the cron family already reads — runtime path proven"
+    },
+    {
+      "what": "family-run --summary on a temp report (world-RED batch + mute batch)",
+      "result": "exit 0 with ◆ world probe: STALE header line, ◆ world-RED(DRIFTED @ …) batch marker, ◆ world ∅ (probe mute) marker",
+      "meaning": "the non-fatal law holds LIVE — a RED world never moves the exit code"
+    }
+  ],
+  "standing_instruments": {
+    "census": "100 seats: 100 GREEN · 0 RED (seat 100 t1162-world-probe-unit 25/25 aboard; enrolled by t1162-census-rekey.mjs, idempotent ×2, bash -n green)",
+    "selftest": "7/7 pins (the instrument's older half unbroken)",
+    "doctor": "STALE — data faithful (project:1 · workspace:1 · job:15 · edge:14 · worldLedger:1, engine-state:15); the tracked snapshot LEFT STALE on purpose (t1161's decision stands; the re-export rides the next world-changing window)",
+    "probe_agreement": "probe and doctor read the same world the same way (STALE, red=false, 15/15)",
+    "tsc": "0 errors",
+    "world_gate": "15 jobs · 15 done · 14 edges · workspaces 1"
+  },
+  "incidents": [
+    "the usage-line probe hit world-snapshot.mjs with NO subcommand — whose default is export — and re-exported the tracked snapshot; caught by the command's own output line, cured by git checkout (t1161's STALE-by-design preserved); the lesson: every invocation of a side-effectful default-command script names its subcommand",
+    "the MultiEdit batch reported 'no replacement performed' but 5 of 7 edits had landed (the tool stops at the first failed anchor, applying the earlier ones); cured by re-checking state before re-editing — the editor's atomicity claim is not its behavior; counted-surgery law applies to MultiEdit batches too: read back, then proceed"
+  ]
+}
