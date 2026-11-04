@@ -46,6 +46,18 @@
  * 2613212KB, below the kernel's host-starved kill zone 2722164 /
  * 2734924 witnessed). L3b rides the new skip; L2 rides the new
  * constant; L3's fire case moved OUTSIDE the dwell explicitly.
+ *
+ * t1177 — THE BORN-FAT RE-KEY (v3.3): the t1173-merged tree is BORN
+ * HEAVY (generations witnessed at 2936460 / 2996520 / 3108328KB within
+ * two minutes, settling ~2.65-2.75GB) — the v3.2 fat line sat BELOW the
+ * birth weight and condemned every generation at dwell expiry (the
+ * recycle storm, three cycles on camera). Re-keyed with the guardian:
+ * RECYCLE 2650000 -> 3250000 (above the born peak, below the kernel's
+ * corpse line 3435408); FLOOR 786432 -> 320000 (the old floor was
+ * permanently true on the born-fat tree — a second storm wearing this
+ * arm); L3/L3b/L3c/L4/L7/L8 ride the new arithmetic; F9 rides the
+ * guardian's new API-lane mouth (/api/projects — the two-mouths law:
+ * the guardian never feeds the canvas whale).
  *   L  LIVE rides: bash -n clean, the constants hand over, the decision
  *      truth table (fat arm / thin-host / healthy hold / below-soft hold /
  *      cooldown skip / inclusive boundaries), the real-world probes
@@ -149,9 +161,9 @@ ok("F2 the conjunction rides the decision function (rss >= soft AND avail <= flo
   sh.includes('if [ "$rss" -ge "$RSS_SOFT_KB" ] && [ "$avail" -le "$HOST_FLOOR_KB" ]; then') &&
   sh.includes("recycle_decision()"));
 
-ok("F3 the constants are env-overridable with the witnesses at their seats",
+ok("F3 the constants are env-overridable with the witnesses at their seats (the t1177 re-key: FLOOR 320000 — the dying-box line)",
   sh.includes('RSS_SOFT_KB="${WATCHDOG_RECYCLE_SOFT_KB:-1900000}"') &&
-  sh.includes('HOST_FLOOR_KB="${WATCHDOG_HOST_FLOOR_KB:-786432}"') &&
+  sh.includes('HOST_FLOOR_KB="${WATCHDOG_HOST_FLOOR_KB:-320000}"') &&
   sh.includes('RECYCLE_COOLDOWN_S="${WATCHDOG_RECYCLE_COOLDOWN_S:-300}"') &&
   sh.includes("1970692"));
 
@@ -176,15 +188,15 @@ ok("F8 the unit seat BEFORE the lock (a sourced unit never fights the flock — 
   sh.indexOf("WATCHDOG_UNIT_MODE:-0") < sh.indexOf("exec 9>>") &&
   sh.includes('if [ "${BASH_SOURCE[0]}" != "$0" ]; then'));
 
-ok("F9 the v2 machinery untouched (the zombie arm, the dirty-cache quarantine, the single-keeper, the prewarm)",
+ok("F9 the v2 machinery untouched (the zombie arm, the dirty-cache quarantine, the single-keeper, the prewarm — the t1177 re-key: the prewarm rides the API lane, the two-mouths law)",
   sh.includes("lock-dead zombie, executing") &&
   sh.includes("OOM-corrupted-cache signature, quarantining .next") &&
   sh.includes("lock held through 15s of retries") &&
-  sh.includes("prewarm: / answers (attempt $i)"));
+  sh.includes("prewarm: /api/projects answers (attempt $i)"));
 
-ok("F5b (t1080) the storm law covers the FAT arm (the v3.2 cure: a burst above the fat line inside the dwell is growth in flight, never killed mid-compile) + the line re-seated above the measured steady state",
+ok("F5b (t1080) the storm law covers the FAT arm (the v3.2 cure: a burst above the fat line inside the dwell is growth in flight, never killed mid-compile) + the line re-seated above the born peak (the t1177 re-key: 3250000)",
   sh.includes('echo "skip cooldown fat rss=${rss}KB avail=${avail}KB since_boot=${since_boot}s"') &&
-  sh.includes('RSS_RECYCLE_KB="${WATCHDOG_RECYCLE_KB:-2650000}"') &&
+  sh.includes('RSS_RECYCLE_KB="${WATCHDOG_RECYCLE_KB:-3250000}"') &&
   sh.includes("THE STORM LAW COVERS THE FAT ARM"));
 
 /* ---------- L band — the decision live ---------- */
@@ -206,9 +218,9 @@ try {
   execFileSync("bash", ["-n", path.join(ROOT, "scripts/dev-server-watchdog.sh")], { timeout: 15000 });
   ok("L1 bash -n clean on the live script", true);
   const out = bashRun(harness('echo "constants: RECYCLE=$RSS_RECYCLE_KB SOFT=$RSS_SOFT_KB FLOOR=$HOST_FLOOR_KB COOLDOWN=$RECYCLE_COOLDOWN_S"'));
-  ok("L2 the constants hand over (defaults + the env seats — the t1080 re-seated fat line)",
+  ok("L2 the constants hand over (defaults + the env seats — the t1177 re-keyed fat line and floor)",
     out.includes("SENTINEL 0") &&
-    out.includes("RECYCLE=2650000 SOFT=1900000 FLOOR=786432 COOLDOWN=300"));
+    out.includes("RECYCLE=3250000 SOFT=1900000 FLOOR=320000 COOLDOWN=300"));
 } catch (e) {
   ok("L1 bash -n clean on the live script", false, String(e).slice(0, 120));
   ok("L2 the constants hand over", false, String(e).slice(0, 120));
@@ -220,23 +232,23 @@ const decide = (rss, avail, since) => {
   return m ? m[1].trim() : "(silent)";
 };
 
-ok("L3 the fat arm fires past the dwell (v2's law, host health irrelevant — but the t1080 dwell applies)",
-  decide(2700000, 3000000, 99999).startsWith("fire fat"));
+ok("L3 the fat arm fires past the dwell (the t1177 re-key: a genuine growth past the born peak — 3300000 > 3250000)",
+  decide(3300000, 3000000, 99999).startsWith("fire fat"));
 ok("L3b (t1080) the fat arm skips inside the dwell (a burst above the fat line at 60s of age is a compile in flight, not steady fat)",
-  decide(2700000, 3000000, 60).startsWith("skip cooldown fat"));
-ok("L3c (t1080) the re-seated boundary holds: the measured steady state 2613212KB holds past the dwell (no idle churn), a hair above it (2660000) fires",
-  decide(2613212, 3000000, 99999).startsWith("hold") &&
-  decide(2660000, 3000000, 99999).startsWith("fire fat"));
-ok("L4 the thin-host conjunction fires (the t1022 kill shape: 2.25GB server, 730MB host)",
-  decide(2254512, 747520, 99999).startsWith("fire thin-host"));
+  decide(3300000, 3000000, 60).startsWith("skip cooldown fat"));
+ok("L3c (t1177) the born-fat birth exemption holds: the merged tree's born peak (3108328 witnessed; 3100000 here) holds past the dwell (recycle births, never), a genuine growth past it (3300000) fires",
+  decide(3100000, 3000000, 99999).startsWith("hold") &&
+  decide(3300000, 3000000, 99999).startsWith("fire fat"));
+ok("L4 the thin-host conjunction fires (the dying-box shape, the t1177 re-key: 2.15GB server, 244MB of host left — the next allocation draws the kernel's SIGKILL)",
+  decide(2254512, 250000, 99999).startsWith("fire thin-host"));
 ok("L5 the healthy world holds (fat server, roomy host — no recycle)",
   decide(2254512, 3000000, 99999).startsWith("hold"));
 ok("L6 the below-soft server holds (a skinny server is not the recycle's business)",
   decide(1800000, 500000, 99999).startsWith("hold"));
-ok("L7 the storm law skips inside the dwell (the boot clock guards the cadence)",
-  decide(2254512, 747520, 60).startsWith("skip cooldown"));
-ok("L8 the boundaries are inclusive (>= soft / <= floor fire at the edge)",
-  decide(1900000, 786432, 99999).startsWith("fire thin-host"));
+ok("L7 the storm law skips inside the dwell (the boot clock guards the cadence — the t1177 re-key: the dying-box shape)",
+  decide(2254512, 250000, 60).startsWith("skip cooldown"));
+ok("L8 the boundaries are inclusive (>= soft / <= floor fire at the edge — the t1177 re-key: the new floor)",
+  decide(1900000, 320000, 99999).startsWith("fire thin-host"));
 
 try {
   const out = bashRun(harness(`echo "rss=$(next_server_rss_kb) avail=$(host_avail_kb)"
@@ -266,7 +278,7 @@ for (let i = 0; i < 60 && !worldAfter; i++) {
 ok("the world as-left (15 jobs — the conn-mvwf4vla replant re-key; the window's controlled recycle swept clean)",
   worldAfter?.length === 15, `got ${worldAfter?.length}`);
 const dbBytes = statSync(path.join(ROOT, "db/cryoflow.db")).size;
-ok("the DB byte size held (the high-water — the t1097 re-key: the fresh t979 replant world's page-quantized size — the t1075 re-key's own precedent (155648→135168); the t1142 re-key: the WorldLedger table's landing grew the high-water (135168→143360, two pages); the t1080 147456 died with the epoch; the WORLD stands 15 — the conn-mvwf4vla replant re-key; the page-quantized size held across the epoch)", dbBytes === 143360, `${dbBytes}`);
+ok("the DB byte size held (the high-water — the t1097 re-key: the fresh t979 replant world's page-quantized size — the t1075 re-key's own precedent (155648→135168); the t1142 re-key: the WorldLedger table's landing grew the high-water (135168→143360, two pages); the t1080 147456 died with the epoch; the WORLD stands 15 — the conn-mvwf4vla replant re-key; the t1177 re-key: the merged lineage's first night of ride churn (status/output UPDATEs through the t1175/t1176 walks) split one more page — 35→36, freelist 0, a vacuum has nothing to reclaim; the page-quantized size held at 36 pages)", dbBytes === 147456, `${dbBytes}`);
 
 /* ---------- the receipt ---------- */
 const verdict = fail === 0 ? "GREEN" : "RED";

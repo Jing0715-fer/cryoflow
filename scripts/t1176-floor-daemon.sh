@@ -13,7 +13,11 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 while true; do
   n=$(ls node_modules 2>/dev/null | wc -l)
-  if [ "$n" -lt 600 ] && [ -d .nm-store ]; then
+  # t1177 — THE DEEP WITNESS: the harvest went FILE-LEVEL (next/dist eaten
+  # out of a 643-entry-whole tree, live AND store; the launcher died at the
+  # entrance with MODULE_NOT_FOUND while every headcount read whole). The
+  # headcount asks the surface; the boot asks the entrance. Either fires.
+  if { [ "$n" -lt 600 ] || [ ! -f node_modules/next/dist/bin/next ]; } && [ -d .nm-store ]; then
     rm -rf node_modules 2>/dev/null; cp -al .nm-store node_modules 2>/dev/null
     echo "[$(date '+%H:%M:%S')] floor restored ($n -> $(ls node_modules | wc -l))"
   fi

@@ -22,9 +22,12 @@ say() { echo "[quiet-compile] $*"; }
 ab() { agent-browser "$@"; }
 ORIGIN="-H Origin:http://localhost:3000"
 
-# --- 1. floor: node_modules (count, never just exists — partial harvest)
+# --- 1. floor: node_modules (count, never just exists — partial harvest;
+# t1177 — the DEEP WITNESS too: the harvest went file-level (next/dist
+# eaten from a 643-whole headcount, live tree AND store) — the boot asks
+# the tree's ENTRANCE, the headcount only asks its surface)
 nm_n=$(ls node_modules 2>/dev/null | wc -l)
-if [ "$nm_n" -lt 600 ] && [ -d .nm-store ]; then
+if { [ "$nm_n" -lt 600 ] || [ ! -f node_modules/next/dist/bin/next ]; } && [ -d .nm-store ]; then
   rm -rf node_modules; cp -al .nm-store node_modules
   say "node_modules restored ($(ls node_modules | wc -l) pkgs; had $nm_n)"
 fi
@@ -37,7 +40,7 @@ fi
 # for the WHOLE ride. The walking window carries its own ground.
 ( while true; do
     n=$(ls node_modules 2>/dev/null | wc -l)
-    if [ "$n" -lt 600 ] && [ -d .nm-store ]; then
+    if { [ "$n" -lt 600 ] || [ ! -f node_modules/next/dist/bin/next ]; } && [ -d .nm-store ]; then
       rm -rf node_modules 2>/dev/null; cp -al .nm-store node_modules 2>/dev/null
     fi
     sleep 5
@@ -134,8 +137,14 @@ say "interaction family: $INT chunks"
 # every /api/ path — twenty route graphs at once re-inflate the server past
 # the box (witnessed: the farm's own curls OOM'd the server mid-farm). The
 # successful rounds' server profile was / + these eight routes, no more.
+# t1177 — the list matches the MERGED tree's API inventory (the t1176
+# receipts' two harmless 404s named and pruned): /api/views and
+# /api/system/relion-status do not exist on this tree (both curl 404
+# witnessed live this window; src/app/api/views/ carries only gallery/
+# — the t1041 seat — and src/app/api/system/ carries route.ts + select/,
+# no relion-status/). Six routes remain.
 say "pre-loading boot API routes into the require cache..."
-for u in /api/jobs /api/projects /api/workspaces /api/views /api/edges /api/remote/connections /api/system/relion-status /api/ai/settings; do
+for u in /api/jobs /api/projects /api/workspaces /api/edges /api/remote/connections /api/ai/settings; do
   R=$(curl -s -o /dev/null -w '%{http_code}' -m 60 -H 'Origin: http://localhost:3000' "http://localhost:3000$u")
   say "  $u -> $R"
 done

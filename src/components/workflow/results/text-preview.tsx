@@ -106,7 +106,7 @@ export function TextPreview({ jobId, path }: { jobId: string; path: string }) {
           data-text-error-retry=""
           onClick={() => setAttempt((a) => a + 1)}
           aria-label="Retry loading the file"
-          className="inline-flex shrink-0 items-center gap-1 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide transition-colors hover:bg-destructive/20"
+          className="inline-flex shrink-0 items-center gap-1 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide transition-colors hover:bg-destructive/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <RefreshCw className="size-3" aria-hidden="true" />
           Retry

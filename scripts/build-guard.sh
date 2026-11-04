@@ -34,6 +34,24 @@ if [ -f .next/BUILD_ID ] && [ -f .next/standalone/server.js ]; then
   exit 0
 fi
 
+# ---- the t1080 amendment: the wall's LIVE witness + the PAUSE-FIRST verdict ----
+# The guard's enemy is not only the collapsed box: a LIVE keeper (the dev
+# watchdog) will resurrect the dev lane mid-build — the keeper's RESURRECT
+# law reads the build's own dev-lane shutdown as a corpse. The v4 pause
+# door is the cure: pause the keeper before the build, lift it after.
+PAUSE_FILE="${CRYOFLOW_QA_LOG_DIR:-/tmp/cryoflow-qa}/dev-watchdog.pause"
+echo "the wall's latest corpse (dmesg's most recent OOM kill — the line is the BOX's, it floats with the load (t415)):"
+dmesg 2>/dev/null | grep "Out of memory: Killed" | tail -1 | sed 's/^/  /'
+echo "        (the corpse line's anon-rss: figure is the kernel's own; the t461/t524 build kills sat at ~3.0GB, the t1079 serving kills at ~2.3GB)"
+if pgrep -f "bash scripts/dev-server-watchdog.sh" > /dev/null && [ ! -f "$PAUSE_FILE" ]; then
+  echo "NO-GO — a LIVE keeper (dev-server-watchdog.sh) runs with no pause flag:"
+  echo "        it WILL resurrect the dev server mid-build (the keeper's RESURRECT law reads the"
+  echo "        build's own dev-lane shutdown as a corpse)."
+  echo "        pause the keeper (touch $PAUSE_FILE — the v4 door), lift it after the build (rm $PAUSE_FILE);"
+  echo "        a keeper not yet born: CRYOFLOW_NO_WATCHDOG=1 (v4 birth control)."
+  exit 3
+fi
+
 # ---- the environment profile (t461's collapse signature) ----
 read -r buff avail <<EOF
 $(free -m | awk '/^Mem:/ {print $6, $7}')
@@ -67,5 +85,6 @@ echo "     the standalone blind to its own static, and the world freezes on 'Loa
 echo "     bash scripts/build-until-green.sh   (1344 webpack inside, cp + trio verify after)"
 echo "     turbopack builds are a trap on this box (Next 16 default; V8 caps don't bound its"
 echo "     native side; two t524 corpses + t461 x2 at rc=137)."
-echo "     During the build: keep CRYOFLOW_NO_WATCHDOG=1 and the dev lane DOWN."
+echo "     During the build: the pause flag STAYS (the keeper's arms hold) and the dev lane"
+echo "     stays DOWN; CRYOFLOW_NO_WATCHDOG=1 (v4 birth control) covers a keeper not yet born."
 exit 0

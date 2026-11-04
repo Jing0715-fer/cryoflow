@@ -36,7 +36,17 @@ cd "$REPO_ROOT" || exit 1
 # MODULE_NOT_FOUND requireStack:[]). The guard therefore counts, not
 # exists: fewer than 600 of the known 643 packages means reaped.
 mv_nm_count() { ls node_modules 2>/dev/null | wc -l; }
-if [ "$(mv_nm_count)" -lt 600 ] && [ -d .nm-store ]; then
+# t1177 — THE DEEP WITNESS. The harvest went FILE-LEVEL: witnessed
+# 02:09-02:17Z, 643 top-level entries counted WHOLE while next/dist was
+# eaten out of the tree (the launcher's own spawn died with
+# MODULE_NOT_FOUND requireStack:[] at node_modules/next/dist/bin/next,
+# three boot-fails in a row, the dirty-cache quarantine firing on a
+# healthy cache — the false positive that named this guard's blind spot).
+# The headcount asks the tree's SURFACE; the boot asks its ENTRANCE. The
+# restore now fires on EITHER witness: a thin headcount OR a missing deep
+# file. (The store must carry the same witness — the t1177 harvest ate it
+# there too; the reinstall + the boot-time refresh below heal both.)
+if { [ "$(mv_nm_count)" -lt 600 ] || [ ! -f node_modules/next/dist/bin/next ]; } && [ -d .nm-store ]; then
   echo "[dev-server] node_modules reaped (partial harvest: $(mv_nm_count) left) — hardlink-restore from .nm-store"
   rm -rf node_modules
   cp -al .nm-store node_modules

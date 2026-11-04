@@ -133,6 +133,53 @@
 #   threshold itself does not move: the fat line keeps its meaning
 #   (the absolute growth line), only the cadence gets the guard.
 #
+# v3.3 (t1177) — THE BORN-FAT RE-SEAT + THE GUARDIAN NEVER FEEDS THE
+# CANVAS. Two witnesses from the t1173-merged tree's first night:
+#
+#   (a) THE RECYCLE STORM, three full cycles on camera (dev-watchdog.log
+#   01:24-01:41Z): the merged tree is BORN HEAVY — generations witnessed
+#   at 2936460 / 2996520 / 3108328KB within their first two minutes,
+#   settling to ~2.65-2.75GB — and the v3.2 fat line (2650000) sat BELOW
+#   the birth weight. Every generation was condemned at birth: dwell
+#   expiry -> "fire fat" -> reboot -> born fat again. The t1080 lesson
+#   generalized: recycle GROWTH, not bursts — and not BIRTHS either. The
+#   fat line moves above the born PEAK (3108328 witnessed): 3250000 keeps
+#   the arm's meaning (growth beyond the tree's own birth), while staying
+#   below the kernel's witnessed corpse line (3435408, twice this night).
+#
+#   (b) THE THIN-HOST ARM INHERITED THE STORM: on the born-fat tree, a
+#   healthy generation leaves MemAvailable hovering 400-900MB — the 768MB
+#   floor was permanently true, so with the fat arm re-seated the
+#   thin-host conjunction would fire every dwell forever. The floor drops
+#   to 320000 (320MB): the arm now means exactly what it always said —
+#   the BOX is about to die (the next allocation draws the kernel's
+#   SIGKILL), recycle the fattest thing on our schedule. A healthy
+#   born-fat generation (avail 425-870MB witnessed all night) holds.
+#
+#   (c) THE TWO-MOUTHS LAW REACHES THE GUARDIAN: the health check and the
+#   prewarm both hit `/` — the canvas whale's own URL. The t1170 cure
+#   removed the instrumentation's get("/") but the guardian's mouth
+#   remained: every resurrect-boot prewarmed the canvas (a cold
+#   post-quarantine boot would compile 3.4GB for nobody, mid-corps, on
+#   the thinnest box of its life). Both mouths move to the API lane
+#   (/api/projects — cheap, always real, first of the t1170 boot five):
+#   the canvas compiles when a VISITOR arrives or when the quiet-compile
+#   walk asks for it — never for the guardian's health check.
+#
+# v4 (t1177, landing the t1080 contract) — THE PAUSE DOOR + BIRTH
+# CONTROL. The t1079/t1080 build-day law named the keeper's own resurrect
+# as the build lane's enemy: the build stops the dev lane, the keeper's
+# RESURRECT law reads the silence as a corpse, the dev server boots
+# MID-BUILD, the kernel draws. Two doors, both named by the build-guard's
+# PAUSE-FIRST verdict (exit 3):
+#   the FLAG file ($WATCHDOG_PAUSE_FILE): touch it and every arm of the
+#   RUNNING keeper holds — the pause seat is the loop's FIRST seat (a
+#   paused keeper does zero work: no health curl, no arms), speaks ONCE
+#   per episode, sleeps through. Lift with rm.
+#   the ENV (CRYOFLOW_NO_WATCHDOG=1): a keeper not yet born declines to
+#   be born (checked after the unit-mode return, before the flock — a
+#   declined keeper never takes the lock).
+#
 # THE RENAME LAW (t1023, the t894 lesson applied to this file itself):
 # this script is RUNNING somewhere, always. bash reads a script
 # incrementally — editing the live inode in place (sed -i, >>, truncate)
@@ -162,6 +209,9 @@ cd "$(dirname "$0")/.." || exit 1
 QA_LOG_DIR="${CRYOFLOW_QA_LOG_DIR:-/tmp/cryoflow-qa}"
 mkdir -p "$QA_LOG_DIR"
 LOG="$QA_LOG_DIR/dev-watchdog.log"
+# v4 — the pause door's flag file (one door, both scripts derive the same
+# path: build-guard.sh carries the PAUSE-FIRST verdict that names it)
+WATCHDOG_PAUSE_FILE="$QA_LOG_DIR/dev-watchdog.pause"
 
 SILENT_ZOMBIE_S="${WATCHDOG_ZOMBIE_S:-240}"       # silent + process present => corpse. 240s: must cover a COLD webpack compile of the home graph (~45s warm cache, minutes truly cold — the zombie it exists for was 8 HOURS stale, so a generous grace costs nothing)
 # t405, retuned once live: the kernel's OOM kill landed at anon-rss 2.84GB
@@ -178,30 +228,47 @@ SILENT_ZOMBIE_S="${WATCHDOG_ZOMBIE_S:-240}"       # silent + process present => 
 # below the kernel's host-starved kill zone (2722164 / 2734924 witnessed).
 # The host-starved case stays the THIN-HOST arm's business (soft 1.9GB +
 # floor 768MB), which keeps its own cooldown.
-RSS_RECYCLE_KB="${WATCHDOG_RECYCLE_KB:-2650000}"
+# t1177 — the v3.3 re-seat (2650000 -> 3250000): the line now sits ABOVE
+# the merged tree's born peak (3108328 witnessed) and below the kernel's
+# corpse line (3435408 witnessed) — recycle growth beyond birth, never
+# births. See the v3.3 header block for the storm witnesses.
+RSS_RECYCLE_KB="${WATCHDOG_RECYCLE_KB:-3250000}"
 # t1023 — the thin-host arm's two thresholds and the storm dwell (see the
 # v3 header for the witnesses and the arithmetic).
 RSS_SOFT_KB="${WATCHDOG_RECYCLE_SOFT_KB:-1900000}"
-HOST_FLOOR_KB="${WATCHDOG_HOST_FLOOR_KB:-786432}"
+# t1177 — the v3.3 floor re-seat (786432 -> 320000): on the born-fat tree
+# the old floor was permanently true (healthy generations leave avail at
+# 400-900MB), a second storm wearing the t1023 arm. The floor now marks
+# the BOX's dying breath, not the born-fat steady state. See v3.3 (b).
+HOST_FLOOR_KB="${WATCHDOG_HOST_FLOOR_KB:-320000}"
 RECYCLE_COOLDOWN_S="${WATCHDOG_RECYCLE_COOLDOWN_S:-300}"
 
 silent_since=""
 boot_fail_streak=0
 DIRTY_CACHE_STREAK="${WATCHDOG_DIRTY_STREAK:-3}"
 skip_logged=0
+pause_logged=0   # v4 — the paused episode speaks ONCE
 
 prewarm() {
-  # a fresh boot's home route compiles on first hit (~30-45s warm cache);
-  # poll it now so a suite's first goto lands on a compiled route
+  # v3.3 — the API lane, never the canvas (the two-mouths law): poll
+  # /api/projects until the boot's API warm-up lane (the t1170 five, run
+  # by the server's own instrumentation) has the require cache warm. The
+  # canvas belongs to the visitor and the quiet-compile walk.
   for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14; do
-    if curl -s -o /dev/null --max-time 5 http://localhost:3000/; then
-      echo "[$(date -u +%H:%M:%SZ)] prewarm: / answers (attempt $i)" >> "$LOG"
+    if curl -s -o /dev/null --max-time 5 http://localhost:3000/api/projects; then
+      echo "[$(date -u +%H:%M:%SZ)] prewarm: /api/projects answers (attempt $i)" >> "$LOG"
       return 0
     fi
     sleep 5
   done
-  echo "[$(date -u +%H:%M:%SZ)] prewarm: / still silent after 70s (slow compile? flap window?)" >> "$LOG"
+  echo "[$(date -u +%H:%M:%SZ)] prewarm: /api/projects still silent after 70s (slow compile? flap window?)" >> "$LOG"
   return 1
+}
+
+# v4 — THE PAUSE DOOR's pure seat (the recycle_decision pattern): the
+# flag file's existence law and nothing else — no probes, no side effects.
+pause_decision() {
+  if [ -f "$WATCHDOG_PAUSE_FILE" ]; then echo "paused"; else echo "live"; fi
 }
 
 boot() {
@@ -322,6 +389,15 @@ if [ "${WATCHDOG_UNIT_MODE:-0}" = "1" ]; then
   exit 0
 fi
 
+# v4 — THE BIRTH CONTROL: a keeper not yet born declines to be born when
+# the env says so (the build lane stands alone). Seated after the
+# unit-mode return (sourced units never exit) and BEFORE the flock (a
+# declined keeper never takes the lock).
+if [ "${CRYOFLOW_NO_WATCHDOG:-0}" = "1" ]; then
+  echo "[$(date -u +%H:%M:%SZ)] CRYOFLOW_NO_WATCHDOG=1 — the keeper declines to be born (v4 birth control; the build lane stands alone)" >> "$LOG"
+  exit 0
+fi
+
 # single-keeper, kernel edition (t405): the first pgrep-count guard (loose
 # pattern) matched its own launcher's command string; the anchored rewrite
 # still counted 2 — the $() fork's transient copy inherits the parent's
@@ -365,7 +441,21 @@ if [ -n "$_seed_pid" ]; then
 fi
 
 while true; do
-  if curl -s -o /dev/null --max-time 3 http://localhost:3000/; then
+  # v4 — THE PAUSE SEAT, FIRST: a paused keeper does zero work (no health
+  # curl, no arms), speaks ONCE per episode, sleeps through. Lift: rm the
+  # flag (the build-guard's PAUSE-FIRST verdict names this door).
+  if [ "$(pause_decision)" = "paused" ]; then
+    if [ "$pause_logged" = 0 ]; then
+      echo "[$(date -u +%H:%M:%SZ)] PAUSED — flag file seen ($WATCHDOG_PAUSE_FILE); every arm holds. Lift with: rm $WATCHDOG_PAUSE_FILE" >> "$LOG"
+      pause_logged=1
+    fi
+    sleep 10
+    continue
+  fi
+  pause_logged=0
+  # v3.3 — the health check rides the API lane too (the two-mouths law):
+  # a liveness probe must never be the canvas whale's feeder.
+  if curl -s -o /dev/null --max-time 3 http://localhost:3000/api/projects; then
     silent_since=""
     rss=$(next_server_rss_kb)
     avail=$(host_avail_kb)

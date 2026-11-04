@@ -157,13 +157,15 @@ ok("C4 the vacuum is the instrument's own verb — world-snapshot.mjs vacuum",
     /export\|restore\|selftest\|doctor\|probe\|vacuum/.test(snapSrc));
 
 // A3: the byte face, LIVE — the lane compacts to the canonical
-// page-quantized size (the t1021 family's pinned 143360).
+// page-quantized size (the t1021 family's pinned 143360; the t1177
+// re-key: the ride-churn page split, 35→36 pages, freelist 0 — the same
+// named cause as the t1021 family's re-key).
 {
   const size = execFileSync("stat", ["-c", "%s", "/home/z/my-project/db/cryoflow.db"], {
     encoding: "utf8",
   }).trim();
   ok("A3 the byte face — the lane reads its canonical page-quantized size",
-    size === "143360",
+    size === "147456",
     `size=${size}`);
 }
 

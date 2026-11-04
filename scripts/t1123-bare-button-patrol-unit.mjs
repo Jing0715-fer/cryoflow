@@ -247,7 +247,7 @@ ok("E3 globals carries the card-lift focus outline law", globalsT.includes(".car
 // per-button auditor (scripts/t1123-per-button-audit.mjs) is the
 // sharper gate and is run as band G below.
 const rawButtonFiles = files.filter((f) => srcOf.get(f).includes("<button"));
-ok("F1 exactly 64 files speak raw <button>", rawButtonFiles.length === 64, `got ${rawButtonFiles.length}`);
+ok("F1 exactly 65 files speak raw <button> (the t1177 re-key: +1 the merged lineage's arrivals)", rawButtonFiles.length === 65, `got ${rawButtonFiles.length}`);
 let tags = 0;
 let fileRingedTags = 0;
 for (const f of rawButtonFiles) {
@@ -256,8 +256,8 @@ for (const f of rawButtonFiles) {
   tags += m.length;
   if (t.includes("focus-visible:ring") || riderEvidence(t)) fileRingedTags += m.length;
 }
-ok("F2 307 raw <button occurrences (299 real tags + 4 prose; +1 the t1129 sheet face toggle — the cut block's fourth verb; +1 the t1132 legend copy chip — the key's ⧉ beside the strip; +2 the t1147 σ memory's doors — the recent-level chips and the forget door beside the slider, both ringed, the row honest-empty; +4 the t1156 audit's untracked faces brought into the fold — the fleet trend card's ring chip + its connections expander and the error page's reload + try-again, ALL ringed now)", tags === 307, `got ${tags}`);
-ok("F3 every raw occurrence sits in a ringed or rider file", fileRingedTags === 307, `got ${fileRingedTags}/307`);
+ok("F2 308 raw <button occurrences (the t1177 re-key) (299 real tags + 4 prose; +1 the t1129 sheet face toggle — the cut block's fourth verb; +1 the t1132 legend copy chip — the key's ⧉ beside the strip; +2 the t1147 σ memory's doors — the recent-level chips and the forget door beside the slider, both ringed, the row honest-empty; +4 the t1156 audit's untracked faces brought into the fold — the fleet trend card's ring chip + its connections expander and the error page's reload + try-again, ALL ringed now)", tags === 308, `got ${tags}`);
+ok("F3 every raw occurrence sits in a ringed or rider file", fileRingedTags === 308, `got ${fileRingedTags}/308`);
 
 // ---------------- band G: the per-button auditor gate ----------------
 const { execFileSync } = await import("node:child_process");
