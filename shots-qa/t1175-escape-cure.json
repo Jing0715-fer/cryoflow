@@ -1,1 +1,1 @@
-{"verdict":"CANVAS_NOT_READY","last":"{\"cards\":0,\"dead\":true,\"ghost\":false}"}
+{"verdict":"DOOR_NEVER_OPENED","before":"{\"n\":0}","after":"{\"n\":0,\"inspector\":false}","cmp_up":0,"whale":"quiet-compiled chrome-less","world":"dev-webpack merged tree, the healed 15-leg world"}
