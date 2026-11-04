@@ -43,7 +43,7 @@ ab open http://localhost:3000 >/dev/null 2>&1
 sleep 8
 READY=0
 for i in $(seq 1 24); do
-  n=$(ab eval "(() => JSON.stringify({ cards: Array.from(document.querySelectorAll('div[role=button]')).filter(b => (b.getAttribute('aria-label')||'').startsWith('2D Classification (tutorial)')).length, ghost: document.body.innerText.includes('Loading CryoFlow') }))()" 2>/dev/null | tail -1)
+  n=$(ab eval "(() => JSON.stringify({ cards: Array.from(document.querySelectorAll('div[role=button]')).filter(b => (b.getAttribute('aria-label')||'').startsWith('2D Classification (tutorial)')).length, ghost: document.body.innerText.includes('Loading CryoFlow') }))()" 2>/dev/null | tail -1 | tr -d '\\')
   if echo "$n" | grep -q '"cards":1'; then READY=1; say "canvas ready (~$((i*4))s)"; break; fi
   if [ $((i % 6)) = 0 ]; then ab open http://localhost:3000 >/dev/null 2>&1; say "re-dressing the navigation"; fi
   sleep 5
@@ -51,7 +51,7 @@ done
 [ "$READY" != "1" ] && { say "CANVAS NEVER READY: $n"; echo "{\"verdict\":\"CANVAS_NOT_READY\"}"; exit 1; }
 
 # the pan (persisted world state — drag dynamically)
-STATE=$(ab eval "(() => { const c = Array.from(document.querySelectorAll('div[role=button]')).find(b => (b.getAttribute('aria-label')||'').startsWith('2D Classification (tutorial)')); if (!c) return JSON.stringify({ ok:false }); const r = c.getBoundingClientRect(); if (r.x >= 20 && r.x + r.width <= window.innerWidth - 20) return JSON.stringify({ ok:true, panned:false }); const dx = Math.round(480 - (r.x + r.width/2)); const cx = Math.round(window.innerWidth/2), cy = Math.round(window.innerHeight/2); return JSON.stringify({ ok:true, pan:{ cx, cy, dx } }); })()" 2>/dev/null | tail -1)
+STATE=$(ab eval "(() => { const c = Array.from(document.querySelectorAll('div[role=button]')).find(b => (b.getAttribute('aria-label')||'').startsWith('2D Classification (tutorial)')); if (!c) return JSON.stringify({ ok:false }); const r = c.getBoundingClientRect(); if (r.x >= 20 && r.x + r.width <= window.innerWidth - 20) return JSON.stringify({ ok:true, panned:false }); const dx = Math.round(480 - (r.x + r.width/2)); const cx = Math.round(window.innerWidth/2), cy = Math.round(window.innerHeight/2); return JSON.stringify({ ok:true, pan:{ cx, cy, dx } }); })()" 2>/dev/null | tail -1 | tr -d '\\')
 if echo "$STATE" | grep -q '"pan"'; then
   CX=$(echo "$STATE" | python3 -c "import json,sys; print(json.load(sys.stdin)['pan']['cx'])")
   CY=$(echo "$STATE" | python3 -c "import json,sys; print(json.load(sys.stdin)['pan']['cy'])")
@@ -68,7 +68,7 @@ ab click "div[role=button][aria-label^='2D Classification (tutorial)']" >/dev/nu
 INSP=0
 for i in $(seq 1 15); do
   sleep 3
-  h=$(ab eval "(() => JSON.stringify({ d: !!document.querySelector('[role=dialog] [data-slot=dialog-title]') }))()" 2>/dev/null | tail -1)
+  h=$(ab eval "(() => JSON.stringify({ d: !!document.querySelector('[role=dialog] [data-slot=dialog-title]') }))()" 2>/dev/null | tail -1 | tr -d '\\')
   if echo "$h" | grep -q '"d":true'; then INSP=1; say "inspector up"; break; fi
 done
 [ "$INSP" != "1" ] && say "INSPECTOR NEVER UP"
@@ -77,16 +77,16 @@ ab eval "(() => { const door = [...document.querySelectorAll('[role=dialog] butt
 CMP=0
 for i in $(seq 1 15); do
   sleep 3
-  c=$(ab eval "(() => JSON.stringify({ cmp: [...document.querySelectorAll('[role=dialog]')].some(x => (x.textContent||'').includes('A/B —'))) }))()" 2>/dev/null | tail -1)
+  c=$(ab eval "(() => JSON.stringify({ cmp: [...document.querySelectorAll('[role=dialog]')].some(x => (x.textContent||'').includes('A/B'))) }))()" 2>/dev/null | tail -1 | tr -d '\\')
   if echo "$c" | grep -q '"cmp":true'; then CMP=1; say "compare up"; break; fi
 done
 [ "$CMP" != "1" ] && say "COMPARE NEVER UP"
 
-BEFORE=$(ab eval "(() => JSON.stringify({ n: document.querySelectorAll('[role=dialog]').length }))()" 2>/dev/null | tail -1)
+BEFORE=$(ab eval "(() => JSON.stringify({ n: document.querySelectorAll('[role=dialog]').length }))()" 2>/dev/null | tail -1 | tr -d '\\')
 say "dialogs before Escape: $BEFORE"
 ab eval "(() => { const d = [...document.querySelectorAll('[role=dialog]')].find(x => (x.textContent||'').includes('A/B —')); if (!d) return 'NO_COMPARE'; const k = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }); (document.activeElement || d).dispatchEvent(k); d.dispatchEvent(k); return 'SENT'; })()" >/dev/null 2>&1
 sleep 3
-AFTER=$(ab eval "(() => JSON.stringify({ n: document.querySelectorAll('[role=dialog]').length, inspector: !!([...document.querySelectorAll('[role=dialog]')].find(x => (x.textContent||'').includes('job inspector'))) }))()" 2>/dev/null | tail -1)
+AFTER=$(ab eval "(() => JSON.stringify({ n: document.querySelectorAll('[role=dialog]').length, inspector: !!([...document.querySelectorAll('[role=dialog]')].find(x => (x.textContent||'').includes('job inspector'))) }))()" 2>/dev/null | tail -1 | tr -d '\\')
 say "dialogs after Escape: $AFTER"
 
 ab screenshot shots-qa/t1174-escape-cure.png >/dev/null 2>&1 || true
