@@ -190,6 +190,60 @@ else
   say "3. FAILED — db:push died, read $LOG"; exit 1
 fi
 
+# ------------------------------------------------- 3.5 snapshot doctor (t1161)
+# t1160's cure rides the recovery now (the durability vein's second face):
+# an EMPTY live db (the recycle's signature — the tar ate db/, step 3 just
+# recreated an empty shell) is rebuilt from the tracked snapshot BEFORE the
+# seed door, so a born world is the TRACKED world (the twin-epoch world:
+# the completed spine + the select twin), not a 3-node starter waiting for
+# the chain to grow it. The doctor (world-snapshot.mjs doctor — READ-ONLY)
+# speaks first: LIED/DRIFTED exit 1.
+#   · on an EMPTY db the restore proceeds anyway — an old world beats no
+#     world, and the drift is named in the log, not discovered at 2am;
+#   · on a LIVING world there is NO automatic restore — the doctor's drift
+#     is the operator's word (REBOOT_SNAPSHOT_RESTORE=1 forces, the operator
+#     owns the wipe); the world rides on.
+# Re-grafted in t877: the t875∪t1184 merge took this lane-law file from the
+# local side and silently dropped the remote side's step 3.5 — the t1161
+# C4 pin caught the casualty at the next census. The doctor's restore reads
+# $DB_URL (step 1's resolution — the t872 law) like every other reader.
+# On a living, aligned world this step is one doctor line — a no-op pass.
+job_count="$(node -e "
+const {PrismaClient}=require('@prisma/client');
+const p=new PrismaClient({datasources:{db:{url:'$DB_URL'}}});
+p.job.count().then(c=>{console.log(c);return p.\$disconnect()}).catch(()=>console.log(-1));
+" 2>/dev/null || echo -1)"
+if [ "$job_count" = "0" ]; then
+  say "3.5 EMPTY world (jobs:0 — the recycle's signature) — the tracked snapshot rebuilds it (t1160's cure, one command)"
+  node scripts/world-snapshot.mjs doctor >> "$LOG" 2>&1 \
+    || say "3.5 doctor named a drift (read $LOG) — restoring anyway: an old world beats no world on an empty db"
+  if CRYOFLOW_DB_URL="$DB_URL" node scripts/world-snapshot.mjs restore >> "$LOG" 2>&1; then
+    mark_reborn snapshot-restored
+    say "3.5 world restored from fixtures/world-snapshot.json — the file half rides the chain (step 9)"
+  else
+    say "3.5 FAILED — snapshot restore died, read $LOG"; exit 1
+  fi
+elif [ "$job_count" = "-1" ]; then
+  say "3.5 job count unreadable (schema race?) — snapshot step skipped"
+else
+  say "3.5 world alive (jobs:$job_count) — snapshot doctor speaks:"
+  if node scripts/world-snapshot.mjs doctor; then
+    :
+  else
+    if [ "${REBOOT_SNAPSHOT_RESTORE:-0}" = "1" ]; then
+      say "3.5 REBOOT_SNAPSHOT_RESTORE=1 — forcing restore (the operator's word over the doctor's drift)"
+      if CRYOFLOW_DB_URL="$DB_URL" node scripts/world-snapshot.mjs restore >> "$LOG" 2>&1; then
+        mark_reborn snapshot-restored
+        say "3.5 world restored (forced) — the file half rides the chain (step 9)"
+      else
+        say "3.5 FAILED — forced restore died, read $LOG"; exit 1
+      fi
+    else
+      say "3.5 doctor RED (drift above) — NO restore on a living world; re-export when the tree is quiet (REBOOT_SNAPSHOT_RESTORE=1 forces)"
+    fi
+  fi
+fi
+
 # ----------------------------------------------------------------- 4. build
 trio_complete() {
   [ -f .next/BUILD_ID ] && [ -f .next/standalone/server.js ] \
