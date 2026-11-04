@@ -108,12 +108,12 @@ if (world.some((j) => j.name === "Import Fuel Gate Ride")) {
   }
   if (!world) { console.error("FATAL: the server never answered 200 (post-family-sweep)"); process.exit(2); }
 }
-if (world.length !== 15) {
-  console.error(`FATAL: world gate — jobs ${world.length} (want 15 — the conn-mvwf4vla replant epoch: the seeder chain's full-spine 15-world, FSC-verified; the t1075 16-world's db died in the epoch rollback)`);
+if (world.length !== 16) {
+  console.error(`FATAL: world gate — jobs ${world.length} (want 16 — the twin epoch: the spine + the select twin, the t877 world-home cure)`);
   for (const j of world) console.error(`    · ${j.name} — ${j.status} (${j.id})`);
   process.exit(1);
 }
-console.log(`world: 15 jobs as-found (project ${world[0]?.projectId ?? null})`);
+console.log(`world: 16 jobs as-found (project ${world[0]?.projectId ?? null})`);
 
 /* ---------- F band — the face at source ---------- */
 console.log("F band — the fuel face at source:");
@@ -230,7 +230,7 @@ for (let i = 0; i < 10 && !worldAfter; i++) {
     if (r.status === 200) worldAfter = jobsArr(r.json);
   } catch { /* the beat */ }
 }
-ok("the world as-left (15 jobs, nothing minted standing — the conn-mvwf4vla replant re-key)", worldAfter?.length === 15, `got ${worldAfter?.length}`);
+ok("the world as-left (16 jobs, nothing minted standing — the twin-epoch re-key)", worldAfter?.length === 16, `got ${worldAfter?.length}`);
 /* t1184 — the fingerprint follows the world's DATA, not the file's fat:
  * the file's byte size rode the BOOT COUNT (boot-time writes regrow the
  * freelist — 6 free pages witnessed with NO film running), so the gate
