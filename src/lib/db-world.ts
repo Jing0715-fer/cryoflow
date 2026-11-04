@@ -9,9 +9,36 @@
 // strength of that misread. The verdict lives here ONCE (zero prisma,
 // zero IO beyond the path text); src/lib/db.ts says it out loud at import
 // time, dev-only, so the misread dies at the moment it is born.
+//
+// t875 — THE LANE LAW MERGE (two lineages, two eras, one truth): t1115's
+// baseline named cryoflow.db and called .env's custom.db the template —
+// true in the lineage that WROTE it, and a lie in the lineage whose
+// platform .env names custom.db as the legal lane (the t872 ruling: the
+// platform owns .env). The merged law reads the OWNER: a URL that agrees
+// with .env's own DATABASE_URL is the platform's chosen world — the
+// warning only sings when a process lands on a world its OWN .env does
+// not name (the real t1114 disease: two different worlds in one box).
+// The cryoflow.db baseline keeps its innocence (their era's shape); the
+// .env line is read lazily, zero-IO at import (the well stays pure).
 import path from "node:path";
+import { readFileSync } from "node:fs";
 
 export const RUNTIME_DB_BASELINE = path.join(process.cwd(), "db", "cryoflow.db");
+
+/** the platform's own tongue (t872): .env's DATABASE_URL, read once, lazily,
+ *  cached — a .env-less process simply has no owner's line */
+let envLane: string | null | undefined;
+function envLaneOf(): string | null {
+  if (envLane === undefined) {
+    try {
+      envLane =
+        readFileSync(path.join(process.cwd(), ".env"), "utf8").match(/^DATABASE_URL=(.*)$/m)?.[1]?.trim() ?? null;
+    } catch {
+      envLane = null;
+    }
+  }
+  return envLane;
+}
 
 export function templateWorldWarnOf(
   url: string | undefined,
@@ -22,16 +49,22 @@ export function templateWorldWarnOf(
   // the honest absence: an unset URL is prisma's own business, not a
   // template-world misread — silence until there is a world to misread
   if (!url) return null;
-  // the runtime world's test: the file part (query params stripped) must
-  // END at the runtime world's name — 'cryoflow.db-wal', 'cryoflow.db.bak',
-  // or any other look-alike is NOT the world and earns the warn (the
-  // hardened shape: t1114's quick `includes` let look-alikes pass silently)
   const filePart = url.split("?")[0] ?? "";
-  const isRuntime = /(^|[/=:])cryoflow\.db$/.test(filePart);
-  if (isRuntime) return null;
+  // the runtime world's test, era one (t1115): the file part must END at
+  // the runtime world's name — 'cryoflow.db-wal', 'cryoflow.db.bak', or
+  // any other look-alike is NOT the baseline world
+  const isBaseline = /(^|[/=:])cryoflow\.db$/.test(filePart);
+  if (isBaseline) return null;
+  // the lane law, era two (t872): the URL the platform's own .env names is
+  // the OWNER'S world — the live project, jobs and edges live wherever the
+  // owner pointed (the t875 merge's own witness: the healed 16-job world
+  // sat in custom.db while this warning called it a template). Only a
+  // world NEITHER the baseline NOR the owner's tongue names is a misread.
+  const envLane = envLaneOf();
+  if (envLane && (envLane.split("?")[0] ?? "") === filePart) return null;
   return (
-    `[db] the db url points at "${url}" — that is the TEMPLATE world, ` +
-    `not the runtime one (dev-server.sh L82 exports file:${RUNTIME_DB_BASELINE}). ` +
-    `Reads here will not see the live project, jobs, edges, or fleet ring.`
+    `[db] the db url points at "${url}" — that is NEITHER the baseline world ` +
+    `(db/cryoflow.db) NOR the lane the platform's .env names${envLane ? ` (${envLane})` : ""} — ` +
+    `the t1114 misread shape: this process may be reading a world that is not the world.`
   );
 }
