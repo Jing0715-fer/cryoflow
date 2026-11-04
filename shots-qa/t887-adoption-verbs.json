@@ -2,104 +2,8 @@
   "task": "t887",
   "window": "cron 2026-11-03/04 (Job 362852), the chunked film (t1172)",
   "purpose": "the compare family's adoption verbs filmed: the plain adopt, the select rider (mint + wire both mouths + adopt), the exclude rider (the subset run's real regressions baked) — each with the receipt toast and the graph truth via the API; the throwaway world spent and deleted; the demo untouched",
-  "chunk": "teardown",
+  "chunk": "side",
   "chunks": [
-    {
-      "chunk": "mint",
-      "at": "2026-11-04T07:31:38.686Z",
-      "checks": [
-        {
-          "label": "P0 the daemon's tab neutered (no zombie reload can compile the whale)",
-          "pass": true,
-          "detail": ""
-        },
-        {
-          "label": "P1 the demo world at its standing shape (15 jobs · 13 completed · the 2 idle by design) and active",
-          "pass": true,
-          "detail": "jobs=15 idle=[symexpand,rebalance] active=β-Galactosidase Tutorial (demo)"
-        },
-        {
-          "label": "P2 the tutorial project captured (by name, not by active-guess)",
-          "pass": true,
-          "detail": "id=cmw140u7s0000sinmoi2zpujt"
-        },
-        {
-          "label": "P3 the sandbox state resolved (adopt-or-mint)",
-          "pass": true,
-          "detail": "existing sandbox cmw1sgia00000sokxmi1318gw"
-        },
-        {
-          "label": "P4 the compute lane detected (the mock stubs as the local RELION install)",
-          "pass": true,
-          "detail": "stubs=23 found=true path=/home/z/relion-install/bin"
-        },
-        {
-          "label": "W1a the sandbox ADOPTED (chunked resume)",
-          "pass": true,
-          "detail": "id=cmw1sgia00000sokxmi1318gw jobs=10"
-        },
-        {
-          "label": "W3 the template chain completed (each stage run in RELION order)",
-          "pass": true,
-          "detail": "10/10"
-        },
-        {
-          "label": "W4 the import's movies star read from disk, an exclude name picked",
-          "pass": true,
-          "detail": "pick=mic_004.mrc"
-        }
-      ],
-      "pass": 8,
-      "fail": 0
-    },
-    {
-      "chunk": "side",
-      "at": "2026-11-04T07:39:44.387Z",
-      "checks": [
-        {
-          "label": "P0 the daemon's tab neutered (no zombie reload can compile the whale)",
-          "pass": true,
-          "detail": ""
-        },
-        {
-          "label": "P3 the sandbox state resolved (adopt-or-mint)",
-          "pass": true,
-          "detail": "existing sandbox cmw1sgia00000sokxmi1318gw"
-        },
-        {
-          "label": "P4 the compute lane detected (the mock stubs as the local RELION install)",
-          "pass": true,
-          "detail": "stubs=23 found=true path=/home/z/relion-install/bin"
-        },
-        {
-          "label": "W4b the movies star re-read on the side chunk",
-          "pass": true,
-          "detail": "pick=mic_004.mrc"
-        },
-        {
-          "label": "W5 the exclude filter wired: import -> excludemg -> MotionCorr (subset run)",
-          "pass": true,
-          "detail": "filter=c1hbyk mcB=wndx7f"
-        },
-        {
-          "label": "W6 the class2d twin wired off the extract (K=10 — real gains, both mouths feedable)",
-          "pass": true,
-          "detail": "B=slvonq K=10"
-        },
-        {
-          "label": "W7 the side world completed (filter, subset MotionCorr, K=10 class2d)",
-          "pass": true,
-          "detail": "filter=1 mcB=1 class2dB=1"
-        },
-        {
-          "label": "W8 the throwaway world stands: every job completed",
-          "pass": true,
-          "detail": "jobs=13 completed=13"
-        }
-      ],
-      "pass": 8,
-      "fail": 0
-    },
     {
       "chunk": "flights",
       "at": "2026-11-04T07:47:09.369Z",
@@ -270,18 +174,114 @@
       ],
       "pass": 6,
       "fail": 0
+    },
+    {
+      "chunk": "mint",
+      "at": "2026-11-04T08:36:03.422Z",
+      "checks": [
+        {
+          "label": "P0 the daemon's tab neutered (no zombie reload can compile the whale)",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "label": "P1 the demo world at its standing shape (15 jobs · 13 completed · the 2 idle by design) and active",
+          "pass": true,
+          "detail": "jobs=15 idle=[symexpand,rebalance] active=β-Galactosidase Tutorial (demo)"
+        },
+        {
+          "label": "P2 the tutorial project captured (by name, not by active-guess)",
+          "pass": true,
+          "detail": "id=cmw140u7s0000sinmoi2zpujt"
+        },
+        {
+          "label": "P3 the sandbox state resolved (adopt-or-mint)",
+          "pass": true,
+          "detail": "existing sandbox cmw1uixe9000ysoyhoxrec46s"
+        },
+        {
+          "label": "P4 the compute lane detected (the mock stubs as the local RELION install)",
+          "pass": true,
+          "detail": "stubs=23 found=true path=/home/z/relion-install/bin"
+        },
+        {
+          "label": "W1a the sandbox ADOPTED (chunked resume)",
+          "pass": true,
+          "detail": "id=cmw1uixe9000ysoyhoxrec46s jobs=10"
+        },
+        {
+          "label": "W3 the template chain completed (each stage run in RELION order)",
+          "pass": true,
+          "detail": "10/10"
+        },
+        {
+          "label": "W4 the import's movies star read from disk, an exclude name picked",
+          "pass": true,
+          "detail": "pick=mic_004.mrc"
+        }
+      ],
+      "pass": 8,
+      "fail": 0
+    },
+    {
+      "chunk": "side",
+      "at": "2026-11-04T08:38:48.860Z",
+      "checks": [
+        {
+          "label": "P0 the daemon's tab neutered (no zombie reload can compile the whale)",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "label": "P3 the sandbox state resolved (adopt-or-mint)",
+          "pass": true,
+          "detail": "existing sandbox cmw1uixe9000ysoyhoxrec46s"
+        },
+        {
+          "label": "P4 the compute lane detected (the mock stubs as the local RELION install)",
+          "pass": true,
+          "detail": "stubs=23 found=true path=/home/z/relion-install/bin"
+        },
+        {
+          "label": "W4b the movies star re-read on the side chunk",
+          "pass": true,
+          "detail": "pick=mic_004.mrc"
+        },
+        {
+          "label": "W5 the exclude filter wired: import -> excludemg -> MotionCorr (subset run)",
+          "pass": true,
+          "detail": "filter=700skj mcB=619lkt"
+        },
+        {
+          "label": "W6 the class2d twin wired off the extract (K=10 — real gains, both mouths feedable)",
+          "pass": true,
+          "detail": "B=puds4p K=10"
+        },
+        {
+          "label": "W7 the side world completed (filter, subset MotionCorr, K=10 class2d)",
+          "pass": true,
+          "detail": "filter=1 mcB=1 class2dB=1"
+        },
+        {
+          "label": "W8 the throwaway world stands: every job completed",
+          "pass": true,
+          "detail": "jobs=13 completed=13"
+        }
+      ],
+      "pass": 8,
+      "fail": 0
     }
   ],
   "totals": {
     "pass": 41,
     "fail": 6
   },
-  "sandboxId": "cmw1sgia00000sokxmi1318gw",
+  "sandboxId": "cmw1uixe9000ysoyhoxrec46s",
   "tutorialProjectId": "cmw140u7s0000sinmoi2zpujt",
-  "excludeName": null,
+  "excludeName": "mic_004.mrc",
   "counts": {
     "templateJobs": 0,
-    "sandboxJobs": 0,
-    "excludeName": null
+    "sandboxJobs": 13,
+    "excludeName": "mic_004.mrc"
   }
 }

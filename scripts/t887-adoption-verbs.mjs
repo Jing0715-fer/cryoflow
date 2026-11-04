@@ -512,11 +512,18 @@ if (!flightsReady) {
   /* the app's toasts are RADIX (ui/toaster), not sonner — the viewport is an
    * <ol>, each toast an <li data-state> with Title/Description inside (the
    * sonner selector never matched anything; the t1172 ride proved the point
-   * by reading "none" while the graph had already re-wired) */
+   * by reading "none" while the graph had already re-wired). t1183: the li's
+   * firstElementChild is the t826 HOURGLASS bar (div.toast-hourglass, drawn
+   * whenever the card has a close timer — by default always), whose text
+   * is empty — the titles never read because the reader was reading the
+   * bar. The content wrapper is the li's first NON-hourglass div
+   * (toaster.tsx's <div class=grid gap-1>), and the Title is its own
+   * first child; :scope > div:not(.toast-hourglass) holds in both shapes
+   * (an immortal duration-0 card draws no bar and shifts nothing). */
   const toastOf = async () => {
     for (let i = 0; i < 16; i++) {
       await zzz(0.5);
-      const t = evalSoft('(() => { const lis = Array.from(document.querySelectorAll("ol > li[data-state]")); const vs = lis.filter((x) => x.closest("ol")); return JSON.stringify({ n: vs.length, titles: vs.map((x) => ((x.firstElementChild && x.firstElementChild.textContent) || "").slice(0, 90)), texts: vs.map((x) => (x.textContent || "").slice(0, 220)) }); })()');
+      const t = evalSoft('(() => { const lis = Array.from(document.querySelectorAll("ol > li[data-state]")); const vs = lis.filter((x) => x.closest("ol")); return JSON.stringify({ n: vs.length, titles: vs.map((x) => { const w = x.querySelector(":scope > div:not(.toast-hourglass)"); return ((w && w.firstElementChild && w.firstElementChild.textContent) || "").slice(0, 90); }), texts: vs.map((x) => (x.textContent || "").slice(0, 220)) }); })()');
       if (t && t.n > 0) return t;
     }
     return { n: 0, titles: [], texts: [] };
@@ -524,6 +531,20 @@ if (!flightsReady) {
 
   const edgesNow = () => api("GET", "/api/edges").edges || [];
   const hasEdge = (edges, from, to) => edges.some((e) => e.fromJobId === from && e.toJobId === to);
+  /* t1183 — the graph-settle poll (the riderReady shape borrowed): a
+   * one-shot edgesNow() read raced the adoption's refetch and judged a
+   * graph that was still moving. Poll until the EXPECTED shape holds (the
+   * caller's own predicate — the arrivals, not the assertions); the
+   * budget spent returns the last read honestly, the ok() still the judge. */
+  const edgesSettle = async (check, budgetS = 20) => {
+    let edges = [];
+    for (let i = 0; i < budgetS; i++) {
+      await zzz(1);
+      edges = edgesNow();
+      if (check(edges)) break;
+    }
+    return edges;
+  };
 
   /* ---- FLIGHT 1: the plain adopt on (class2d A -> class3d B) ---- */
   console.log("\n  FLIGHT 1 — the plain adopt (Continue downstream from run B)");
@@ -539,12 +560,7 @@ if (!flightsReady) {
   evalSoft('(() => { document.querySelector("[data-testid=\\"adopt-downstream\\"]").click(); return 1; })()');
   const f1toast = await toastOf();
   ok("F1.6 the adoption receipt spoke (the toast names the re-wire)", f1toast.n > 0 && /re-wired|adopted/i.test(f1toast.texts.join(" | ")), (f1toast.titles[0] || "none").slice(0, 60));
-  let f1edges = [];
-  for (let i = 0; i < 10; i++) {
-    await zzz(1);
-    f1edges = edgesNow();
-    if (hasEdge(f1edges, B.id, byType.initialmodel.id)) break;
-  }
+  const f1edges = await edgesSettle((e) => hasEdge(e, B.id, byType.initialmodel.id), 10);
   ok("F1.7 THE GRAPH TRUTH: both template wires re-parented onto run B", hasEdge(f1edges, B.id, byType.initialmodel.id) && hasEdge(f1edges, B.id, byType.refine3d.id) && !hasEdge(f1edges, A.id, byType.initialmodel.id) && !hasEdge(f1edges, A.id, byType.refine3d.id), `B->initialmodel=${hasEdge(f1edges, B.id, byType.initialmodel.id)} B->refine3d=${hasEdge(f1edges, B.id, byType.refine3d.id)}`);
 
   /* ---- FLIGHT 2: the select rider (mint + wire + adopt) ---- */
@@ -565,11 +581,14 @@ if (!flightsReady) {
   for (let i = 0; i < 12; i++) {
     await zzz(1);
     const js = await jobsOf();
-    mint = js.find((j) => j.type === "select2d" && j.id !== c1.id);
+    /* t1183: the find demands the mint's own birthmark — a numeric
+     * selectedClasses baked at birth (the ghost's "auto" child was a
+     * select2d too, and the loose find crowned it) */
+    mint = js.find((j) => j.type === "select2d" && j.id !== c1.id && /^\d+[\d, ]*$/.test(j.params?.selectedClasses || ""));
     if (mint) break;
   }
   ok("F2.4 THE MINT: a 2D Class Selection born with the gained classes baked", !!mint && /^\d+[\d, ]*$/.test(mint.params?.selectedClasses || ""), `id=${mint?.id?.slice(-6)} selectedClasses="${mint?.params?.selectedClasses}"`);
-  const f2edges = edgesNow();
+  const f2edges = await edgesSettle((e) => e.filter((x) => x.fromJobId === B.id && x.toJobId === mint?.id).length >= 2);
   const mintMouths = f2edges.filter((e) => e.fromJobId === B.id && e.toJobId === mint?.id).length;
   ok("F2.5 THE WIRE: run B feeds the mint through BOTH mouths (classes + particles)", mintMouths >= 2, `B->mint edges=${mintMouths}`);
   ok("F2.6 THE ADOPT: run A's child re-parented onto the MINT", mint && hasEdge(f2edges, mint.id, c1.id) && !hasEdge(f2edges, A.id, c1.id), `mint->child=${mint ? hasEdge(f2edges, mint.id, c1.id) : false} A->child=${hasEdge(f2edges, A.id, c1.id)}`);
@@ -592,11 +611,11 @@ if (!flightsReady) {
   for (let i = 0; i < 12; i++) {
     await zzz(1);
     const js = await jobsOf();
-    filter = js.find((j) => j.type === "excludemg" && j.id !== exJob.id);
+    filter = js.find((j) => j.type === "excludemg" && j.id !== exJob.id && /mic_\d+/.test(j.params?.excludeNames || ""));
     if (filter) break;
   }
   ok("F3.5 THE MINT: an Exclude Micrographs filter born with the regressions baked", !!filter && /mic_\d+/.test(filter.params?.excludeNames || ""), `id=${filter?.id?.slice(-6)} excludeNames="${(filter?.params?.excludeNames || "").slice(0, 60)}"`);
-  const f3edges = edgesNow();
+  const f3edges = await edgesSettle((e) => !!filter && hasEdge(e, MB.id, filter.id) && hasEdge(e, filter.id, CTF.id));
   ok("F3.6 THE WIRE + THE ADOPT: run B feeds the filter; CTF now consumes the FILTER", filter && hasEdge(f3edges, MB.id, filter.id) && hasEdge(f3edges, filter.id, CTF.id) && !hasEdge(f3edges, MA.id, CTF.id), `B->filter=${filter ? hasEdge(f3edges, MB.id, filter.id) : false} filter->ctf=${filter ? hasEdge(f3edges, filter.id, CTF.id) : false} A->ctf=${hasEdge(f3edges, MA.id, CTF.id)}`);
 
   /* ---- the honest absence: run A spent, the door says so ---- */

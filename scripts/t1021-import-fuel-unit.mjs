@@ -291,7 +291,7 @@ for (let i = 0; i < 60 && !worldAfter; i++) {
 }
 ok("the world as-left (15 jobs, nothing minted standing — the conn-mvwf4vla replant re-key)", worldAfter?.length === 15, `got ${worldAfter?.length}`);
 const dbBytes = statSync(path.join(ROOT, "db/cryoflow.db")).size;
-ok("the DB byte size held (the high-water — the t1097 re-key: the fresh t979 replant world's page-quantized size — the t1075 re-key's own precedent (155648→135168); the t1142 re-key: the WorldLedger table's landing grew the high-water (135168→143360, two pages); the t1080 147456 died with the epoch; the WORLD stands 15 — the conn-mvwf4vla replant re-key; the t1177 re-key: the merged lineage's first night of ride churn (status/output UPDATEs through the t1175/t1176 walks) split one more page — 35→36, freelist 0, a vacuum has nothing to reclaim)", dbBytes === 147456, `${dbBytes}`);
+ok("the DB byte size held (the high-water — the t1097 re-key: the fresh t979 replant world's page-quantized size — the t1075 re-key's own precedent (155648→135168); the t1142 re-key: the WorldLedger table's landing grew the high-water (135168→143360, two pages); the t1080 147456 died with the epoch; the WORLD stands 15 — the conn-mvwf4vla replant re-key; the t1177 re-key: the merged lineage's first night of ride churn (status/output UPDATEs through the t1175/t1176 walks) split one more page — 35→36, freelist 0, a vacuum has nothing to reclaim; the t1183 re-key: the film's mint+teardown churn bloated the file to 41 pages with 6 freelist — the VACUUM reclaimed them and the t1177-era 36th page too (the rows stand 15/13/14 — the world one page lighter by honest teardowns) — 147456→143360)", dbBytes === 143360, `${dbBytes}`);
 
 /* ---------- the receipt ---------- */
 const verdict = fail === 0 ? "GREEN" : "RED";
