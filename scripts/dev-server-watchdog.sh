@@ -180,6 +180,14 @@
 #   be born (checked after the unit-mode return, before the flock — a
 #   declined keeper never takes the lock).
 #
+# v4.1 (t1178) — THE QUARANTINE'S DEEP-WITNESS GATE. The v2.1 cache
+# hygiene read "cache dirty" out of ANY three consecutive boot failures;
+# the t1177 morning proved a broken TREE can wear that signature (the
+# file-level harvest ate next/dist while every headcount read whole — the
+# quarantine fired twice on a healthy .next). The mv now requires the tree
+# to be provably whole: entrance file + headcount, the same two witnesses
+# the launcher's own restore asks for. See the gate in boot().
+#
 # THE RENAME LAW (t1023, the t894 lesson applied to this file itself):
 # this script is RUNNING somewhere, always. bash reads a script
 # incrementally — editing the live inode in place (sed -i, >>, truncate)
@@ -305,8 +313,19 @@ boot() {
   # cache signature. Quarantine and let the next boot compile clean.
   boot_fail_streak=$((boot_fail_streak + 1))
   if [ "$boot_fail_streak" -ge "$DIRTY_CACHE_STREAK" ]; then
-    if [ -d .next ]; then
-      echo "[$(date -u +%H:%M:%SZ)] boot failed $boot_fail_streak times in a row — OOM-corrupted-cache signature, quarantining .next (v2.1 cache hygiene)" >> "$LOG"
+    # v4.1 — THE QUARANTINE'S DEEP-WITNESS GATE (the t1177 false positive's
+    # cure). The hygiene reads "cache dirty" out of ANY three consecutive
+    # boot failures — but that morning's failures were a broken TREE wearing
+    # the cache's symptoms (next/dist eaten at file level, MODULE_NOT_FOUND
+    # at the entrance while every headcount read 643/643 whole): the
+    # quarantine fired TWICE on a healthy .next and the warm canvas graph
+    # had to be restored from .next.corrupt-* both times. The quarantine is
+    # the CACHE's medicine and must be withheld when the TREE cannot boot:
+    # the entrance file missing (or the headcount thin) means the launcher's
+    # deep-witness restore is the cure, never the mv. Only a WHOLE tree with
+    # three dead boots convicts the cache.
+    if [ -d .next ] && [ -f node_modules/next/dist/bin/next ] && [ "$(ls node_modules 2>/dev/null | wc -l)" -ge 600 ]; then
+      echo "[$(date -u +%H:%M:%SZ)] boot failed $boot_fail_streak times in a row — OOM-corrupted-cache signature, quarantining .next (v2.1 cache hygiene; the tree whole — the v4.1 deep-witness gate passed)" >> "$LOG"
       ts=$(date +%Y%m%d-%H%M%S)
       mv .next ".next.corrupt-$ts" 2>/dev/null
       # keep only the two newest quarantines — the hygiene must not fill the disk
@@ -314,6 +333,8 @@ boot() {
         echo "[$(date -u +%H:%M:%SZ)] reaping old quarantine $old" >> "$LOG"
         rm -rf "$old"
       done
+    else
+      echo "[$(date -u +%H:%M:%SZ)] boot failed $boot_fail_streak times in a row — quarantine WITHHELD (v4.1 deep-witness gate): the tree itself cannot boot (entrance/headcount), the cache is not the disease — the launcher's restore is the cure" >> "$LOG"
     fi
     boot_fail_streak=0
   fi

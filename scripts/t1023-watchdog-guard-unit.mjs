@@ -199,6 +199,11 @@ ok("F5b (t1080) the storm law covers the FAT arm (the v3.2 cure: a burst above t
   sh.includes('RSS_RECYCLE_KB="${WATCHDOG_RECYCLE_KB:-3250000}"') &&
   sh.includes("THE STORM LAW COVERS THE FAT ARM"));
 
+ok("F10 (t1178) the quarantine's DEEP-WITNESS GATE: the mv convicts the cache only when the tree is provably whole (entrance file + 600 headcount — the t1177 morning's broken-tree boots quarantined a healthy .next twice); a broken tree gets the honest WITHHELD line and the launcher's restore, never the mv",
+  sh.includes('if [ -d .next ] && [ -f node_modules/next/dist/bin/next ] && [ "$(ls node_modules 2>/dev/null | wc -l)" -ge 600 ]; then') &&
+  sh.includes("quarantine WITHHELD (v4.1 deep-witness gate)") &&
+  sh.includes("THE QUARANTINE'S DEEP-WITNESS GATE"));
+
 /* ---------- L band — the decision live ---------- */
 console.log("L band — the decision arithmetic live (WATCHDOG_UNIT_MODE=1):");
 
