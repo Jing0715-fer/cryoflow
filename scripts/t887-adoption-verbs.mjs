@@ -624,6 +624,16 @@ if (!flightsReady) {
   const f4 = await riderReady("adopt-downstream", { want: "disabled" });
   ok("F4 the spent run speaks the honest disabled state (no downstream left)", f4.present === true && f4.disabled === true && /no downstream/i.test(f4.label || ""), riderVerdict(f4, "spent"));
   await closeAnyCompare();
+
+  /* t1184 — the CHUNK-END NEUTER (the box-level hygiene): the flights chunk
+   * is the browser-riding chunk; its tab left open pins the canvas in the
+   * daemon's mouth and squeezes the box (the t1183 post-flights witness:
+   * 608 MB available with the server at cap + chrome + stubs). Park the tab
+   * on about:blank at the chunk's end — a server reboot then finds no mouth
+   * to feed (the P0 neuter's own law, applied at the exit), and the
+   * teardown's T4 re-opens the demo on the warm cache anyway. */
+  try { ab("open about:blank"); ok("F5 the flights' tab neutered at the chunk's end (the box breathes)", true); }
+  catch (e) { ok("F5 the flights' tab neutered", false, String(e).slice(0, 120)); }
 }
 } /* the flights chunk's gate */
 

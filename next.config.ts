@@ -247,7 +247,16 @@ const nextConfig: NextConfig = {
     // old-space (dev-server.sh) keeps both engines inside the 4GB box;
     // compiles get slower, not broken. The revert ritual: this knob back to
     // its old 256 (or deleted) restores the uncapped pre-t1183 behavior.
-    turbopackMemoryLimit: 1200 * 1024 * 1024,
+    // t1184 — the BUILD-day calibre: the dev lane lives happily at 1200 MiB,
+    // but the build's graph (every route, prod optimizations) overshoots the
+    // target mid-compile — the first capped build-day attempt (NEXT_PROBE +
+    // fs-cache, t1184 window) was Killed by the kernel anyway. The env-gated
+    // override narrows the engine for the BUILD only: CRYOFLOW_TURBO_MEM_MB=900
+    // npx next build. Named, never silently escalated (the t1180 law); the
+    // revert ritual: unset the env (or delete this line) for the 1200 default.
+    turbopackMemoryLimit: process.env.CRYOFLOW_TURBO_MEM_MB
+      ? Number(process.env.CRYOFLOW_TURBO_MEM_MB) * 1024 * 1024
+      : 1200 * 1024 * 1024,
     // t406 — see the webpack hook above: the two build-regime knobs.
     webpackMemoryOptimizations: true,
     cpus: 1,

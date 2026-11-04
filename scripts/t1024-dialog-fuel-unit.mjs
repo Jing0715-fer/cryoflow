@@ -41,6 +41,7 @@
 import { readFileSync, writeFileSync, mkdirSync, rmSync, statSync } from "node:fs";
 import path from "node:path";
 
+import { execFileSync } from "node:child_process";
 const ROOT = process.cwd();
 const BASE = "http://localhost:3000";
 const TMP = path.join(ROOT, "shots-qa/.t1024-unit-receipt.json");
@@ -224,8 +225,14 @@ for (let i = 0; i < 40 && !worldAfter; i++) {
   } catch { /* the beat */ }
 }
 ok("the world as-left (15 jobs, nothing minted standing — the conn-mvwf4vla replant re-key)", worldAfter?.length === 15, `got ${worldAfter?.length}`);
-const dbBytes = statSync(path.join(ROOT, "db/cryoflow.db")).size;
-ok("the DB byte size held (the high-water — the t1097 re-key: the fresh t979 replant world's page-quantized size — the t1075 re-key's own precedent (155648→135168); the t1142 re-key: the WorldLedger table's landing grew the high-water (135168→143360, two pages); the t1080 147456 died with the epoch; the WORLD stands 15 — the conn-mvwf4vla replant re-key; the t1177 re-key: the merged lineage's first night of ride churn (status/output UPDATEs through the t1175/t1176 walks) split one more page — 35→36, freelist 0, a vacuum has nothing to reclaim; the t1183 re-key: the film's mint+teardown churn bloated the file to 41 pages with 6 freelist — the VACUUM reclaimed them and the t1177-era 36th page too (the rows stand 15/13/14 — the world one page lighter by honest teardowns) — 147456→143360)", dbBytes === 143360, `${dbBytes}`);
+/* t1184 — the fingerprint follows the world's DATA, not the file's fat:
+ * the file's byte size rode the BOOT COUNT (boot-time writes regrow the
+ * freelist — 6 free pages witnessed with NO film running), so the gate
+ * reads the used footprint ((page_count − freelist) × page_size), the
+ * rows' own page-quantized weight, immune to freelist churn. An honest
+ * row growth re-keys THIS number (the t1177 discipline, unit-cured). */
+const dbFootprint = Number(execFileSync("python3", ["-c", "import sqlite3; con = sqlite3.connect('file:db/cryoflow.db?mode=ro', uri=True); pc = con.execute('PRAGMA page_count').fetchone()[0]; fl = con.execute('PRAGMA freelist_count').fetchone()[0]; ps = con.execute('PRAGMA page_size').fetchone()[0]; print((pc - fl) * ps); con.close()"], { encoding: "utf8" }).trim());
+ok("the DB footprint held (the used-pages high-water — the t1184 instrument cure: the file's byte size rode the boot count, its freelist churn regrowing 6 pages with NO film running; the fingerprint now reads the world's data weight — the t1183 re-key's 143360 stands as the first honest number; a future row growth re-keys it by name)", dbFootprint === 143360, `${dbFootprint}`);
 
 function statSyncSafe(p) {
   try { statSync(p); return true; } catch { return false; }

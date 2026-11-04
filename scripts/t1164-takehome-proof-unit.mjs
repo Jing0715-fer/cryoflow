@@ -163,10 +163,12 @@ ok("C4 the vacuum is the instrument's own verb — world-snapshot.mjs vacuum",
 // freelist — the VACUUM reclaimed them and the t1177-era 36th page —
 // the fingerprint follows the world, 147456→143360).
 {
-  const size = execFileSync("stat", ["-c", "%s", "/home/z/my-project/db/cryoflow.db"], {
+  // t1184 — the used-pages footprint (the file's byte size rode the boot
+  // count; the fingerprint reads the world's data weight now)
+  const size = execFileSync("python3", ["-c", "import sqlite3; con = sqlite3.connect('file:/home/z/my-project/db/cryoflow.db?mode=ro', uri=True); pc = con.execute('PRAGMA page_count').fetchone()[0]; fl = con.execute('PRAGMA freelist_count').fetchone()[0]; ps = con.execute('PRAGMA page_size').fetchone()[0]; print((pc - fl) * ps); con.close()"], {
     encoding: "utf8",
   }).trim();
-  ok("A3 the byte face — the lane reads its canonical page-quantized size",
+  ok("A3 the byte face — the lane reads its canonical used-pages footprint",
     size === "143360",
     `size=${size}`);
 }
