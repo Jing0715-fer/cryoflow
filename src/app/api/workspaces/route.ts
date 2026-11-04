@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { isLocalRequest } from "@/lib/http-guard";
 import { ensureActiveProject } from "@/lib/seed";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -62,8 +63,7 @@ export async function GET(request: Request) {
       }),
     });
   } catch (error) {
-    console.error("GET /api/workspaces failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/workspaces", error);
   }
 }
 
@@ -110,7 +110,6 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error("POST /api/workspaces failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("POST /api/workspaces", error);
   }
 }

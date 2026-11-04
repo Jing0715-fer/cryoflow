@@ -1,0 +1,346 @@
+{
+  "instrument": "scripts/t868-text-preview-a11y.mjs",
+  "instrumentRevision": 3,
+  "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder -> title (the spec's own last resort, the t867 growth) — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); the census measures the PERCEIVED page (the RENDERED companion: a display:none control is nobody's control, the t867 growth); name-monotone: the shared ruler's names are a superset of any older inline copy's",
+  "build": "cbIHQtfEuq3Nn-gQeuvbz",
+  "worldMode": "build",
+  "date": "2026-10-10T20:25:27.277Z",
+  "chain": "clean room -> canvas -> postprocess-or-first-logged host (plain door) -> Results tab (mousedown) -> Logs & reports row (the text IS the name) -> text preview dialog (topmost) -> the tail's reachability + the copy door + the one-key seat -> Escape home -> the Files tab's Preview door (the second family, one brain) -> Escape home -> worldBack + seed hygiene (one command)",
+  "host": {
+    "name": "Import Movies 1",
+    "id": "cmv2rou3b0002olsnldg2l0ds",
+    "measured": true
+  },
+  "doors": {
+    "logRow": "click the Logs & reports row — the text IS the name",
+    "filesPeek": "click the Files tab's Preview door — aria-label \"Preview <name>\"",
+    "close": "Escape — the keymap seats' own teaching"
+  },
+  "faces": {
+    "textPreview": {
+      "live": {
+        "url": "/",
+        "pageBtns": 178,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgCount": 2,
+        "dlgHeadTop": "run.out",
+        "dlgDescTop": "run.out · last 64 KB",
+        "shimmer": 0,
+        "logsSection": true,
+        "logRows": 3,
+        "logRowNames": [
+          "run.err0 B",
+          "run.log123 B",
+          "run.out406 B"
+        ],
+        "preNamed": true,
+        "preTabindex": "0",
+        "preFocused": true,
+        "preLen": 401,
+        "copyAboard": true,
+        "keymapAboard": true,
+        "keymapKbds": [
+          "Esc"
+        ],
+        "filesTabActive": false,
+        "previewDoors": [],
+        "actTab": null
+      },
+      "settled": {
+        "url": "/",
+        "pageBtns": 178,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgCount": 2,
+        "dlgHeadTop": "run.out",
+        "dlgDescTop": "run.out · last 64 KB",
+        "shimmer": 0,
+        "logsSection": true,
+        "logRows": 3,
+        "logRowNames": [
+          "run.err0 B",
+          "run.log123 B",
+          "run.out406 B"
+        ],
+        "preNamed": true,
+        "preTabindex": "0",
+        "preFocused": true,
+        "preLen": 401,
+        "copyAboard": true,
+        "keymapAboard": true,
+        "keymapKbds": [
+          "Esc"
+        ],
+        "filesTabActive": false,
+        "previewDoors": [],
+        "actTab": null
+      }
+    },
+    "filesTab": {
+      "live": {
+        "url": "/",
+        "pageBtns": 182,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 3,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgCount": 2,
+        "dlgHeadTop": "run.err",
+        "dlgDescTop": "run.err · last 64 KB",
+        "shimmer": 0,
+        "logsSection": false,
+        "logRows": 0,
+        "logRowNames": [],
+        "preNamed": true,
+        "preTabindex": "0",
+        "preFocused": true,
+        "preLen": 0,
+        "copyAboard": true,
+        "keymapAboard": false,
+        "keymapKbds": [],
+        "filesTabActive": true,
+        "previewDoors": [
+          "micrographs.star",
+          "run.err",
+          "run.log",
+          "run.out"
+        ],
+        "actTab": null
+      }
+    },
+    "worldBack": {
+      "live": {
+        "url": "/",
+        "pageBtns": 153,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": false,
+        "dlgCount": 0,
+        "dlgHeadTop": null,
+        "dlgDescTop": null,
+        "shimmer": 0,
+        "logsSection": false,
+        "logRows": 0,
+        "logRowNames": [],
+        "preNamed": false,
+        "preTabindex": null,
+        "preFocused": false,
+        "preLen": null,
+        "copyAboard": false,
+        "keymapAboard": false,
+        "keymapKbds": [],
+        "filesTabActive": false,
+        "previewDoors": [],
+        "actTab": "Catalog"
+      }
+    }
+  },
+  "driftLedger": {
+    "prevFound": true,
+    "sameBuild": true,
+    "prevBuild": "cbIHQtfEuq3Nn-gQeuvbz",
+    "prevDate": "2026-10-10T20:25:01.058Z",
+    "prevRevision": 3,
+    "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
+    "faces": {
+      "textPreview": {
+        "prev": 178,
+        "live": 178,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "filesTab": {
+        "prev": 182,
+        "live": 182,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "worldBack": {
+        "prev": 153,
+        "live": 153,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      }
+    }
+  },
+  "checks": [
+    {
+      "label": "O0 the boot is a clean room (the t157 seed cleared, the panel closed)",
+      "pass": true,
+      "detail": "panelOpen absent, btns=153 — zero unnamed anywhere"
+    },
+    {
+      "label": "T1 the card's plain door opened the inspector (the submitted law)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "T2 the Logs & reports section is present and named",
+      "pass": true,
+      "detail": "rows=3 first=\"run.err0 B\""
+    },
+    {
+      "label": "T3 the log row clicked (the text IS the name — from the data)",
+      "pass": true,
+      "detail": "name=\"run.out\""
+    },
+    {
+      "label": "T4 the dialog arrived as the TOPMOST layer",
+      "pass": true,
+      "detail": "dlgCount=2"
+    },
+    {
+      "label": "T5 the heading is the file's own name (label ?? name — read from the data, the TOPMOST layer)",
+      "pass": true,
+      "detail": "head=\"run.out\" == data \"run.out\""
+    },
+    {
+      "label": "T6 the description speaks the path + the tail contract (last 64 KB)",
+      "pass": true,
+      "detail": "desc=\"run.out · last 64 KB\""
+    },
+    {
+      "label": "T7 the region is named and keeps its keyboard door (the t812 law)",
+      "pass": true,
+      "detail": "aria-label=\"File content preview\", tabindex=0"
+    },
+    {
+      "label": "T8 the region TOOK the focus (the t774 reachability — the region is the destination)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "T9 the copy door is aboard (Task 170's one clipboard dialect)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "T10 the tail's BOUND is honest (the backend's own contract: the last 64 KB, +slack)",
+      "pass": true,
+      "detail": "tail length 401 chars (measured, never pinned)"
+    },
+    {
+      "label": "T11 zero unnamed page-wide WITH the preview up (the census's invariant, the grown ruler)",
+      "pass": true,
+      "detail": "btns=178 ctrls=2"
+    },
+    {
+      "label": "T12 the keymap seat teaches exactly ONE key (Esc — the must-not-lie calibre)",
+      "pass": true,
+      "detail": "kbds=[\"Esc\"]"
+    },
+    {
+      "label": "T13 two settled rides bit-identical (the t836 law, the t860 conditions)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "E1 ONE Escape closed the TOPMOST layer (the layered-escape contract: one per layer)",
+      "pass": true,
+      "detail": "dlgCount 2 -> 1 (the inspector beneath remains — the house contract)"
+    },
+    {
+      "label": "E2 the layer beneath is intact (the inspector still rides, its own tab still spoken)",
+      "pass": true,
+      "detail": "actTab=Results"
+    },
+    {
+      "label": "F1 the Files tab opened (the mousedown door; the trigger's count badge rides the label — \"Files4\" — the prefix match is the measured form)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "F2 the Preview doors are aboard (the Eye, aria-label 'Preview <name>')",
+      "pass": true,
+      "detail": "doors=4 first=\"micrographs.star\""
+    },
+    {
+      "label": "F3 the peek door clicked (the second family's own mouth)",
+      "pass": true,
+      "detail": "name=\"run.err\""
+    },
+    {
+      "label": "F4 the SAME dialog arrives, the heading is the previewed file's own name (one brain, word forms verbatim)",
+      "pass": true,
+      "detail": "head=\"run.err\" == data \"run.err\""
+    },
+    {
+      "label": "F5 the same invariants hold through the second mouth (named focusable region + focus + copy + the tail's bound)",
+      "pass": true,
+      "detail": "tabindex=0, focused=true, tail=0"
+    },
+    {
+      "label": "F6 zero unnamed page-wide WITH the peek up (the census's invariant)",
+      "pass": true,
+      "detail": "btns=182 ctrls=3"
+    },
+    {
+      "label": "F7 the peek closed honestly (ONE Escape, the layer contract through the second mouth)",
+      "pass": true,
+      "detail": "dlgCount 2 -> 1"
+    },
+    {
+      "label": "W1 the world unharmed (canvas count == the opening count, zero unnamed)",
+      "pass": true,
+      "detail": "btns=153 (opening 153)"
+    },
+    {
+      "label": "W2 the ride leaves no session seed (the t157 two-way door's honest none — the t866 lesson rides every page)",
+      "pass": true,
+      "detail": "seed=null"
+    },
+    {
+      "label": "textPreview face ride-drift law",
+      "pass": true,
+      "detail": "arm 3 — bit-for-bit (178 -> 178, the full live object identical)"
+    },
+    {
+      "label": "filesTab face ride-drift law",
+      "pass": true,
+      "detail": "arm 3 — bit-for-bit (182 -> 182, the full live object identical)"
+    },
+    {
+      "label": "worldBack face ride-drift law",
+      "pass": true,
+      "detail": "arm 3 — bit-for-bit (153 -> 153, the full live object identical)"
+    }
+  ],
+  "passed": 28,
+  "failed": 0,
+  "total": 28,
+  "verdict": "the text preview's page holds: the results-view's third room through the log row's own door (the heading IS the file's name from the data, the tail's 64 KB bound measured, the named focusable region took the focus — t774's reachability — the copy door aboard, the one-key Esc seat's must-not-lie calibre), the Files tab's peek door spoke the SAME law through the SECOND mouth (one brain, two door-sets, word forms verbatim), zero unnamed everywhere on every face, two settled rides bit-identical, the world back bit-for-bit (153 == 153) — the ledger aboard from birth (three faces, the shared law) with the instrument's own revision signed (the arm 2r contract's second seat)"
+}

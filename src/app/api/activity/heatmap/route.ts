@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { isLocalRequest } from "@/lib/http-guard";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -137,7 +138,7 @@ export async function GET(request: NextRequest) {
       totalJobs,
       days,
     } satisfies HeatmapPayload);
-  } catch {
-    return NextResponse.json({ error: "heatmap aggregation failed" }, { status: 500 });
+  } catch (error) {
+    return serverErrorReply("GET /api/activity/heatmap", error);
   }
 }

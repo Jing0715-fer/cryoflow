@@ -196,6 +196,14 @@ def main() -> None:
     clean = "--clean" in sys.argv or TAKE_HOME
     jobs = api("/api/jobs")
     jobs = jobs["jobs"] if isinstance(jobs, dict) else jobs
+    # t1080 — the WORLD-SCOPED LOOKUP: the name search used to ride the
+    # unfiltered jobs list, so a stale QA job in ANY world (witnessed: five
+    # QA jobs minted into the t380 exam's project while its pointer held the
+    # session) matched "existing" and the seed seeded the WRONG world's row
+    # while PROJECT (projects[0]) named another. The lookup and the minting
+    # now live in the same world as PROJECT — a foreign same-name job is
+    # invisible here, and the seed mints fresh into its own world.
+    jobs = [j for j in jobs if j.get("projectId") == PROJECT]
     created_files = []
 
     for name, jtype, target, f1, n, x, y in SPECS:
@@ -288,6 +296,7 @@ def main() -> None:
         # never linger on the canvas between QA rounds
         jobs = api("/api/jobs")
         jobs = jobs["jobs"] if isinstance(jobs, dict) else jobs
+        jobs = [j for j in jobs if j.get("projectId") == PROJECT]
         live = next((j for j in jobs if j.get("name") == LIVE[0]), None)
         if live is not None:
             # full-fidelity cleanup: the job row AND its on-disk traces
@@ -312,6 +321,14 @@ def main() -> None:
             except Exception as e:
                 print(f"clean: state pop failed ({e})")
             api(f"/api/jobs/{live['id']}", "DELETE")
+            # t1095 — the stray law's seeder edition (the qa55 lesson): the
+            # delete's own 200 is not the proof, the WORLD READ is.
+            after = api("/api/jobs")
+            if isinstance(after, dict):
+                after = after.get("jobs", [])
+            if any(j.get("id") == live["id"] for j in after):
+                print(f"clean: REFUSAL — {LIVE[0]} still stands after its DELETE")
+                sys.exit(2)
             print(f"clean: deleted live job {LIVE[0]}")
         else:
             print("clean: live job already absent")
@@ -345,6 +362,16 @@ def main() -> None:
             except Exception as e:
                 print(f"take-home: state pop failed for {name} ({e})")
             api(f"/api/jobs/{row['id']}", "DELETE")
+            # t1095 — the stray law's seeder edition (the qa55 lesson): the
+            # delete's own 200 is not the proof, the WORLD READ is. A row
+            # that stands after its delete exits 2 so the rider's warn
+            # carries the truth instead of a printed lie.
+            after = api("/api/jobs")
+            if isinstance(after, dict):
+                after = after.get("jobs", [])
+            if any(j.get("id") == row["id"] for j in after):
+                print(f"take-home: REFUSAL — {name} still stands after its DELETE")
+                sys.exit(2)
             print(f"take-home: deleted {name} ({row['id'][:10]}) via the product door")
             # whole-specimen rule (t630): DELETE never sweeps disk (t97) —
             # rmdir the per-job workdir only when the radius left it empty

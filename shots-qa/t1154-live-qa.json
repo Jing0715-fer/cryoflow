@@ -1,0 +1,18 @@
+{
+  "ride": "t1154-live-qa — the progress-scale cure's live leg",
+  "window": "cron 2026-11-02 23:20:47 +08:00 (trace 1a07549302235a99-cron-agent-loop-202611022320, Job 362852)",
+  "verdict": "DATA witnessed · RENDER source-pinned · DOM-in-run re-queued to the build day",
+  "steps": [
+    { "check": "C0 preflight — the seat row exists and is settled", "result": "ok" },
+    { "check": "C1 POST run (select2d) — answered 2xx", "result": "ok", "note": "the mock's select2d finished inside the poll gap (the sub-200ms law's run-shaped twin) — re-rode class2d (~4.6 min window)" },
+    { "check": "C2 t181-e2e inside the class2d running window — S2 the wire's running row witnessed", "result": "ok (pre-OOM)", "note": "the DOM locator raced the kernel OOM: next-server killed at anon-rss 2.17GB (dmesg witness) — the run-window browser page is the OOM/dialog law's own shape; the watchdog resurrected, the environment healed, the cure was not implicated" },
+    { "check": "C3 the mock's run settled — exit 0, 11464 files synced, class2d self-healed completed", "result": "ok", "receipt": "REMOTE[cryo@127.0.0.1 · relion/5.0.1]: 2D classification finished — 50 of 50 classes" },
+    { "check": "C4 world gate after the ride", "result": "15 jobs · 15 done · 14 edges · db 143360 bit-for-bit (the mock's determinism absorbs the re-run)" },
+    { "check": "agent-browser live words (no run in flight) — 15 cards render · the Dashboard tab real-clicks (the t886 law) · the feed section paints · the feed text carries NO four-digit percent (the t181 B2 canary, live)", "result": "ok" }
+  ],
+  "requeues": [
+    "the DOM-in-run leg (t181-e2e's painted-word B3 inside a live running window) joins the build-day queue — a browser during a run is the forbidden shape on this 4GB box"
+  ],
+  "census": "93/93 ZERO RED (seat 93 = t1154-progress-scale-unit 28/28; t1091 re-keyed to the father's address, 16/16)",
+  "gates": "tsc 0 · eslint 0 (sequenced)"
+}

@@ -1,0 +1,23 @@
+Job,Type,Status,Workspace,Detail
+Motion Correction 1,Motion Correction,completed,Main,"REMOTE[cryo@127.0.0.1 · relion/5.0.1]: motion corrected, 6 micrographs · 6 still on cluster"
+Import Movies 1,Import Movies / Micrographs / Particles,completed,Main,24 micrographs imported · EMPIAR-10017 (pixel 1.77 Å)
+Cancelled Diagnosis Face (t976),3D Classification,failed,Main,the run ended in an external cancellation SLURM recorded in its own words (*** CANCELLED AT … *** — an operator scancel or a preemption; no reason named) mid-iteration 4 of 25 — the strip speaks the t994 scheduler-cancelled row (the face flipped from the teaser's zero to the one-match contract)
+Negative Diagnosis Face (t972),3D Classification,failed,Main,relion_refine_mpi was cancelled by the partition's 24-hour walltime (SLURM: DUE TO TIME LIMIT) mid-iteration 7 of 25 — the log carries no error signature by design (the t972 negative diagnosis face)
+Custom Error Face (t995),3D Classification,failed,Main,"the wrapper died before RELION started — the modulefile named a RELION build the node no longer has (bash answered 'command not found', the step exited 127); the signature table answered ZERO — the teaser's negative leg re-homed (no known signature, the cause is custom to this job, the log is the truth)"
+Rounds Face (t989),3D Auto-Refine,idle,Main,not started
+Continue Face (t988),3D Auto-Refine,idle,Main,not started
+Idle Shape Face (t987),Import Movies / Micrographs / Particles,idle,Main,not started
+Failed Diagnosis Face (t970),Motion Correction,failed,Main,motioncor2 exited 137 — CUDA error: out of memory on GPU 0; the CPU retry was killed by the kernel's OOM killer (the t970 failed diagnosis face)
+Post-process (tutorial),Post-Processing,completed,Main,REMOTE[cryo@127.0.0.1 · relion/5.0.1]: sharpened map · FSC(0.143) = 7.79 Å
+Mask Create (tutorial),Mask Creation,completed,Main,REMOTE[cryo@127.0.0.1 · relion/5.0.1]: soft-edged mask created
+3D Refine (tutorial),3D Auto-Refine,completed,Main,"REMOTE[cryo@127.0.0.1 · relion/5.0.1]: refine3d exited 0 · 5,672 particles"
+Rebalance (tutorial),Orientation Rebalancer,completed,Main,"5,672 of 5,760 particles kept · anisotropy 1.09→1.07 · uniformity 0.77→0.80"
+Symmetry Expansion (tutorial),Symmetry Expansion,completed,Main,"96 × 60 = 5,760 particles (I/full)"
+3D Classification (tutorial),3D Classification,completed,Main,REMOTE[cryo@127.0.0.1 · relion/5.0.1]: class3d exited 0 · 96 particles · 4 per-class star(s) — pick classes from the gallery for the next step
+Initial Model (tutorial),3D Initial Model,completed,Main,REMOTE[cryo@127.0.0.1 · relion/5.0.1]: de-novo 3D initial model generated · 96 particles
+Select (tutorial),Particle Selection,completed,Main,96 of 96 particles selected · kept 50/50 classes (occupancy ≥ 0.5× best)
+Select 2D (tutorial),2D Class Selection,completed,Main,96 of 96 particles kept · 50/50 classes (auto — occupancy ≥ 0.5× best)
+2D Classification (tutorial),2D Classification,completed,Main,"REMOTE[cryo@127.0.0.1 · relion/5.0.1]: 2D classification finished — 50 of 50 classes populated · 96 particles · top: class 1 2%, class 8 2%, class 15 2% · 50 per-class star(s) — pick classes from the gallery for the next step"
+Extract (tutorial),Particle Extraction,completed,Main,REMOTE[cryo@127.0.0.1 · relion/5.0.1]: 96 particles extracted · 24 still on cluster
+Auto-pick (tutorial),Automated Picking,completed,Main,REMOTE[cryo@127.0.0.1 · relion/5.0.1]: 408 particles picked across 24 micrographs
+CTF Estimation 1,CTF Estimation,completed,Main,REMOTE[cryo@127.0.0.1 · relion/5.0.1]: CTF estimated for 6 micrographs

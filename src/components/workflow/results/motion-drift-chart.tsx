@@ -143,7 +143,7 @@ export function MotionDriftChart({ jobId, className }: { jobId: string; classNam
             type="button"
             onClick={() => setTableOpen((v) => !v)}
             aria-expanded={tableOpen}
-            className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:bg-muted hover:text-foreground"
             title={tableOpen ? "Collapse detail table" : "Expand detail table"}
           >
             <ChevronDown className={cn("size-4 transition-transform", tableOpen && "rotate-180")} aria-hidden />

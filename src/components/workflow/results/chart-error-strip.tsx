@@ -62,7 +62,7 @@ export function ChartErrorStrip({
         data-chart-error-retry=""
         onClick={onRetry}
         aria-label={`Retry loading ${label}`}
-        className="inline-flex shrink-0 items-center gap-1 rounded-md border border-warning/30 bg-warning/10 px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide transition-colors hover:bg-warning/20"
+        className="inline-flex shrink-0 items-center gap-1 rounded-md border border-warning/30 bg-warning/10 px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:bg-warning/20"
       >
         <RefreshCw className="size-3" aria-hidden="true" />
         Retry

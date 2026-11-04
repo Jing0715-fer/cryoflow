@@ -34,6 +34,14 @@
  * was the only retry. The strip now carries the chart-error-strip's own
  * chip (t491's third state: not the chart, not the empty, "the load
  * failed and you can try again"), re-firing the same fetch.
+ *
+ * The empty face's honesty (t967 — the bench's run.err was the witness):
+ * a 0-byte file used to open as a bare empty box beside a copy button
+ * that copies nothing — honest, but bare. The kind note now speaks
+ * first: "0 bytes — nothing to read", one sentence of why. The cure
+ * travels by ADDITION (the family law): the focusable pre stays — it is
+ * still the focus destination and the scroll region — the note only
+ * explains what the box's silence means.
  */
 
 import * as React from "react";
@@ -98,7 +106,7 @@ export function TextPreview({ jobId, path }: { jobId: string; path: string }) {
           data-text-error-retry=""
           onClick={() => setAttempt((a) => a + 1)}
           aria-label="Retry loading the file"
-          className="inline-flex shrink-0 items-center gap-1 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide transition-colors hover:bg-destructive/20"
+          className="inline-flex shrink-0 items-center gap-1 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide transition-colors hover:bg-destructive/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <RefreshCw className="size-3" aria-hidden="true" />
           Retry
@@ -119,6 +127,17 @@ export function TextPreview({ jobId, path }: { jobId: string; path: string }) {
   }
   return (
     <div className="min-w-0">
+      {/* the empty face's kind note (t967) — the honest words first, the
+          box's silence explained; the pre below stays the focus law's
+          destination (the cure is additive, never a replacement) */}
+      {text === "" && (
+        <p
+          data-canvas-ui="text-preview-empty-note"
+          className="mb-1.5 rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-xs text-muted-foreground"
+        >
+          0 bytes — nothing to read. The file exists but is empty — an honest tail of nothing.
+        </p>
+      )}
       {/* the copy row — one clipboard dialect (Task 170), no occlusion
           (a floating button would cover the tail's first line) */}
       <div className="mb-1.5 flex items-center justify-end">

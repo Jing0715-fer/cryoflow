@@ -5,6 +5,7 @@ import { findEffectiveJob } from "@/lib/link";
 import { isLocalRequest } from "@/lib/http-guard";
 import { getRun } from "@/lib/relion/engine";
 import { cachedFileCompute } from "@/lib/relion/statcache";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -137,7 +138,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
     };
     return NextResponse.json(body);
   } catch (error) {
-    console.error("GET /api/jobs/[id]/rebalance failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/jobs/[id]/rebalance", error);
   }
 }

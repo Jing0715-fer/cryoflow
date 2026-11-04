@@ -1,0 +1,14 @@
+{
+  "walk": "t989-rounds-face-walk",
+  "at": "2026-10-14T16:23:59.123Z",
+  "pass": 55,
+  "fail": 0,
+  "phaseTrace": [
+    "r0i0: {\"up\":true,\"loading\":true,\"err\":null,\"head\":false,\"cluster\":false,\"it200\":null}"
+  ],
+  "results": [],
+  "face": {
+    "name": "Rounds Face (t989)",
+    "jobId": "cmv86xfmq0001usha0t85mcfb"
+  }
+}

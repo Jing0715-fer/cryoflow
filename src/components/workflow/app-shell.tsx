@@ -488,6 +488,15 @@ export function AppShell() {
         // listbox guard above: the component that owns focus owns the key.
         const tgt = e.target;
         if (tgt instanceof HTMLElement && tgt.closest('[role="tablist"]')) return;
+        // t997 — a FOCUSED WINDOW SEPARATOR owns the arrows too (the
+        // WAI-ARIA window-splitter pattern): the assistant panel's resize
+        // grips preventDefault and resize through the same clampGeo the
+        // pointer drag rides, but the key STILL bubbles here — the walk
+        // then hops the canvas selection under the user's hand (and pans
+        // the viewport with it, and mounts whatever the landed card's
+        // selection drags in). Same layering rule as the listbox and
+        // tablist guards above: the component that owns focus owns the key.
+        if (tgt instanceof HTMLElement && tgt.closest('[role="separator"]')) return;
         e.preventDefault();
         const dir =
           k === "ArrowLeft" ? { x: -1, y: 0 } :
@@ -609,6 +618,11 @@ export function AppShell() {
     () => (confirmBulkDelete ? allJobs.filter((j) => allSelectedIds.includes(j.id)) : []),
     [confirmBulkDelete, allJobs, allSelectedIds]
   );
+  // t1012 — the prose truce: the keyboard door speaks the same dialect the
+  // toolbar's door speaks (canvas.tsx's bulk confirm) — the workdirs
+  // sentence and the counted running clause. One bulk delete, two doors,
+  // ONE prose: a user who deletes from either door reads the same story.
+  const bulkRunningCount = bulkTargets.filter((j) => j.status === "running").length;
 
   return (
     <CompanionWindowsProvider>
@@ -811,9 +825,21 @@ export function AppShell() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete {deleteTarget?.name ?? "this job"}?</AlertDialogTitle>
+            {/* t1013 — the single pair's prose truce: this keyboard door now
+                speaks the same dialect the context menu's door speaks
+                (job-card's confirm) — the connections sentence, the workdir
+                sentence, the running clause AND the link-count refusal
+                clause. One single delete, two doors, ONE prose: the old
+                wording ("its connections from the workflow") promised a
+                delete the server refuses on linked originals (409) and said
+                nothing about the files the workdir keeps. */}
             <AlertDialogDescription>
-              This removes the job and its connections from the workflow.
-              {deleteTarget?.status === "running" && " A running process will be stopped."}{" "}
+              This removes the job and every connection attached to it. Files
+              already written to the workdir stay on disk.
+              {deleteTarget?.status === "running" && " A running process will be stopped."}
+              {deleteTarget?.linkCount
+                ? ` ${deleteTarget.linkCount} linked cop${deleteTarget.linkCount === 1 ? "y" : "ies"} in other workspaces reference this job — the server refuses to delete it until they are removed.`
+                : ""}{" "}
               You'll get a short window to undo from the toast afterwards.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -848,9 +874,10 @@ export function AppShell() {
                 .map((j) => `“${j.name}”`)
                 .join(", ")
                 .concat(bulkTargets.length > 3 ? ` and ${bulkTargets.length - 3} more` : "")}{" "}
-              — this removes every wire attached to them.
-              {bulkTargets.some((j) => j.status === "running") &&
-                " Running processes will be stopped."}{" "}
+              — this removes every wire attached to them. Files already written to
+              the workdirs stay on disk.
+              {bulkRunningCount > 0 &&
+                ` ${bulkRunningCount} running process${bulkRunningCount === 1 ? " will be stopped" : "es will be stopped"}.`}{" "}
               You'll get a short window to undo from the toast afterwards.
             </AlertDialogDescription>
           </AlertDialogHeader>

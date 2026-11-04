@@ -324,7 +324,7 @@ export function AiSettingsDialog() {
                     onClick={() => setProviderId(p.id)}
                     aria-pressed={providerId === p.id}
                     className={cn(
-                      "flex w-full items-center gap-2 rounded-lg border px-2 py-1.5 text-left transition-colors",
+                      "flex w-full items-center gap-2 rounded-lg border px-2 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                       providerId === p.id
                         ? "border-primary/40 bg-primary/[0.06]"
                         : "border-transparent hover:border-border hover:bg-muted/50"
@@ -464,9 +464,9 @@ export function AiSettingsDialog() {
                     type="button"
                     onClick={() => void reprobe()}
                     disabled={probing}
-                    aria-label="重新测活"
+                    aria-label={probing ? "测活中…" : "重新测活"}
                     title="重新探测所有已保存供应商的连通性"
-                    className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+                    className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:bg-muted hover:text-foreground disabled:opacity-50"
                   >
                     <RefreshCw className={cn("size-3", probing && "animate-spin")} aria-hidden="true" />
                   </button>
@@ -523,7 +523,7 @@ export function AiSettingsDialog() {
                   <button
                     type="button"
                     aria-label={showKey ? "Hide the API key" : "Show the API key"}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:text-foreground"
                     onClick={() => setShowKey((v) => !v)}
                   >
                     {showKey ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -551,7 +551,7 @@ export function AiSettingsDialog() {
                   className="h-6 gap-1 px-2 text-[11px] text-muted-foreground hover:text-foreground"
                   onClick={() => void fetchModels()}
                   disabled={fetching || !providerId}
-                  aria-label="Refresh the model list"
+                  aria-label={fetching ? "Refreshing the model list…" : !providerId ? "Refresh the model list (pick a provider first)" : "Refresh the model list"}
                 >
                   {fetching ? (
                     <Loader2 className="size-3 animate-spin" aria-hidden="true" />
@@ -650,7 +650,11 @@ export function AiSettingsDialog() {
           <Button variant="outline" onClick={() => setOpen(false)}>
             取消
           </Button>
-          <Button onClick={() => void save()} disabled={saving || !providerId}>
+          <Button
+            onClick={() => void save()}
+            disabled={saving || !providerId}
+            aria-label={saving ? "保存并启用（正在保存）" : !providerId ? "保存并启用（先选择 Provider）" : "保存并启用"}
+          >
             {saving && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
             <Check className="size-4" aria-hidden="true" />
             保存并启用

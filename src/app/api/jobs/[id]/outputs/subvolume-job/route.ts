@@ -8,9 +8,10 @@ import { defaultParams, defaultPorts, jobType } from "@/lib/workflow";
 import { portsValid, persistPortEdge } from "@/lib/edge-ports";
 import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
-import { readPathrefTarget } from "@/lib/relion/pathref";
+import { readPathrefTarget, pathrefHatchApplies } from "@/lib/relion/pathref";
 import { resolveInsideJobWorkdir } from "@/lib/relion/jobfile";
 import { isMrcPath, readMrcHeader, readMrcSubvolume } from "@/lib/mrc";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -87,8 +88,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     // pathref escape hatch — same policy as the GET sibling: engine-written
     // markers for UNLINKABLE import sources resolve to the real file, so
-    // imported maps can be cropped and sent onward like on-disk ones.
-    if (name.endsWith(".pathref")) {
+    // imported maps can be cropped and sent onward like on-disk ones. The
+    // GATE is the ONE hatch gate (pathrefHatchApplies — t1169 moves the
+    // t903 compound condition into its birthplace so the four carriers
+    // cannot drift): a planted file whose NAME merely ends in .pathref but
+    // which lives outside micrographs/ (or carries no hidden-dot name)
+    // does not speak for the engine and is served as the plain bytes it is.
+    if (pathrefHatchApplies(rel, name)) {
       const target = readPathrefTarget(abs);
       if (!target) {
         return NextResponse.json({ error: "Broken path reference (source moved or deleted)" }, { status: 404 });
@@ -232,7 +238,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
       { status: 201 }
     );
   } catch (error) {
-    console.error("POST /api/jobs/[id]/outputs/subvolume-job failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("POST /api/jobs/[id]/outputs/subvolume-job", error);
   }
 }

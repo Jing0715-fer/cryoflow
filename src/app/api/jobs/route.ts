@@ -11,6 +11,7 @@ import { ensureGlobalReconciler } from "@/lib/relion/global-reconcile";
 import { remainingForRun } from "@/lib/remote/remote-remaining";
 import { listStampIds } from "@/lib/ai/verdict-stamps";
 import type { JobDTO, EdgeDTO } from "@/lib/types";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -247,8 +248,7 @@ export async function GET(request: NextRequest) {
       { headers: { "content-type": "application/json" } }
     );
   } catch (error) {
-    console.error("GET /api/jobs failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/jobs", error);
   }
 }
 
@@ -399,8 +399,15 @@ export async function POST(request: NextRequest) {
       dto.linkedName = root.name;
       dto.linkedWorkspaceName =
         (root.workspaceId ? wsNames.get(root.workspaceId) : undefined) ?? null;
-      dto.linkCount =
-        (await db.job.count({ where: { linkedJobId: root.id } })) + 1;
+      // t1014 — the copy's OWN inbound-link count is ZERO: nothing references
+      // a brand-new copy. The old line wrote the ROOT's count (+1) onto the
+      // copy's dto — a category error that made the copy's card badge claim
+      // "×N linked copies consume this copy's outputs" and, worse, made the
+      // copy's single-delete confirm speak the link-count REFUSAL clause for
+      // a delete the server happily accepts (_count.links for the copy is 0).
+      // The clause's word is true from birth now; the root's badge rides the
+      // store's own optimistic bump (linkJobTo), the copy's story its banner.
+      dto.linkCount = 0;
       return NextResponse.json({ job: dto }, { status: 201 });
     }
 
@@ -490,7 +497,6 @@ export async function POST(request: NextRequest) {
     dto.engine = "relion";
     return NextResponse.json({ job: dto, ...(createdEdge ? { edge: createdEdge } : {}) }, { status: 201 });
   } catch (error) {
-    console.error("POST /api/jobs failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("POST /api/jobs", error);
   }
 }

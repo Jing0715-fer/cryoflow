@@ -5,6 +5,7 @@ import { ensureActiveProject, ensureDefaultWorkspace, toJobDTO } from "@/lib/see
 import { defaultParams, jobType } from "@/lib/workflow";
 import { persistPortEdge, portsValid } from "@/lib/edge-ports";
 import type { EdgeDTO, JobDTO, TemplateOverrides } from "@/lib/types";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -302,7 +303,6 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error("POST /api/pipeline-template failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("POST /api/pipeline-template", error);
   }
 }

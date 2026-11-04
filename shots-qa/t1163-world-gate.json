@@ -1,0 +1,48 @@
+{
+  "task": "t1163",
+  "title": "the world gate — the durability vein's fourth face: the operator's lever (FAMILY_WORLD_GATE=strict refuses a doctor-RED world with honest testimony and exit 0)",
+  "date": "2026-11-03",
+  "units": {
+    "seat": "t1163-world-gate-unit",
+    "result": "14/14 green at birth",
+    "coverage": {
+      "A_instrument": [
+        "A1 strict × RED (DRIFTED temp DB) — the refusal: ⊘ WORLD-GATE(strict) spoken, worldGated entry written, suites all world-gated attempts 0, realFail 0, exit 0",
+        "A2 default × RED — the t1162 face stands: ⚠ preflight names the world, the ride proceeds, no gate",
+        "A3 strict × honest (STALE red=false) — the gate stays open, ridden by the READ-ONLY qa00 sentinel so the world never moves",
+        "A4 --summary speaks the ⊘ — gated flag, verdict, nothing rode"
+      ],
+      "B_source_law": [
+        "B1 strict-only (any other value keeps the ride)",
+        "B2 the refusal exits 0",
+        "B3 the gate never manufactures a failure (realFail 0)",
+        "B4 the testimony shape (worldGated + world preserved + world-gated × attempts 0)",
+        "B5 the mute safety (preWorld?.red)",
+        "B6 the EMPTY-LIVE whitelist (red=false in the probe)",
+        "B7 the default keeps the t1162 face"
+      ],
+      "C_doctrine": [
+        "C1 the help line speaks the lever",
+        "C2 no exit expression contains world or gate",
+        "C3 the flag precedence — ⊘ outranks the suite flags"
+      ]
+    }
+  },
+  "the_live_catch": {
+    "what": "the gate's first real-world catch happened DURING the seat's own birth: the A-draft rode qa63-smoke (a world-changing suite), the world went 15→20, and the NEXT strict ride refused — DRIFTED live 20 vs snapshot 15 — exactly the drift the gate exists to name",
+    "cure": "world-snapshot.mjs restore (one command) rebuilt the tracked 15·15·14 world; the lesson moved into the seat itself: the ride target became qa00-data-view, the READ-ONLY sentinel (a probe dir it creates and deletes, never the DB)"
+  },
+  "the_vacuum_cure": {
+    "what": "the census went RED ×3 after the restore (t1021/t1022/t1023, count 18/23 vs expected 19/24): the DB's page-quantized size — a pinned face (143360 across the epochs) — had grown to 147456, because wipe+rebuild leaves SQLite freelist pages the deleteMany never returns",
+    "cure": "restore learned VACUUM (world-snapshot.mjs cmdRestore, post-seed): the rebuilt world compacts back to its canonical 143360 — bit-for-bit on BOTH faces, the rows (t1160's roundtrip law) and the bytes (t1021's family law); re-keying the expected size was rejected as treating the symptom",
+    "verified": "restore → stat 143360 → t1021 19/19 · t1022 19/19 · t1023 24/24"
+  },
+  "standing_instruments": {
+    "census": "101 seats: 101 GREEN · 0 RED (seat 101 t1163-world-gate-unit 14/14 aboard; enrolled by t1163-census-rekey.mjs, idempotent ×2, bash -n green)",
+    "selftest": "7/7 pins (restore's VACUUM did not break the roundtrip)",
+    "probe": "STALE red=false (15/15, head 6cb3556a vs tree) — the honest docs/qa footprint; doctor agrees",
+    "world_gate": "15 jobs · 15 done · 14 edges (restored, canonical)",
+    "tsc": "0 errors",
+    "eslint": "0 errors (4 touched files)"
+  }
+}

@@ -41,6 +41,7 @@ import {
   TriangleAlert,
   Workflow,
   Filter,
+  Gauge,
   Mountain,
   Info,
   X,
@@ -68,6 +69,9 @@ import { PipelineAnalytics } from "./pipeline-analytics";
 import { StatusBadge, estimateEta, formatEta, isSlurmQueued, trackEtaBaseline } from "./job-card";
 import { JobSearchLens } from "./job-search-lens";
 import { formatElapsed } from "@/lib/elapsed";
+import { ChartExportButtons } from "@/components/workflow/results/chart-export-buttons"; // t1032 — the roster's export doors (the paper's own cells leave as CSV/TSV)
+import { rosterRows } from "@/lib/roster-export"; // t1032 — the roster's data father: the SAME cells the rows speak, one formula, two surfaces
+import { fmtProgressPct, progressToFraction } from "@/lib/progress-scale"; // t1154 — the progress word AND the frame's one /100 ride their father (the t181 scale law's home)
 import { useNow } from "@/lib/use-now";
 import { walkTimeline } from "@/lib/timeline-walk"; // t686 — the roster drinks the same honest-window well
 import { criticalPath } from "@/lib/critical-path"; // t686 — the walk the lens family speaks, now on the survey face
@@ -77,6 +81,7 @@ import { criticalPath } from "@/lib/critical-path"; // t686 — the walk the len
 // ordering, one chip brain); only the trigger dialect differs.
 import { SiblingComparePicker } from "./sibling-compare-picker";
 import { NewProjectDialog } from "./project-panel";
+import { PaceDialog } from "./pace-dialog"; // t1009 — the pipeline-pace face
 import {
   Select,
   SelectContent,
@@ -401,6 +406,7 @@ function DashboardProjectCard({
   isPending,
   onlyProject,
   onOpen,
+  onRequestPace,
   onRequestDelete,
   onRequestDuplicate,
   duplicating,
@@ -410,6 +416,7 @@ function DashboardProjectCard({
   isPending: boolean;
   onlyProject: boolean;
   onOpen: () => void;
+  onRequestPace: () => void;
   onRequestDelete: () => void;
   onRequestDuplicate: () => void;
   duplicating: boolean;
@@ -640,13 +647,24 @@ function DashboardProjectCard({
           size="sm"
           className="h-8 flex-1 gap-1.5 text-xs"
           onClick={onOpen}
-          disabled={isPending}
+          disabled={isPending} aria-busy={isPending}
+          aria-label={isPending ? "Switching projects…" : isActive ? "Open workflow" : "Switch & open"}
         >
           <Workflow className="size-3.5" aria-hidden="true" />
           {isActive ? "Open workflow" : "Switch & open"}
         </Button>
         {!editing && (
           <div className="flex items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 hover-none:opacity-100">
+            <Button
+              variant="outline"
+              size="icon"
+              className="size-8 text-muted-foreground hover:text-foreground"
+              onClick={onRequestPace}
+              aria-label={`Pipeline pace — ${project.name}`}
+              title="Pipeline pace — how fast this pipeline runs (per-stage durations, wall time, the stage table)"
+            >
+              <Gauge className="size-3.5" />
+            </Button>
             <Button
               variant="outline"
               size="icon"
@@ -1348,6 +1366,24 @@ function StageChip({
     if (running) trackEtaBaseline(job.id, job.startedAt, job.progress);
   }, [running, job.id, job.startedAt, job.progress]);
 
+  // t1089 — the chip's two voices: the SCREEN voice keeps the 26-char
+  // rhythm (the title tooltip tells the tail); PAPER has no tooltip, so
+  // the sheet prints the FULL receipt and lets it wrap. Running and idle
+  // speak the same words on both faces.
+  const receipt = compactStayReceipt(job.result ?? "", job.remoteRemaining?.remaining);
+  const chipStatusScreen =
+    job.status === "running"
+      ? `${fmtProgressPct(job.progress)}${eta != null ? ` · ${formatEta(eta)}` : ""}`
+      : job.status === "completed"
+        ? receipt.slice(0, 26) || "done"
+        : job.status;
+  const chipStatusPaper =
+    job.status === "running"
+      ? chipStatusScreen
+      : job.status === "completed"
+        ? receipt || "done"
+        : job.status;
+
   return (
     <button
       type="button"
@@ -1360,7 +1396,8 @@ function StageChip({
           : ({ "--sd": arrivalDelay } as React.CSSProperties)
       }
       className={cn(
-        "group/stage flex shrink-0 items-center gap-2 rounded-lg border bg-card px-2.5 py-2 text-left transition-all hover:shadow-sm",
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+        "group/stage flex shrink-0 items-center gap-2 rounded-lg border bg-card px-2.5 py-2 text-left transition-all hover:shadow-sm print:max-w-full",
         job.status === "running"
           ? "border-running-500/50 ring-1 ring-running/25"
           : job.status === "completed"
@@ -1389,13 +1426,10 @@ function StageChip({
         <TypeIcon name={spec?.icon ?? "Boxes"} className={cn("size-3.5", spec?.color.text)} />
       </span>
       <span className="min-w-0 leading-tight">
-        <span className="block max-w-36 truncate text-[11px] font-semibold">{job.name}</span>
+        <span className="block max-w-36 truncate print:max-w-none print:whitespace-normal print:overflow-visible text-[11px] font-semibold">{job.name}</span>
         <span className="block text-[10px] text-muted-foreground">
-          {job.status === "running"
-            ? `${Math.round(job.progress)}%${eta != null ? ` · ${formatEta(eta)}` : ""}`
-            : job.status === "completed"
-              ? compactStayReceipt(job.result ?? "", job.remoteRemaining?.remaining).slice(0, 26) || "done"
-              : job.status}
+          <span className="print:hidden">{chipStatusScreen}</span>
+          <span className="hidden print:inline">{chipStatusPaper}</span>
         </span>
       </span>
     </button>
@@ -1514,7 +1548,7 @@ function JobRow({
         type="button"
         onClick={open}
         title={orphan ? "Adopt this job to see it on a canvas" : `Open ${job.name}`}
-        className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left"
+        className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       >
         <span
           className={cn(
@@ -1621,7 +1655,7 @@ function JobRow({
             <span className="mt-1 flex items-center gap-2">
               <Progress value={job.progress} className="h-1 flex-1 overflow-hidden" />
               <span className="shrink-0 text-[10px] font-semibold tabular-nums text-running">
-                {Math.round(job.progress)}%
+                {fmtProgressPct(job.progress)}
                 {rowElapsed > 0 ? (
                   <span data-testid="row-elapsed"> · {formatElapsed(rowElapsed)}</span>
                 ) : null}
@@ -1629,7 +1663,7 @@ function JobRow({
               </span>
             </span>
           ) : (
-            <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
+            <span className="mt-0.5 block truncate print:whitespace-normal print:overflow-visible text-[11px] text-muted-foreground">
               {job.result
                 ? compactStayReceipt(job.result, job.remoteRemaining?.remaining)
                 : job.status === "idle"
@@ -1652,7 +1686,7 @@ function JobRow({
           title={`Move to ${defaultWs.name} — makes the job visible on that canvas`}
           onClick={adopt}
           disabled={adopting}
-          className="no-print flex h-5 shrink-0 items-center gap-1 rounded-full border border-warning/40 bg-warning/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-warning transition-colors hover:bg-warning/20 disabled:opacity-50"
+          className="no-print flex h-5 shrink-0 items-center gap-1 rounded-full border border-warning/40 bg-warning/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-warning transition-colors hover:bg-warning/20 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           {adopting ? (
             <Loader2 className="size-2.5 animate-spin" aria-hidden="true" />
@@ -1717,9 +1751,11 @@ interface RecentJob {
 /** One wire→internal translation point: divide the 0–100 wire scale down
  *  to the fraction the feed machinery speaks. Every fetch frame passes
  *  through here before it touches state — a value that skips this maps to
- *  "4200%" labels and a bar pinned at full width. */
+ *  "4200%" labels and a bar pinned at full width. t1154 — the /100 itself
+ *  rides the father (progressToFraction): the app's ONE division, so the
+ *  frame cannot drift from the scale contract it exists to enforce. */
 const toFractionFrame = (jobs: RecentJob[]): RecentJob[] =>
-  jobs.map((j) => ({ ...j, progress: j.progress / 100 }));
+  jobs.map((j) => ({ ...j, progress: progressToFraction(j.progress) }));
 
 /** Tiny progress-history sparkline for a running feed row — answers "is it
  *  actually moving or quietly stalled" at a glance, without opening the
@@ -1946,7 +1982,7 @@ function RecentActivityFeed({ activeProjectId }: { activeProjectId: string | nul
                 // suites can now pick a row BY its job, not by its position
                 // in a feed whose tie order isn't the probe's to assume
                 data-activity-job={j.id}
-                className="group/row flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-secondary/60"
+                className="group/row flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-secondary/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 title={`Open ${j.name}${!isLocal && j.projectName ? ` in ${j.projectName}` : ""}`}
               >
                 <span
@@ -1983,7 +2019,7 @@ function RecentActivityFeed({ activeProjectId }: { activeProjectId: string | nul
                   ) : j.status === "running" && (
                     <span
                       className="mt-1 flex items-center gap-1.5"
-                      aria-label={`Progress ${Math.round(j.progress * 100)}%`}
+                      aria-label={`Progress ${fmtProgressPct(j.progress * 100)}`}
                     >
                       <span className="h-[3px] min-w-0 flex-1 overflow-hidden rounded-full bg-muted">
                         <span
@@ -1993,7 +2029,7 @@ function RecentActivityFeed({ activeProjectId }: { activeProjectId: string | nul
                       </span>
                       <ProgressSparkline values={hist.get(j.id) ?? []} samples={(hist.get(j.id) ?? []).length} />
                       <span className="w-7 shrink-0 text-right font-mono text-[9px] tabular-nums text-muted-foreground">
-                        {Math.round(j.progress * 100)}%
+                        {fmtProgressPct(j.progress * 100)}
                       </span>
                     </span>
                   )}
@@ -2068,7 +2104,10 @@ function FailedJobsStrip() {
           {failed.length} failed
         </span>
         <span className="text-xs text-muted-foreground">
-          failed jobs across all projects — click one to jump to its canvas
+          failed jobs across all projects
+          {/* the t1089 paper honesty: "click one to jump" is an act paper
+              cannot take — the names print, the instruction stays on screen */}
+          <span className="no-print"> — click one to jump to its canvas</span>
         </span>
       </div>
       <div className="flex flex-wrap items-center gap-1.5">
@@ -2080,7 +2119,7 @@ function FailedJobsStrip() {
             title={`Open “${j.name}” — failed ${fmtAgo(j.updatedAt)}${
               j.projectName && j.projectId !== activeProjectId ? ` in ${j.projectName}` : ""
             } · jumps to its canvas and opens the inspector`}
-            className="group inline-flex max-w-full items-center gap-1.5 rounded-full border border-danger-500/30 bg-card px-2.5 py-1 text-xs transition-colors hover:bg-danger-500/10"
+            className="group inline-flex max-w-full items-center gap-1.5 rounded-full border border-danger-500/30 bg-card px-2.5 py-1 text-xs transition-colors hover:bg-danger-500/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <span className="size-1.5 shrink-0 rounded-full bg-danger" aria-hidden="true" />
             <span className="max-w-52 truncate font-medium">{j.name}</span>
@@ -2099,7 +2138,7 @@ function FailedJobsStrip() {
         {hidden > 0 ? (
           <button
             onClick={() => setShowAll(true)}
-            className="rounded-full border border-dashed border-danger-500/40 px-2.5 py-1 text-xs text-danger-600 transition-colors hover:bg-danger-500/10 dark:text-danger-400"
+            className="rounded-full border border-dashed border-danger-500/40 px-2.5 py-1 text-xs text-danger-600 transition-colors hover:bg-danger-500/10 dark:text-danger-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             +{hidden} more failed
           </button>
@@ -2162,6 +2201,7 @@ function StatusFilterChip({
       onClick={onClick}
       title={`Show ${label.toLowerCase()} job${n === 1 ? "" : "s"} only${kbd ? ` — or press ${kbd}` : ""}${dimmed ? " — none match the search" : ""}`}
       className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
         "h-5 rounded-full border px-1.5 text-[9px] font-semibold uppercase tracking-wider transition-colors",
         active ? toneCls : "border-border text-muted-foreground hover:bg-muted hover:text-foreground",
         dimmed && "opacity-40 hover:opacity-100",
@@ -2481,7 +2521,7 @@ function ActiveProjectSpotlight({
             No jobs yet — open the workflow and add the first job.
           </p>
         ) : (
-          <div className="flex items-stretch gap-1 overflow-x-auto pb-1 nice-scroll">
+          <div className="flex items-stretch gap-1 overflow-x-auto pb-1 nice-scroll print:flex-wrap">
             {sorted.map((j, i) => (
               <React.Fragment key={j.id}>
                 {i > 0 && (
@@ -2547,13 +2587,31 @@ function ActiveProjectSpotlight({
               onClick={toggleCriticalLens}
               aria-pressed={true}
               title="The critical path lens is on — rows the finish didn't wait on recede. Click to turn it off (or press P)."
-              className="flex h-4 items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-1.5 text-[9px] font-semibold text-primary transition-colors hover:bg-primary/20"
+              className="flex h-4 items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-1.5 text-[9px] font-semibold text-primary transition-colors hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               <Route className="size-2.5" aria-hidden="true" />
               Critical path · {chainWalk.chain.length} step
               {chainWalk.chain.length === 1 ? "" : "s"}
             </button>
           ) : null}
+          {/* t1032 — the roster's export doors (the paper's own cells leave):
+              the CSV/TSV speak the SAME cells the rows render, newest-first,
+              via the lib's one formula. The ETA arm is injected at click time
+              (estimateEta reads client-only pace baselines — the lib stays
+              pure); the clock is the CLICK's now (the export's own moment).
+              A list owns no <svg> — png={false}, the PNG doors absent. */}
+          <ChartExportButtons
+            name="Job roster"
+            png={false}
+            getRows={() =>
+              rosterRows(rosterDisplay, {
+                workspaces,
+                now: Date.now(),
+                etaOf: (j) => estimateEta(j.id, j.startedAt, j.progress),
+              })
+            }
+            className="no-print ml-auto"
+          />
           <Button
             size="sm"
             variant="outline"
@@ -2604,7 +2662,7 @@ function ActiveProjectSpotlight({
                   data-testid="roster-search-clear"
                   onClick={() => setRosterQuery("")}
                   aria-label="Clear roster search"
-                  className="absolute right-1 top-1/2 flex size-5 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                  className="absolute right-1 top-1/2 flex size-5 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
                   <X className="size-3" aria-hidden="true" />
                 </button>
@@ -2747,7 +2805,7 @@ function ActiveProjectSpotlight({
           {hiddenBelow > 0 ? (
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute inset-x-0 bottom-0 h-10 rounded-b-lg bg-gradient-to-t from-card via-card/85 to-transparent"
+              className="no-print pointer-events-none absolute inset-x-0 bottom-0 h-10 rounded-b-lg bg-gradient-to-t from-card via-card/85 to-transparent"
             >
               <span className="absolute inset-x-0 bottom-1 mx-auto w-fit rounded-full border border-dashed border-border bg-card/95 px-2.5 py-0.5 text-[10px] tabular-nums text-muted-foreground shadow-sm">
                 +{hiddenBelow} more below
@@ -2794,6 +2852,8 @@ export function ProjectDashboard() {
   const [createOpen, setCreateOpen] = React.useState(false);
   const [deleteTarget, setDeleteTarget] = React.useState<ProjectCard | null>(  null);
   const [deleting, setDeleting] = React.useState(false);
+  // t1009 — the pipeline-pace face's target (the card gauge button's door)
+  const [paceTarget, setPaceTarget] = React.useState<{ id: string; name: string } | null>(null);
   const [pendingSwitch, setPendingSwitch] = React.useState<string | null>(null);
   const [query, setQuery] = React.useState("");
   // t635 — the job lens rides under this input (Escape blurs through it)
@@ -3074,7 +3134,7 @@ export function ProjectDashboard() {
               health. Open any project to build on its workflow canvas.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="no-print flex items-center gap-2">
             <div className="relative">
               <Search
                 className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
@@ -3412,7 +3472,10 @@ export function ProjectDashboard() {
             gridFlash && "ring-2 ring-primary/40 ring-offset-4 ring-offset-background"
           )}
         >
-          <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+          {/* t1102 — the heading row never orphans: break-after:avoid keeps
+              the title on the same sheet as the first card it names (the
+              t1092 door-plate law, heading edition). */}
+          <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1.5 print:break-after-avoid">
             <h2 className="text-sm font-semibold tracking-tight">All projects</h2>
             <span className="text-[11px] tabular-nums text-muted-foreground">
               {filtered.length}
@@ -3424,8 +3487,12 @@ export function ProjectDashboard() {
                 search holds a query the counts cascade to the slice the
                 click would actually produce; zero-survivor chips dim in
                 place (shared StatusFilterChip dialect). */}
+            {/* t1102 — the presence chips follow the jobs-roster chips'
+                own .no-print law (t1089): a click filter and its kbd
+                hints are screen verbs — on paper they were unexplained
+                interactive ink orphaned from the cards they filter. */}
             {projects.length > 0 && (
-              <div className="ml-auto flex items-center gap-1" role="group" aria-label="Filter projects by job presence">
+              <div className="no-print ml-auto flex items-center gap-1" role="group" aria-label="Filter projects by job presence">
                 <StatusFilterChip
                   label="All"
                   n={gridQueryOpen ? cascadedPresence.all : projects.length}
@@ -3519,6 +3586,7 @@ export function ProjectDashboard() {
                   isPending={pendingSwitch === p.id}
                   onlyProject={onlyProject}
                   onOpen={() => openProject(p)}
+                  onRequestPace={() => setPaceTarget({ id: p.id, name: p.name })}
                   onRequestDelete={() => setDeleteTarget(p)}
                   onRequestDuplicate={() => void requestDuplicate(p.id)}
                   duplicating={duplicatingId !== null}
@@ -3528,11 +3596,13 @@ export function ProjectDashboard() {
           )}
         </div>
 
-        {/* footnote — the cascade's last rung */}
+        {/* footnote — the cascade's last rung; t1089 paper honesty: the
+            assurance speaks to a screen act (switching tabs) in browser
+            terms — paper takes neither act, so the note stays on screen */}
         <p
           data-dash-enter
           style={{ "--dash-d": "500ms" } as React.CSSProperties}
-          className="mt-8 text-center text-[10px] text-muted-foreground/60"
+          className="no-print mt-8 text-center text-[10px] text-muted-foreground/60"
         >
           Project dashboards persist per browser session — switching here never interrupts
           running jobs.
@@ -3541,6 +3611,14 @@ export function ProjectDashboard() {
 
       {/* dialogs */}
       <NewProjectDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <PaceDialog
+        open={paceTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setPaceTarget(null);
+        }}
+        projectId={paceTarget?.id ?? null}
+        projectName={paceTarget?.name ?? null}
+      />
       <AlertDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => {
@@ -3558,7 +3636,7 @@ export function ProjectDashboard() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting} aria-label={deleting ? "Cancel (the deletion is running)" : "Cancel"}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="h-10 bg-destructive text-destructive-foreground hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40"
               onClick={(e) => {

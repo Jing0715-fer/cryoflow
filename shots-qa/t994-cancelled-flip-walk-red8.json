@@ -1,0 +1,47 @@
+{
+  "walk": "t994-cancelled-flip-walk",
+  "at": "2026-10-14T17:32:08.711Z",
+  "pass": 24,
+  "fail": 4,
+  "phaseTrace": [
+    "ovr0 i0: {\"panelW\":1380,\"panelSW\":1380,\"panelCW\":1380,\"panelOverX\":false,\"shellOverX\":false,\"offenders\":[{\"tag\":\"pre\",\"cls\":\"m-0 whitespace-pre\",\"sw\":1733,\"cw\":1306,\"ove",
+    "ovr0 i5: {\"panelW\":1380,\"panelSW\":1380,\"panelCW\":1380,\"panelOverX\":false,\"shellOverX\":false,\"offenders\":[{\"tag\":\"pre\",\"cls\":\"m-0 whitespace-pre\",\"sw\":1733,\"cw\":1306,\"ove",
+    "ovr1 i0: {\"panelW\":1380,\"panelSW\":1380,\"panelCW\":1380,\"panelOverX\":false,\"shellOverX\":false,\"offenders\":[{\"tag\":\"button\",\"cls\":\"inline-flex items-center justify-center w",
+    "foldA i0: {\"panelW\":305,\"panelSW\":305,\"panelCW\":305,\"panelOverX\":false,\"shellOverX\":false,\"offenders\":[{\"tag\":\"span\",\"cls\":\"ovd-chip-label min-w-0 truncate text-[10.5px] ",
+    "jumpA i0: {\"err\":\"no-dialog\"}",
+    "jumpA i5: {\"err\":\"no-dialog\"}",
+    "ovr0 i0: {\"panelW\":1227,\"panelSW\":1227,\"panelCW\":1227,\"panelOverX\":false,\"shellOverX\":false,\"offenders\":[{\"tag\":\"button\",\"cls\":\"inline-flex items-center justify-center w",
+    "ovr0 i0: {\"panelW\":1227,\"panelSW\":1227,\"panelCW\":1227,\"panelOverX\":false,\"shellOverX\":false,\"offenders\":[{\"tag\":\"button\",\"cls\":\"inline-flex items-center justify-center w"
+  ],
+  "results": [
+    {
+      "label": "G5 the second flip's jump lands the Log tab in FULL mode",
+      "cond": false,
+      "extra": "{}"
+    },
+    {
+      "label": "G6 the strip RETURNS on the flipped face (the findings.length > 0 gate opens — the honest silence's other side, again)",
+      "cond": false,
+      "extra": "{}"
+    },
+    {
+      "label": "G7 the strip's row is the scheduler-cancelled row (data-finding=scheduler-cancelled)",
+      "cond": false,
+      "extra": ""
+    },
+    {
+      "label": "G8 the strip's excerpt quotes slurmstepd's own words (CANCELLED AT — no reason)",
+      "cond": false,
+      "extra": "\"\""
+    }
+  ],
+  "flip": {
+    "face": "Cancelled Diagnosis Face (t976)",
+    "row": "scheduler-cancelled",
+    "discriminators": [
+      "walltime-limit",
+      "oom-kill",
+      "gpu-oom"
+    ]
+  }
+}

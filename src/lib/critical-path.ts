@@ -75,6 +75,51 @@ export interface CriticalPathWalk<T> {
   gapMs: number;
 }
 
+/** The wire-less projection the pace face's two transports ship and
+ *  render (t1017): the walk's steps flattened to what the band needs —
+ *  id/name/status (the finisher chip, the live confession) plus the
+ *  window and the gap — so the server's JSON and the client's memo
+ *  hand the dialog ONE shape. The projection lives here (the lift
+ *  law: arithmetic with two consumers lives in one place), not twice
+ *  in the two transports where it could drift. */
+export interface CriticalStepSummary {
+  id: string;
+  name: string;
+  status: string;
+  start: number;
+  end: number;
+  ms: number;
+  gapBeforeMs: number | null;
+}
+
+export interface CriticalPathSummary {
+  chain: CriticalStepSummary[];
+  spanMs: number;
+  busyMs: number;
+  gapMs: number;
+}
+
+/** The walk → summary projection. Pure, React-free, FS-free — the
+ *  route and the dialog memo call the same map and cannot drift. */
+export function summarizeCritical<T extends { id: string; name: string; status: string }>(
+  walk: CriticalPathWalk<T>,
+): CriticalPathSummary {
+  return {
+    chain: walk.chain.map((s) => ({
+      id: s.job.id,
+      name: s.job.name,
+      status: s.job.status,
+      start: s.start,
+      end: s.end,
+      ms: s.ms,
+      gapBeforeMs: s.gapBeforeMs,
+    })),
+    spanMs: walk.spanMs,
+    busyMs: walk.busyMs,
+    gapMs: walk.gapMs,
+  };
+}
+
 /** The later of two runs: end first, then start, then name — the same
  *  determinism the walk sorts by (start asc, name asc), reversed here
  *  so "the later run wins" without ever flipping a coin. */

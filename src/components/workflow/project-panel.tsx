@@ -220,7 +220,7 @@ export function NewProjectDialog({
                   aria-selected={location === opt.value}
                   onClick={() => setLocation(opt.value)}
                   className={cn(
-                    "flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2 text-left transition-colors",
+                    "flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                     location === opt.value
                       ? "border-primary/50 bg-primary/5 shadow-sm"
                       : "border-border text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
@@ -248,7 +248,7 @@ export function NewProjectDialog({
                 <Label htmlFor="new-project-connection">Cluster connection</Label>
                 <button
                   type="button"
-                  className="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:text-foreground"
+                  className="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:text-foreground"
                   onClick={() => setClusterOpen(true)}
                 >
                   Manage clusters…
@@ -352,12 +352,18 @@ export function NewProjectDialog({
           )}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={creating}>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={creating}
+            aria-label={creating ? "Cancel (the project is being created)" : "Cancel"}
+          >
             Cancel
           </Button>
           <Button
             onClick={() => void handleCreate()}
             disabled={creating || trimmed.length < 1 || remoteBlocked}
+            aria-label={creating ? "Create project (the project is being created)" : trimmed.length < 1 ? "Create project (name the project first)" : remoteBlocked ? "Create project (save a cluster connection first)" : "Create project"}
           >
             {creating ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Plus aria-hidden="true" />}
             Create project

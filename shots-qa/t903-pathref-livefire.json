@@ -1,0 +1,13 @@
+{
+  "instrument": "t903-pathref-livefire",
+  "at": "2026-10-11T19:43:03.938Z",
+  "job": "cmv3x1a020002lt89biep4phx",
+  "workdir": "/home/z/my-project/data/relion/cmv3x1a000000lt89qwh34u45/import_biep4phx",
+  "canonicalFollowed": true,
+  "plantedRefused": true,
+  "noDotRefused": true,
+  "restored": true,
+  "pass": 10,
+  "fail": 0,
+  "verdict": "GREEN"
+}

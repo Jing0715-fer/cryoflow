@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { isLocalRequest } from "@/lib/http-guard";
-import { sanitizePresetShelf } from "@/lib/param-preset-sanitize";
+import { sanitizePresetShelf, PARAM_PRESET_SHELF_ID as SHELF_ID } from "@/lib/param-preset-sanitize";
+import { serverErrorMessage, serverErrorReply, badJsonReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -29,8 +30,9 @@ export const dynamic = "force-dynamic";
 // synced:true with an empty list ("the deletion is the truth — adopt
 // it"). Deleting the row on empty would erase that distinction and
 // resurrect deleted presets on the next reconcile.
-
-const SHELF_ID = "user-param-presets";
+// (t1149 — SHELF_ID now rides the sanitize lib's PARAM_PRESET_SHELF_ID:
+// one birthplace for the row's id, the agent tool's well imports the
+// same constant, no second literal for an epoch to drift.)
 
 export async function GET(request: Request) {
   if (!isLocalRequest(request)) {
@@ -49,8 +51,12 @@ export async function GET(request: Request) {
       presets = []; // corrupt row reads as empty — the next PUT rewrites it
     }
     return NextResponse.json({ presets, synced: true });
-  } catch {
-    return NextResponse.json({ presets: [], synced: false, error: "read failed" }, { status: 500 });
+  } catch (error) {
+    console.error("GET /api/param-presets failed:", error);
+    return NextResponse.json(
+      { presets: [], synced: false, error: serverErrorMessage("GET /api/param-presets", error) },
+      { status: 500 }
+    );
   }
 }
 
@@ -64,8 +70,8 @@ export async function PUT(request: Request) {
   let body: unknown;
   try {
     body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
+  } catch (error) {
+    return badJsonReply("PUT /api/param-presets", error);
   }
   const presets = sanitizePresetShelf((body as { presets?: unknown } | null)?.presets);
   try {
@@ -75,7 +81,7 @@ export async function PUT(request: Request) {
       create: { id: SHELF_ID, data: JSON.stringify(presets) },
     });
     return NextResponse.json({ ok: true, count: presets.length });
-  } catch {
-    return NextResponse.json({ error: "persist failed" }, { status: 500 });
+  } catch (error) {
+    return serverErrorReply("PUT /api/param-presets", error);
   }
 }

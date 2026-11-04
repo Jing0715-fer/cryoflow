@@ -51,6 +51,13 @@ export function sanitizePresetEntry(raw: unknown): SanitizedPreset | null {
   return sanitizePreset(raw);
 }
 
+/** The shelf row's id, single-sourced (t1149 — the re-key chore class's
+ *  law applied to the shelf: the API route, the agent tool's well and
+ *  any future reader all import THIS constant; a hardcoded second
+ *  literal is how an epoch that re-mints the row taxes a window with a
+ *  manual re-key). One row, one id, one birthplace. */
+export const PARAM_PRESET_SHELF_ID = "user-param-presets";
+
 /** The shelf's cap, single-sourced: the server door and the file-import
  *  merge both read THIS number (t717 — two caps would eventually
  *  disagree about how big a shelf may be). */

@@ -1,0 +1,12 @@
+{
+  "unit": "t1091-receipt-ledger-unit",
+  "verdict": "GREEN",
+  "pass": 16,
+  "fail": 0,
+  "at": "2026-11-04T09:42:30.982Z",
+  "bands": [
+    "A the ledger speaks in full",
+    "B the mount is honest",
+    "C the laws preserved"
+  ]
+}

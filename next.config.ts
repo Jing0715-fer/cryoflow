@@ -235,10 +235,28 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ["lucide-react", "recharts", "framer-motion"],
     // 4GB box shared with a Chrome QA session — the default (6 GiB) lets the
     // Turbopack engine balloon until the kernel OOM-kills next-server mid-QA
-    // (observed 4× on 2026-09-08: RSS 2.7-2.8 GB at kill time). 1400 MiB for
-    // the Rust engine + 1536 MiB V8 old-space (dev-server.sh) keeps the
-    // server under the ceiling; compiles get slower, not broken.
-    turbopackMemoryLimit: 256,
+    // (observed 4× on 2026-09-08: RSS 2.7-2.8 GB at kill time).
+    // t1183 — THE WHALE'S ROOT CAUSE, on the record: the value below was 256
+    // read as "MiB" by every comment since its landing, but Next's own type
+    // says "A target memory limit for turbo, IN BYTES" (config-shared.d.ts).
+    // 256 bytes is clamped into nothing by the rust core — the dev engine
+    // has NEVER been capped by this knob, and the whale's growth cycle
+    // (boot lean → canvas compile → RSS 2.3-2.8GB → kernel OOM mid-flight,
+    // three kill-and-reboot rituals in the t1182 window alone) was the
+    // uncapped engine all along. 1200 MiB in honest bytes + the 896 MiB V8
+    // old-space (dev-server.sh) keeps both engines inside the 4GB box;
+    // compiles get slower, not broken. The revert ritual: this knob back to
+    // its old 256 (or deleted) restores the uncapped pre-t1183 behavior.
+    // t1184 — the BUILD-day calibre: the dev lane lives happily at 1200 MiB,
+    // but the build's graph (every route, prod optimizations) overshoots the
+    // target mid-compile — the first capped build-day attempt (NEXT_PROBE +
+    // fs-cache, t1184 window) was Killed by the kernel anyway. The env-gated
+    // override narrows the engine for the BUILD only: CRYOFLOW_TURBO_MEM_MB=900
+    // npx next build. Named, never silently escalated (the t1180 law); the
+    // revert ritual: unset the env (or delete this line) for the 1200 default.
+    turbopackMemoryLimit: process.env.CRYOFLOW_TURBO_MEM_MB
+      ? Number(process.env.CRYOFLOW_TURBO_MEM_MB) * 1024 * 1024
+      : 1200 * 1024 * 1024,
     // t406 — see the webpack hook above: the two build-regime knobs.
     webpackMemoryOptimizations: true,
     cpus: 1,

@@ -123,7 +123,7 @@ export function MolViewer({ job, path, name, open, onOpenChange, restoreFocusRef
           same-specificity base rule in the compiled CSS, so a plain
           max-w-[…] would silently lose to 512 px on every desktop. */}
       <DialogContent
-        className="flex h-[92vh] w-[94vw] max-w-[min(1500px,94vw)] flex-col gap-0 p-0 sm:max-w-[min(1500px,94vw)] sm:p-0"
+        className="flex h-[92vh] w-[94vw] max-w-[min(1500px,94vw)] flex-col gap-0 p-0 sm:max-w-[min(1500px,94vw)] sm:p-0 print:[translate:none] print:[rotate:none] print:[scale:none]"
         onKeyDown={onEscapeClose(() => onOpenChange(false))}
         onCloseAutoFocus={(e) => {
           e.preventDefault();
@@ -145,7 +145,11 @@ export function MolViewer({ job, path, name, open, onOpenChange, restoreFocusRef
             Isosurface rendering of the MRC map — drag to rotate, scroll to zoom, adjust the contour below, or toggle Slice to cut a cross-section through the box.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex min-h-0 w-full flex-1 flex-col gap-2 px-6 pb-6">
+        {/* t1103 — plate-walk: this div is on the print plate's path. When
+            the plate verb prints, the print CSS hides every .plate-walk
+            child that does not carry the plate (the Mol* viewport below),
+            and unrolls this box's scroll clamps into plain paper flow. */}
+        <div className="plate-walk flex min-h-0 w-full flex-1 flex-col gap-2 px-6 pb-6">
           {/* t662 — the viewer owns its share of the body: the ortho panel
               below is capped at 55% and scrolls its overflow, because the
               panel's natural height (three tiles + the oblique block) grew
@@ -160,7 +164,7 @@ export function MolViewer({ job, path, name, open, onOpenChange, restoreFocusRef
           {/* orthogonal 2D slice browser — collapses to a one-line strip;
               hidden for .mrcs stacks (their ortho planes are in-image axes) */}
           {open && (
-            <div className="min-h-0 w-full max-h-[55%] overflow-y-auto">
+            <div className="plate-walk min-h-0 w-full max-h-[55%] overflow-y-auto">
               <MapOrthoPanel jobId={job.id} path={path} />
             </div>
           )}

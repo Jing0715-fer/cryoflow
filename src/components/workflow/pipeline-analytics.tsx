@@ -38,6 +38,7 @@ import {
   Waves,
 } from "lucide-react";
 import { fmtClock, fmtDuration } from "@/lib/duration";
+import { httpErrorFrom } from "@/lib/http-error";
 import { walkTimeline } from "@/lib/timeline-walk";
 import { timelineRunsCsv, timelineRunsCsvFilename, type TimelineCsvRow } from "@/lib/qc-report"; // t506 — the windows' machine face
 import { stageRuntime, stageRuntimeCsv, stageRuntimeCsvFilename, type StageRuntime } from "@/lib/stage-runtime"; // t677 — the per-stage wall-clock lens
@@ -223,7 +224,7 @@ function useResolutionMilestones(jobs: JobDTO[]): Milestone[] {
         reporting.map(async (j): Promise<Milestone> => {
           try {
             const res = await fetch(`/api/jobs/${j.id}/fsc`, { cache: "no-store" });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            if (!res.ok) throw await httpErrorFrom(res); // t959 — the door's own reason rides
             const body = (await res.json()) as {
               resolutionAt143: number | null;
               reportedResolution: number | null;
@@ -646,7 +647,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
               onClick={() => void copySummary()}
               title="Copy a plain-text summary of the funnel, resolution ladder, session timeline and job counts"
               aria-label="Copy pipeline summary"
-              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               {copied ? (
                 <Check className="size-3.5 text-success-600" aria-hidden="true" />
@@ -659,7 +660,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
               onClick={exportCsv}
               title="Download the job inventory (current scope) as CSV"
               aria-label="Export jobs as CSV"
-              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               <Download className="size-3.5" aria-hidden="true" />
             </button>
@@ -668,7 +669,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
               onClick={exportTimelineCsv}
               title="Download the session timeline (honest windows: start, end, duration, share) as CSV"
               aria-label="Export timeline as CSV"
-              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               <Clock className="size-3.5" aria-hidden="true" />
             </button>
@@ -677,7 +678,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
               onClick={exportRuntimeCsv}
               title="Download runtime by stage (per-type median, p90, total and share of wall clock) as CSV"
               aria-label="Export runtime by stage as CSV"
-              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               <Timer className="size-3.5" aria-hidden="true" />
             </button>
@@ -693,6 +694,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
               aria-pressed={wsFilter == null}
               data-analytics-scope-chip="all"
               className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                 "rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors",
                 wsFilter == null
                   ? "bg-primary text-primary-foreground"
@@ -713,6 +715,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
                 data-analytics-scope-chip={w.id || "unassigned"}
                 title={`Scope the analytics to the “${w.name}” workspace`}
                 className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                   "rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors",
                   wsFilter === w.id
                     ? "bg-primary text-primary-foreground"

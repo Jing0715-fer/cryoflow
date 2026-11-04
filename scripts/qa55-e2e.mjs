@@ -44,12 +44,25 @@ const SEED = "python3 /home/z/my-project/scripts/qa53-seed-topaz.py";
 const SEED_CLEAN = "python3 /home/z/my-project/scripts/qa53-seed-topaz.py --clean";
 // t705 — the name is the world's own spelling, never a pin (qa-refine-host.mjs:
 // the JS twin of qa_lib.resolve_refine_host — manifest contract + type fallback)
-const JOB = resolveRefineHost().name;
+// t1090 — the resolution is LAZY: phase C (the honest-gap face) never names
+// the refine host, so it must not pay for it at module load — the t531 old
+// world is phases A/B's fixture, not C's. A/B resolve on first use and still
+// fail loudly (the seeder's name rides the error) when the world lacks it.
+let JOB = null;
+const refineJobName = () => (JOB ??= resolveRefineHost().name);
 const B = "http://localhost:3000";
 
 const openDashboard = async () => {
   sh(`${AB} open ${B}`);
   await sleep(4500);
+  // t1130 — the t1128 inspect seed auto-opens the job inspector on a
+  // persistent-profile landing, and a dialog owns the keyboard (the app's
+  // own guard: `[role="dialog"][data-state="open"]` swallows keys 1-6).
+  // The suite's filter keys need a dialog-free dashboard. Radix only hears
+  // TRUSTED Escape — the live proof: a synthetic window-dispatched
+  // KeyboardEvent left the dialog open, the real `press Escape` closed it.
+  sh(`${AB} press Escape`);
+  await sleep(800);
   evalJs(`(() => { const b=[...document.querySelectorAll('a,button')].find(e=>e.textContent.trim()==='Dashboard'); b?b.click():0; return 'nav'; })()`);
   await sleep(2500);
 };
@@ -61,7 +74,7 @@ const openJobResults = async () => {
   for (let i = 0; i < 15 && !node.includes("clicked@"); i++) {
     node = await (async () => {
       const coords = evalJs(
-        `(() => { const el = [...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('${JOB}') && (x.textContent||'').includes('completed')); if (!el) return null; const r = el.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; })()`,
+        `(() => { const el = [...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('${refineJobName()}') && (x.textContent||'').includes('completed')); if (!el) return null; const r = el.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; })()`,
       );
       if (!coords || coords === "null") return "NO-ELEMENT";
       const c = JSON.parse(coords);
@@ -247,26 +260,26 @@ const phaseA = async () => {
     ["## Resolution progress", "progress section"],
     ["| 2 | 28.50 |", "progress first row"],
     ["| 30 | 3.18 |", "progress last row"],
-    ["![Resolution progress — 3.18 Å at iteration 30 for " + JOB + "]", "progress png alt"],
+    ["![Resolution progress — 3.18 Å at iteration 30 for " + refineJobName() + "]", "progress png alt"],
     ["## FSC curve", "fsc section"],
     ["![FSC curve — 3.12 Å", "fsc png alt"],
     ["## Guinier plot", "guinier section"],
     ["Applied B-factor: **-52.4 Å²**", "bfactor line"],
-    ["![Guinier plot for " + JOB + "]", "guinier png alt"],
+    ["![Guinier plot for " + refineJobName() + "]", "guinier png alt"],
     ["## CTF fit quality", "ctf section"],
     ["48 micrographs — mean defocus **", "ctf summary line"],
     ["| Micrograph | Defocus (µm) | Astig (µm) | FOM | Fit (Å) |", "ctf table header"],
-    ["![CTF defocus scatter for " + JOB + "]", "ctf png alt"],
+    ["![CTF defocus scatter for " + refineJobName() + "]", "ctf png alt"],
     ["## Angular distribution", "angdist section"],
     ["anisotropic (preferred-orientation risk)", "angdist verdict"],
-    ["![Orientation distribution heatmap for " + JOB + "]", "angdist png alt"],
+    ["![Orientation distribution heatmap for " + refineJobName() + "]", "angdist png alt"],
     ["## Topaz training", "topaz section"],
     ["Source: `topaz_training.txt`", "topaz source line"],
     ["30 epochs — final train loss **0.309**, test loss **0.896**", "topaz summary line"],
     ["| Epoch | Train loss | Test loss | Precision | Recall |", "topaz table header (5 cols earn place)"],
     ["| 1 | 2.713 | 2.721 | 0.409 | 0.393 |", "topaz first row"],
     ["| 30 | 0.309 | 0.896 | 0.871 | 0.832 |", "topaz last row (sampled table keeps it)"],
-    ["![Topaz training loss curves for " + JOB + "]", "topaz png alt"],
+    ["![Topaz training loss curves for " + refineJobName() + "]", "topaz png alt"],
     ["## Outputs on disk", "outputs intact"],
   ];
   for (const [needle, label] of asserts) {
@@ -528,9 +541,21 @@ const phaseC = async () => {
     // the gap world is disposable on EVERY path — a failure must still
     // delete it or the active pointer strands the next window's readers on
     // an empty project (observed live: /api/jobs answered 0 jobs)
-    sh(`curl -s -X DELETE ${B}/api/projects/${gapProjectId} -H "Origin: http://localhost:3000" -H "Sec-Fetch-Site: same-origin"`).trim();
+    const delCode = sh(`curl -s -o /dev/null -w "%{http_code}" -X DELETE ${B}/api/projects/${gapProjectId} -H "Origin: http://localhost:3000" -H "Sec-Fetch-Site: same-origin"`);
     sh(`${AB} open ${B} >/dev/null 2>&1`);
     await sleep(2000);
+    // the stray law (the t1085 lesson, found by the t1088 audit): the delete
+    // is VERIFIED — a cleanup that cannot fail aloud is qa60's lie in
+    // another coat. DELETE must answer 200 and the world must carry no gap
+    // project (the [id] route has no GET — the list is the world's voice;
+    // a follow-up GET answers 405, a shape the live probe caught this
+    // window). Anything else means the gap world stood and the pointer's
+    // next reader is stranded.
+    const world = JSON.parse(sh(`curl -s ${B}/api/projects -H "Origin: http://localhost:3000"`));
+    const stood = (world?.projects ?? []).filter((p) => p.id === gapProjectId);
+    if (delCode !== "200" || stood.length > 0)
+      throw new Error(`gap world survived its cleanup — DELETE=${delCode}, project still listed ×${stood.length} (project ${gapProjectId})`);
+    step(`  cleanup verified (DELETE=${delCode}, world carries no QA t55 Honest Gap — the gap world taken home)`);
   }
   const errs = sh(`${AB} errors`) || "(none)";
   step(`  console errors: ${errs}`);

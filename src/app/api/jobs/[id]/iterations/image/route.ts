@@ -8,6 +8,7 @@ import {
   localStackExists,
   STACK_NAME_RE,
 } from "@/lib/remote/iteration-live";
+import { serverErrorReply } from "@/lib/server-error";
 import { derivedRemoteTargetForJob, localMirrorWorkdirForJob } from "@/lib/remote/derived-target";
 import { renderMrcSlicePng } from "@/lib/mrc";
 import { displayPolarityFor } from "@/lib/render-polarity";
@@ -138,7 +139,6 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
       headers: { "Content-Type": "image/png", "Cache-Control": "private, max-age=300" },
     });
   } catch (error) {
-    console.error("GET /api/jobs/[id]/iterations/image failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/jobs/[id]/iterations/image", error);
   }
 }

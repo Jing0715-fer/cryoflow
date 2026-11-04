@@ -4,6 +4,7 @@ import { toJobDTO } from "@/lib/seed";
 import { stopRun, isRunAlive, getRun, updateRun } from "@/lib/relion/engine";
 import { remoteInfoFor, remoteStopRun } from "@/lib/remote/remote-run";
 import { isLocalRequest } from "@/lib/http-guard";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +52,16 @@ type RouteContext = { params: Promise<{ id: string }> };
  * CANCELLED confirms the stamp (case closed), FAILED/TIMEOUT name the run's
  * own death. A ledger that stays silent past the patience window has the
  * receipt's stamp stand.
+ *
+ * t1015 — the native arm: a NATIVE in-flight run (folder/pattern/file import,
+ * cs→star, map import) lives inside the server process itself — there is no
+ * child tree to signal, and the record's pid is the SERVER's own. The engine
+ * stopRun asks the run to unwind at its next breathing gate (the abort arm)
+ * and answers `outcome: "killed"` + `nativeAbort: true` when the flag landed:
+ * the run closes its own record honestly and the failure write lands
+ * "stopped by user". The row's words here never borrow the checkpoint clause
+ * for an import — a stopped import re-runs from scratch, and the words must
+ * not promise otherwise.
  */
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
@@ -83,6 +94,23 @@ export async function POST(request: NextRequest, context: RouteContext) {
       // this one only feeds the receipt's words).
       const outcome = await remoteStopRun(id, { settleMs: 8_000 });
       const missed = !outcome.stopped;
+      // t936 — WHICH miss the receipt names: the WIRE-DOWN class (the
+      // connection itself was gone — nothing was reachable) speaks its own
+      // words. The durable row carries the manual-kill guidance (the toast
+      // is a 5s surface; the row is the reliable one — the t934 judge-line),
+      // and the question rides the class so the landing's sentence never
+      // claims "already finished" (the run's fate was unknowable at stop
+      // time — it may finish after the attempt, and the live arc did).
+      const wireDown = outcome.missClass === "wire-down";
+      // t941 — the LOST-handle refusal (the cluster's own word was
+      // "Invalid job id specified" — the controller no longer knew the
+      // job) carries its knowledge into the question, so the landing's
+      // sentence names the lost handle instead of claiming "already
+      // finished" (the run's fate was unknowable at stop time — it may
+      // have been alive and finished after the attempt). The "finished"
+      // refusal (the t935/t938 shape) carries nothing: those question
+      // bytes stay exactly as the banked witnesses pinned them.
+      const lostHandle = outcome.refusal === "lost";
       // t625 — slurm-mode stops open the accounting question: the ledger
       // holds the FINAL word for the slurmId, whatever the receipt just
       // said. Missed stops promise the same thing ("the cluster ledger
@@ -103,12 +131,24 @@ export async function POST(request: NextRequest, context: RouteContext) {
                 done: true,
                 ...(missed ? {} : { exitCode: cur.exitCode ?? 137 }),
                 ...(slurmBackfill
-                  ? { remote: { ...cur.remote, accountingPending: { at: Date.now(), missed } } }
+                  ? {
+                      remote: {
+                        ...cur.remote,
+                        accountingPending: {
+                          at: Date.now(),
+                          missed,
+                          ...(wireDown ? { class: "wire-down" as const } : {}),
+                          ...(lostHandle ? { refusal: "lost" as const } : {}),
+                        },
+                      },
+                    }
                   : {}),
                 result:
                   cur.result ??
                   (missed
-                    ? "stop missed — no live cluster session found; the cluster ledger decides the final state"
+                    ? wireDown
+                      ? "stop missed — the connection for this run was deleted; the cluster ledger decides the final state"
+                      : "stop missed — no live cluster session found; the cluster ledger decides the final state"
                     : "stopped by user"),
               }
             : null
@@ -131,7 +171,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
             cur.remote && cur.done && cur.remote.slurmId && !cur.remote.accountingPending
               ? {
                   ...cur,
-                  remote: { ...cur.remote, accountingPending: { at: Date.now(), missed } },
+                  remote: {
+                    ...cur.remote,
+                    accountingPending: {
+                      at: Date.now(),
+                      missed,
+                      ...(wireDown ? { class: "wire-down" as const } : {}),
+                      ...(lostHandle ? { refusal: "lost" as const } : {}),
+                    },
+                  },
                 }
               : null
         );
@@ -148,7 +196,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
             status: "failed",
             progress: 0,
             result: missed
-              ? "stop missed (no live cluster session found) — the cluster ledger decides the final state when the run's records come home"
+              ? wireDown
+                ? "stop missed (the connection for this run was deleted) — kill the process on the cluster manually; the cluster ledger decides the final state if a wire returns"
+                : "stop missed (no live cluster session found) — the cluster ledger decides the final state when the run's records come home"
               : outcome.settled === true
                 ? "stopped by user (cluster-side session killed; teardown confirmed — the job left the queue) — re-run resumes from the last synced checkpoint"
                 : outcome.settled === false
@@ -186,9 +236,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
           status: "failed",
           progress: 0,
           result: outcome.stopped
-            ? wasAlive
-              ? "stopped by user — re-run resumes from checkpoint"
-              : "stopped by user"
+            ? outcome.nativeAbort
+              ? "stopped by user (the in-process run unwound at its abort gate)" // t1015 — imports carry no checkpoint; the words must not borrow one
+              : wasAlive
+                ? "stopped by user — re-run resumes from checkpoint"
+                : "stopped by user"
             : outcome.outcome === "already-ended"
               ? "the run had already ended — nothing was stopped"
               : wasAlive
@@ -203,9 +255,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
       stopped: outcome.stopped,
       outcome: outcome.outcome,
       message: outcome.message,
+      ...(outcome.nativeAbort ? { nativeAbort: true } : {}),
     });
   } catch (error) {
-    console.error("POST /api/jobs/[id]/stop failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("POST /api/jobs/[id]/stop", error);
   }
 }

@@ -143,14 +143,42 @@ export function defaultProfiles(): SlurmProfile[] {
 }
 
 export function loadProfiles(): SlurmProfile[] {
+  return loadProfilesVerdict().profiles;
+}
+
+/**
+ * t1151 — THE VERDICT FATHER under loadProfiles: the SAME read with the
+ * honest faces made speakable. loadProfiles' fall-through was SILENT —
+ * a corrupt registry masqueraded as the house defaults and no reader
+ * could tell never-tuned from corrupt from persisted (the t753 law:
+ * the unknown-able is shown, never hidden). ONE birthplace: loadProfiles
+ * rides this father (its return is byte-equal to the pre-father face —
+ * `.profiles`), and the agent's hpc-profile presenter drinks the verdict
+ * so the three faces each get their own word. No second loader is born.
+ */
+export interface ProfilesVerdict {
+  profiles: SlurmProfile[];
+  /** False = no hpc-profiles.json on this server — the rows ARE the
+   *  house defaults (example hosts included). */
+  persisted: boolean;
+  /** True = the saved registry could not be read or parsed — the house
+   *  defaults answer until the next save. */
+  corrupt: boolean;
+}
+
+export function loadProfilesVerdict(): ProfilesVerdict {
   try {
     if (existsSync(PROFILE_FILE)) {
-      return JSON.parse(readFileSync(PROFILE_FILE, "utf8")) as SlurmProfile[];
+      return {
+        profiles: JSON.parse(readFileSync(PROFILE_FILE, "utf8")) as SlurmProfile[],
+        persisted: true,
+        corrupt: false,
+      };
     }
   } catch {
-    /* fall through to defaults */
+    return { profiles: defaultProfiles(), persisted: true, corrupt: true };
   }
-  return defaultProfiles();
+  return { profiles: defaultProfiles(), persisted: false, corrupt: false };
 }
 
 export function saveProfiles(profiles: SlurmProfile[]): void {
@@ -308,12 +336,9 @@ export function slurmHms(minutes: number): string {
   const h = Math.floor(m / 60);
   return `${String(h).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}:00`;
 }
-
-function hms(minutes: number): string {
-  const m = Math.max(1, Math.round(minutes));
-  const h = Math.floor(m / 60);
-  return `${String(h).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}:00`;
-}
+// t1153 — the private `hms` twin (byte-identical to slurmHms, born before
+// the export existed) is dead: the script builder's --time leg rides the
+// exported father. ONE birthplace, even inside one file.
 
 function shellQuote(a: string): string {
   if (/^[A-Za-z0-9_@%+=:,./-]+$/.test(a)) return a;
@@ -395,7 +420,7 @@ export async function buildSbatchForJob(args: {
   L.push(`#SBATCH --ntasks=${strategy.mode === "multi-gpu" ? strategy.gpus + 1 : 1}`);
   L.push(`#SBATCH --cpus-per-task=${threads}`);
   L.push(`#SBATCH --mem=${strategy.mode === "array" && strategy.gpus === 0 ? 16 : 64}G`);
-  if (profile.timeLimitMin > 0) L.push(`#SBATCH --time=${hms(profile.timeLimitMin)}`);
+  if (profile.timeLimitMin > 0) L.push(`#SBATCH --time=${slurmHms(profile.timeLimitMin)}`);
   if (strategy.gpus > 0 && profile.partition !== "none") {
     L.push(`#SBATCH --gres=gpu:${profile.gpuModel.toLowerCase()}:${strategy.gpus}`);
   }

@@ -310,6 +310,49 @@ function persistSelectedJob(id: string | null) {
   }
 }
 
+// t1128 — the INSPECTOR is the session position's third seat. The hollow
+// shell's autopsy (this window's ride): the dev lane's watchdog recycles
+// the server under memory pressure (rss soft line 1.9GB sits BELOW the
+// lane's born weight ~2.0-2.3GB, so any host avail dip past 768MB fires
+// the thin-host arm mid-ride), the HMR reconnect full-reloads the tab,
+// and the whole modal chain — inspector included — evaporates silently
+// (no focusout, no dismissal, console cleared: the element removal moves
+// focus to body without an event). The reload also hits REAL users: an
+// accidental F5 closes the inspector and the reader must re-find the
+// card. Same family law as the selection seed above: a BARE string, the
+// trust gate is reality itself (the apply step resolves it against the
+// landed canvas), and the empty string is the honest "closed".
+
+const INSPECT_JOB_KEY = "cryoflow.inspect.v1";
+
+/** Read the inspector-position seed (t1128). Same read-only bare-string
+ *  doctrine as the selection seed: no format whitelist can name a job id,
+ *  the real trust gate is the apply step in load(). */
+function hydrateInspectJob(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(INSPECT_JOB_KEY);
+    if (raw == null) return null;
+    const trimmed = raw.trim();
+    return trimmed === "" ? null : trimmed;
+  } catch {
+    return null;
+  }
+}
+
+/** Echo a committed inspector transition to storage (t1128). The empty
+ *  string is the explicit close — absence must not be misread as
+ *  "never inspected". Same two-way-door reasoning as the selection's
+ *  echo above. */
+function persistInspectJob(id: string | null) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(INSPECT_JOB_KEY, id ?? "");
+  } catch {
+    // private mode / quota — the position stays in-RAM for this session
+  }
+}
+
 const ACTIVE_WS_KEY = "cryoflow.activeWorkspace.v1";
 
 /** Read the workspace-position seed (Task 159). The selection (Task 157)
@@ -693,6 +736,12 @@ interface WorkflowState {
    *  server-side, so a project switch can never alias another project's
    *  token. */
   jobsVersion: string | null;
+  /** t1179 — the wire world's twin of jobsVersion: the last-seen
+   *  /api/edges version token. ingestEdgesTick sends it as ?v= (an
+   *  unmoved wire world answers ~40 bytes); load() turns it over with
+   *  the project (the aliasing law — a project switch must never
+   *  compare against another project's token). */
+  edgesVersion: string | null;
   edges: EdgeDTO[];
   project: ProjectDTO | null;
   /** All projects (for the project management panel). */
@@ -1587,6 +1636,11 @@ let selectionSeedApplied = false;
  *  whatever canvas the user is on right now. */
 let wsSeedApplied = false;
 
+/** t1128 — same once-per-page-load rule for the inspector seed: the
+ *  reload's first landing reopens the inspector the tab closed with;
+ *  later load()s keep whatever the user is inspecting right now. */
+let inspectSeedApplied = false;
+
 /** Client-side cycle check: would edge from→to create a cycle? */
 function wouldCreateCycle(edges: EdgeDTO[], from: string, to: string): boolean {
   const adj = new Map<string, string[]>();
@@ -2110,6 +2164,137 @@ function withoutResurrectedJobs<T extends { id: string }>(jobs: T[]): T[] {
   return jobs.filter((j) => !recentlyDeletedJobs.has(j.id));
 }
 
+/**
+ * t1179 — the wire edition of the t370 tombstone trio: the same
+ * vanish → reappear → vanish flicker exists for edges (removeEdge's
+ * optimistic vanish vs a poll response that started before the DELETE
+ * committed). recentlyDeletedEdges rides the jobs trio's TTL window
+ * (TOMBSTONE_TTL_MS) and withoutResurrectedEdges filters EVERY wire
+ * ingest; reviveEdgeIds is the restore path's half — an intentional
+ * comeback is never filtered.
+ */
+const recentlyDeletedEdges = new Map<string, number>();
+
+/** t1179 — record ids whose DELETE just succeeded (removeEdge's vanish). */
+function tombstoneEdgeIds(ids: Iterable<string>): void {
+  const now = Date.now();
+  for (const id of ids) recentlyDeletedEdges.set(id, now);
+}
+
+/** t1179 — the failure-restore's half of the contract: the wire coming
+ *  back ON PURPOSE leaves the tombstone immediately, or the next
+ *  ingest's filter would eat the revival. */
+function reviveEdgeIds(ids: Iterable<string>): void {
+  for (const id of ids) recentlyDeletedEdges.delete(id);
+}
+
+/** t1179 — the ingest filter: drop tombstoned ids from a FULL server
+ *  wire list before it merges into the store. Expired entries are
+ *  pruned here (the TTL rides every ingest); the array is returned
+ *  AS-IS when nothing is tombstoned — the common path stays zero-cost. */
+function withoutResurrectedEdges<T extends { id: string }>(edges: T[]): T[] {
+  if (recentlyDeletedEdges.size === 0) return edges;
+  const now = Date.now();
+  for (const [id, at] of recentlyDeletedEdges) {
+    if (now - at > TOMBSTONE_TTL_MS) recentlyDeletedEdges.delete(id);
+  }
+  if (recentlyDeletedEdges.size === 0) return edges;
+  return edges.filter((e) => !recentlyDeletedEdges.has(e.id));
+}
+
+/** t1179 — reference stability for the wire merge: the FIVE fields the
+ *  canvas renders. An id-stable wire whose port flipped is a REAL
+ *  change (the port flip must re-render — and re-derive the plan the
+ *  select rider reads). */
+function edgeEquals(a: EdgeDTO, b: EdgeDTO): boolean {
+  return (
+    a.id === b.id &&
+    a.fromJobId === b.fromJobId &&
+    a.toJobId === b.toJobId &&
+    a.fromPort === b.fromPort &&
+    a.toPort === b.toPort
+  );
+}
+
+/**
+ * t1179 — THE WIRE POLL INGEST (the t1173 vein's cure): the poll only
+ * refreshed JOBS (t370's lane), so a wire created outside the browser
+ * (another tab, the AI's server-side tools, an API script) reached an
+ * open canvas only on a full reload — and the select rider's plan
+ * re-derives from the store's edge truth, so the gate closed honestly
+ * over a world the browser could not see. ONE ingest carries every
+ * law home from its own well:
+ * - the t393 token (an unmoved wire world answers ~40 bytes);
+ * - the t370 tombstones (a pre-commit GET cannot resurrect a wire the
+ *   user saw vanish — and the restore path revives);
+ * - the orphan filter (a wire outrunning its card is dropped AND the
+ *   token stays unadopted — the next tick re-fetches and lands it:
+ *   self-healing, no token trap);
+ * - reference stability (unchanged wires reuse their objects; an
+ *   all-unchanged tick sets nothing);
+ * - the in-flight re-attach (unconfirmedEdges — connect's AND the
+ *   adopt's client-minted ids whose POST is in the air — never blink
+ *   in a poll race).
+ * The version rides the x-edges-version header (the body is hashed and
+ * traveled verbatim), so this ingest reads the header off the raw
+ * response — api() drops headers by design.
+ */
+let edgesIngestInFlight = false;
+async function ingestEdgesTick(
+  get: () => WorkflowState,
+  set: (partial: Partial<WorkflowState>) => void,
+): Promise<void> {
+  if (edgesIngestInFlight) return;
+  edgesIngestInFlight = true;
+  try {
+    const token = get().edgesVersion;
+    const res = await fetch(
+      token ? `/api/edges?v=${encodeURIComponent(token)}` : "/api/edges"
+    );
+    const edata = (await res.json().catch(() => ({}))) as {
+      edges?: EdgeDTO[];
+      version?: string;
+      unchanged?: boolean;
+    };
+    if (edata.unchanged) return;
+    const version = edata.version ?? res.headers.get("x-edges-version") ?? null;
+    const fresh = withoutResurrectedEdges(edata.edges ?? []);
+    const prev = get().edges;
+    const jobIds = new Set(get().jobs.map((j) => j.id));
+    let dropped = false;
+    const keep = fresh.filter((e) => {
+      if (jobIds.has(e.fromJobId) && jobIds.has(e.toJobId)) return true;
+      dropped = true;
+      return false;
+    });
+    const keepIds = new Set(keep.map((e) => e.id));
+    const flying = prev.filter(
+      (e) => unconfirmedEdges.has(e.id) && !keepIds.has(e.id)
+    );
+    const target = [...keep, ...flying];
+    const prevById = new Map(prev.map((e) => [e.id, e]));
+    let changed = prev.length !== target.length;
+    const merged = target.map((e) => {
+      const old = prevById.get(e.id);
+      if (old && edgeEquals(old, e)) return old;
+      changed = true;
+      return e;
+    });
+    if (!changed) {
+      if (!dropped && version !== get().edgesVersion) set({ edgesVersion: version });
+      return;
+    }
+    set({
+      edges: merged,
+      edgesVersion: dropped ? get().edgesVersion : version,
+    });
+  } catch {
+    /* the next poll round retries the canvas truth (refreshEdges' old law) */
+  } finally {
+    edgesIngestInFlight = false;
+  }
+}
+
 /** Task 145 — the fact suffix for completion announcements: how long the
  *  job ran before it finished (or died). The announcement is the moment
  *  the elapsed fact becomes final — the same formatElapsed dialect the
@@ -2242,6 +2427,7 @@ const kickoffUpstream = (
 export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   jobs: [],
   edges: [],
+  edgesVersion: null,
   staleMap: new Map(),
   driftMap: new Map(),
   project: null,
@@ -2374,6 +2560,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         // compares against the right project's version)
         jobsVersion: j.version ?? null,
         edges: e.edges,
+        // t1179 — the wire token turns over WITH the project (the
+        // aliasing law): load() is the one ingest that can move the
+        // canvas to a DIFFERENT project's wires, so the next tick sends
+        // null → full body → the new project's token lands.
+        edgesVersion: null,
         system: sys,
         projects: projs.projects,
         workspaces: wsList,
@@ -2408,6 +2599,22 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           ? landedJobs.find((x) => x.id === seed && jobInWorkspace(x, activeWs))
           : null;
         if (seedJob) set({ selectedId: seedJob.id, selectedIds: [seedJob.id] });
+      }
+      // t1128 — the inspector seed: the reload's first landing reopens the
+      // inspector the tab closed with (the hollow-shell cure — the HMR
+      // reload after a watchdog recycle used to orphan the reader on the
+      // bare canvas). Same filtered-list trust gate as the selection's
+      // seed above: a seed that resolves to no job on THIS canvas is
+      // ignored, and the boot writes nothing to storage either way. The
+      // inspect() action (not a raw set) so the selection semantics and
+      // the storage echo stay the user-facing door's own.
+      if (!inspectSeedApplied) {
+        inspectSeedApplied = true;
+        const inspectSeed = hydrateInspectJob();
+        const inspectJob = inspectSeed
+          ? landedJobs.find((x) => x.id === inspectSeed && jobInWorkspace(x, activeWs))
+          : null;
+        if (inspectJob) get().inspect(inspectJob.id);
       }
       // RELION status came from the SAVED detection — the server is
       // re-verifying in the background; poll until the fresh probe lands so
@@ -4042,9 +4249,23 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
               : data.stopped
                 ? "Job stopped"
                 : "Job already ended";
+      // t934 — the receipt's PROMISE rides the toast. The row's settled
+      // speech carries "re-run resumes from the last synced checkpoint",
+      // but the sweep's terminal branch can win the finalize handshake and
+      // replace the row's words with the record's user-stop stamp — the
+      // toast is the one surface the receipt always reaches. The clause
+      // rides only a CONFIRMED kill of a remote resumable-family job (the
+      // missed case defers — the run may still be alive; local stops keep
+      // their own row's wording). Family mirrors engine's RESUMABLE_TYPES
+      // (the server's source of truth — this module is client-side).
+      const resumeFamily = ["class2d", "class3d", "refine3d", "initialmodel", "multibody"];
+      const description =
+        data.outcome === "killed" && !!data.job?.runRemote && resumeFamily.includes(data.job?.type ?? "")
+          ? `${data.message} — re-run resumes from the last synced checkpoint`
+          : data.message;
       toast({
         title,
-        description: data.message,
+        description,
       });
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to stop job");
@@ -4291,6 +4512,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       fromPort: m.edge.fromPort ?? undefined,
       toPort: m.edge.toPort ?? undefined,
     }));
+    // t1179 — the adopt's optimistic wires enroll in unconfirmedEdges
+    // (connect's bookkeeping, shared): a poll race between the ONE
+    // optimistic set and the POSTs' landings must never drop a wire
+    // whose POST is in the air.
+    for (const ne of newEdges) unconfirmedEdges.add(ne.id);
     set({
       edges: [...edges.filter((e) => !moveIds.has(e.id)), ...newEdges],
     });
@@ -4334,6 +4560,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       } catch {
         set({ edges: get().edges.filter((e) => e.id !== ne.id) });
         failures.push(m.child.name);
+      } finally {
+        // t1179 — the landing retires the id either way; the server
+        // truth (or the honest rollback) takes over from here.
+        unconfirmedEdges.delete(ne.id);
       }
     }
 
@@ -4878,13 +5108,13 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           set({ edges: get().edges.filter((e) => e.id !== optimisticId) });
           toast({
             title: "Connection refused",
-            description: err instanceof Error ? err.message : "Failed to connect",
+            description: err instanceof Error ? err.message : `the connection ${fromName} → ${toName} could not be saved`,
             variant: "destructive",
           });
         }
       } else {
         set({ edges: get().edges.filter((e) => e.id !== optimisticId) });
-        const msg = err instanceof Error ? err.message : "Failed to connect";
+        const msg = err instanceof Error ? err.message : `the connection ${fromName} → ${toName} could not be saved`;
         toast({ title: "Connection refused", description: msg, variant: "destructive" });
       }
     } finally {
@@ -4915,6 +5145,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     // t359 — THE WIRE VANISHES NOW (same receipt as connect: never make
     // the visible canvas wait on an API round trip); persistence runs in
     // the background and a real failure restores it with a toast.
+    // t1179 — the t370 law, wire edition: the vanish is tombstoned so
+    // a poll response that started before the DELETE committed cannot
+    // resurrect the wire mid-flicker.
+    tombstoneEdgeIds([id]);
     // t602 — the arm rides the SAME set() (the t600 same-commit law,
     // death edition): one commit moves the truth and hands the canvas
     // its memory.
@@ -4943,6 +5177,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       // exactly what was asked; anything else restores it
     } catch (err) {
       if ((err as Error & { status?: number }).status !== 404) {
+        // t1179 — the death was revoked ON PURPOSE: the tombstone must
+        // not eat the revival on the next poll (the restore path's half
+        // of the contract).
+        reviveEdgeIds([id]);
         // t602 — the death was revoked; the loner's memory must not
         // outlive it (one seat, one memory — the revival supersede).
         set({
@@ -4970,6 +5208,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     // block at the top of the file)
     const genStart = snapshotPosGen();
     try {
+      // t1179 — the wire leg rides the poll FIRST (the jobs-unchanged
+      // early return below can never starve it): one ingest, every law
+      // carried home (see ingestEdgesTick). A wire drawn in another tab,
+      // by the AI's tools, or by a script lands here without a reload.
+      await ingestEdgesTick(get, set);
       // t393 — the version token rides the poll: an unmoved canvas answers
       // ~40 bytes and this tick is over before the merge chain ever runs
       // (no parse of a full array, no tombstone/held-position passes, no
@@ -5546,6 +5789,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     } else {
       set({ inspectId: null, cameFromJob: null });
     }
+    // t1128 — the session position's third seat echoes its transitions:
+    // the reload's first landing reopens the inspector this tab closed
+    // with. Open and close both speak (the empty string is the explicit
+    // close, the selection echo's own doctrine).
+    persistInspectJob(id);
   },
 
   // t569 — the return chip's click: the openJob dialect with the captured
@@ -6058,12 +6306,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     return p;
   },
   refreshEdges: async () => {
-    try {
-      const fresh = await api<{ edges: EdgeDTO[] }>("/api/edges");
-      set({ edges: fresh.edges });
-    } catch {
-      /* the next poll round retries the canvas truth */
-    }
+    // t1179 — the naive replace is gone: the ONE ingest carries every
+    // law (the token, the tombstones, the orphan filter, reference
+    // stability). Callers that need a forced re-read still get one when
+    // the world moved — and an unmoved world is answered ~40 bytes.
+    await ingestEdgesTick(get, set);
   },
   setAiSettingsOpen: (open) => set({ aiSettingsOpen: open }),
   setMinimapOpen: (open) => set({ minimapOpen: open }),

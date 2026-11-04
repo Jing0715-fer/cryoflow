@@ -5,18 +5,45 @@
  * this module answers WHY, the way a colleague skimming the tail would:
  * a handful of well-known failure signatures (OOM kill, CUDA/GPU memory,
  * full disk, missing upstream file, permissions, segfault, MPI abort,
- * Python traceback) each mapped to an actionable next step. The Log tab
- * strip (job-inspector) renders the findings; nothing else interprets log
- * text — this table is the single source of that interpretation, so a
- * pattern tweak heals every surface. A failed log matching NOTHING is
- * itself a verdict the UI reports honestly (Task 121 negative teaser):
- * "no known signature — the cause is custom, the log is the truth".
+ * Python traceback, scheduler walltime) each mapped to an actionable
+ * next step. The Log tab strip (job-inspector) renders the findings;
+ * nothing else interprets log text — this table is the single source of
+ * that interpretation, so a pattern tweak heals every surface. A failed
+ * log matching NOTHING is itself a verdict the UI reports honestly
+ * (Task 121 negative teaser): "no known signature — the cause is
+ * custom, the log is the truth".
  *
- * Deliberately conservative: every pattern is a string the OS/runtime
- * itself emits (errno text, shell kill message, CUDA error text), never
+ * Deliberately conservative: every pattern is a string the OS, the
+ * runtime, or the SCHEDULER itself emits (errno text, shell kill
+ * message, CUDA error text, SLURM's own cancellation words), never
  * a loose word like "error" — RELION chatter says "error" all day and a
  * loose match would cry wolf on healthy runs. A finding is a hint with
  * provenance (line number + excerpt), not a verdict; the strip says so.
+ *
+ * t976 — the walltime signature decision: the t972 negative face's log
+ * carried SLURM's own "*** JOB … CANCELLED AT … DUE TO TIME LIMIT ***"
+ * and the teaser still said "the cause is custom to this job" — a
+ * verdict the log itself refutes. The scheduler's narration belongs in
+ * the table (the same epistemic class as bash's "Killed"): a NARRATED
+ * external kill is diagnosable, and the field's most common long-job
+ * death deserves its own actionable word. The layering stays coherent:
+ * a narrated walltime kill lands here; a SILENT mid-frame stop stays
+ * with the t323 autopsy; an unknown death keeps the negative teaser.
+ *
+ * t994 — the plain-CANCELLED signature decision (the t976 recorded-
+ * not-cured ②, decided the same way the walltime question was): the
+ * no-reason form of slurmstepd's cancellation record — "*** JOB 483077
+ * CANCELLED AT 2026-10-13T21:58:03 ***" — is the scheduler's OWN
+ * narration of a cancellation too; only the REASON stays unnamed. The
+ * t976 face's teaser verdict ("custom to this job") was refuted by the
+ * log's own words exactly as the walltime verdict had been, so the row
+ * joined the table (scheduler-cancelled) and the t976 cancelled face
+ * FLIPPED positive like the t972 face before it. The closing *** right
+ * after the timestamp is the row's discriminator: a reason-suffixed
+ * cancellation carries "DUE TO …" there instead and answers to the
+ * walltime row. The negative teaser now holds NO live face in this
+ * world — its contract stays alive in the unit's synthetic stories
+ * (the t970 unit's N19) until a future mint re-homes it.
  */
 
 export interface LogFinding {
@@ -207,6 +234,38 @@ export const LOG_PATTERNS: LogPattern[] = [
     label: "GPU memory starvation — the card was below RELION's free-memory floor",
     hint:
       "RELION printed this when the card had less free memory than its own 800 MB floor, then went ahead anyway and stalled in the first Expectation step. Two usual causes: (1) a stale run still holds the card — on the node, nvidia-smi --query-compute-apps=pid,process_name,used_memory names the holders; scancel them (squeue -u <user>) or kill the PIDs; (2) more MPI ranks than the node has cards (every rank banner saying \"mapped to device 0\") — run at a GPU width the node can actually back. The dispatch now clamps the rank count to the node's own card count and refuses to launch onto a starved card (exit 98, the holders named in the log) — clear the card, then re-run.",
+  },
+  {
+    // t976 — SLURM's own walltime words (slurmstepd's cancellation line:
+    // "*** JOB 482911 CANCELLED AT … DUE TO TIME LIMIT ***"; the STEP
+    // variant carries the same phrase). "DUE TO TIME LIMIT" is the
+    // reason the t972 negative face flipped positive on this row (the
+    // N10 mirror tripwire's whole purpose: make the decision visible,
+    // then make it deliberately). Its sibling discriminator now lives
+    // one row down: the t994 scheduler-cancelled row owns the no-reason
+    // form, whose *** closes RIGHT AFTER the timestamp — a reason
+    // suffix between the two keeps THIS row's monopoly on the line.
+    id: "walltime-limit",
+    re: /\bDUE TO TIME LIMIT\b/i,
+    label: "Killed by the scheduler — the job outlived its time limit",
+    hint:
+      "SLURM cancelled the step because the partition's time limit elapsed mid-run (the *** DUE TO TIME LIMIT *** line is the scheduler's own words; exit 143 = SIGTERM). Re-run with a longer --time in the sbatch, continue from this job's last checkpoint (RELION writes run_itNNN_* every iteration — the continue flag picks up where it stopped), or shrink the work per submission. sacct -j <jobid> confirms the limit that applied.",
+  },
+  {
+    // t994 — the plain-CANCELLED signature decision (the t976 recorded-
+    // not-cured ②): slurmstepd's no-reason cancellation record, closing
+    // *** right after the timestamp. The conservative bias holds on the
+    // unknown variants: a reason-suffixed line (DUE TO …, BY <uid> —
+    // version-dependent wordings) does NOT match (the teaser keeps it
+    // until its own row is decided) — a miss stays honest-silent, a
+    // wrong match cries wolf. The row flipped the t976 cancelled face
+    // positive (the tripwires N10/N10b were armed for exactly this);
+    // the negative teaser holds no live face since.
+    id: "scheduler-cancelled",
+    re: /\*\*\* JOB \d+ CANCELLED AT \S+ \*\*\*/,
+    label: "Cancelled by the scheduler — an operator or a policy stopped the job (no reason recorded)",
+    hint:
+      "SLURM's step daemon recorded the cancellation in its own words (*** JOB … CANCELLED AT … ***) but named no reason — an operator's scancel, a preemption, or a queue policy. The job was stopped from outside: RELION printed no error and the machine refused nothing. RELION wrote run_itNNN_* checkpoints every iteration, so a deliberate re-run can continue from the last one; sacct -j <jobid> shows the job's final state (a CANCELLED row names the uid that cancelled it when SLURM recorded one), and your cluster admin can name the policy if it wasn't you.",
   },
   {
     // t342 — CryoFlow's own refusal line (the sbatch pre-flight writes it

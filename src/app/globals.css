@@ -523,6 +523,28 @@
     0 16px 40px -12px var(--ink-18);
 }
 
+/* t1123 — the family focus ring cannot ride utilities on card-lift
+   surfaces: this rule is UNLAYERED, so it beats every layered ring
+   composite (measured live: the header's env pill held focus-visible:ring-1
+   in its class list while its computed box-shadow showed only the two
+   card-lift inks — the ring was cascaded out, not absent). The family
+   ring therefore paints as an outline here — the same 1px --ring voice,
+   cascade-proof. The seat-level ring tokens stay: they are the honest
+   declaration of intent, and they take over if a surface ever drops
+   card-lift.
+   t1124 — the cascade sweep's live probe DISPROVED the second suspect:
+   the report compass chips carry their OWN focus-visible outline idiom
+   (2px violet, offset 1px — .report-compass-chip:focus-visible), which
+   survives the active chip's unlayered underline ink (outline and
+   box-shadow are separate channels; the idiom paints on .here too —
+   probed live: fv:true, outline solid 2px violet). The law stays the
+   card-lift pair; the compass family keeps its own voice. */
+.card-lift:focus-visible,
+.card-lift-lg:focus-visible {
+  outline: 1px solid var(--ring);
+  outline-offset: 0;
+}
+
 /* t571 — the hover lean. Canvas cards are cursor-grab: on hover the card
    leans INTO your hand — it rises 2px and lets its shadow answer (the
    shadow transition is paint, unguarded by the house's motion doctrine;
@@ -2197,7 +2219,16 @@
     /* inspector re-layout: modal → document. The :has() chain lands at
        (0,3,1)+ — it beats the generic step-aside display:none (0,1,0)
        for THIS content while every other dialog stays hidden. */
-    display: flex !important;
+    /* t1092 — display:BLOCK, not flex: the dialog's flex column is the
+       screen's layout tool, but Chromium's fragmentation of a flex
+       container across printed pages is unreliable — the shrink-0 workdir
+       footer (the container's last flex child) was caught BOTH painted
+       over the Overview tab's OUTPUTS tiles mid-page-3 AND orphaned onto
+       a 95%-blank page 2 of the Results tab. Every direct child is
+       already block-level in reading order (header, tabs, footer), so
+       the paper loses nothing and the fragmentation engine finally sees
+       a plain block flow it knows how to paginate. */
+    display: block !important;
     position: static !important;
     inset: auto !important;
     /* the -50%/-50% centering: top/left die with position:static, but
@@ -2465,6 +2496,69 @@
     overflow: visible !important;
     text-overflow: unset !important;
   }
+  /* --------------------------------------------------------------------
+   * The t1092 pass — the footer lands in the flow, the badge stops
+   * covering the name, the paper has no keyboard, the empty editor is
+   * not a fact. Four cures found by riding the actual sheets:
+   *
+   * 1. THE FOOTER: with the container a plain block (above), the workdir
+   *    footer paginates honestly — but a footer straddling a boundary
+   *    still reads as two half-doors, so it is atomic.
+   * 2. THE BADGE: a cluster-resident tile's "on cluster" chip is
+   *    absolutely positioned over the tile's top-right corner on screen
+   *    (it hovers over the preview image there); on paper the preview
+   *    buttons are hidden and the chip lands ON TOP of the file-name
+   *    line, masking its tail — "Micrograph nr_003332" printed as
+   *    "Micrograph nr_" for six of six tiles, six names unreadable on
+   *    the very sheet that claims to archive them. Static on paper: the
+   *    chip becomes the tile's first line, the name reads in full under
+   *    it. (The .truncate unwrap above already unwraps the name — it
+   *    cannot un-COVER it; overlay and unwrap are different diseases.)
+   * 3. THE LEGEND: the log console's footer legend re-inks its zinc
+   *    text via the console rules above, but keeps its dark strip
+   *    background — a near-black bar across the archival sheet (and its
+   *    keyboard hint "↑↓ scroll · Home/End head/tail" is screen
+   *    semantics: paper has no arrows). The strip washes out, the keys
+   *    stay on the screen.
+   * 4. THE EMPTY EDITOR: an untyped note prints as an empty box, a
+   *    placeholder sentence ("Annotate this job…") and a 0/500 counter
+   *    — furniture, not facts. A TYPED note is a record (field-sizing
+   *    above already unrolls it). :has(textarea:placeholder-shown) is
+   *    the pure-CSS empty test: the shell hides only while the scientist
+   *    never wrote anything.
+   * ------------------------------------------------------------------ */
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-insp-face="footer"] {
+    break-inside: avoid;
+  }
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-remote-badge] {
+    position: static !important;
+    align-self: flex-start;
+    margin-bottom: 2px;
+  }
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-log-legend] {
+    background: none !important;
+    border-color: oklch(0.85 0.01 220) !important;
+  }
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-log-legend-keys] {
+    display: none !important;
+  }
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-note-shell]:has(textarea:placeholder-shown) {
+    display: none !important;
+  }
+  /* 5. ONE DOOR PLATE PER SHEET: the Results tab carries its own
+   *    "workdir:" row in the scroll's context, and the dialog's footer
+   *    repeats the identical path a few inches lower — on paper the
+   *    same fact twice is noise, not corroboration. The tab row stays
+   *    on screen; the dialog footer stays the sheet's canonical close. */
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-results-workdir] {
+    display: none !important;
+  }
   /* the Get column hosts per-row download buttons (screen-only) — on
      paper it would print as a header over an empty column; the manifest
      drops the column entirely (probe: t112 Files leg asserts no "Get") */
@@ -2474,6 +2568,310 @@
   html:has([data-inspector-dialog][data-state="open"])
     [data-files-table]
     td:last-child {
+    display: none !important;
+  }
+  /* ------------------------------------------------------------------
+   * The A/B compare dialog's print face (t945) — the Task 114 doctrine's
+   * second seat. The generic step-aside (Task 70) sends every modal to
+   * display:none on paper; the inspector bought its way back with the
+   * :has() revival, and the compare verdict buys the same: an A/B
+   * reading IS a document (verdict chips, identity scatter, mover
+   * lists, trust line — a lab notebook's comparison page). The pickers,
+   * the lens toggles and the adoption verbs stay chrome (the JSX marks
+   * them .no-print; a verb that prints is a verb that lies), and the
+   * paper keeps the pair's identity through the header's provenance
+   * line (data-compare-print-doc). Same :has() specificity doctrine:
+   * the chain (0,3,1)+ beats the generic step-aside (0,1,0) for THIS
+   * content while every other dialog keeps stepping aside.
+   * ------------------------------------------------------------------ */
+  html:has([data-compare-dialog][data-state="open"])
+    [data-slot="dialog-overlay"] {
+    /* the fixed dimmed backdrop becomes plain flow — no stamp, no scrim */
+    display: block !important;
+    position: static !important;
+    inset: auto !important;
+    background: none !important;
+    z-index: auto !important;
+  }
+  /* the A/B verdict rides INSIDE the inspector's dialog stack (one Escape
+     closes the whole stack) — the inspector's own revival also fires the
+     moment its [data-state] says open, which would print BOTH documents.
+     The paper carries the verdict the user asked for: the inspector's
+     report steps aside while the compare face owns the sheet (the hide
+     outranks the revival on specificity — (0,4,1) over (0,3,1)). */
+  html:has([data-compare-dialog][data-state="open"])
+    [data-inspector-dialog][data-slot="dialog-content"] {
+    display: none !important;
+  }
+  html:has([data-compare-dialog][data-state="open"])
+    [data-slot="dialog-content"] {
+    /* modal → document, the inspector's own re-layout grammar */
+    display: flex !important;
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border-radius: 0 !important;
+    border-width: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    padding-bottom: 10mm !important;
+  }
+  /* the close X is chrome on paper — the t946 law reaches the doctrine's
+     SECOND seat: the compare paper carries its X no longer (the carried
+     comment below resolves). Scoped to the compare face's own content
+     (the inspector's is already display:none above) — a button on a
+     sheet closes nothing. The hide is print-scoped: on screen the X
+     stays (the t945 witness probes it). */
+  html:has([data-compare-dialog][data-state="open"])
+    [data-compare-dialog]
+    > [data-slot="dialog-close"] {
+    display: none !important;
+  }
+  /* ------------------------------------------------------------------
+   * The compare family's print face (t946) — the Task 114 doctrine's
+   * THIRD seat. The family's four single-run readings (class
+   * convergence / resolution arc / final verdict / particle funnel)
+   * ARE documents too: a reading with verdict chips, movers, a census,
+   * a curve, a ladder, a ledger. One hook (data-family-read-dialog)
+   * drives all four — the doctrine is the family's; the seats differ
+   * only in what their documents say. The verbs, the pickers and the
+   * ledger buttons stay chrome (the JSX marks them .no-print — a verb
+   * that prints is a verb that lies), and the provenance lines ride
+   * JSX's hidden print:block (the t945 law: the revival rides CSS, the
+   * provenance rides JSX — the CSS never names the print-doc hook).
+   * The close X dies here too: a button on paper is a promise the paper
+   * cannot keep. (The compare paper's own X died too — the t947 rule
+   * above; the carried debt is paid.)
+   * ------------------------------------------------------------------ */
+  html:has([data-family-read-dialog][data-state="open"])
+    [data-slot="dialog-overlay"] {
+    /* the fixed dimmed backdrop becomes plain flow — no stamp, no scrim */
+    display: block !important;
+    position: static !important;
+    inset: auto !important;
+    background: none !important;
+    z-index: auto !important;
+  }
+  /* every family face rides INSIDE the inspector's dialog stack (one
+     Escape closes the whole stack) — the inspector's own revival fires
+     the moment its [data-state] says open, which would print BOTH
+     documents. The paper carries the reading the user asked for: the
+     inspector's report steps aside while the family face owns the sheet
+     (the hide outranks the revival on specificity — (0,4,1) over
+     (0,3,1), the t945 doctrine verbatim). */
+  html:has([data-family-read-dialog][data-state="open"])
+    [data-inspector-dialog][data-slot="dialog-content"] {
+    display: none !important;
+  }
+  html:has([data-family-read-dialog][data-state="open"])
+    [data-slot="dialog-content"] {
+    /* modal → document, the inspector's own re-layout grammar */
+    display: flex !important;
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border-radius: 0 !important;
+    border-width: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    padding-bottom: 10mm !important;
+  }
+  /* the close X is chrome on paper — the family faces own the sheet, and
+     a close button on a sheet closes nothing. Scoped to the family face's
+     own content (the inspector's is already display:none above). */
+  html:has([data-family-read-dialog][data-state="open"])
+    [data-family-read-dialog]
+    > [data-slot="dialog-close"] {
+    display: none !important;
+  }
+  /* ------------------------------------------------------------------
+   * The params diff's print face (t1093) — the Task 114 doctrine's
+   * FOURTH seat. The diff brain's standalone face (canvas multi-select
+   * Compare, the inspector's sibling picker, the roster's hover icon)
+   * IS a document: the changed / partial / same row taxonomy and the
+   * pair's actual launch values — the same brain the t945 compare
+   * paper already prints as its provenance table (FscParamsDiff), so
+   * the standalone face could hardly be chrome while its embedded twin
+   * is a document. The survey convicted the step-aside on camera: with
+   * the diff open, Ctrl+P printed the inspector's job report and the
+   * comparison was unreachable. The verbs (column swap, the Task 90
+   * open row, the collapse toggle) and the footnote offer stay chrome
+   * (the JSX marks them .no-print — a verb that prints is a verb that
+   * lies, the t945 law); the provenance line (data-params-print-doc)
+   * rides JSX's hidden print:block with the paper's clock (the t945
+   * law verbatim: the revival rides CSS, the provenance rides JSX).
+   * The close X dies here too — a button on paper is a promise the
+   * paper cannot keep (the t946 law, the doctrine's fourth carrier).
+   * The [data-view] hide is THIS seat's own rule, not the stack's:
+   * the diff's canvas entry (Task 87) opens with NO inspector behind
+   * it, and the user reading a comparison asked Ctrl+P for THE
+   * COMPARISON — the paper is what the user is reading (the
+   * inspector's own law, reached by the seat's rule instead of the
+   * stack's; the compare/family seats ride the inspector stack and
+   * inherited the hide from it).
+   * ------------------------------------------------------------------ */
+  html:has([data-params-diff-dialog][data-state="open"]) [data-view] {
+    display: none !important;
+  }
+  html:has([data-params-diff-dialog][data-state="open"])
+    [data-slot="dialog-overlay"] {
+    /* the fixed dimmed backdrop becomes plain flow — no stamp, no scrim */
+    display: block !important;
+    position: static !important;
+    inset: auto !important;
+    background: none !important;
+    z-index: auto !important;
+  }
+  /* the diff rides INSIDE the inspector's dialog stack when opened from
+     the sibling picker (one Escape peels one layer) — the inspector's
+     own revival would print BOTH documents. The paper carries the
+     comparison the user asked for: the inspector's report steps aside
+     while the diff face owns the sheet (the hide outranks the revival
+     on specificity — (0,4,1) over (0,3,1), the t945 doctrine verbatim). */
+  html:has([data-params-diff-dialog][data-state="open"])
+    [data-inspector-dialog][data-slot="dialog-content"] {
+    display: none !important;
+  }
+  html:has([data-params-diff-dialog][data-state="open"])
+    [data-slot="dialog-content"] {
+    /* modal → document, the inspector's own re-layout grammar. flex-direction
+       is COLUMN here and it is THIS seat's own line: the t945/t946 faces
+       carry flex-col in their own classNames so display:flex alone kept the
+       column, but this dialog's screen layout is the ui/dialog grid — a bare
+       display:flex re-lays the header and the table as a flex ROW (the
+       first after-paper caught it: the title squeezed into a ~90px column
+       beside the diff chip). */
+    display: flex !important;
+    flex-direction: column !important;
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border-radius: 0 !important;
+    border-width: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    padding-bottom: 10mm !important;
+  }
+  /* the close X is chrome on paper — the diff face owns the sheet, and
+     a close button on a sheet closes nothing. Scoped to the diff face's
+     own content (the inspector's is already display:none above). */
+  html:has([data-params-diff-dialog][data-state="open"])
+    [data-params-diff-dialog]
+    > [data-slot="dialog-close"] {
+    display: none !important;
+  }
+  /* ------------------------------------------------------------------
+   * The FSC compare's print face (t1094) — the Task 114 doctrine's
+   * FIFTH seat. The project-wide FSC overlay (the compare chip on the
+   * FSC chart) IS a document: the overlaid criterion curves ARE the
+   * science — the founding question the dialog's own header asks
+   * ("postprocess vs the refine it came from"). The world never carried
+   * an FSC-bearing job, so the face was unreachable and its paper never
+   * surveyed; the t951 deep mint (re-run t1094, the motioncorr-root
+   * amendment) grew the pair and the conviction rode ON CAMERA: with
+   * the overlay open, Ctrl+P printed the inspector's job report WITH
+   * THE DIALOG'S GUTS FRAGMENTING THROUGH IT — the candidate rows as
+   * naked broken tables across three pages, the description sentence
+   * an orphan. A double disease: no paper seat of its own, and its
+   * leaks polluted the host report. The grammar re-derived per the
+   * doctrine's questions:
+   *   - this dialog speaks flex-col in its OWN className (the t945
+   *     dialect), so the seat carries display:flex + its OWN
+   *     flex-direction: column line for self-containment;
+   *   - the [data-view] line is NOT this seat's: the overlay's ONLY
+   *     trigger is the FSC chart inside the inspector's Results tab —
+   *     the stack is always present, no canvas entry exists (the
+   *     params seat needed its own line; this one re-derives to
+   *     inherited) — the inspector's whole dialog hides below, which
+   *     takes every [data-view] with it;
+   *   - the verbs die whole: the Scan button (a verb that prints is a
+   *     verb that lies), the per-row jump buttons (a jump lands
+   *     nowhere on a sheet — the t946 funnel law) with the row's NAME
+   *     rescued onto a print span (the t1087 dual-face law — the name
+   *     is a fact, the affordance is not), the selection checkboxes
+   *     (the plotted set is what the sheet SHOWS; a checkbox on paper
+   *     is an offer — the t1092 law), the close X (the t946 law, the
+   *     doctrine's fifth carrier).
+   *   - the facts print whole: the provenance line (data-fsc-print-doc,
+   *     the t945 law verbatim — revival rides CSS, provenance rides
+   *     JSX), the index census, the candidate rows with their
+   *     source/type/resolution cells, the chart (the h-60 box prints
+   *     at the size the user saw), the legend chips (the color→curve
+   *     KEY — buttons on screen, but a key that dies takes the
+   *     science's vocabulary with it), the params diff table (the
+   *     fourth seat's own face, printing here as it does in the t945
+   *     paper), the science caption.
+   * ------------------------------------------------------------------ */
+  html:has([data-fsc-compare-dialog][data-state="open"])
+    [data-inspector-dialog][data-slot="dialog-content"] {
+    /* the inspector's report steps aside while the comparison owns the
+       sheet ((0,4,1) over (0,3,1), the t945 doctrine verbatim — this
+       block stands AFTER the fourth seat's, so the tie breaks honest) */
+    display: none !important;
+  }
+  html:has([data-fsc-compare-dialog][data-state="open"])
+    [data-slot="dialog-overlay"] {
+    /* the fixed dimmed backdrop becomes plain flow — no stamp, no scrim */
+    display: block !important;
+    position: static !important;
+    inset: auto !important;
+    background: none !important;
+    z-index: auto !important;
+  }
+  html:has([data-fsc-compare-dialog][data-state="open"])
+    [data-slot="dialog-content"] {
+    /* modal → document. flex-direction is COLUMN and it is THIS seat's
+       own line (self-containment: the screen class carries flex-col,
+       but a seat's grammar must survive its className being edited —
+       the t1093 lesson travels as questions, not answers). */
+    display: flex !important;
+    flex-direction: column !important;
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+    /* Tailwind v4's translate-x/y utilities set the STANDALONE `translate`
+       property — but Lightning CSS folds a same-block `translate: none`
+       into an identity transform (the t1092 probe: the built css showed
+       "transform:translate(0)rotate(0)scale(1)", the rect still x=-800).
+       The kill therefore rides the className's print:[translate:none]
+       utilities (own rule block → survives), the t1092 law verbatim —
+       this block's job is only the geometry around it. */
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border-radius: 0 !important;
+    border-width: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    padding-bottom: 10mm !important;
+  }
+  /* the close X is chrome on paper — the comparison owns the sheet, and
+     a close button on a sheet closes nothing. Scoped to the compare
+     face's own content (the inspector's is already display:none above). */
+  html:has([data-fsc-compare-dialog][data-state="open"])
+    [data-fsc-compare-dialog]
+    > [data-slot="dialog-close"] {
     display: none !important;
   }
 }
@@ -3416,6 +3814,81 @@ li[data-swipe="end"] {
 /* tree is gone): the vertical viewport button stack, the panels       */
 /* they open, toasts, the background-task bar and the help bubbles.    */
 /*                                                                     */
+/* The walk's paper (t1103) — the ortho plate's print exception. The
+   session report's own precedent, second edition: while
+   body[data-plate-print] is set (only while the plate verb runs — the
+   panel's print button owns the flag; afterprint and a failsafe timeout
+   own the cleanup, so no printout inherits a flag it did not ask for),
+   everything that does not carry the plate hides and the Mol* dialog
+   un-dialogs into the plate's paper. The walk down the tree rides
+   .plate-walk: each ancestor on the plate's path (the viewer's body
+   wrappers, the panel's own <section>) hides its children that do not
+   carry the plate — the dialog chrome, the Mol* viewport, the panel's
+   screen instruments — while the plate's internals are never touched
+   (their parents are not walk nodes). :has() is print-engine Chromium —
+   measured, not assumed (the session report's probe precedent). The
+   dialog's standalone translate/rotate/scale kill lives in
+   print:[translate:none]-class utilities on the DialogContent (the
+   t1093/t1092 lesson: Lightning CSS folds a same-block shorthand, an
+   own-rule utility survives). */
+@media print {
+  /* the carrier portal: Radix mounts dialogs in a display:flex wrapper —
+     left alone, the un-dialoged plate shrinks to its content's natural
+     width (the tiles' intrinsic pixel size), printing a half-page figure.
+     The carrier speaks block + full width; everything else at the body
+     level hides. */
+  body[data-plate-print] > *:has([data-ortho-plate-doc]) {
+    display: block !important;
+    width: 100% !important;
+  }
+  body[data-plate-print] > *:not(:has([data-ortho-plate-doc])) {
+    display: none !important;
+  }
+  body[data-plate-print] [data-slot="dialog-overlay"],
+  body[data-plate-print] [data-slot="dialog-close"] {
+    display: none !important;
+  }
+  body[data-plate-print] [data-slot="dialog-content"]:has([data-ortho-plate-doc]) {
+    display: block !important;
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: white !important;
+    color: oklch(0.25 0.02 244) !important;
+  }
+  body[data-plate-print] [data-slot="dialog-content"] > *:not(:has([data-ortho-plate-doc])):not([data-ortho-plate-doc]) {
+    display: none !important;
+  }
+  /* the plate's own ink: the screen's `hidden` utility is a single-class
+     rule — in the print cascade it can out-race `print:block`, so the
+     flag's paper speaks display directly (the session report's own
+     [data-report-doc] display:block law, plate edition) */
+  body[data-plate-print] [data-ortho-plate-doc] {
+    display: block !important;
+  }
+  /* the :not(:has()) walk's own rim: :has() sees only DESCENDANTS, so a
+     plate that IS the walked child would hide itself — the self-exclusion
+     is the rule's own honesty (found on the live paper: the plate printed
+     one border and no ink, the walk rule out-racing display:block) */
+  body[data-plate-print] .plate-walk > *:not(:has([data-ortho-plate-doc])):not([data-ortho-plate-doc]) {
+    display: none !important;
+  }
+  body[data-plate-print] .plate-walk {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+}
+
 /* Three disciplines:                                                  */
 /*  1. SCOPE — every rule lives under `.dark .msp-plugin`; light mode  */
 /*     never sees any of it (the fix's boundary is its ambition).      */
@@ -3671,4 +4144,51 @@ li[data-swipe="end"] {
   [data-job-lens] {
     animation: lens-rise 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
+}
+
+/* ------------------------------------------------------------
+   t897 — the wipe nudge: the divider's keyboard voice
+   ------------------------------------------------------------ */
+/* The wipe card's arrows scrub the divider ±1% per press — a motion too
+   small for the eye to confirm on a big card, and the aria-valuetext
+   (the honest announcement) is silent to sighted keyboard users. The
+   nudge chip is the keystroke's echo: the divider's current percentage,
+   in the house mono chip form, riding the fuchsia the wipe already
+   speaks. Remounted by React key per keystroke (the find-tick idiom —
+   a one-shot that never re-fires while the value rests), cleared by the
+   component's 700ms settle timer; the grip's own focus halo stays the
+   WHERE feedback, the chip is the WHAT feedback. aria-hidden: the range
+   input's aria-valuetext already announces the value — the chip would
+   be double speech. Birth silence: the chip renders only after a
+   keyboard nudge (pointer drags have the divider itself as their
+   voice); under reduced motion the chip appears and settles without
+   animation — the value, not the motion, is the message. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes wipe-nudge {
+    /* the x-centering lives in the class's own -translate-x-1/2 (the
+       transform property) — the keyframes speak the Y only (the translate
+       property COMBINES with transform; -50% here doubled the shift) */
+    0% {
+      opacity: 0;
+      translate: 0 3px;
+    }
+    18% {
+      opacity: 1;
+      translate: 0 0;
+    }
+    70% {
+      opacity: 1;
+      translate: 0 0;
+    }
+    100% {
+      opacity: 0;
+      translate: 0 -2px;
+    }
+  }
+  [data-wipe-nudge] {
+    animation: wipe-nudge 700ms ease-out both;
+  }
+}
+[data-wipe-nudge] {
+  pointer-events: none;
 }

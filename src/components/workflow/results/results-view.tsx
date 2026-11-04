@@ -56,6 +56,9 @@ import { Kbd } from "@/components/ui/kbd"; // t831 — the quick-look's keymap s
 import { Chip } from "@/components/ui/chip";
 import { toast } from "@/hooks/use-toast";
 import { downloadBlob } from "@/lib/download"; // t646 — one blob sink (this dance skipped attach + revoked same-tick)
+import { fmtBytes } from "@/lib/relion/disk-usage"; // t1152 — the byte word rides its ONE father (the local formatBytes dialect died: it had no GB branch, a 2.5 GB stack rendered "1536.0 MB" beside the inspector's "1.50 GB")
+import { fmtDuration } from "@/lib/duration"; // t1153 — the report's duration word rides its ONE father (the local fmtDur birth had no day face)
+import { fmtAngstrom, fmtMicron, fmtBFactor, fmtPixel } from "@/lib/chart-rows"; // t1155 — the Å/µm/Å² words ride their ONE fathers (the report's 2-decimal µm and hand-rolled 1-decimal Å drifted from the agent's fmtUm/fmtAng grains on the SAME quantities); t1156 — the map chip's sampling digits ride fmtPixel (the unit word stays "Å / voxel" — the map-profile's own voxel voice)
 import { buildFscSvg, fscMilestones, fscNyquist, fscTableMarkdown } from "@/lib/fsc-snapshot";
 import { buildProfileReportHtml } from "@/lib/report-html";
 import {
@@ -95,6 +98,7 @@ import { useAnchorParent } from "./anchor-parent";
 import { StarTable } from "./star-table";
 import { TextPreview } from "./text-preview"; // t779 — the tail preview's own home (the inspector Files tab is the second family)
 import { QuickHistSection } from "./density-histogram";
+import { formatCountFull } from "@/lib/result-counts"; // t1157 — the thousands word rides its ONE father (the locale pin lives in result-counts, the parser's own contract)
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -155,11 +159,10 @@ interface LoadError {
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
 
-function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-}
+// formatBytes lived here once (t1152's census): KB one decimal, MB one
+// decimal, NO GB branch — the same file the inspector called "1.50 GB"
+// rendered "1536.0 MB". The byte word's one birthplace is
+// @/lib/relion/disk-usage's fmtBytes; every size below speaks it.
 
 function fileUrl(jobId: string, file: OutputFile, extra: string): string {
   return `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(file.path)}${extra}`;
@@ -504,25 +507,28 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
       ]);
       const fsc = found.fsc;
 
-      // Resolution lines — each earns its place by arriving
+      // Resolution lines — each earns its place by arriving. t1155 — the
+      // Å word rides its ONE father (the report's word face speaks the
+      // same 1-decimal the agent's summary speaks; the DATA tables keep
+      // their own grain — data faces are not words).
       const resLines: string[] = [];
       if (fsc?.resolutionAt143 != null)
-        resLines.push(`FSC 0.143 resolution: **${fsc.resolutionAt143.toFixed(2)} Å**`);
+        resLines.push(`FSC 0.143 resolution: **${fmtAngstrom(fsc.resolutionAt143)}**`);
       if (fsc?.resolutionAt05 != null)
-        resLines.push(`FSC 0.5 (half-bit) resolution: **${fsc.resolutionAt05.toFixed(2)} Å**`);
+        resLines.push(`FSC 0.5 (half-bit) resolution: **${fmtAngstrom(fsc.resolutionAt05)}**`);
       if (fsc?.reportedResolution != null)
         resLines.push(
-          `RELION reported: **${fsc.reportedResolution.toFixed(2)} Å**${
+          `RELION reported: **${fmtAngstrom(fsc.reportedResolution)}**${
             fsc.reportedLabel ? ` — ${fsc.reportedLabel}` : ""
           }`
         );
       const nyq = fsc ? fscNyquist(fsc.shells) : null;
       if (nyq != null && Number.isFinite(nyq))
-        resLines.push(`Box Nyquist limit (2 × pixel size): **${nyq.toFixed(2)} Å**`);
+        resLines.push(`Box Nyquist limit (2 × pixel size): **${fmtAngstrom(nyq)}**`);
       const res = found.res;
       if (res && (res.current != null || res.best != null)) {
-        const cur = res.current != null ? `${res.current.toFixed(2)} Å` : "—";
-        const best = res.best != null ? `${res.best.toFixed(2)} Å` : "—";
+        const cur = res.current != null ? fmtAngstrom(res.current) : "—";
+        const best = res.best != null ? fmtAngstrom(res.best) : "—";
         resLines.push(`Refinement resolution: current **${cur}**, best **${best}**`);
       }
 
@@ -545,7 +551,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
         if (table) block.push(table, "");
         if (png) {
           const lastPt = res.points[res.points.length - 1];
-          block.push(`![Resolution progress — ${lastPt.resolution.toFixed(2)} Å at iteration ${lastPt.iteration} for ${job.name}](${png})`, "");
+          block.push(`![Resolution progress — ${fmtAngstrom(lastPt.resolution)} at iteration ${lastPt.iteration} for ${job.name}](${png})`, "");
         } else {
           block.push("_Curve snapshot unavailable in this browser — the table above is the full data._", "");
         }
@@ -571,7 +577,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
         if (src) block.push(src, "");
         if (table) block.push(table, "");
         if (png) {
-          block.push(`![FSC curve${fsc.resolutionAt143 != null ? ` — ${fsc.resolutionAt143.toFixed(2)} Å` : ""} for ${job.name}](${png})`, "");
+          block.push(`![FSC curve${fsc.resolutionAt143 != null ? ` — ${fmtAngstrom(fsc.resolutionAt143)}` : ""} for ${job.name}](${png})`, "");
         } else {
           block.push("_Curve snapshot unavailable in this browser — the table above is the full data._", "");
         }
@@ -590,7 +596,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
           if (gPts.length >= 4) {
             const block: string[] = ["## Guinier plot", ""];
             if (g.bfactor != null)
-              block.push(`Applied B-factor: **${Number(g.bfactor).toFixed(1)} Å²**`, "");
+              block.push(`Applied B-factor: **${fmtBFactor(Number(g.bfactor))}**`, ""); // t1155 — the fourth B-factor birth rides its father
             const table = guinierTableMarkdown(gPts);
             if (table) block.push(table, "");
             const png = await snapshot(
@@ -616,7 +622,13 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
         const s = ctf.summary;
         if (s)
           block.push(
-            `${s.count} micrographs — mean defocus **${s.meanDefocus.toFixed(2)} µm**, astigmatism ≤ **${s.maxAstigmatism.toFixed(2)} µm**${s.worstResolution > 0 ? `, worst fit **${s.worstResolution.toFixed(1)} Å**` : ""}${s.meanFom > 0 ? `, mean FOM **${s.meanFom.toFixed(3)}**` : ""}.`,
+            // t1155 — the µm/Å words ride their fathers (the agent's CTF
+            // summary speaks fmtUm's 3-decimal µm and fmtAng's 1-decimal Å;
+            // this report line drifted at 2/1-decimal by hand). The FOM is
+            // a dimensionless quality metric — the 2-decimal grain is the
+            // majority dialect (the agent's summary and the chart rows
+            // both speak it); the report's 3-decimal outlier follows.
+            `${s.count} micrographs — mean defocus **${fmtMicron(s.meanDefocus)}**, astigmatism ≤ **${fmtMicron(s.maxAstigmatism)}**${s.worstResolution > 0 ? `, worst fit **${fmtAngstrom(s.worstResolution)}**` : ""}${s.meanFom > 0 ? `, mean FOM **${s.meanFom.toFixed(2)}**` : ""}.`,
             ""
           );
         const table = ctfTableMarkdown(ctf.micrographs);
@@ -638,7 +650,10 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
         const s = motion.summary;
         if (s)
           block.push(
-            `${s.count} micrographs — mean drift **${s.meanTotal.toFixed(1)} Å** (early ${s.meanEarly.toFixed(1)} / late ${s.meanLate.toFixed(1)})${s.worstName ? `, worst **${s.worstName}** at **${s.maxTotal.toFixed(1)} Å**` : ""}. Bars sort worst-first: teal = early frames (stage settling), amber = late frames (beam-induced).`,
+            // t1155 — the drift words ride the Å father (the agent's motion
+            // summary speaks fmtAng for the same quantities; the report's
+            // hand toFixed(1) drifted from it only at the float quirks).
+            `${s.count} micrographs — mean drift **${fmtAngstrom(s.meanTotal)}** (early ${fmtAngstrom(s.meanEarly)} / late ${fmtAngstrom(s.meanLate)})${s.worstName ? `, worst **${s.worstName}** at **${fmtAngstrom(s.maxTotal)}**` : ""}. Bars sort worst-first: teal = early frames (stage settling), amber = late frames (beam-induced).`,
             ""
           );
         const table = motionTableMarkdown(motion.micrographs);
@@ -691,12 +706,11 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
         topazSection = block;
       }
 
-      const fmtDur = (s: number) =>
-        s >= 3600
-          ? `${Math.floor(s / 3600)}h ${Math.round((s % 3600) / 60)}m`
-          : s >= 60
-            ? `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`
-            : `${Math.round(s)}s`;
+      // t1153 — the report's duration word rides the ONE father (a local
+      // birth here had no day face: a 3-day run printed "72h 5m" in the
+      // report while the inspector said "3d 0h" for the same run). The
+      // father speaks ms; the report's rows carry seconds.
+      const fmtDur = (s: number) => fmtDuration(s * 1000);
       const textCount = data?.files.filter((f) => f.kind === "text").length ?? 0;
       const slug =
         job.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "job";
@@ -1021,7 +1035,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
             disabled={reportBusy}
             aria-busy={reportBusy}
             className="h-7 gap-1.5 px-2 text-[11px]"
-            aria-label="Export run report"
+            aria-label={reportBusy ? "Exporting the run report…" : "Export run report"}
             title="Download a Markdown summary of this run — metadata, resolution, FSC table & curve snapshot, outputs"
           >
             <FileDown className={cn("h-3.5 w-3.5", reportBusy && "animate-pulse motion-reduce:animate-none")} aria-hidden="true" />
@@ -1034,7 +1048,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
             disabled={reportBusy}
             aria-busy={reportBusy}
             className="h-7 gap-1.5 px-2 text-[11px]"
-            aria-label="Export run report as HTML"
+            aria-label={reportBusy ? "Exporting the run report…" : "Export run report as HTML"}
             title="Download the same report as a self-contained HTML document — opens in any browser with contents and figures, no app needed"
           >
             <Globe className={cn("h-3.5 w-3.5", reportBusy && "animate-pulse motion-reduce:animate-none")} aria-hidden="true" />
@@ -1202,17 +1216,17 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                      (file name + row count + size) — the Task 114 glass
                      door hides raw controls, not wrapped records (Task 116) */
                   data-print-keep=""
-                  className="flex w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left text-xs transition-colors hover:border-violet-600/40 hover:bg-violet-600/5"
+                  className="flex w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left text-xs transition-colors hover:border-violet-600/40 hover:bg-violet-600/5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
                   <FileText className="h-3.5 w-3.5 shrink-0 text-violet-600" aria-hidden="true" />
                   <span className="truncate font-mono text-[11px]">{f.label ?? f.name}</span>
                   {typeof f.rows === "number" && (
                     <span className="shrink-0 rounded-full border border-violet-600/25 bg-violet-600/10 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 dark:text-violet-300">
-                      {f.rows.toLocaleString()} rows
+                      {formatCountFull(f.rows)} rows
                     </span>
                   )}
                   <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
-                    {formatBytes(f.size)}
+                    {fmtBytes(f.size)}
                   </span>
                 </button>
               </li>
@@ -1242,7 +1256,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                     <span className="truncate">{f.label ?? f.name}</span>
                     <ExternalLink className="ml-auto h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />
                     <span className="shrink-0 text-[10px] text-muted-foreground">
-                      {formatBytes(f.size)}
+                      {fmtBytes(f.size)}
                     </span>
                   </a>
                 </li>
@@ -1254,12 +1268,12 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                     /* data-print-keep: same paper contract as the STAR rows
                        above — the wrapped name/size record must print */
                     data-print-keep=""
-                    className="flex w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left text-xs transition-colors hover:border-warning/40 hover:bg-warning/5"
+                    className="flex w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left text-xs transition-colors hover:border-warning/40 hover:bg-warning/5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
                     <ScrollText className="h-3.5 w-3.5 shrink-0 text-warning-600" aria-hidden="true" />
                     <span className="truncate font-mono text-[11px]">{f.name}</span>
                     <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
-                      {formatBytes(f.size)}
+                      {fmtBytes(f.size)}
                     </span>
                   </button>
                 </li>
@@ -1271,7 +1285,16 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
 
       {/* workdir footer */}
       {data.workdir && (
-        <footer className="flex items-center gap-1.5 border-t pt-3 text-[11px] text-muted-foreground">
+        /* t1092 — data-results-workdir: on paper the dialog's own workdir
+           footer (data-insp-face="footer") already closes EVERY tab's
+           sheet with the same path; this tab-level repeat would print
+           the identical line twice, inches apart. Screen keeps both
+           faces (the tab row lives in the scroll's context); the paper
+           keeps one canonical door plate per sheet. */
+        <footer
+          data-results-workdir=""
+          className="flex items-center gap-1.5 border-t pt-3 text-[11px] text-muted-foreground"
+        >
           <span className="shrink-0 font-medium">workdir:</span>
           <span className="truncate font-mono" title={data.workdir}>
             {data.workdir}
@@ -1297,7 +1320,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
       {/* map / stack dialog */}
       <Dialog open={imageFile !== null} onOpenChange={(o) => !o && setImageFile(null)}>
         <DialogContent
-          className="flex max-h-[90dvh] max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
+          className="flex max-h-[90dvh] sm:max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
           onKeyDown={(e) => {
             // t831 — the quick-look's own keyboard face: ← / → step the
             // stack's slice cursor through the SAME state setter the
@@ -1348,11 +1371,19 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                   90dvh cap is kept — each face keeps its own. */}
               <DialogHeader className="shrink-0 border-b px-6 pb-4 pt-6">
                 <DialogTitle className="flex items-center gap-2 text-sm">
-                  <Layers className="h-4 w-4 text-running-600" aria-hidden="true" />
-                  {imageFile.label ?? imageFile.name}
+                  {/* t913 — the header is a data plane: real-user file names
+                      run 50-80 chars in ONE token (RELION conventions), and
+                      an unhardened flex row paints them past the dialog (the
+                      before-witness: overX 148-195 at 320). The Mol* face's
+                      grammar (t662-era) is the family law: the icon keeps
+                      its size, the name truncates one line, the path in the
+                      description breaks — a path provenance line stays fully
+                      readable, a title stays a heading. */}
+                  <Layers className="h-4 w-4 shrink-0 text-running-600" aria-hidden="true" />
+                  <span className="min-w-0 truncate">{imageFile.label ?? imageFile.name}</span>
                 </DialogTitle>
-                <DialogDescription className="font-mono text-[11px]">
-                  {imageFile.path} · {formatBytes(imageFile.size)}
+                <DialogDescription className="break-all font-mono text-[11px]">
+                  {imageFile.path} · {fmtBytes(imageFile.size)}
                 </DialogDescription>
               </DialogHeader>
               <div
@@ -1405,7 +1436,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                               : "Command the montage with the display window — sixteen images are sixteen distributions; by default each cell speaks its own auto stretch"
                         }
                         className={
-                          "rounded border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider transition-colors " +
+                          "rounded border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider transition-colors  focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" +
                           (montageWin && imgWindow
                             ? "border-violet-700/60 bg-violet-950/30 text-violet-700 dark:border-violet-400/50 dark:bg-violet-950/40 dark:text-violet-300"
                             : "border-border/60 bg-background/60 text-muted-foreground hover:bg-muted/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50")
@@ -1430,7 +1461,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                             size="sm"
                             className="h-7 w-7 shrink-0 p-0"
                             disabled={stackSlice <= 0}
-                            aria-label="Previous particle image"
+                            aria-label={stackSlice <= 0 ? "Previous particle image (already at the first slice)" : "Previous particle image"}
                             data-canvas-ui="stack-slice-prev"
                             onClick={() => setStackSlice((s) => Math.max(0, s - 1))}
                           >
@@ -1451,7 +1482,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                             size="sm"
                             className="h-7 w-7 shrink-0 p-0"
                             disabled={stackSlice >= (imageFile.slices ?? 1) - 1}
-                            aria-label="Next particle image"
+                            aria-label={stackSlice >= (imageFile.slices ?? 1) - 1 ? "Next particle image (already at the last slice)" : "Next particle image"}
                             data-canvas-ui="stack-slice-next"
                             onClick={() =>
                               setStackSlice((s) => Math.min((imageFile.slices ?? 1) - 1, s + 1))
@@ -1575,17 +1606,21 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
       {/* STAR table dialog */}
       <Dialog open={starFile !== null} onOpenChange={(o) => !o && setStarFile(null)}>
         <DialogContent
-          className="max-w-4xl sm:max-w-4xl"
+          className="sm:max-w-4xl"
           onKeyDown={onEscapeClose(() => setStarFile(null))}
         >
           {starFile && (
             <>
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 text-sm">
-                  <Table2 className="h-4 w-4 text-violet-600" aria-hidden="true" />
-                  {starFile.label ?? starFile.name}
+                  {/* t913 — the t662 Mol* grammar rides this sibling too: the
+                      icon shrink-0, the name min-w-0 truncate, the path in
+                      the description break-all (the before-witness's face 1:
+                      overX 195 at 320 with a 61-char real-user name). */}
+                  <Table2 className="h-4 w-4 shrink-0 text-violet-600" aria-hidden="true" />
+                  <span className="min-w-0 truncate">{starFile.label ?? starFile.name}</span>
                 </DialogTitle>
-                <DialogDescription className="font-mono text-[11px]">{starFile.path}</DialogDescription>
+                <DialogDescription className="break-all font-mono text-[11px]">{starFile.path}</DialogDescription>
               </DialogHeader>
               <StarTable job={job} path={starFile.path} />
               {/* t832 — the star table joins the keymap family: one quiet
@@ -1609,17 +1644,19 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
       {/* text preview dialog */}
       <Dialog open={textFile !== null} onOpenChange={(o) => !o && setTextFile(null)}>
         <DialogContent
-          className="max-w-3xl sm:max-w-3xl"
+          className="sm:max-w-3xl"
           onKeyDown={onEscapeClose(() => setTextFile(null))}
         >
           {textFile && (
             <>
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 text-sm">
-                  <ScrollText className="h-4 w-4 text-warning-600" aria-hidden="true" />
-                  {textFile.name}
+                  {/* t913 — the same grammar, the third sibling (the
+                      before-witness's face 3: overX 135 at 320). */}
+                  <ScrollText className="h-4 w-4 shrink-0 text-warning-600" aria-hidden="true" />
+                  <span className="min-w-0 truncate">{textFile.name}</span>
                 </DialogTitle>
-                <DialogDescription className="font-mono text-[11px]">
+                <DialogDescription className="break-all font-mono text-[11px]">
                   {textFile.path} · last 64 KB
                 </DialogDescription>
               </DialogHeader>
@@ -1731,7 +1768,7 @@ function MapIdentityCard({
         </span>
         {map.pixel > 0 && (
           <span className="rounded-full border border-running/25 bg-running/10 px-2 py-0.5 text-[10px] font-semibold text-running-700 dark:text-running-300">
-            {map.pixel.toFixed(2)} Å / voxel
+            {fmtPixel(map.pixel)} Å / voxel
           </span>
         )}
         <span className="rounded-full border border-border bg-muted/60 px-2 py-0.5 text-[10px] text-muted-foreground">
@@ -1859,7 +1896,7 @@ function ClassOccupancyStrip({ occ }: { occ: ClassOcc[] }) {
         <span
           key={c.cls}
           className="group/bar relative flex-1"
-          title={`Class ${c.cls}: ${c.count.toLocaleString()} particles (${(c.fraction * 100).toFixed(1)}%)`}
+          title={`Class ${c.cls}: ${formatCountFull(c.count)} particles (${(c.fraction * 100).toFixed(1)}%)`}
         >
           <span
             className={cn(
@@ -2048,7 +2085,7 @@ function MrcGallery({
                 type="button"
                 aria-pressed={filter === it}
                 onClick={() => setFilter(it)}
-                className="font-mono"
+                className="font-mono focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 it{String(it).padStart(3, "0")}
               </button>
@@ -2141,8 +2178,8 @@ function MrcGallery({
               </p>
               <p className="truncate text-[9px] text-muted-foreground">
                 {f.name.toLowerCase().endsWith(".mrcs")
-                  ? `${f.slices ?? "?"} imgs · ${formatBytes(f.size)}`
-                  : `${f.slices ?? 1}³ · ${formatBytes(f.size)}`}
+                  ? `${f.slices ?? "?"} imgs · ${fmtBytes(f.size)}`
+                  : `${f.slices ?? 1}³ · ${fmtBytes(f.size)}`}
               </p>
               {/* class-average stacks get the per-class occupancy strip
                   (bars pair with the montage tiles above, class order) */}
@@ -2194,7 +2231,15 @@ function RemoteFileTile({
       data-remote-file=""
       data-remote-path={file.path}
     >
-      <span className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded-full border border-running/40 bg-background/90 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-running-700 shadow-sm dark:text-running-300">
+      {/* t1092 — data-remote-badge: on screen the chip hovers over the
+          preview's top-right corner; on paper (preview buttons hidden by
+          the Task 114 generic rule) it would land ON the file-name line
+          and mask its tail — the print pass makes it static so the name
+          reads in full under it. */}
+      <span
+        data-remote-badge=""
+        className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded-full border border-running/40 bg-background/90 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-running-700 shadow-sm dark:text-running-300"
+      >
         <Cloud className="size-2.5" aria-hidden="true" />
         on cluster
       </span>
@@ -2210,13 +2255,13 @@ function RemoteFileTile({
           <button
             type="button"
             onClick={() => setFetching(true)}
-            className="flex aspect-square w-full flex-col items-center justify-center gap-1 rounded-md border border-border/50 bg-muted/40 text-muted-foreground transition-colors hover:border-running/40 hover:text-foreground"
+            className="flex aspect-square w-full flex-col items-center justify-center gap-1 rounded-md border border-border/50 bg-muted/40 text-muted-foreground transition-colors hover:border-running/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             aria-label={`Fetch ${file.label ?? file.name} from the cluster and preview it`}
-            title={`Fetch & preview — pulls ${formatBytes(file.size)} from the cluster over SSH, then renders it (stays on this machine afterwards)`}
+            title={`Fetch & preview — pulls ${fmtBytes(file.size)} from the cluster over SSH, then renders it (stays on this machine afterwards)`}
             data-canvas-ui="remote-fetch-preview"
           >
             <CloudDownload className="size-5" aria-hidden="true" />
-            <span className="text-[10px] font-semibold tabular-nums">{formatBytes(file.size)}</span>
+            <span className="text-[10px] font-semibold tabular-nums">{fmtBytes(file.size)}</span>
             <span className="px-1.5 text-center text-[9px] leading-tight text-muted-foreground/80">
               not synced — click to fetch over SSH
             </span>
@@ -2318,6 +2363,7 @@ function TopazPickHandoff({ jobId }: { jobId: string }) {
           variant="outline"
           onClick={run}
           disabled={busy}
+          aria-label={busy ? "Pick with this model (the job is being created)" : "Pick with this model"}
           className="shrink-0 border-danger-600/40 text-danger-700 hover:bg-danger-600/10 hover:text-danger-800 dark:text-danger-300 dark:hover:text-danger-200"
         >
           {busy ? (
@@ -2374,6 +2420,7 @@ function DenoisePickHandoff({ jobId }: { jobId: string }) {
           variant="outline"
           onClick={run}
           disabled={busy}
+          aria-label={busy ? "Pick this stack (the job is being created)" : "Pick this stack"}
           className="shrink-0 border-danger-600/40 text-danger-700 hover:bg-danger-600/10 hover:text-danger-800 dark:text-danger-300 dark:hover:text-danger-200"
         >
           {busy ? (
@@ -2460,6 +2507,7 @@ function DenoiseTrainHandoff({ jobId }: { jobId: string }) {
           variant="outline"
           onClick={run}
           disabled={busy}
+          aria-label={busy ? "Train on this stack (the job is being created)" : "Train on this stack"}
           className="shrink-0 border-danger-600/40 text-danger-700 hover:bg-danger-600/10 hover:text-danger-800 dark:text-danger-300 dark:hover:text-danger-200"
         >
           {busy ? (
@@ -2506,6 +2554,57 @@ const STAT_TONE_CLASS: Record<string, string> = {
 const TALLY_STEP_MS = 24;
 
 export function KeyNumbersStrip({ summary }: { summary: OutputSummary }) {
+  // t896 — the arrival grammar's SECOND voice. The tally's stagger (t609)
+  // speaks the strip's first arrival; a RUNNING job's poll then delivers
+  // fresh counts — and a changed number now announces itself with the
+  // t665 ring (the fuchsia arrival family the denoise gallery taught):
+  // the previous values ride a ref, each poll diffs, and every stat whose
+  // value moved gets the transient ring (mount itself never flashes — the
+  // stagger already spoke the first arrival; a ring on mount would say
+  // everything arrived twice). The flash rides a paint-aligned callback
+  // (the t665 grammar), and the teardown lives on a ref-held timer that a
+  // NEW change reschedules — the ring persists while the run keeps
+  // arriving, fades 1600ms after the last word — and unmount kills it
+  // (a timer surviving its component is a leak, not a cue).
+  const prevVals = useRef<Map<string, string>>(new Map());
+  const [flashKeys, setFlashKeys] = useState<ReadonlySet<string>>(new Set());
+  const offTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stats = summary.stats;
+  useEffect(() => {
+    // t899 — the diff is KEY-INDEXED, so a duplicate key is not a cosmetic
+    // React warning here: colliding stats share one prevVals slot, each
+    // becomes the other's "before", the mount flashes and every poll
+    // flashes everything. Live-captured on the ring's browser leg (the
+    // t892 chip and the t893 coverage leg both spoke as "micrographs").
+    // The summary builder owns the fix; this guard makes the NEXT
+    // collision a loud dev console line instead of a corrupted ring.
+    if (process.env.NODE_ENV === "development") {
+      const seen = new Set<string>();
+      for (const s of stats) {
+        if (seen.has(s.key)) console.warn(`KeyNumbersStrip: duplicate stat key "${s.key}" — the flash diff is key-indexed; colliding stats poison each other's history`);
+        seen.add(s.key);
+      }
+    }
+    const changed: string[] = [];
+    for (const s of stats) {
+      const before = prevVals.current.get(s.key);
+      if (before !== undefined && before !== s.value) changed.push(s.key);
+      prevVals.current.set(s.key, s.value);
+    }
+    if (changed.length === 0) return; // identical poll — no word to say
+    const raf = requestAnimationFrame(() => {
+      setFlashKeys(new Set(changed)); // the latest arrival owns the ring
+      if (offTimer.current) clearTimeout(offTimer.current);
+      offTimer.current = setTimeout(() => setFlashKeys(new Set()), 1600);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [stats]);
+  useEffect(
+    () => () => {
+      if (offTimer.current) clearTimeout(offTimer.current);
+    },
+    []
+  );
   if (summary.stats.length === 0) return null;
   return (
     <section
@@ -2519,8 +2618,12 @@ export function KeyNumbersStrip({ summary }: { summary: OutputSummary }) {
         <div
           key={s.key}
           data-stat={s.key}
+          data-flash={flashKeys.has(s.key) ? "on" : undefined}
           style={{ "--kd": `${i * TALLY_STEP_MS}ms` } as CSSProperties}
-          className="insp-card-whisper min-w-28 flex-1 rounded-lg border bg-card px-3 py-2.5"
+          className={cn(
+            "insp-card-whisper min-w-28 flex-1 rounded-lg border bg-card px-3 py-2.5 transition-shadow duration-500",
+            flashKeys.has(s.key) && "ring-2 ring-fuchsia-500/70"
+          )}
           title={s.hint}
         >
           <p
@@ -2563,7 +2666,7 @@ function WarningsCard({ warnings }: { warnings: string[] }) {
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="flex w-full items-center gap-2 text-left"
+        className="flex w-full items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       >
         <AlertTriangle className="h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
         <span className="font-medium text-warning-700 dark:text-warning-300">
@@ -2711,7 +2814,7 @@ function RemoteBatchBar({
           {total} file{total === 1 ? "" : "s"} still on cluster
         </span>
         <span className="text-[10px] text-muted-foreground tabular-nums">
-          {formatBytes(totalBytes)} total — fetched files stay on this machine
+          {fmtBytes(totalBytes)} total — fetched files stay on this machine
         </span>
         <span className="ml-auto flex items-center gap-1.5">
           {running ? (

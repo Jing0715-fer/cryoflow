@@ -36,6 +36,8 @@ import {
 } from "lucide-react";
 import { useWorkflowStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { fmtProgressPct } from "@/lib/progress-scale"; // t1154 — the KPI's progress word rides its ONE father (the wire is 0–100)
+import { formatCountFull } from "@/lib/result-counts"; // t1157 — the thousands word rides its ONE father (the locale pin lives in result-counts, the parser's own contract)
 
 interface ResResponse {
   current: number | null;
@@ -187,7 +189,7 @@ export function PipelineKpi() {
   const resValue = res && resSource && res.jobId === resSource.id ? res.value : null;
 
   const fmtNum = (n: number) =>
-    n >= 10000 ? `${(n / 1000).toFixed(1)}k` : n.toLocaleString();
+    n >= 10000 ? `${(n / 1000).toFixed(1)}k` : formatCountFull(n);
 
   // The bar's items, built conditionally, separated mechanically: the
   // hairline renders BETWEEN neighbors only (the hand-placed separators
@@ -299,7 +301,7 @@ export function PipelineKpi() {
         <span className={kpiCollapsed ? "max-w-[72px] truncate" : "max-w-[120px] truncate"}>
           {rj.name}
         </span>
-        <span className="tabular-nums">{Math.round(rj.progress ?? 0)}%</span>
+        <span className="tabular-nums">{fmtProgressPct(rj.progress ?? 0)}</span>
       </KpiItem>
     );
   }

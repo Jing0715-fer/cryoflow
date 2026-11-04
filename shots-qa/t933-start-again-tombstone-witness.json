@@ -1,0 +1,36 @@
+{
+  "stage1": {
+    "pass": 15,
+    "fail": 0,
+    "kill": {
+      "slurmId": "261",
+      "pid": 3812,
+      "roundsAtKill": [
+        "run_it000_optimiser.star",
+        "run_it001_optimiser.star"
+      ],
+      "killAt": "2026-10-12T15:25:00.240Z"
+    },
+    "mint": "== mint GREEN — 36 ok, 0 fail =="
+  },
+  "at": "2026-10-12T15:29:51.603Z",
+  "stage2": {
+    "pass": 11,
+    "fail": 0,
+    "tombstone": "interrupted remotely (no exit status — node reboot or hard kill; 3 consecutive checks saw no trace of it); re-run resumes from the last synced checkpoint",
+    "roundsAtFlip": [
+      "run_it000_optimiser.star",
+      "run_it001_optimiser.star"
+    ],
+    "realCont": "/projects/cryoflow/cmv4v0ue60000pp5i7i2gu10k/class2d_nwdvypu0/run_it001_optimiser.star"
+  },
+  "stage3": {
+    "pass": 31,
+    "fail": 1,
+    "prevGensBefore": 1,
+    "prevGensAfter": 2,
+    "freshRounds": 17,
+    "fresh": "completed",
+    "arc": "Start-again at the tombstone"
+  }
+}

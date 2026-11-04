@@ -33,6 +33,7 @@ import { useChartResource } from "@/lib/use-chart-resource";
 import { cn } from "@/lib/utils";
 import { ChartErrorStrip } from "./chart-error-strip";
 import { MrcImage } from "./mrc-image";
+import { formatCountFull } from "@/lib/result-counts"; // t1157 — the thousands word rides its ONE father (the locale pin lives in result-counts, the parser's own contract)
 
 interface PickEntry {
   micPath: string;
@@ -244,8 +245,8 @@ export function PicksMap({
         <Chip size="sm" tone="muted">
           <MousePointerClick aria-hidden="true" />
           {fomMode
-            ? `${shownTotal.toLocaleString()} / ${data.total.toLocaleString()} picks ≥ threshold`
-            : `${data.total.toLocaleString()} picks`}
+            ? `${formatCountFull(shownTotal)} / ${formatCountFull(data.total)} picks ≥ threshold`
+            : `${formatCountFull(data.total)} picks`}
         </Chip>
         <Chip size="sm" tone="muted">~{perMic}/micrograph</Chip>
       </div>
@@ -314,7 +315,7 @@ export function PicksMap({
       {/* lightbox */}
       <Dialog open={selected != null} onOpenChange={(open) => !open && setSelected(null)}>
         <DialogContent
-          className="max-w-2xl sm:max-w-2xl"
+          className="sm:max-w-2xl"
           onKeyDown={onEscapeClose(() => setSelected(null))}
         >
           {selected && (
@@ -323,8 +324,8 @@ export function PicksMap({
                 <DialogTitle className="truncate font-mono text-sm">{selected.name}</DialogTitle>
                 <DialogDescription className="tabular-nums">
                   {fomMode
-                    ? `${selected.picks.filter((_, i) => (selected.foms?.[i] ?? null) == null || (selected.foms![i] as number) >= cutoff).length.toLocaleString()} / ${selected.count.toLocaleString()} picks ≥ ${fomMin.toFixed(3)} · ${w}×${h} px`
-                    : `${selected.count.toLocaleString()} picks · ${w}×${h} px`}
+                    ? `${formatCountFull(selected.picks.filter((_, i) => (selected.foms?.[i] ?? null) == null || (selected.foms![i] as number) >= cutoff).length)} / ${formatCountFull(selected.count)} picks ≥ ${fomMin.toFixed(3)} · ${w}×${h} px`
+                    : `${formatCountFull(selected.count)} picks · ${w}×${h} px`}
                 </DialogDescription>
               </DialogHeader>
               <div className="relative max-h-[70vh]">

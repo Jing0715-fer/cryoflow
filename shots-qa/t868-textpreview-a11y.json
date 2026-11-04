@@ -1,0 +1,549 @@
+{
+  "instrument": "scripts/t868-textpreview-a11y.mjs",
+  "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder -> title — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); t867: the title branch — Mol*'s own viewport controls (the msp-btn icon family, the library's chrome the embed styles deliberately) speak their names as tooltips, and the HTML name algorithm honors title as the fallback the census now hears; name-monotone: the shared ruler's names are a superset of any older inline copy's",
+  "build": "dev@d3cccbac0a05",
+  "worldMode": "dev",
+  "date": "2026-10-13T18:47:25.085Z",
+  "chain": "clean room -> canvas -> host card (plain door) -> Results tab (mousedown) -> Logs & reports section -> biggest tail's door (measured from the data) -> text preview dialog (topmost) -> tail-contract + focus + wrap + keymap + copy flip -> Esc home -> the door walks again -> Files tab (prefix door) -> peek eye -> the same dialog + the twin keymap (the t868 fix, live) -> worldBack + seed hygiene (one command)",
+  "doors": {
+    "inspector": "plain pointerdown+pointerup on the card — the submitted law",
+    "resultsTab": "mousedown on the Results tab — the t863 Radix law",
+    "filesTab": "mousedown matched by PREFIX — the count badge rides the label",
+    "textDoor": "click the row whose accessible name == 'Preview <name>' — the t868 one-voice law (the row and its Files-tab twin eye speak the same name)",
+    "peekEye": "click the button whose aria-label == 'Preview <name>'",
+    "close": "Escape — the keymap seats' own teaching"
+  },
+  "host": {
+    "name": "Rebalance (tutorial)",
+    "id": "cmv6wl2l2000su99xzchzbid1",
+    "biggestTail": {
+      "name": "rebalance_report.json",
+      "bytes": 118889,
+      "preChars": 65536
+    },
+    "textDoors": [
+      "rebalance_report.json",
+      "run.err",
+      "run.out"
+    ],
+    "measured": true
+  },
+  "openingCanvas": 144,
+  "faces": {
+    "logsSection": {
+      "live": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 173,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgCount": 1,
+        "dlgHeadTop": "Rebalance (tutorial) — job inspectorRebalance (tutorial)comp",
+        "dlgDescTop": "",
+        "logsSection": true,
+        "textDoors": 3,
+        "doorNames": [
+          "rebalance_report.json",
+          "run.err",
+          "run.out"
+        ],
+        "doorNamed": true,
+        "loading": 0,
+        "prePresent": false,
+        "preTabindex": null,
+        "preFocused": false,
+        "preLen": 0,
+        "preWrap": null,
+        "preScrollY": false,
+        "preScrollX": false,
+        "keymap": false,
+        "copyPresent": true,
+        "copyText": "",
+        "clipApi": true,
+        "actTab": "Catalog",
+        "eyesCount": 3,
+        "eyeNames": [
+          "Preview rebalance_report.json",
+          "Preview run.err",
+          "Preview run.out"
+        ]
+      },
+      "secondRide": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 173,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgCount": 1,
+        "dlgHeadTop": "Rebalance (tutorial) — job inspectorRebalance (tutorial)comp",
+        "dlgDescTop": "",
+        "logsSection": true,
+        "textDoors": 3,
+        "doorNames": [
+          "rebalance_report.json",
+          "run.err",
+          "run.out"
+        ],
+        "doorNamed": true,
+        "loading": 0,
+        "prePresent": false,
+        "preTabindex": null,
+        "preFocused": false,
+        "preLen": 0,
+        "preWrap": null,
+        "preScrollY": false,
+        "preScrollX": false,
+        "keymap": false,
+        "copyPresent": true,
+        "copyText": "",
+        "clipApi": true,
+        "actTab": "Catalog",
+        "eyesCount": 3,
+        "eyeNames": [
+          "Preview rebalance_report.json",
+          "Preview run.err",
+          "Preview run.out"
+        ]
+      }
+    },
+    "textDialog": {
+      "live": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 175,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgCount": 2,
+        "dlgHeadTop": "rebalance_report.json",
+        "dlgDescTop": "rebalance_report.json · last 64 KB",
+        "logsSection": true,
+        "textDoors": 3,
+        "doorNames": [
+          "rebalance_report.json",
+          "run.err",
+          "run.out"
+        ],
+        "doorNamed": true,
+        "loading": 0,
+        "prePresent": true,
+        "preTabindex": "0",
+        "preFocused": true,
+        "preLen": 65536,
+        "preWrap": "pre-wrap",
+        "preScrollY": true,
+        "preScrollX": false,
+        "keymap": true,
+        "copyPresent": true,
+        "copyText": "Copy",
+        "clipApi": true,
+        "actTab": "Catalog",
+        "eyesCount": 3,
+        "eyeNames": [
+          "Preview rebalance_report.json",
+          "Preview run.err",
+          "Preview run.out"
+        ]
+      },
+      "secondRide": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 175,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgCount": 2,
+        "dlgHeadTop": "rebalance_report.json",
+        "dlgDescTop": "rebalance_report.json · last 64 KB",
+        "logsSection": true,
+        "textDoors": 3,
+        "doorNames": [
+          "rebalance_report.json",
+          "run.err",
+          "run.out"
+        ],
+        "doorNamed": true,
+        "loading": 0,
+        "prePresent": true,
+        "preTabindex": "0",
+        "preFocused": true,
+        "preLen": 65536,
+        "preWrap": "pre-wrap",
+        "preScrollY": true,
+        "preScrollX": false,
+        "keymap": true,
+        "copyPresent": true,
+        "copyText": "Copy",
+        "clipApi": true,
+        "actTab": "Catalog",
+        "eyesCount": 3,
+        "eyeNames": [
+          "Preview rebalance_report.json",
+          "Preview run.err",
+          "Preview run.out"
+        ]
+      }
+    },
+    "copyRow": {
+      "clipboardWalk": {
+        "found": true,
+        "called": true,
+        "seal": "NotAllowedError",
+        "flipped": false,
+        "after": "Copy"
+      },
+      "sealWorld": true
+    },
+    "filesTabPeek": {
+      "live": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 179,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 3,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgCount": 2,
+        "dlgHeadTop": "rebalance_report.json",
+        "dlgDescTop": "rebalance_report.json · last 64 KB",
+        "logsSection": false,
+        "textDoors": 0,
+        "doorNames": [],
+        "doorNamed": true,
+        "loading": 0,
+        "prePresent": true,
+        "preTabindex": "0",
+        "preFocused": true,
+        "preLen": 65536,
+        "preWrap": "pre-wrap",
+        "preScrollY": true,
+        "preScrollX": false,
+        "keymap": true,
+        "copyPresent": true,
+        "copyText": "Copy",
+        "clipApi": true,
+        "actTab": "Catalog",
+        "eyesCount": 3,
+        "eyeNames": [
+          "Preview rebalance_report.json",
+          "Preview run.err",
+          "Preview run.out"
+        ]
+      },
+      "eye": "Preview rebalance_report.json"
+    },
+    "worldBack": {
+      "live": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 144,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": false,
+        "dlgCount": 0,
+        "dlgHeadTop": null,
+        "dlgDescTop": null,
+        "logsSection": false,
+        "textDoors": 0,
+        "doorNames": [],
+        "doorNamed": true,
+        "loading": 0,
+        "prePresent": false,
+        "preTabindex": null,
+        "preFocused": false,
+        "preLen": 0,
+        "preWrap": null,
+        "preScrollY": false,
+        "preScrollX": false,
+        "keymap": false,
+        "copyPresent": false,
+        "copyText": null,
+        "clipApi": true,
+        "actTab": "Catalog",
+        "eyesCount": 0,
+        "eyeNames": []
+      }
+    }
+  },
+  "checks": [
+    {
+      "label": "O0 the boot is a clean room (the t157 seed cleared, the panel closed)",
+      "pass": true,
+      "detail": "panelOpen=false"
+    },
+    {
+      "label": "O1 the canvas is calm and named (the census's invariant)",
+      "pass": true,
+      "detail": "btns=144 — zero unnamed anywhere"
+    },
+    {
+      "label": "M1 the card's plain door opened the inspector (the submitted law)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "M2 the inspector arrived (a dialog aboard)",
+      "pass": true,
+      "detail": "dlgCount=1"
+    },
+    {
+      "label": "M3 the Results tab switched through the MOUSEDOWN door (the t863 Radix law)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "M4 the Logs-and-reports section is present and named",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "M5 the text doors are MEASURED FROM THE DATA (count and names == the outputs API, the one-voice name)",
+      "pass": true,
+      "detail": "doors=3 [rebalance_report.json, run.err, run.out]"
+    },
+    {
+      "label": "M6 zero unnamed page-wide WITH the inspector up (the census's invariant)",
+      "pass": true,
+      "detail": "btns=173 ctrls=2"
+    },
+    {
+      "label": "M7 two settled rides bit-identical (the t836 law, the t860 settle)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "T1 the text door clicked (the biggest tail, measured)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "T2 the dialog arrived as the TOPMOST layer (the t865 nested-portal lesson)",
+      "pass": true,
+      "detail": "dlgCount=2"
+    },
+    {
+      "label": "T3 the dialog's heading is the file's own name (read from the data, the TOPMOST layer)",
+      "pass": true,
+      "detail": "head=\"rebalance_report.json\" == data \"rebalance_report.json\""
+    },
+    {
+      "label": "T4 the description speaks the tail contract (the path from the DATA · last 64 KB — measured, never a pinned shape)",
+      "pass": true,
+      "detail": "desc=\"rebalance_report.json · last 64 KB\""
+    },
+    {
+      "label": "T5 the content is a named focusable region (aria-label + tabindex 0)",
+      "pass": true,
+      "detail": "tabindex=0"
+    },
+    {
+      "label": "T6 the tail TOOK the focus (the t774 law — reachability IS the destination)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "T7 the preview is the LAST 64 KB, not the whole file (the backend's tail contract, measured)",
+      "pass": true,
+      "detail": "file=118889B -> pre=65536 chars"
+    },
+    {
+      "label": "T8 the wrap contract (pre-wrap; X contained, Y scrolls — the fold's honest sibling)",
+      "pass": true,
+      "detail": "white-space=pre-wrap scrollY=true scrollX=false"
+    },
+    {
+      "label": "T9 the keymap seat is aboard (the results-view's t832 voice)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "T10 the copy row is aboard and named (the one clipboard dialect)",
+      "pass": true,
+      "detail": "label=\"Copy\""
+    },
+    {
+      "label": "T11 zero unnamed page-wide WITH the preview up (the census's invariant)",
+      "pass": true,
+      "detail": "btns=175 ctrls=2"
+    },
+    {
+      "label": "T12 two settled rides bit-identical (the t836 law)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "C1 the copy door speaks its name (Copy)",
+      "pass": true,
+      "detail": "label=\"Copy\""
+    },
+    {
+      "label": "C2 the flip walks when the world allows it; when the clipboard is sealed, the door never lies (the σ-gate law, read live)",
+      "pass": true,
+      "detail": "the clipboard is sealed (NotAllowedError) — the door heard the call and kept its honest \"Copy\""
+    },
+    {
+      "label": "K1 Esc closes the preview (dlgCount back to the inspector alone)",
+      "pass": true,
+      "detail": "dlgCount=1"
+    },
+    {
+      "label": "K2 the door walks again (the deterministic re-walk — the one-retry law's shape)",
+      "pass": true,
+      "detail": "dlgCount=2 focused=true"
+    },
+    {
+      "label": "F1 the Files tab switched (the PREFIX door — the badge rides the label)",
+      "pass": true,
+      "detail": "spoke=\"Files4\""
+    },
+    {
+      "label": "F2 the peek eyes are aboard and named (Preview <name> — from the data)",
+      "pass": true,
+      "detail": "eyes=3 [Preview rebalance_report.json; Preview run.err; Preview run.out]"
+    },
+    {
+      "label": "F3 the text row's eye clicked (the peek door)",
+      "pass": true,
+      "detail": "eye=\"Preview rebalance_report.json\""
+    },
+    {
+      "label": "F4 the SAME dialog, the same face (heading + tail contract, verbatim word forms, measured against the data)",
+      "pass": true,
+      "detail": "head=\"rebalance_report.json\" desc=\"rebalance_report.json · last 64 KB\""
+    },
+    {
+      "label": "F5 the tail took the focus again (the t774 law, second door-set)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "F6 the twin keymap seat is aboard (the t868 fix PROVEN LIVE — one voice, three door-sets)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "F7 zero unnamed page-wide WITH the Files-tab preview up (the census's invariant)",
+      "pass": true,
+      "detail": "btns=179 ctrls=3"
+    },
+    {
+      "label": "F8 Esc closes the peek (the twin keymap's own teaching)",
+      "pass": true,
+      "detail": "dlgCount=1"
+    },
+    {
+      "label": "W1 the world unharmed (canvas count == the opening count, zero unnamed)",
+      "pass": true,
+      "detail": "btns=144 (opening 144)"
+    },
+    {
+      "label": "W2 the ride leaves no session seed (the t157 two-way door's honest none — the t866 lesson rides every page)",
+      "pass": true,
+      "detail": "seed=\"\""
+    },
+    {
+      "label": "L logsSection face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@d3cccbac0a05), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L textDialog face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@d3cccbac0a05), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L filesTabPeek face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@d3cccbac0a05), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L worldBack face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@d3cccbac0a05), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    }
+  ],
+  "passed": 39,
+  "failed": 0,
+  "total": 39,
+  "verdict": "the text-preview face holds: the clean room held (the panel-closed boot — the t866 law), the Logs & reports section hosted 3 text doors measured from the data, the biggest tail's dialog arrived as the TOPMOST layer with the file's own name and the tail contract in the description, the content proved itself the LAST 64 KB of a 118889-byte file (65536 chars), took the focus (the t774 law), wrapped with X contained and Y scrolling, spoke its keymap seat and its copy row — whose flip was filmed live — Esc closed it and the door walked again, the Files tab's peek eyes opened the same brain's second door-set with the NEW twin keymap seat proven live (the t868 fix), zero unnamed on every face, the world back bit-for-bit (144 == 144), and the ride left no session seed — the ledger aboard from birth (four faces, the shared law)",
+  "driftLedger": {
+    "prevFound": true,
+    "prevBuild": "dev@d3cccbac0a05",
+    "prevDate": "2026-10-13T18:45:12.371Z",
+    "sameBuild": true,
+    "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
+    "faces": {
+      "logsSection": {
+        "prev": 173,
+        "live": 173,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "textDialog": {
+        "prev": 175,
+        "live": 175,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "filesTabPeek": {
+        "prev": 179,
+        "live": 179,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "worldBack": {
+        "prev": 144,
+        "live": 144,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      }
+    }
+  }
+}

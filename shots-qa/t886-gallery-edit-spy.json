@@ -1,0 +1,179 @@
+{
+  "task": "t886",
+  "window": "cron 2026-11-02 16:35:39 +08:00 (trace 1a07549302235a99-cron-agent-loop-202611021637)",
+  "purpose": "the gallery spy resumed with the map — the edit-mode door found (the right-side JobPanel, Params > Classes), the lightbox over the panel, arrows AND escape spy-measured through the frozen-safe clone trap; class-gallery's honesty debt ends",
+  "pick": {
+    "cards": [
+      "Import Movies 1completedImport Movies / Micrographs / Partic",
+      "Motion Correction 1completedMotion Correctionmotion correcte",
+      "CTF Estimation 1completedCTF EstimationCTF estimated for 24 ",
+      "Auto-pick (tutorial)completedAutomated Picking408 particles ",
+      "Extract (tutorial)completedParticle Extraction96 particles e",
+      "2D Classification (tutorial)completed2D Classification2D cla",
+      "Select 2D (tutorial)completed2D Class Selection96 of 96 part",
+      "Select (tutorial)completedParticle Selection96 of 96 particl",
+      "Initial Model (tutorial)completed3D Initial Modelde-novo 3D ",
+      "3D Classification (tutorial)completed3D Classificationclass3",
+      "Symmetry Expansion (tutorial)completedSymmetry Expansion96 ×",
+      "Rebalance (tutorial)completedOrientation Rebalancer5,672 of ",
+      "3D Refine (tutorial)completed3D Auto-Refinerefine3d exited 0",
+      "Mask Create (tutorial)completedMask Creationsoft-edged mask ",
+      "Post-process (tutorial)completedPost-Processingsharpened map"
+    ]
+  },
+  "insp": {
+    "n": 1,
+    "tabs": [
+      "Overview",
+      "Log",
+      "Results",
+      "Files3"
+    ],
+    "reset": true
+  },
+  "panel": {
+    "dlgs": 0,
+    "panel": true,
+    "idleHead": true
+  },
+  "census": {
+    "found": true,
+    "carriers": 1,
+    "frozenCarriers": 1
+  },
+  "arm": {
+    "armed": true,
+    "rootPropsFrozen": true,
+    "hadKey": true
+  },
+  "titleBefore": "1Class 1keptrank #1 · 2%",
+  "afterArrow": {
+    "dlgCount": 1,
+    "lbOpen": true,
+    "lbTitle": "2Class 2keptrank #2 · 2%"
+  },
+  "peeled": 500,
+  "survivor": {
+    "panel": true,
+    "gallery": true
+  },
+  "read": {
+    "sets": 7,
+    "mirrorReads": 14,
+    "calls": 2,
+    "keys": [
+      "ArrowRight",
+      "Escape"
+    ],
+    "stack": "    at counting (<anonymous>:1:724) <<     at executeDispatch (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:10314:13) <<     at runWithFiberInDEV (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:965:74) <<     at processDispatchQueue (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:10340:41) <<     at http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:10615:13 <<     at batchedUpdates$1 (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2253:44)"
+  },
+  "world": {
+    "done": 15,
+    "total": 15,
+    "s2": "completed",
+    "ranParams": true
+  },
+  "cardTxt": {
+    "txt": "Select 2D (tutorial)completed2D Class Selection96 of 96 particles kept · 50/50 classes (auto — occupancy ≥ 0.5× best)",
+    "n": 15
+  },
+  "checks": [
+    {
+      "label": "C1 the world dressed bare",
+      "pass": true,
+      "detail": "dlgs=0 btns=168"
+    },
+    {
+      "label": "C2 the workflow canvas holds the cards",
+      "pass": true,
+      "detail": "cards=15"
+    },
+    {
+      "label": "C3 the Select 2D card exists (completed world)",
+      "pass": true,
+      "detail": "picked=[Select 2D (tutorial)completed2D Class Selection96 of 96 part]"
+    },
+    {
+      "label": "C4 the report inspector opened with its Reset & edit door",
+      "pass": true,
+      "detail": "tabs=[Overview, Log, Results, Files3]"
+    },
+    {
+      "label": "C5 reset landed: inspector gone, the RIGHT-SIDE PANEL is the edit surface",
+      "pass": true,
+      "detail": "dlgs=0 panel=true"
+    },
+    {
+      "label": "C6 Params tab (trusted click) -> the Classes inner tab mounts the gallery",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "C7 the Zoom doors are mounted",
+      "pass": true,
+      "detail": "doors=50"
+    },
+    {
+      "label": "C8 the lightbox floats over the PANEL (one dialog — the panel is an aside)",
+      "pass": true,
+      "detail": "title=1Class 1keptrank #1 · 2% dlgs=1"
+    },
+    {
+      "label": "C9 the lightbox carries its onKeyDown carrier, frozen like every carrier",
+      "pass": true,
+      "detail": "frozen 1/1"
+    },
+    {
+      "label": "C10 the frozen-safe trap armed on the lightbox",
+      "pass": true,
+      "detail": "rootPropsFrozen=true"
+    },
+    {
+      "label": "C11 ARROWS VERDICT: the handler was dispatched and stepZoom ran",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "C12 ESCAPE VERDICT: one layer peeled, the panel + gallery survived behind",
+      "pass": true,
+      "detail": "atMs=500 gallerySurvives=true"
+    },
+    {
+      "label": "C13 THE SURFACE: the dispatch read the lightbox's element mirror",
+      "pass": true,
+      "detail": "mirrorReads=14"
+    },
+    {
+      "label": "C14 THE VERDICT: BOTH keys reached the gallery's own handler (ArrowRight + Escape)",
+      "pass": true,
+      "detail": "calls=2"
+    },
+    {
+      "label": "C15 the dispatch path named (the React delegated chain)",
+      "pass": true,
+      "detail": "executeDispatch chain captured"
+    },
+    {
+      "label": "C16 the run POST answered",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "C17 the world restored: 15/15 completed, ranParams set",
+      "pass": true,
+      "detail": "completed=15/15"
+    },
+    {
+      "label": "C18 the card's receipt face restored (96 kept · 50/50 classes auto)",
+      "pass": true,
+      "detail": "txt=Select 2D (tutorial)completed2D Class Selection96 of 96 particles kept · 50/50 classes (auto — occupancy ≥ 0.5× best)"
+    },
+    {
+      "label": "C19 the walk's footprint zeroed (the selection seed cleared)",
+      "pass": true,
+      "detail": "sel=null"
+    }
+  ],
+  "pass": 19,
+  "fail": 0
+}

@@ -38,6 +38,7 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { useWorkflowStore } from "@/lib/store";
 import type { JobDTO, EdgeDTO } from "@/lib/types";
+import { formatCountFull } from "@/lib/result-counts"; // t1157 — the thousands word rides its ONE father (the locale pin lives in result-counts, the parser's own contract)
 
 const LIVE_TYPES = new Set(["class2d", "class3d", "refine3d", "initialmodel"]);
 
@@ -422,7 +423,7 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
           )}
           {data.total > 0 && (
             <span className="font-mono text-[10px] text-muted-foreground">
-              {data.total.toLocaleString()} particles assigned
+              {formatCountFull(data.total)} particles assigned
             </span>
           )}
           {running && (
@@ -675,6 +676,7 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
                   type="button"
                   onClick={showPicker ? () => toggle(c.cls) : undefined}
                   className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                     "group relative overflow-hidden rounded-md border bg-background text-left transition-colors",
                     showPicker ? "cursor-pointer hover:border-primary/50" : "cursor-default",
                     showPicker && isSelected && "border-primary ring-2 ring-primary/30"
@@ -839,7 +841,7 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
               className="h-auto w-8 shrink-0"
               onClick={() => stepRound(-1)}
               disabled={current == null || stacks[0]?.iter === current.iter}
-              aria-label="Previous iteration round"
+              aria-label={current == null ? "Previous iteration round (no rounds loaded)" : stacks[0]?.iter === current.iter ? "Previous iteration round (already at the first round)" : "Previous iteration round"}
             >
               <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             </Button>
@@ -856,7 +858,7 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
               className="h-auto w-8 shrink-0"
               onClick={() => stepRound(1)}
               disabled={current == null || stacks[stacks.length - 1]?.iter === current.iter}
-              aria-label="Next iteration round"
+              aria-label={current == null ? "Next iteration round (no rounds loaded)" : stacks[stacks.length - 1]?.iter === current.iter ? "Next iteration round (already at the last round)" : "Next iteration round"}
             >
               <ChevronRight className="h-4 w-4" aria-hidden="true" />
             </Button>

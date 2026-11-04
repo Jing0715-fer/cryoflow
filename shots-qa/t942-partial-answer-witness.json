@@ -1,0 +1,46 @@
+{
+  "resetAt": "2026-10-12T22:38:32.386Z",
+  "stage1": {
+    "pass": 30,
+    "fail": 0,
+    "slurmId": "445",
+    "openedAt": 1791844750560,
+    "lever": "pid-file-removed+inflation",
+    "padCount": 20400,
+    "firstWait": 2
+  },
+  "at": "2026-10-12T22:42:07.752Z",
+  "stage2mid": {
+    "pass": 12,
+    "fail": 0,
+    "at": "2026-10-12T22:39:45.635Z",
+    "taxMid": 2,
+    "roundsMid": 38,
+    "padMid": 20400
+  },
+  "stage2": {
+    "pass": 29,
+    "fail": 0,
+    "healTail": "the cluster ledger recorded the run COMPLETED (exit 0:0) — the stop had found nothing to kill: the cluster no longer knew the job; the run finished on its own afterwards",
+    "taxAfter": 4,
+    "legLanded": 2,
+    "manifestTruncated": true,
+    "manifestFiles": 20000,
+    "cappedClause": "the ledger is capped, the cluster holds more"
+  },
+  "stage3Door": {
+    "shape": "capped-ledger-200",
+    "probes": [
+      "run_optimiser.star",
+      "t942-pad/f00001.pad"
+    ],
+    "total": 20000,
+    "remaining": 19998
+  },
+  "stage3": {
+    "pass": 29,
+    "fail": 0,
+    "door": "capped-ledger-200",
+    "restore": "done"
+  }
+}

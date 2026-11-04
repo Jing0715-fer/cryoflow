@@ -29,6 +29,7 @@ import { Chip } from "@/components/ui/chip";
 import { ChartErrorStrip } from "./chart-error-strip";
 import { MrcImage } from "./mrc-image";
 import { useChartResource } from "@/lib/use-chart-resource";
+import { formatCountFull } from "@/lib/result-counts"; // t1157 — the thousands word rides its ONE father (the locale pin lives in result-counts, the parser's own contract)
 
 /** the /classes response's occupancy row */
 interface ClassOcc {
@@ -142,7 +143,7 @@ export function ClassAveragesTeaser({
         </Chip>
         {(data?.total ?? 0) > 0 && data ? (
           <span className="text-[11px] text-muted-foreground">
-            {data.total.toLocaleString()} particles
+            {formatCountFull(data.total)} particles
           </span>
         ) : null}
       </div>
@@ -173,7 +174,7 @@ export function ClassAveragesTeaser({
                       alive ? "text-muted-foreground" : "text-muted-foreground/50"
                     )}
                   >
-                    {alive ? `${cls!.count.toLocaleString()}` : "—"}
+                    {alive ? `${formatCountFull(cls!.count)}` : "—"}
                   </figcaption>
                 </figure>
               );

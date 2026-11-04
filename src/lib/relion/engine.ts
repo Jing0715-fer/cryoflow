@@ -15,6 +15,7 @@
 
 import type { ChildProcess } from "child_process";
 import { execFile, execFileSync, spawn } from "child_process";
+import os from "os";
 import {
   appendFileSync,
   closeSync,
@@ -130,6 +131,13 @@ export interface RunRecord {
    * is owned by lib/remote/remote-run.ts (reconcileRemoteJobs), not by the
    * local pidAlive branch below. See docs/remote-relion.md. */
   remote?: RemoteRunState;
+  /** t1082 — present when this run was a RESUME (--continue): the checkpoint
+   * iteration the re-run picked up from. Written into the record at spawn
+   * time (spawnTrackedRun's literal) so the exit handler's finalize spread
+   * carries it into the COMPLETED record — the t1081 walk's receipt check
+   * ("the record carries resumedFrom") reads exactly this field. A fresh
+   * run never sets it (undefined), which is the honest zero. */
+  resumedFrom?: number;
 }
 
 export interface EngineJobRef {
@@ -592,7 +600,7 @@ export type StopRunOutcome = "killed" | "missed" | "already-ended";
 
 export async function stopRun(
   jobId: string
-): Promise<{ stopped: boolean; message: string; outcome: StopRunOutcome }> {
+): Promise<{ stopped: boolean; message: string; outcome: StopRunOutcome; nativeAbort?: boolean }> {
   const child = live.get(jobId);
   const state = readRuns()[jobId];
   // ---- the ghost-pid guards (t523) --------------------------------------
@@ -610,6 +618,24 @@ export async function stopRun(
       stopped: false,
       outcome: "already-ended",
       message: "the record says this run already ended — nothing to stop (a re-run creates a fresh record)",
+    };
+  }
+  // ---- the native arm (t1015) --------------------------------------------
+  // A native in-flight record's pid is THIS SERVER (beginNativeRun stamps
+  // process.pid so the sweep's liveness check passes). The tree build below
+  // would SIGTERM the server itself — a stop click (and the delete door's
+  // own stop-first branch) on a running native import killed the whole app.
+  // Ask the in-process run to unwind at its next breathing gate instead;
+  // never build a kill tree from our own pid.
+  if (!child && state && !state.done && !state.remote && state.pid === process.pid) {
+    const asked = requestNativeAbort(jobId);
+    return {
+      stopped: asked,
+      outcome: asked ? "killed" : "missed",
+      message: asked
+        ? "abort signal delivered — the in-process run unwinds at its next yield gate"
+        : "the in-process run carries no live abort window — it ends on its own",
+      ...(asked ? { nativeAbort: true as const } : {}),
     };
   }
   const pid = child?.pid ?? (state?.pid != null && state.pid > 1 ? state.pid : null);
@@ -916,8 +942,10 @@ function importFileSet(
   hostFiles: string[],
   projectDir: string,
   workdir: string,
-  bridge: WslBridge | null
-): { entries: string[]; unlinked: number } {
+  bridge: WslBridge | null,
+  jobId: string
+): Promise<{ entries: string[]; unlinked: number }> {
+  return (async () => {
   const projectMic = path.join(projectDir, "micrographs");
   const workdirMic = path.join(workdir, "micrographs");
   // fresh real dir — removes a previous import's symlink/junction (the link
@@ -956,25 +984,40 @@ function importFileSet(
       unlinkedFiles.push({ name, abs: f });
       entries.push(bridge ? hostToWsl(f) : f);
     }
+    if (++importYieldCount % IMPORT_YIELD_EVERY === 0) {
+      await breatheImport();
+      nativeAbortGate(jobId); // t1015 — the stop door's flag unwinds the run here
+    }
   }
-  // expose the set inside the import job's workdir (Files tab + gallery)
-  if (!linkDirInto(projectMic, workdirMic)) {
-    // junction failed — link each file directly into the workdir instead
-    for (const e of entries) {
-      if (!e.startsWith("micrographs/")) continue;
-      const src = path.join(projectMic, e.slice("micrographs/".length));
-      const dst = path.join(workdirMic, e.slice("micrographs/".length));
+  // t914 — expose the set inside the import job's workdir (Files tab +
+  // gallery) as PER-FILE links, ALWAYS. The old primary lane linked the
+  // whole DIRECTORY (linkDirInto → workdir/micrographs → projectMic), but
+  // walkWorkdir refuses symlinked directories (loop safety — the law that
+  // keeps the walk inside the workdir it was given), so that lane satisfied
+  // the law by being INVISIBLE: every import's own listing showed star +
+  // run.err + run.out and never the files the import had just linked
+  // (verified live on both shapes — the demo EMPIAR import and a pattern
+  // mint; the per-file branch only ever ran when the junction failed). A
+  // hardlinked/symlinked FILE inside the workdir is a real dirent the walk
+  // lists like any file — the loop-safety law untouched, the listing honest.
+  for (const e of entries) {
+    if (!e.startsWith("micrographs/")) continue;
+    const src = path.join(projectMic, e.slice("micrographs/".length));
+    const dst = path.join(workdirMic, e.slice("micrographs/".length));
+    try {
+      mkdirSync(path.dirname(dst), { recursive: true });
+      linkSync(src, dst);
+    } catch {
       try {
         mkdirSync(path.dirname(dst), { recursive: true });
-        linkSync(src, dst);
+        symlinkSync(src, dst, "file");
       } catch {
-        try {
-          mkdirSync(path.dirname(dst), { recursive: true });
-          symlinkSync(src, dst, "file");
-        } catch {
-          /* gallery preview lost for this file — import still works */
-        }
+        /* gallery preview lost for this file — import still works */
       }
+    }
+    if (++importYieldCount % IMPORT_YIELD_EVERY === 0) {
+      await breatheImport();
+      nativeAbortGate(jobId); // t1015 — the stop door's flag unwinds the run here
     }
   }
   // markers for the unlinkable files (both trees — the junction case only
@@ -989,11 +1032,111 @@ function importFileSet(
     }
   }
   return { entries, unlinked: unlinkedFiles.length };
+  })();
 }
 
 /* ------------------------------------------------------------------ */
 /* Param helpers                                                        */
 /* ------------------------------------------------------------------ */
+
+/* ------------------------------------------------------------------ */
+/* The import loops' breathing law (t1014)                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * t1014 — a folder/file-set import of a big bundle runs 100k+ SYNC link
+ * syscalls INSIDE the server's own event loop. Without a yield, every
+ * client's poll (and this run's own progress writes) starves behind the
+ * work: the GET /api/jobs that would carry status:"running" cannot even
+ * be ANSWERED while the run holds the loop (measured live: a single
+ * roster fetch queued 4.7s behind a 120k-file import and landed after
+ * the completion write) — the running face and the progress face were
+ * unrenderable BY CONSTRUCTION, and the single-delete confirm's "A
+ * running process will be stopped." could never speak for exactly the
+ * runs big enough to need it. A macrotask every IMPORT_YIELD_EVERY
+ * files lets the loop breathe: the polls interleave, the faces render,
+ * the word can be spoken — and made true — while the run still holds.
+ */
+const IMPORT_YIELD_EVERY = 256;
+let importYieldCount = 0;
+const breatheImport = (): Promise<void> => new Promise((r) => setImmediate(r));
+
+/**
+ * t1021 — the fuel gate's two numbers. The per-file cost is the t1020
+ * witness ROUNDED UP (the kernel's own receipt: a 500k-file import grew
+ * the server's RSS by ≈2.4 GB — ≈4.8 KB/file — and died to the OOM
+ * killer mid-run; 6 KB keeps a margin for the listing itself). The floor
+ * is the box's non-negotiable rest — the browser, the shell, the file
+ * cache's floor — below which the refusal fires even on a quiet box.
+ * No fixed file cap: the budget reads the HOST's own numbers, so a big
+ * host honestly admits a big import and a small one refuses it by the
+ * same law.
+ */
+export const NATIVE_IMPORT_FUEL_BYTES_PER_FILE = 6 * 1024;
+export const NATIVE_IMPORT_FUEL_FLOOR_BYTES = 512 * 1024 * 1024;
+
+/**
+ * t1022 — the headroom read, shared with the UI face: the import dialog's
+ * pre-count (GET /api/fs/browse?path=…&count=1) speaks the SAME arithmetic
+ * as the run-time gate, so the number the user sees before pressing Start
+ * is the number the gate will recompute at the loop's doorstep. Exported
+ * from engine.ts (not copied into the route) so the two constants stay
+ * single-source — a re-tune lands once and both faces move together.
+ */
+export function importFuelHeadroomBytes(): number {
+  return os.totalmem() - process.memoryUsage().rss - NATIVE_IMPORT_FUEL_FLOOR_BYTES;
+}
+
+/* ------------------------------------------------------------------ */
+/* The native abort arm (t1015)                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * t1015 — a native in-flight run lives INSIDE this server (beginNativeRun
+ * stamps pid: process.pid so the sweep's liveness check passes), so a stop
+ * click cannot aim a signal at it the way it aims SIGTERM at a spawned
+ * tree — and the old stopRun fell through to a kill tree rooted at THIS
+ * process: the stop door (and the delete door's own stop-first branch)
+ * on a running native import took the whole app down with the click.
+ * The abort arm is the machinery-level truth the confirm's "A running
+ * process will be stopped." promises: the stop door arms a flag, and the
+ * import loops consult it at every breathing gate — the run unwinds
+ * honestly (record closed, previous outputs restored, no completion
+ * write) instead of the server dying.
+ */
+const nativeAborts = new Set<string>();
+
+/** The unwinding itself: thrown by the gates, caught by runRealJob's
+ * native catch — the arc's own honest death, not a crash. */
+export class NativeAbortError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "NativeAbortError";
+  }
+}
+
+/** The stop door's half: arm the flag on a native in-flight record.
+ * False = nothing to arm (no record / already ended / a remote twin —
+ * the remote branch has its own kill). */
+export function requestNativeAbort(jobId: string): boolean {
+  const rec = readRuns()[jobId];
+  if (!rec || rec.done || rec.remote) return false;
+  nativeAborts.add(jobId);
+  return true;
+}
+
+/** The loops' half: throw at a breathing gate when the stop door asked.
+ * Only meaningful AT a gate — a sync stretch blocks the event loop, so
+ * the arming request itself cannot run until a yield opens the window. */
+function nativeAbortGate(jobId: string): void {
+  if (nativeAborts.has(jobId)) throw new NativeAbortError("stopped by user");
+}
+
+/** Disarm — a fresh run must not inherit a flag an earlier stop left
+ * behind (a stop that raced a completion, a restart orphan's record). */
+function clearNativeAbort(jobId: string): void {
+  nativeAborts.delete(jobId);
+}
 
 function num(job: EngineJobRef, key: string, fallback: number): number {
   const v = job.params[key];
@@ -1471,10 +1614,25 @@ interface InputReq {
 
 const INPUTS: Record<string, InputReq[]> = {
   ctffind: [
-    { key: "micrographs_star", accepts: ["micrographs_star"], from: ["import", "motioncorr"], label: "micrographs.star (run Import first)" },
+    // t923 — the exclude filter is a legal provider: the A/B exclude verb's
+    // whole promise is the verdict AS WIRING (the filter sits between run B
+    // and the downstream, "their current results stay until re-run") — a
+    // re-run that cannot resolve the filter's star would silently drink
+    // from the pre-filter provider instead (the t923 D-band ride caught it:
+    // CTF-A re-ran off MC-B's 6-row star with the filter wired in). The
+    // port law already allowed the wire; the resolver's from-list is the
+    // same law at the drinking layer, and it says excludemg now.
+    { key: "micrographs_star", accepts: ["micrographs_star"], from: ["import", "motioncorr", "excludemg"], label: "micrographs.star (run Import or Motion Correction first — or wire an Exclude Micrographs filter)" },
   ],
   motioncorr: [
-    { key: "micrographs_star", accepts: ["micrographs_star"], from: ["import"], label: "micrographs.star (run Import first)" },
+    // t1179 — the t923 law carried down one row: the exclude verb's
+    // promise is wiring import → excludemg → motioncorr (the INPUTS table
+    // has always promised it; the movies star's dialect read in
+    // exclude-list.ts is the filter's half, this is the drinking layer's
+    // half). Without the from-list entry the re-run cannot resolve the
+    // filter's star and silently drinks from the pre-filter provider
+    // instead — the t923 D-band ride's exact disease, one door upstream.
+    { key: "micrographs_star", accepts: ["micrographs_star"], from: ["import", "excludemg"], label: "micrographs.star (run Import first — or wire an Exclude Micrographs filter)" },
   ],
   manualpick: [
     // t563 — topazdenoise joins the provider list: the canvas pairing map
@@ -1490,7 +1648,7 @@ const INPUTS: Record<string, InputReq[]> = {
     // resolves exactly like the raw one. When BOTH a motioncorr and a
     // denoise feed are wired, upstream BFS order decides — first provider
     // carrying the output wins (the inspector shows the resolved input).
-    { key: "micrographs_star", accepts: ["micrographs_star", "micrographs_ctf_star"], from: ["import", "motioncorr", "ctffind", "topazdenoise"], label: "micrographs.star (run Import or Topaz Denoise first)" },
+    { key: "micrographs_star", accepts: ["micrographs_star", "micrographs_ctf_star"], from: ["import", "motioncorr", "ctffind", "topazdenoise", "excludemg"], label: "micrographs.star (run Import or Topaz Denoise first)" },
     {
       key: "refs_mrc",
       accepts: ["classes_mrc", "model_mrc"],
@@ -1516,7 +1674,7 @@ const INPUTS: Record<string, InputReq[]> = {
     // flow trains ON the denoised images. extract deliberately stays
     // denoise-free — particles must come from real pixels, the denoiser's
     // hallucinations must not bake into the stacks.
-    { key: "micrographs_star", accepts: ["micrographs_star", "micrographs_ctf_star"], from: ["import", "motioncorr", "ctffind", "topazdenoise"], label: "micrographs.star (run Import or Topaz Denoise first)" },
+    { key: "micrographs_star", accepts: ["micrographs_star", "micrographs_ctf_star"], from: ["import", "motioncorr", "ctffind", "topazdenoise", "excludemg"], label: "micrographs.star (run Import or Topaz Denoise first)" },
     {
       key: "train_picks",
       accepts: ["coords_star"],
@@ -1525,10 +1683,13 @@ const INPUTS: Record<string, InputReq[]> = {
     },
   ],
   topazdenoise: [
-    { key: "micrographs_star", accepts: ["micrographs_star", "micrographs_ctf_star"], from: ["import", "motioncorr", "ctffind"], label: "micrographs.star (run Import first)" },
+    { key: "micrographs_star", accepts: ["micrographs_star", "micrographs_ctf_star"], from: ["import", "motioncorr", "ctffind", "excludemg"], label: "micrographs.star (run Import first)" },
   ],
   extract: [
-    { key: "micrographs_star", accepts: ["micrographs_star", "micrographs_ctf_star"], from: ["import", "motioncorr", "ctffind"], label: "micrographs.star (run Import first)" },
+    // t923 — the exclude filter feeds extraction too: a picked-then-filtered
+    // chain (autopick → excludemg → extract) is the verb's own promise —
+    // drop the bad micrographs' particles before they ever become stacks.
+    { key: "micrographs_star", accepts: ["micrographs_star", "micrographs_ctf_star"], from: ["import", "motioncorr", "ctffind", "excludemg"], label: "micrographs.star (run Import first)" },
     { key: "coords_dir", accepts: ["coords_dir", "coords_star"], from: ["manualpick", "autopick"], label: "particle coordinates (run ManualPick/AutoPick first)" },
   ],
   select: [
@@ -2653,6 +2814,7 @@ function beginNativeRun(
   job: EngineJobRef,
   label: string
 ): { prevOutputs: Record<string, string>; prevResult: string | null } {
+  clearNativeAbort(job.id); // t1015 — a fresh run never inherits a stale stop flag
   const workdir = workdirFor(job);
   mkdirSync(workdir, { recursive: true });
   const logFile = path.join(workdir, "run.out");
@@ -2694,6 +2856,7 @@ function abortNativeRun(
   error: string,
   prevOutputs: Record<string, string>
 ): void {
+  clearNativeAbort(jobId); // t1015 — the flag is consumed with the record it unwound
   updateRun(
     jobId,
     (rec) =>
@@ -2728,6 +2891,7 @@ function recordNativeRun(
   result: string,
   logText: string
 ): void {
+  clearNativeAbort(job.id); // t1015 — a stop that raced the completion loses (the run won)
   const logFile = path.join(workdir, "run.out");
   const errFile = path.join(workdir, "run.err");
   appendFileSync(logFile, logText);
@@ -2901,7 +3065,7 @@ async function runImportRemoteLeg(
       clusterFiles = imgs;
       skipped = Math.max(0, res.total - imgs.length);
       phase(35);
-      if (res.truncated) note = ` · pattern matched ${res.total.toLocaleString()} files — import capped at ${REMOTE_IMPORT_MAX_ENTRIES.toLocaleString()} (narrow the pattern)`;
+      if (res.truncated) note = ` · pattern matched ${res.total.toLocaleString("en-US")} files — import capped at ${REMOTE_IMPORT_MAX_ENTRIES.toLocaleString("en-US")} (narrow the pattern)`;
     } else {
       // ---- 1. folder (or one pasted file) -------------------------------
       // t311 — same uncapped enumeration: a folder with 2,341 movies imports
@@ -2938,7 +3102,7 @@ async function runImportRemoteLeg(
         }
         clusterFiles = imgs;
         phase(35);
-        if (res.truncated) note = ` · folder holds ${res.total.toLocaleString()} entries — import capped at ${REMOTE_IMPORT_MAX_ENTRIES.toLocaleString()} (import a subfolder or pattern instead)`;
+        if (res.truncated) note = ` · folder holds ${res.total.toLocaleString("en-US")} entries — import capped at ${REMOTE_IMPORT_MAX_ENTRIES.toLocaleString("en-US")} (import a subfolder or pattern instead)`;
       }
     }
   } catch (e) {
@@ -3142,10 +3306,37 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
     };
     const micLink = path.join(projectDir, "micrographs");
     ensureEmpiarLink(micLink);
-    // Also expose the micrographs inside the import job's own workdir so the
-    // Files tab + gallery can serve PNG previews through outputs/file.
-    const micLinkInWorkdir = path.join(workdir, "micrographs");
-    ensureEmpiarLink(micLinkInWorkdir);
+    // t914 — expose the micrographs inside the import job's own workdir as
+    // PER-FILE hardlinks (the importFileSet seat's law, EMPIAR face): the
+    // old dir-link lane (ensureEmpiarLink on the workdir path) was invisible
+    // to walkWorkdir's loop-safety law — the Files tab never saw a single
+    // EMPIAR micrograph. Files land inside the workdir as real dirents.
+    const workdirMic = path.join(workdir, "micrographs");
+    try {
+      lstatSync(workdirMic);
+      rmSync(workdirMic, { force: true, recursive: true });
+    } catch {
+      /* nothing there yet — mkdir below */
+    }
+    let empiarYield = 0;
+    for (const m of mrcs) {
+      const dst = path.join(workdirMic, m);
+      try {
+        mkdirSync(path.dirname(dst), { recursive: true });
+        linkSync(path.join(EMPIAR_DIR, m), dst);
+      } catch {
+        try {
+          mkdirSync(path.dirname(dst), { recursive: true });
+          symlinkSync(path.join(EMPIAR_DIR, m), dst, "file");
+        } catch {
+          /* gallery preview lost for this file — import still works */
+        }
+      }
+      if (++empiarYield % IMPORT_YIELD_EVERY === 0) {
+        await breatheImport();
+        nativeAbortGate(job.id); // t1015 — the stop door's flag unwinds the run here
+      }
+    }
     void setProgress(60);
     for (const m of mrcs) lines.push(`micrographs/${m} 1`);
     result = `${mrcs.length} micrographs imported · EMPIAR-10017 (pixel ${pixel} Å)`;
@@ -3284,15 +3475,43 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
       const twinGate = importTwinGate(hostFiles);
       if (twinGate) return { ok: false, error: twinGate.error };
 
+      // t1021 — THE FUEL GATE: the in-process import's memory scales with
+      // the file count (≈4.8 KB/file witnessed — the t1020 window's own
+      // scar: a 500k-micrograph fixture pressed the server past the host's
+      // ceiling and the KERNEL killed the process mid-run, the run dying
+      // "interrupted (exit unknown)" with the watchdog respawning an app
+      // that had lost its own run). The honest arithmetic happens HERE, at
+      // the loop's doorstep: the run names the number and refuses to let
+      // the kernel speak for it. The budget reads the HOST's own numbers
+      // (total RAM − the server's current RSS − the floor), never a fixed
+      // cap — a big host admits a big import, a small one refuses it.
+      const fuelBytes = hostFiles.length * NATIVE_IMPORT_FUEL_BYTES_PER_FILE;
+      const headroomBytes = importFuelHeadroomBytes();
+      if (fuelBytes > headroomBytes) {
+        return {
+          ok: false,
+          error:
+            `This import holds ${hostFiles.length.toLocaleString("en-US")} ${kindWord} — the in-process ` +
+            `import's memory scales ≈6 KB per file (witnessed t1020: a 500k import pressed the server past ` +
+            `the host's memory and the kernel killed it mid-run), ≈${(fuelBytes / 1024 ** 3).toFixed(1)} GB ` +
+            `against ≈${(headroomBytes / 1024 ** 3).toFixed(1)} GB of headroom this host can spare. ` +
+            `Split the folder into smaller batches and import in passes — the host survives this refusal; ` +
+            `the kernel's kill does not.`,
+        };
+      }
+
       void setProgress(60); // local source listed — the link/write phases remain
       let unlinked = 0;
       if (!multiFile && !isPattern) {
-        // folder import — link the WHOLE directory (one junction/symlink,
-        // star stays project-relative; transparent to WSL drvfs too)
+        // folder import — link the WHOLE directory into the project tree
+        // (one junction/symlink, star stays project-relative; transparent to
+        // WSL drvfs too)
         const hostDir = toHost(single);
-        const linked =
-          linkDirInto(hostDir, path.join(projectDir, "micrographs")) &&
-          linkDirInto(hostDir, path.join(workdir, "micrographs"));
+        // the PROJECT-level link is the star's path-resolution contract
+        // (downstream jobs run with CWD = projectDir and open
+        // micrographs/<name>) — it stays a link; the WORKDIR exposure is the
+        // per-file block below (t914)
+        const linked = linkDirInto(hostDir, path.join(projectDir, "micrographs"));
         if (linked) {
           for (const f of hostFiles) lines.push(`micrographs/${path.basename(f)} 1`);
         } else {
@@ -3304,9 +3523,42 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
             unlinked += 1;
           }
         }
+        // t914 — the workdir exposure is PER-FILE (the importFileSet law,
+        // folder face): walkWorkdir refuses symlinked directories (loop
+        // safety), so the workdir dir-link above was an invisible exposure —
+        // a folder import's own listing showed star + logs and never the
+        // imported images. The files land as real dirents inside the workdir.
+        const workdirMic = path.join(workdir, "micrographs");
+        try {
+          lstatSync(workdirMic);
+          rmSync(workdirMic, { force: true, recursive: true });
+        } catch {
+          /* nothing there yet — mkdir below */
+        }
+        if (linked) {
+          let folderYield = 0;
+          for (const f of hostFiles) {
+            const dst = path.join(workdirMic, path.basename(f));
+            try {
+              mkdirSync(path.dirname(dst), { recursive: true });
+              linkSync(f, dst);
+            } catch {
+              try {
+                mkdirSync(path.dirname(dst), { recursive: true });
+                symlinkSync(f, dst, "file");
+              } catch {
+                /* gallery preview lost for this file — import still works */
+              }
+            }
+            if (++folderYield % IMPORT_YIELD_EVERY === 0) {
+              await breatheImport();
+              nativeAbortGate(job.id); // t1015 — the stop door's flag unwinds the run here
+            }
+          }
+        }
       } else {
         // pattern / file-list — link the FILES into a real project dir
-        const r = importFileSet(hostFiles, projectDir, workdir, bridge);
+        const r = await importFileSet(hostFiles, projectDir, workdir, bridge, job.id);
         for (const e of r.entries) lines.push(`${e} 1`);
         unlinked = r.unlinked;
       }
@@ -3333,6 +3585,8 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
     }
   }
 
+  await breatheImport(); // t1015 — the abort gate's last window before the star write
+  nativeAbortGate(job.id);
   void setProgress(90); // star write is the last mile — finalize flips 100
   writeFileSync(starPath, lines.join("\n") + "\n");
   const logText = [
@@ -3715,7 +3969,7 @@ async function runMapImportRemoteLeg(
   if (twinSize !== size) {
     return {
       ok: false,
-      error: `the copied map at ${twinPath} is ${twinSize.toLocaleString()} bytes but the source ${raw} is ${size.toLocaleString()} — the copy did not complete; run again`,
+      error: `the copied map at ${twinPath} is ${twinSize.toLocaleString("en-US")} bytes but the source ${raw} is ${size.toLocaleString("en-US")} — the copy did not complete; run again`,
     };
   }
 
@@ -3729,7 +3983,7 @@ async function runMapImportRemoteLeg(
     `CryoFlow engine-native map import (cluster lane) ${new Date().toISOString()}`,
     `source: ${raw} (cluster ${conn.name || conn.host})`,
     `header: ${dims} voxels · mode ${head.mode}${pixel > 0 ? ` · pixel ${pixel.toFixed(2)} Å` : ""}`,
-    `copy: cluster-side cp → ${twinPath} (verified ${twinSize.toLocaleString()} bytes — the map never left the cluster)`,
+    `copy: cluster-side cp → ${twinPath} (verified ${twinSize.toLocaleString("en-US")} bytes — the map never left the cluster)`,
     `output: ${twinPath} (cluster twin) · local path of record: ${localOut}`,
     result,
     "",
@@ -4787,7 +5041,7 @@ async function runCs2StarOnCluster(
       error: `the converter reported success but ${twinPath} did not verify on the cluster — run again (the .cs was not downloaded, the retry is cheap)`,
     };
   }
-  phase(`star written on the cluster: ${twinPath} (verified ${twinSize.toLocaleString()} bytes)`);
+  phase(`star written on the cluster: ${twinPath} (verified ${twinSize.toLocaleString("en-US")} bytes)`);
 
   const censusNote =
     conv.censusTotalMrc > conv.stacks.length
@@ -4825,7 +5079,7 @@ async function runCs2StarOnCluster(
     `particles: ${conv.particles} · referenced stacks: ${conv.stacks.length}${censusNote}`,
     `optics: ${opticsNote} · ${alignNote}${samplingSeg}`,
     conv.unmapped.length > 0 ? `unmapped fields: ${conv.unmapped.join(", ")}` : "",
-    `output: ${twinPath} (cluster) — written in place, verified ${twinSize.toLocaleString()} bytes · ${conv.durationSec}s on the cluster; no local mirror by design (downstream jobs read the twin)`,
+    `output: ${twinPath} (cluster) — written in place, verified ${twinSize.toLocaleString("en-US")} bytes · ${conv.durationSec}s on the cluster; no local mirror by design (downstream jobs read the twin)`,
     result,
     "",
   ]
@@ -5329,7 +5583,7 @@ async function runCs2StarNative(job: EngineJobRef): Promise<NativeResult> {
           `fix the cluster (check the login node's load, raise the cap in Remote clusters) and run again`,
       };
     }
-    phase(`star saved on the cluster: ${twinPath} (${starMb.toFixed(1)} MB, verified ${twinSize.toLocaleString()} bytes)`);
+    phase(`star saved on the cluster: ${twinPath} (${starMb.toFixed(1)} MB, verified ${twinSize.toLocaleString("en-US")} bytes)`);
 
     const opticsNote = `${f6(conv.optics.voltage)} kV · Cs ${f6(conv.optics.cs)} mm · ac ${f6(conv.optics.ac)} · pixel ${f6(conv.optics.angpix)} Å`;
     const alignNote =
@@ -6074,7 +6328,7 @@ async function runSelect2dNative(job: EngineJobRef, upstream: UpstreamRef[]): Pr
     rebaseParticleRefs(outLines.join("\n") + "\n", inStar, projectDirFor(job))
   );
   const keptClasses = classStats.filter((c) => c.kept).length;
-  const result = `${kept.toLocaleString()} of ${total.toLocaleString()} particles kept · ${keptClasses}/${classStats.length} classes (${mode})`;
+  const result = `${kept.toLocaleString("en-US")} of ${total.toLocaleString("en-US")} particles kept · ${keptClasses}/${classStats.length} classes (${mode})`;
   const logText = [
     `CryoFlow engine-native select2d ${new Date().toISOString()}`,
     ...(sourceNote
@@ -6204,7 +6458,7 @@ async function runSymexpandNative(job: EngineJobRef, upstream: UpstreamRef[]): P
     rebaseParticleRefs(outLines.join("\n") + "\n", inStar, projectDirFor(job))
   );
   const factor = matrices.length;
-  const result = `${total.toLocaleString()} × ${factor} = ${expanded.toLocaleString()} particles (${group}${group === "I" ? `/${icoSubset}` : ""})`;
+  const result = `${total.toLocaleString("en-US")} × ${factor} = ${expanded.toLocaleString("en-US")} particles (${group}${group === "I" ? `/${icoSubset}` : ""})`;
   const logText = [
     `CryoFlow engine-native symexpand ${new Date().toISOString()}`,
     `input:  ${inStar} (${total} particles)`,
@@ -6359,7 +6613,7 @@ async function runRebalanceNative(job: EngineJobRef, upstream: UpstreamRef[]): P
     ? `random (fallback — ${SCORE_LABELS[params.exclusionCriterion]} column absent)`
     : report.criterion;
   const result =
-    `${s.totalAfter.toLocaleString()} of ${s.totalBefore.toLocaleString()} particles kept · ` +
+    `${s.totalAfter.toLocaleString("en-US")} of ${s.totalBefore.toLocaleString("en-US")} particles kept · ` +
     `anisotropy ${s.anisotropyBefore.toFixed(2)}→${s.anisotropyAfter.toFixed(2)} · ` +
     `uniformity ${s.countUniformityBefore.toFixed(2)}→${s.countUniformityAfter.toFixed(2)}`;
   const logText = [
@@ -8358,7 +8612,7 @@ export function collectOutputs(type: string, workdir: string): { outputs: Record
             stackK != null && stackK > 0
               ? `${populated} of ${stackK} classes populated`
               : `${populated} ${populated === 1 ? "class" : "classes"} populated`;
-          result = `REAL: 2D classification finished — ${classPhrase} · ${dist.total.toLocaleString()} particles · top: ${top}`;
+          result = `REAL: 2D classification finished — ${classPhrase} · ${dist.total.toLocaleString("en-US")} particles · top: ${top}`;
         }
       }
       break;
@@ -8393,7 +8647,7 @@ export function collectOutputs(type: string, workdir: string): { outputs: Record
         const seeded = data ? countStarRows(data) : 0;
         result =
           seeded > 0
-            ? `REAL: de-novo 3D initial model generated · ${seeded.toLocaleString()} particles`
+            ? `REAL: de-novo 3D initial model generated · ${seeded.toLocaleString("en-US")} particles`
             : "REAL: de-novo 3D initial model generated";
       }
       break;
@@ -8446,7 +8700,7 @@ export function collectOutputs(type: string, workdir: string): { outputs: Record
         const refineLine =
           parseRefineResult(workdir) ?? result ?? `REAL: ${type === "class3d" ? "3D classification" : "3D refinement"} finished`;
         const refined = data ? countStarRows(data) : 0;
-        result = refined > 0 ? `${refineLine} · ${refined.toLocaleString()} particles` : refineLine;
+        result = refined > 0 ? `${refineLine} · ${refined.toLocaleString("en-US")} particles` : refineLine;
       }
       break;
     }
@@ -8501,7 +8755,7 @@ export function collectOutputs(type: string, workdir: string): { outputs: Record
         const polished = countStarRows(star);
         result =
           polished > 0
-            ? `REAL: Bayesian polishing finished — ${polished.toLocaleString()} particles polished`
+            ? `REAL: Bayesian polishing finished — ${polished.toLocaleString("en-US")} particles polished`
             : "REAL: Bayesian polishing finished";
       }
       break;
@@ -8514,7 +8768,7 @@ export function collectOutputs(type: string, workdir: string): { outputs: Record
         const refined = countStarRows(star);
         result =
           refined > 0
-            ? `REAL: CTF refinement finished — ${refined.toLocaleString()} particles`
+            ? `REAL: CTF refinement finished — ${refined.toLocaleString("en-US")} particles`
             : "REAL: CTF refinement finished";
       }
       break;
@@ -8555,7 +8809,7 @@ export function collectOutputs(type: string, workdir: string): { outputs: Record
         const written = countStarRows(star);
         result =
           written > 0
-            ? `REAL: ${type}: ${written.toLocaleString()} particles written`
+            ? `REAL: ${type}: ${written.toLocaleString("en-US")} particles written`
             : `REAL: ${type} particles written`;
       }
       break;
@@ -8928,6 +9182,14 @@ function spawnTrackedRun(
     outputs: {},
     done: false,
     exitCode: null,
+    // t1082 — the resume's receipt rides the RECORD, not just the return
+    // value: the exit handler finalizes with { ...rec, done, exitCode,
+    // outputs, result }, so anything the record holds at spawn survives
+    // into the completed row. (t1081's walk caught the gap: the dispatch-
+    // level --continue was proven by the cmd while the record itself
+    // dropped the iteration — honest bookkeeping means the state file
+    // answers "resumed from it N" without re-reading the log.)
+    ...(resumedFrom != null ? { resumedFrom } : {}),
   };
   upsertRun(job.id, record);
 
@@ -9331,6 +9593,13 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
     try {
       r = await runImportNative(job);
     } catch (e) {
+      if (e instanceof NativeAbortError) {
+        // t1015 — the stop door's flag unwound the run: an honest stop, not a
+        // crash. The record closes with the stop's own words; the failure
+        // write lands with "stopped by user" (no completion, no cascade).
+        abortNativeRun(job.id, "stopped by user (the stop door's abort gate unwound the run)", begun.prevOutputs);
+        return { ok: false, error: "stopped by user" };
+      }
       const msg = e instanceof Error ? e.message : String(e);
       abortNativeRun(job.id, msg, begun.prevOutputs);
       return { ok: false, error: `import crashed: ${msg}` };
@@ -9351,6 +9620,10 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
     try {
       r = await runCs2StarNative(job);
     } catch (e) {
+      if (e instanceof NativeAbortError) {
+        abortNativeRun(job.id, "stopped by user (the stop door's abort gate unwound the run)", begun.prevOutputs);
+        return { ok: false, error: "stopped by user" };
+      }
       const msg = e instanceof Error ? e.message : String(e);
       abortNativeRun(job.id, msg, begun.prevOutputs);
       return { ok: false, error: `cs → star conversion crashed: ${msg}` };
@@ -9367,6 +9640,10 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
     try {
       r = await runMapImportNative(job);
     } catch (e) {
+      if (e instanceof NativeAbortError) {
+        abortNativeRun(job.id, "stopped by user (the stop door's abort gate unwound the run)", begun.prevOutputs);
+        return { ok: false, error: "stopped by user" };
+      }
       const msg = e instanceof Error ? e.message : String(e);
       abortNativeRun(job.id, msg, begun.prevOutputs);
       return { ok: false, error: `map import crashed: ${msg}` };

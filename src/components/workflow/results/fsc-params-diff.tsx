@@ -132,6 +132,22 @@ function formatParam(v: unknown): string {
   return s.length > 18 ? `${s.slice(0, 17)}…` : s;
 }
 
+/* t1087 — the tooltip's voice is the RAW value. formatParam's 24-char
+ * slice is the CELL's rhythm (mono columns that stay tell-apart-able at
+ * a glance), but the title tooltip's whole job is to reveal what the
+ * cell hides — re-formatting through formatParam truncated the
+ * truncation, so a 60-char path's tooltip showed the same 24 chars the
+ * cell already showed and the tail was unreachable everywhere. The raw
+ * voice answers the same five shapes, uncut; the cell keeps its slice
+ * (one value, two faces: the rhythm on paper-cell, the truth on
+ * hover). The "cell hides, tooltip tells" law completed. */
+function rawParam(v: unknown): string {
+  if (v === undefined || v === null) return "—";
+  if (typeof v === "boolean") return v ? "true" : "false";
+  if (typeof v === "number") return String(v);
+  if (typeof v === "string") return v;
+  return JSON.stringify(v) ?? String(v);
+}
 
 export function FscParamsDiff({
   jobs,
@@ -190,7 +206,11 @@ export function FscParamsDiff({
             onClick={() => setDiffOnly((v) => !v)}
             title={diffOnly ? "Show the identical parameters too" : "Collapse to the rows that differ"}
             className={cn(
-              "ml-auto rounded-full border px-2 py-px text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+              "ml-auto rounded-full border px-2 py-px text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 no-print",
+              // t1093 — the collapse verb is chrome on paper (a verb that
+              // prints is a verb that lies, the t945 law); the printed
+              // table is the view the user asked for, and the filtered
+              // state's own prose below explains what the sheet shows
               diffOnly
                 ? "border-primary/40 bg-primary/5 text-primary"
                 : "border-border bg-background text-muted-foreground hover:border-primary/30"
@@ -217,8 +237,11 @@ export function FscParamsDiff({
           tabIndex={0}
           role="region"
           aria-label="Parameter diff table"
-          className="max-h-40 overflow-y-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+          className="max-h-40 overflow-y-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 print:max-h-none print:overflow-visible"
         >
+          {/* t1093 — the scroll region unrolls on paper (the t946 law: a
+              160px cap on a sheet clips the diff the user asked to
+              archive — every scroll region speaks whole on paper). */}
           {/* t803 — the diff table's scroll gains the stop (the second-pass
               census): th/td text only, nothing tabbable below the 160px cap;
               the region speaks the roster's dialect verbatim. */}
@@ -238,7 +261,7 @@ export function FscParamsDiff({
                   <th
                     key={j.jobId}
                     scope="col"
-                    className="max-w-28 px-1.5 py-1 font-medium text-muted-foreground"
+                    className="max-w-28 px-1.5 py-1 font-medium text-muted-foreground print:max-w-none"
                     title={`${j.name} (${j.type})`}
                   >
                     <span className="flex min-w-0 items-center gap-1">
@@ -247,7 +270,12 @@ export function FscParamsDiff({
                         style={{ backgroundColor: colorOf(j.jobId) }}
                         aria-hidden="true"
                       />
-                      <span className="truncate text-[10px]">{j.name}</span>
+                      {/* t1093 — the name unrolls on paper (the t1091 law:
+                          paper has no hover — the truncate would ellipsize
+                          the pair's identity on the very sheet that exists
+                          to compare them; the t1089 dashboard dialect:
+                          flowing document, tails wrap) */}
+                      <span className="truncate text-[10px] print:whitespace-normal print:break-all">{j.name}</span>
                     </span>
                   </th>
                 ))}
@@ -265,7 +293,7 @@ export function FscParamsDiff({
                   )}
                 >
                   <td
-                    className="max-w-36 truncate px-2.5 py-1 text-muted-foreground"
+                    className="max-w-36 truncate px-2.5 py-1 text-muted-foreground print:max-w-none print:whitespace-normal print:break-all"
                     title={`${row.key} — ${
                       row.kind === "changed"
                         ? "provided values differ between the selected jobs"
@@ -283,7 +311,11 @@ export function FscParamsDiff({
                       <td
                         key={jobs[i].jobId}
                         className={cn(
-                          "px-1.5 py-1 text-right font-mono tabular-nums",
+                          "px-1.5 py-1 text-right font-mono tabular-nums print:whitespace-normal print:break-all",
+                          // t1087 — the title tells, so the cursor asks:
+                          // every populated cell carries the raw value's
+                          // tooltip, the help cursor marks where it hides
+                          !absent && "cursor-help",
                           absent && "text-muted-foreground/40",
                           hot
                             ? "font-semibold text-warning-700 dark:text-warning-400"
@@ -294,10 +326,26 @@ export function FscParamsDiff({
                         title={
                           absent
                             ? `${jobs[i].name} does not set ${row.key}`
-                            : `${jobs[i].name}: ${row.key} = ${formatParam(v)}`
+                            : // t1087 — the RAW value (rawParam, uncut): the
+                              // tooltip reveals what the cell's 24-char
+                              // rhythm slice hides — it never re-truncates
+                              // the truncation
+                              `${jobs[i].name}: ${row.key} = ${rawParam(v)}`
                         }
                       >
-                        {absent ? "—" : formatParam(v)}
+                        {/* t1093 — one value, two faces (the t1087 law's
+                            print half): the screen keeps its 24-char cell
+                            rhythm (the tooltip recovers the raw value on
+                            hover), but paper has no hover (the t350 law)
+                            and an ellipsized fact is a lie (the t1091
+                            law) — so the sheet speaks the RAW value in
+                            the same cell, the hidden/print span pair of
+                            the t945 provenance dialect. break-all above
+                            keeps a long path inside its column. */}
+                        <span className="no-print">{absent ? "—" : formatParam(v)}</span>
+                        <span className="hidden print:inline">
+                          {absent ? "—" : rawParam(v)}
+                        </span>
                       </td>
                     );
                   })}

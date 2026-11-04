@@ -115,6 +115,7 @@ import {
 import type { JobDTO } from "@/lib/types";
 import { jobType, pourKindsOf, PORT_COLORS } from "@/lib/workflow"; // t764 — the kind vocabulary's TWENTY-FIFTH reader joins the storage board
 import { CleanupDialog } from "./cleanup-dialog";
+import { formatCountFull } from "@/lib/result-counts"; // t1157 — the thousands word rides its ONE father (the locale pin lives in result-counts, the parser's own contract)
 
 /** the route's response contract, mirrored client-side (the family keeps
  *  route types out of client imports — same shape as PicksBoardResponse) */
@@ -628,6 +629,11 @@ export default function StorageDialog({
   const jobs = data ? sortJobs(data.jobs, jobSort) : [];
   const maxBytes = jobs.length > 0 ? Math.max(...jobs.map((j) => j.bytes), 1) : 1;
   const totalBytes = data?.totalBytes ?? 0;
+  // t1155 — the category chips' OWN share claim: a CATEGORY's share of the
+  // project total (the lens lib's shares are a RUN's share of total and a
+  // SLICE's share of its run — different subjects, different denominators;
+  // per the duration map's lesson a dialect is another claim, not another
+  // error). One grain across the family: the integer toFixed(0) word.
   const catList = data
     ? STORAGE_CATEGORIES.map((meta) => ({
         ...meta,
@@ -752,7 +758,7 @@ export default function StorageDialog({
                     {fmtBytes(data.totalBytes)}
                   </p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    {data.totalFiles.toLocaleString()} file{data.totalFiles === 1 ? "" : "s"} across{" "}
+                    {formatCountFull(data.totalFiles)} file{data.totalFiles === 1 ? "" : "s"} across{" "}
                     {data.jobs.length} run director{data.jobs.length === 1 ? "y" : "ies"}
                   </p>
                 </div>
@@ -765,7 +771,7 @@ export default function StorageDialog({
                     size="sm"
                     onClick={() => void load()}
                     disabled={loading}
-                    aria-label="Refresh storage numbers"
+                    aria-label={loading ? "Refreshing storage numbers…" : "Refresh storage numbers"}
                   >
                     <RefreshCw
                       className={`size-3.5${loading ? " animate-spin" : ""}`}
@@ -783,7 +789,7 @@ export default function StorageDialog({
                 <button
                   type="button"
                   onClick={() => openRunLens(whaleDir)}
-                  className="mt-3 flex w-full items-start gap-2 rounded-lg border border-violet-500/30 bg-violet-500/[0.06] px-3 py-2 text-left text-xs text-violet-700 transition-colors hover:bg-violet-500/[0.12] dark:text-violet-300"
+                  className="mt-3 flex w-full items-start gap-2 rounded-lg border border-violet-500/30 bg-violet-500/[0.06] px-3 py-2 text-left text-xs text-violet-700 transition-colors hover:bg-violet-500/[0.12] dark:text-violet-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   title="The heaviest run — click to weigh it by category right here"
                   aria-label="The heaviest run — open its run lens"
                 >
@@ -850,7 +856,7 @@ export default function StorageDialog({
                               setRunCatFilter(null);
                               setLens(lens === c.id ? null : c.id);
                             }}
-                            className={`inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs transition-colors ${
+                            className={`focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs transition-colors ${
                               CATEGORY_TEXT[c.id]
                             } ${
                               lens === c.id
@@ -936,7 +942,7 @@ export default function StorageDialog({
                               inspect(job.jobId);
                               onOpenChange(false);
                             }}
-                            className={`flex min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-2.5 text-left transition-colors ${
+                            className={`focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring flex min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-2.5 text-left transition-colors ${
                               orphan
                                 ? "cursor-default bg-warning/[0.05]"
                                 : "hover:bg-muted/40"
@@ -995,7 +1001,7 @@ export default function StorageDialog({
                                 {fmtBytes(job.bytes)}
                               </p>
                               <p className="text-[11px] text-muted-foreground">
-                                {job.files.toLocaleString()} file{job.files === 1 ? "" : "s"}
+                                {formatCountFull(job.files)} file{job.files === 1 ? "" : "s"}
                               </p>
                             </div>
                           </button>
@@ -1081,7 +1087,7 @@ export default function StorageDialog({
                         </span>
                       )}
                       <p className="text-sm tabular-nums text-muted-foreground">
-                        {fmtBytes(runLensRow.bytes)} · {runLensRow.files.toLocaleString()} file
+                        {fmtBytes(runLensRow.bytes)} · {formatCountFull(runLensRow.files)} file
                         {runLensRow.files === 1 ? "" : "s"}
                         {data && data.totalBytes > 0 && runLensRow.bytes > 0
                           ? ` · ${(runLensRow.bytes / data.totalBytes).toFixed(0)}% of the project`
@@ -1120,7 +1126,7 @@ export default function StorageDialog({
                         type="button"
                         aria-pressed={runCatFilter === null}
                         onClick={() => setRunCatFilter(null)}
-                        className={`inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs text-foreground transition-colors ${
+                        className={`focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs text-foreground transition-colors ${
                           runCatFilter === null
                             ? "bg-muted font-semibold ring-1 ring-inset ring-border"
                             : "opacity-60 hover:opacity-100 hover:bg-muted/40"
@@ -1135,7 +1141,7 @@ export default function StorageDialog({
                           type="button"
                           aria-pressed={runCatFilter === slice.id}
                           onClick={() => setRunCatFilter(runCatFilter === slice.id ? null : slice.id)}
-                          className={`inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs transition-colors ${
+                          className={`focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs transition-colors ${
                             CATEGORY_TEXT[slice.id]
                           } ${
                             runCatFilter === slice.id
@@ -1178,7 +1184,7 @@ export default function StorageDialog({
                                     inspect(runLensRow.jobId as string);
                                     onOpenChange(false);
                                   }}
-                                  className={`flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition-colors ${
+                                  className={`focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition-colors ${
                                     orphan
                                       ? "cursor-default bg-warning/[0.05]"
                                       : "hover:bg-muted/40"
@@ -1217,7 +1223,7 @@ export default function StorageDialog({
                       </>
                     ) : ledgerState === "unlisted" ? (
                       <p className="mt-2 rounded-md border border-dashed border-warning/40 bg-warning/[0.05] p-3 text-xs text-warning-700 dark:text-warning-300">
-                        {ledgerDiskFiles.toLocaleString()} file
+                        {formatCountFull(ledgerDiskFiles)} file
                         {ledgerDiskFiles === 1 ? "" : "s"} on disk
                         {runCatFilter ? " in this category" : ""} — but none made the walk's
                         whale ledger (it keeps the heaviest few per category). The run is NOT
@@ -1302,10 +1308,10 @@ export default function StorageDialog({
                         ? lensFiles.length === 0
                           ? "no files above zero bytes — the lens is empty"
                           : lensTotalFiles > lensFiles.length
-                            ? `the heaviest ${lensFiles.length} of ${lensTotalFiles.toLocaleString()} file${
+                            ? `the heaviest ${lensFiles.length} of ${formatCountFull(lensTotalFiles)} file${
                                 lensTotalFiles === 1 ? "" : "s"
                               } — the whales' whales`
-                            : `all ${lensTotalFiles.toLocaleString()} file${
+                            : `all ${formatCountFull(lensTotalFiles)} file${
                                 lensTotalFiles === 1 ? "" : "s"
                               } in this category`
                         : lensRuns.length === 0
@@ -1330,7 +1336,7 @@ export default function StorageDialog({
                                   inspect(f.jobId);
                                   onOpenChange(false);
                                 }}
-                                className={`flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition-colors ${
+                                className={`focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition-colors ${
                                   orphan
                                     ? "cursor-default bg-warning/[0.05]"
                                     : "hover:bg-muted/40"
@@ -1402,7 +1408,7 @@ export default function StorageDialog({
                                   inspect(r.jobId);
                                   onOpenChange(false);
                                 }}
-                                className={`flex min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-2.5 text-left transition-colors ${
+                                className={`focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring flex min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-2.5 text-left transition-colors ${
                                   orphan
                                     ? "cursor-default bg-warning/[0.05]"
                                     : "hover:bg-muted/40"
@@ -1447,7 +1453,7 @@ export default function StorageDialog({
                                     {fmtBytes(r.catBytes)}
                                   </p>
                                   <p className="text-[11px] text-muted-foreground">
-                                    {r.catFiles.toLocaleString()} file{r.catFiles === 1 ? "" : "s"}
+                                    {formatCountFull(r.catFiles)} file{r.catFiles === 1 ? "" : "s"}
                                   </p>
                                 </div>
                               </button>
@@ -1559,7 +1565,7 @@ export default function StorageDialog({
                         data-testid="graveyard-sort-newest"
                         aria-pressed={graveSort === "newest"}
                         onClick={() => setGraveSort("newest")}
-                        className={`h-5 rounded px-1.5 text-[10px] ${
+                        className={`focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring h-5 rounded px-1.5 text-[10px] ${
                           graveSort === "newest"
                             ? "bg-muted font-medium text-foreground"
                             : "text-muted-foreground hover:text-foreground"
@@ -1572,7 +1578,7 @@ export default function StorageDialog({
                         data-testid="graveyard-sort-weight"
                         aria-pressed={graveSort === "weight"}
                         onClick={() => setGraveSort("weight")}
-                        className={`h-5 rounded px-1.5 text-[10px] ${
+                        className={`focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring h-5 rounded px-1.5 text-[10px] ${
                           graveSort === "weight"
                             ? "bg-muted font-medium text-foreground"
                             : "text-muted-foreground hover:text-foreground"
@@ -1592,7 +1598,7 @@ export default function StorageDialog({
                             <button
                               type="button"
                               data-testid="graveyard-row-toggle"
-                              className="-m-1 flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+                              className="-m-1 flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                               aria-expanded={open}
                               aria-controls={`graveyard-epitaph-${g.id}`}
                               aria-label={`${open ? "Hide" : "Read"} the epitaph of ${g.name ?? g.id}`}

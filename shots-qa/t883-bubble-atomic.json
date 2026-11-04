@@ -1,0 +1,68 @@
+{
+  "task": "t883",
+  "window": "cron 2026-11-02 15:05:37 +08:00 (trace 1a07549302235a99-cron-agent-loop-202611021506)",
+  "purpose": "the bubble mystery, atomically — the same-eval full-chain trace + the stopPropagation spy",
+  "trace": {
+    "armed": true,
+    "fired": true,
+    "counters": "DIV#radix-_r_5{dialog-content} cap=1 bub=1 | BODY cap=1 bub=1 | HTML cap=1 bub=0 | TARGET:DIV cap=1 bub=1",
+    "stops": [
+      {
+        "m": "stop",
+        "ph": 3,
+        "self": "BODY",
+        "tgt": "DIV"
+      }
+    ],
+    "chainLen": 4
+  },
+  "checks": [
+    {
+      "label": "A1 the workflow canvas holds the cards",
+      "pass": true,
+      "detail": "cards=15 wf={\"found\":false}"
+    },
+    {
+      "label": "A2 the inspector arrived",
+      "pass": true,
+      "detail": "heads=[2D Classification (tutorial) — job inspector]"
+    },
+    {
+      "label": "A2b the Results tab active and the A/B door mounted",
+      "pass": true,
+      "detail": "tab={\"found\":true,\"selected\":true} door=true"
+    },
+    {
+      "label": "A3 the A/B dialog floats over the inspector",
+      "pass": true,
+      "detail": "dlgs=2"
+    },
+    {
+      "label": "A4 the atomic trace fired",
+      "pass": true,
+      "detail": "chainLen=4"
+    },
+    {
+      "label": "A5 the capture chain completed to the top",
+      "pass": true,
+      "detail": "full chain above"
+    },
+    {
+      "label": "A6 the stop spy's verdict recorded",
+      "pass": true,
+      "detail": "1 stop calls captured"
+    },
+    {
+      "label": "A7 the dismissal landed after the trace",
+      "pass": false,
+      "detail": "post={\"dlgCount\":2,\"heads\":[\"2D Classification (tutorial) — job inspector\",\"Class A/B — Occupancy share\"]}"
+    },
+    {
+      "label": "A8 the world restored",
+      "pass": true,
+      "detail": "dlgs=0"
+    }
+  ],
+  "pass": 8,
+  "fail": 1
+}

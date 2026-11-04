@@ -7,6 +7,7 @@ import {
   fetchRemoteFileIntoWorkdir,
   readRemoteManifest,
 } from "@/lib/remote/remote-files";
+import { badJsonReply, serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -79,8 +80,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     let bodyPaths: unknown;
     try {
       bodyPaths = (await request.json())?.paths;
-    } catch {
-      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    } catch (error) {
+      return badJsonReply("POST /api/jobs/[id]/outputs/sync", error);
     }
     if (
       !Array.isArray(bodyPaths) ||
@@ -103,7 +104,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       // defensive hygiene — the manifest is trusted (finalize wrote it), but
       // a tampered ledger must not become a traversal door
       if (rel.startsWith("/") || rel.split("/").includes("..")) {
-        results.push({ path: rel, ok: false, error: "Path rejected" });
+        results.push({ path: rel, ok: false, error: "Path rejected — absolute paths and '..' segments are not allowed" });
         continue;
       }
       if (!ledger.has(rel)) {
@@ -148,7 +149,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
       total: manifest.files.length,
     });
   } catch (error) {
-    console.error("POST /api/jobs/[id]/outputs/sync failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("POST /api/jobs/[id]/outputs/sync", error);
   }
 }

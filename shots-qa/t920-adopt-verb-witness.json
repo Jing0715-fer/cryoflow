@@ -1,0 +1,19 @@
+{
+  "at": "2026-10-12T05:43:38.948Z",
+  "pass": 48,
+  "fail": 0,
+  "world": {
+    "A": "t916 class2d witness",
+    "B": "t919 class2d second witness",
+    "consumer": "t916 select witness",
+    "jobs": 20
+  },
+  "fire": {
+    "origEdge": "d87cc464-2735-4e66-87f3-d7d79437ac26",
+    "newEdge": "3cf28c70-8c4e-4df2-800b-0ca94c6e4480",
+    "ports": {
+      "from": "classAverages",
+      "to": "classes"
+    }
+  }
+}

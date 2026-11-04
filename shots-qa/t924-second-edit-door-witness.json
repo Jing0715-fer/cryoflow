@@ -1,0 +1,28 @@
+{
+  "main": {
+    "pass": 54,
+    "fail": 0,
+    "door": {
+      "tooltip": "without resetting — the completed run and its results stay until a Re-run replaces them",
+      "nonDestructive": true
+    },
+    "edit": {
+      "from": "mic_002.mrc, mic_004.mrc, mic_006.mrc",
+      "to": "mic_002.mrc, mic_004.mrc"
+    },
+    "runs": {
+      "first": "3 of 6 micrographs kept · 3 excluded (list of 3)",
+      "rerun": "4 of 6 micrographs kept · 2 excluded (list of 2)"
+    },
+    "downstream": {
+      "ctfARows": [
+        "mic_001.mrc",
+        "mic_003.mrc",
+        "mic_005.mrc",
+        "mic_006.mrc"
+      ]
+    },
+    "at": "2026-10-12T09:12:54.478Z"
+  },
+  "at": "2026-10-12T09:12:54.480Z"
+}

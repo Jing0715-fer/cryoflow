@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isLocalRequest } from "@/lib/http-guard";
 import { deleteEdgeEverywhere } from "@/lib/edge-ports";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,6 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     }
     return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error("DELETE /api/edges/[id] failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("DELETE /api/edges/[id]", error);
   }
 }

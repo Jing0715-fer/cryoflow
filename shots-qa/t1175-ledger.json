@@ -1,0 +1,61 @@
+{
+  "task": "t1175",
+  "window": "2026-11-04 05:51 dispatch, Job 362852, trace …-cron-agent-loop-202611040559",
+  "the_incident": "t1174's cure ride lost three times to a canvas that booted ghost-less and card-less; the window's promise was 'one API read from a verdict'. Tonight that read was taken — and it exonerated the world while indicting five separate instruments, one of them born blind.",
+  "the_verdicts": {
+    "api_read_settles_the_mismatch": {
+      "claim_tested": "t1174 hypothesis: data/projects.json's active pointer (cmw140u7s…) diverged from the healer's demo project — the zero-card canvas was a project mismatch",
+      "evidence": [
+        "DB (python sqlite3, no node_modules needed): ONE project cmw140u7s0000sinmoi2zpujt 'β-Galactosidase Tutorial (demo)', 15 jobs, 13 completed, one workspace 'Main' cmw140u800008sinmeez4asir, job names intact ('2D Classification (tutorial)' present)",
+        "live lane GET /api/projects: {active:true, name:'β-Galactosidase Tutorial (demo)', stats:{total:15,completed:13}}",
+        "live lane GET /api/jobs: 15 jobs, correct names, correct workspaceId"
+      ],
+      "verdict": "MISMATCH_DISPROVEN — DB, projects.json and live API all agree; the zero-card canvas was never a data problem"
+    },
+    "the_canvas_renders_when_the_box_cooperates": [
+      "22:14 round: cards:15 (raw div[role=button] count), full UI text, project name spoken — the world renders",
+      "22:31 round: cards:15 again on a fresh server",
+      "23:12 round: the quiet-compile ride read cards:1 (the class2d card, correctly detected) ~12s after navigation"
+    ],
+    "escape_cure": {
+      "verdict": "UNPROVEN_THIS_WINDOW — the walk never reached a live Escape moment: every attempt died earlier (server OOM mid-render, or the instrument's own blindness)",
+      "mechanism_status": "unchanged and content-verified: onEscapeClose rides the evolved DialogContent (t1173 port, tsc/eslint silent), the A/B world (class2d:52 + class3d:9 + FSC 7.79 Å) sits complete on disk"
+    },
+    "build_day_third_attempt": {
+      "verdict": "KILLED_IN_52s — npx next build --webpack (cap 1792, chrome dead, available 3263MB) OOM'd in 52 seconds; the merged tree's build graph needs more box than this sandbox can offer; the bill carries again"
+    }
+  },
+  "the_five_instruments_indicted": [
+    "1. THE ESCAPED-JSON BLINDNESS (the big one): agent-browser eval returns escaped JSON — \"{\\\"cards\\\":1,…}\" — and every readiness grep in every ride script since t1174 matched literal '\"cards\":1', which NEVER matches the escaped form. The 23:12 round's canvas was READY (cards:1) and the script declared CANVAS_NOT_READY. Fixed with tr -d '\\\\' before grep in scripts/t1175-whale-quiet-compile.sh (4 sites). The t1174 ride's 'zero cards' verdicts were partly this.",
+    "2. THE PARTIAL-HARVEST BLINDNESS: the reaper's harvest is PARTIAL — it emptied node_modules to exactly ONE entry ('next', the entry point itself, so the server STARTS and dies on its first require with MODULE_NOT_FOUND requireStack:[]) while the directory survived. Every guard was '[ ! -d node_modules ]' — exists-checks never fire on a partial harvest. Fixed to COUNT guards ('< 600 of the known 643') in scripts/dev-server.sh (the launcher, both boot paths), scripts/t1174-cure-ride.sh, scripts/t1175-cure-walk.sh, scripts/t1175-whale-quiet-compile.sh.",
+    "3. THE ZOMBIE-TAB ORDER VIOLATION: about:blank must precede ALL server contact; the 22:04 boot fed a stale tab's HMR reconnect a full reload fan-out (GET / 200 in 431ms then a compile-storm burst that made the ride's own lane checks time out at 000). scripts/t1174-cure-ride.sh patched: the neuter moved above the lane check.",
+    "4. THE DEAD-PAGE BLINDNESS: a Chrome 'This site can't be reached' error page keeps location.href = http://localhost:3000/ — the re-dress detector grepping href for 'chrome-error' NEVER fired; dead pages read as card-less loading pages. Fixed: the detector now reads body text ('refused to connect').",
+    "5. THE OVER-FARM: grepping every /api/ path out of client chunks and curling all ~20 routes chrome-less re-inflated the server past the box — the farm's own curls OOM'd the server mid-farm (pre-load then hit 000 × 8). Trimmed to the surgical 8-route boot-fan-out pre-load (jobs/projects/workspaces/views/edges/remote/connections/relion-status/ai/settings — 6×200, 2×404 wrong-path, harmless)."
+  ],
+  "the_cure_method_that_worked": {
+    "name": "the quiet compile (chrome-less whale + chunk farm + require-cache pre-load)",
+    "steps": "chrome dies (~862MB freed) → server boots (webpack lane, 1792 heap) → curl GET / compiles the canvas whale for a browser that never arrives (200 in 29s cold, 0s warm-persisted) → farm the HTML-referenced chunks (10+1) chrome-less → pre-load the 8 boot API routes into the require cache (a loaded module survives the harvest's unlink) → chrome returns → cards in ~12s",
+    "measured": "canvas ready ~12s after navigation on the best round; GET / 200 in 0s once persisted"
+  },
+  "the_oom_anatomy": "every server death tonight was the kernel OOM killer (dmesg: next-server corpses at anon-rss 2.27–3.20GB, 6+ kills witnessed) — NOT a platform process reaper; the structural deficit: dev server (canvas graph + API route graphs, 2.5–2.8GB) + chrome (862MB) + system (~1GB) > 4GB box. The successful rounds were the coin flips that landed. drop_caches denied (read-only /proc, no root).",
+  "c_units": [
+    "mismatch hypothesis disproven through DB + live API (the t1174 promise kept)",
+    "partial-harvest guard shipped in the launcher (both boot paths) and all three ride scripts",
+    "escaped-JSON instrument fix (4 grep sites)",
+    "zombie-tab order fix in t1174-cure-ride.sh",
+    "dead-page body-text detector shipped",
+    "quiet-compile + chunk farm + require-cache pre-load method proven (canvas 12s)",
+    "build day attempt 3: honest 52-second corpse recorded"
+  ],
+  "checks": {
+    "syntax": "bash -n green on all four scripts (dev-server.sh, t1174-cure-ride.sh, t1175-cure-walk.sh, t1175-whale-quiet-compile.sh)",
+    "receipts": "shots-qa/t1175-escape-cure.json (last ride's honest CANVAS_NOT_READY) + shots-qa/t1175-escape-cure.png + this ledger",
+    "census": "skipped — the lane never held two consecutive calls tonight; the refusal recorded"
+  },
+  "judge_lines": [
+    "「仪器会瞎，世界不会」: the canvas rendered twice while the instruments read zero — an escaped-JSON grep blind from birth outlived four honest rides; calibrate the instrument before re-indicting the world.",
+    "「清道夫连收割都是部分的」: one surviving entry ('next') was enough to make the tree look alive and die on first require — a guard that asks 'does it exist' is not a guard; ask 'how much of it exists'.",
+    "「给不来的浏览器编译」: the whale that kills every visitor fits the box alone — chrome-less curl compiled and persisted in 29s what no ride could survive; the visitor then lands on a 0s serve."
+  ],
+  "next_window_hooks": "t1176: the walk stands armed — calm box (available ≥ 3GB at window open) → bash scripts/t1175-whale-quiet-compile.sh (one call, ~5 min) reads the Escape verdict; if the box is squeezed, the verdict stays UNPROVEN and the instrument waits; the build day needs a bigger calmer box than tonight's 3.26GB; the census resumes when the lane holds two calls"
+}

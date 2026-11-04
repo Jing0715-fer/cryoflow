@@ -1,0 +1,39 @@
+{
+  "task": "t1168",
+  "vein": "the oldest-routes sweep: the bounded-read law — a head read gets bytes not files, a row count streams chunks",
+  "date": "2026-11-03 (21:36 dispatch, Job 362852, trace …-cron-202611032136)",
+  "the_sweep": {
+    "oldest_tier": "13 route files last touched 2026-10-10 audited line by line (cleanup-history · jobs/[id]/ai-verdict · jobs/[id]/selection-receipt · jobs/deleted · jobs/deleted/restore · projects/[id]/storage · remote/connections/[id]/usage · remote/connections/[id]/verify-module · remote/connections/test · remote/connections/verify-module · remote/diagnostics/storage · remote/records · remote/records/[jobId]) — 1099 lines total; all guarded (isLocalRequest), all bounded (slice(0,60)/slice(0,200) + regex on module names, CLEANUP_HISTORY_MAX, MAX_NODES 128, take:2), all one-well (graveRowsOf, computeStorageReport, connectionRunResume, parseSelectionReceipt), the bulk forget's ORDER LAW intact (existence settled before deletion)",
+    "legacy_names_checked": "#5 fs/browse (fully hardened: guard + Host pin + virtual-fs guard + NUL check + BROWSER_LIST_MAX + the count mode's one-readdir face) and #8 particles BFS (batched since t904: one edge query per depth) — both long-fixed, confirmed this window",
+    "census_greps": "all 93 doors scanned for the known bug classes: unguarded request.json (7 hits, all inside try-with-fallback contexts or the newest t1165-audited routes), N+1 loops (empiar-seed only — a seeder), sync fs reads (10 files, mostly lib-owned), findMany without take (project-scoped normal shape)",
+    "the_yield": "one class, three instances on request paths: the whole-file-then-slice read (particles' findParticlesStar fallback), the whole-file-then-split count (sbatch's dry-run micrograph volume, with a dynamic fs import inside the lineage loop), and the same class in the dispatch gate's own classifier (star-shape's readStarMoviesShape — the import's tens-of-MB movies.star read fully to classify a 1 KB header)"
+  },
+  "the_cure": {
+    "well": "src/lib/fs-text.ts (t1168): readTextHead (the buffer sized min(size, maxBytes) BEFORE the first read; Infinity = the ladder's last rung, accepted — only NaN/negative refuse) + countRowsContaining (1 MiB stream, ROW_CHUNK_BYTES exported, the boundary-straddling carry re-joins the split line, the mega-line absorbed once and its tail skipped, ASCII-needle law documented) — honest nulls, fixed memory",
+    "call_sites": [
+      "jobs/[id]/particles: the 4000-byte probe rides readTextHead (was: readFileSync().slice(0,4000) over every .star in the workdir — gigabytes billed for a 4 KB intent)",
+      "hpc/sbatch/[id]: countRowsContaining(star, '.mrc') ?? 0 with the max() floor kept (was: whole read + split + filter + a dynamic fs import per lineage node)",
+      "relion/star-shape: readStarMoviesShape became a HEAD LADDER (256KB → 1MB → 8MB → whole) escalating on an undecided DIALECT — never on a seen table (the parity law: a data_optics-first star with its movies label beyond the first rung still answers movies; the naive 'stop at the first table' ladder would have failed the B5 pin and wrongly refused a dispatch); the movies verdict is exact parity (the classifier early-returns), the micrographs-on-truncated-head refinement named in the comment",
+      "jobs/[id]/ai-verdict: the dead `import { db }` gone (the route's imports must tell the truth about what it uses; findEffectiveJob owns the db access)"
+    ]
+  },
+  "the_proof": {
+    "seat_107": "t1168-fs-text-unit 35/35 green (A1–A16 the well's functional face: exact-byte heads, short/empty files, honest nulls, the Infinity rung, the boundary-straddling row counted once, the mega-line absorbed and terminating, the multi-chunk tally exact at 516; B1–B7 the shape ladder incl. the deep-table parity pin B5 and the whole-read parity B6; C1–C12 the source law on all four files + the well's own never-whole-read pin + the gate's callers unforked)",
+    "census": "107/107 GREEN (t1168-census-rekey.mjs, idempotent ×2, bash -n green; certified on the COMMITTED tree)",
+    "census_war_story": "the first ride (in-flight tree) went 106 GREEN / 8 RED: 7 were the live-leg seats without a server (the fuel family's 'FATAL: the server never answered 200', t911's fetch failed, t1164's Connection refused — the standing memory-sequencing law re-learned) and 1 was t912's A16 pin, which diffs the WORKING TREE and flaps on any in-flight logic line (the pin that forced the commit-before-certify sequencing); on the committed tree with the server up: 107/107",
+    "tsc_eslint": "tsc 0 · eslint 0 (server down)",
+    "live_rides": [
+      "particles route, same-origin: {\"error\":\"No on-disk outputs for this job\"} [400] — the honest refusal (the tutorial world's extract carries no on-disk outputs; the route's guard fires before the star scan)",
+      "sbatch dry-run, same-origin: 200, strategy mode array · shards 10 · 'Embarrassingly parallel per micrograph' — the streamed counter fed the strategy through the extract job's lineage (import → movies.star)",
+      "browser: console = React-DevTools info + HMR lines only (dev noise), page errors = ZERO, screenshot shots-qa/t1168-bounded-read-ride.png",
+      "the boundary reaper struck once more between calls (the boot call's server died at the call boundary — the ride redone whole-call)"
+    ]
+  },
+  "judge_lines": [
+    "「头读付字节账，不付文件账」— the intent was always a 4 KB probe; the code must price the intent, not the file",
+    "「有界读答全读之所答，否则尚未作答」— the parity law: the ladder escalates on an undecided dialect, never on a seen table",
+    "「坏类一次治愈，不逐点贴创可贴」— one well, three call sites (plus the gate's two callers riding through), not three local patches",
+    "「脏树不认证」— t912's A16 holds the census to committed truth; the certification ride came after the feat car"
+  ],
+  "standing_notes": "the .env contract intact (seat 106 green — no re-heal needed); the build day still queued (avail 3524MB at bed rolls, the 17th consecutive non-build day); the machine-id auto-commit did NOT fire this window"
+}

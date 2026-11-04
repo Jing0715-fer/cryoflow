@@ -31,6 +31,7 @@ import {
   RotateCcw,
   Route,
   Search,
+  Timer,
   Trash2,
   Map as MapIcon,
   Move,
@@ -60,7 +61,8 @@ import { pendingWirePath } from "@/lib/edge-geom";
 import { CanvasFindBar } from "./canvas-find-bar";
 import { jobMatchWhy, jobMatchesFind, type MatchWhy } from "@/lib/job-match"; // t653 — one matcher, three consumers, one home; t655 — the why rides the same lib
 import { CanvasFunnelDoor } from "./canvas-funnel-door";
-import { copyCanvasPng, exportCanvasPng, fmtBytes } from "@/lib/canvas-export";
+import { copyCanvasPng, exportCanvasPng } from "@/lib/canvas-export";
+import { fmtBytes } from "@/lib/relion/disk-usage"; // t1152 — the byte word rides its ONE father (canvas-export's own KB-0-decimals no-GB dialect died in the census)
 import {
   buildWorkflowFile,
   downloadWorkflowJson,
@@ -76,9 +78,11 @@ import { EdgesLayer } from "./edges-layer";
 import { PipelineKpi } from "./pipeline-kpi";
 import { CanvasMinimap } from "./canvas-minimap";
 import { JobCard } from "./job-card";
+import { PrintReceiptLedger } from "./print-receipt-ledger"; // t1091 — the paper ledger: the full sentences the map's cards truncate
 import { STATUS_FLOOR, type StatusWord } from "@/lib/status-style"; // t647 — the floor map lives with the word law
 import { TypeIcon } from "./icons";
 import { ParamsDiffDialog } from "./params-diff-dialog";
+import { PaceDialog } from "./pace-dialog"; // t1010 — the selection's pace face
 import { useDropImport, DropImportOverlay } from "./drop-import";
 import { stageWorkflowFiles } from "@/lib/import-stage";
 import { Button } from "@/components/ui/button";
@@ -343,7 +347,7 @@ function HistoryRows({
                     type="button"
                     disabled={jumping}
                     aria-expanded={open}
-                    className="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-xs hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
+                    className="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-xs hover:bg-accent disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     data-canvas-ui="history-group"
                     data-history-kind={run.kind}
                     data-run-count={run.labels.length}
@@ -369,7 +373,7 @@ function HistoryRows({
                       <button
                         type="button"
                         disabled={jumping}
-                        className="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-xs hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
+                        className="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-xs hover:bg-accent disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                         data-canvas-ui="history-row"
                         data-history-kind="past"
                         data-history-index={i}
@@ -412,7 +416,7 @@ function HistoryRows({
                     type="button"
                     disabled={jumping}
                     aria-expanded={open}
-                    className="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-xs italic text-muted-foreground hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+                    className="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-xs italic text-muted-foreground hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     data-canvas-ui="history-group"
                     data-history-kind={run.kind}
                     data-run-count={run.labels.length}
@@ -439,7 +443,7 @@ function HistoryRows({
                       <button
                         type="button"
                         disabled={jumping}
-                        className="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-xs italic text-muted-foreground hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+                        className="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-xs italic text-muted-foreground hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                         data-canvas-ui="history-row"
                         data-history-kind="future"
                         data-history-index={i}
@@ -546,7 +550,7 @@ const TemplateSuggestionsChip = React.memo(function TemplateSuggestionsChip() {
           onClick={() => useWorkflowStore.getState().dismissTemplateSuggestions()}
           aria-label="Dismiss connection suggestions"
           title="Dismiss — wire by hand instead"
-          className="rounded-full p-0.5 text-muted-foreground transition-colors hover:text-foreground"
+          className="rounded-full p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           data-testid="template-suggestions-dismiss"
         >
           <X className="size-3.5" aria-hidden="true" />
@@ -571,6 +575,7 @@ const TemplateSuggestionsChip = React.memo(function TemplateSuggestionsChip() {
                 aria-pressed={on}
                 title={on ? "Click to skip this wire" : "Click to include this wire"}
                 className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                   "flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-[11px] transition-colors",
                   on ? "bg-muted/40 hover:bg-muted/70" : "text-muted-foreground/50 line-through decoration-border hover:bg-muted/40"
                 )}
@@ -608,6 +613,7 @@ const TemplateSuggestionsChip = React.memo(function TemplateSuggestionsChip() {
           className="h-6 gap-1 px-2.5 text-[11px]"
           onClick={connectIncluded}
           disabled={busy || included.length === 0}
+          aria-busy={busy}
           title="Wire the included suggestions through the same endpoint a manual drag uses"
           data-testid="template-suggestions-connect"
         >
@@ -621,6 +627,54 @@ const TemplateSuggestionsChip = React.memo(function TemplateSuggestionsChip() {
             : `Connect ${included.length} of ${alive.length}`}
         </Button>
       </div>
+    </div>
+  );
+});
+
+/**
+ * t1011 — the selection's live receipt. A screen-reader user toggling a
+ * card with Shift+Space hears nothing today: the toolbar's aria-label
+ * recounts only once the toolbar is mounted (2+ selected — the first
+ * toggle is exactly the moment it is absent), and the cards themselves
+ * are silent about membership. A polite status region mounted at the
+ * canvas root announces every count change — "1 job selected" / "N jobs
+ * selected" / "Selection cleared". The region is ALWAYS mounted (a live
+ * region must already exist for the change it reports, so gating it on
+ * the count would miss the very transitions it exists to speak) and the
+ * announcement skips the initial render — landing on the canvas is not
+ * an event worth hearing. Rapid Shift+Space walks announce each step
+ * honestly: every count renders a different string, so each step is a
+ * text change; only an N→0→N round-trip inside one count reuses a
+ * string, and the cleared announcement already spoke for the exit.
+ */
+const SelectionLiveReceipt = React.memo(function SelectionLiveReceipt() {
+  const selectedIds = useWorkflowStore((s) => s.selectedIds);
+  const [receipt, setReceipt] = React.useState("");
+  // the mount skip: the first effect run is the LANDING, not a selection
+  // event — the receipt starts empty and speaks only from the first
+  // genuine change onward.
+  const landedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!landedRef.current) {
+      landedRef.current = true;
+      return;
+    }
+    setReceipt(
+      selectedIds.length === 0
+        ? "Selection cleared"
+        : selectedIds.length === 1
+          ? "1 job selected"
+          : `${selectedIds.length} jobs selected`
+    );
+  }, [selectedIds]);
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      data-testid="selection-live-receipt"
+      className="sr-only"
+    >
+      {receipt}
     </div>
   );
 });
@@ -661,6 +715,10 @@ const SelectionToolbar = React.memo(function SelectionToolbar({
   // reads the selection in PICK order (first click = left column), which
   // selectedIds preserves and the jobs-list filter would scramble
   const [compareOpen, setCompareOpen] = React.useState(false);
+  // t1010 — the selection's pace face: the toolbar's gauge opens the
+  // pace dialog on the SELECTED rows (the local well — the same lib the
+  // project face drinks from, no fetch)
+  const [paceOpen, setPaceOpen] = React.useState(false);
   // canvas layout size, measured outside render (refs are off-limits there)
   const [canvasSize, setCanvasSize] = React.useState<{ w: number; h: number }>({ w: 0, h: 0 });
   React.useEffect(() => {
@@ -688,11 +746,15 @@ const SelectionToolbar = React.memo(function SelectionToolbar({
     [sel, selectedIds]
   );
   // Task 127 — wires whose BOTH endpoints are in the selection (the count
-  // shown in the save dialog, and what the snapshot will carry)
-  const internalWireCount = React.useMemo(() => {
+  // shown in the save dialog, and what the snapshot will carry). t1016 —
+  // the same wires ride to the pace dialog: the subchain critical walk
+  // reads the canvas's own edges, so the chain it speaks can never
+  // disagree with the picture about what connects to what.
+  const internalWires = React.useMemo(() => {
     const ids = new Set(sel.map((j) => j.id));
-    return wsEdges.filter((e) => ids.has(e.fromJobId) && ids.has(e.toJobId)).length;
+    return wsEdges.filter((e) => ids.has(e.fromJobId) && ids.has(e.toJobId));
   }, [sel, wsEdges]);
+  const internalWireCount = internalWires.length;
 
   if (hidden || sel.length < 2) return null;
 
@@ -745,6 +807,18 @@ const SelectionToolbar = React.memo(function SelectionToolbar({
             <span className="h-4 w-px bg-border" aria-hidden="true" />
           </>
         )}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-7"
+          onClick={() => setPaceOpen(true)}
+          aria-label={`Pace of ${sel.length} selected jobs`}
+          title="Pipeline pace of the selection — per-stage durations and wall time for just these jobs"
+          data-testid="toolbar-pace-selection"
+        >
+          <Timer className="size-3.5" />
+        </Button>
+        <span className="h-4 w-px bg-border" aria-hidden="true" />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs font-medium">
@@ -811,7 +885,7 @@ const SelectionToolbar = React.memo(function SelectionToolbar({
             setBusy(true);
             void duplicateSelected().finally(() => setBusy(false));
           }}
-          aria-label="Duplicate selection"
+          aria-label={busy ? "Duplicating the selection…" : "Duplicate selection"}
           title="Duplicate the selection — wires BETWEEN the copies are recreated, everything stays idle"
         >
           <Copy className="size-3.5" />
@@ -835,10 +909,23 @@ const SelectionToolbar = React.memo(function SelectionToolbar({
         onOpenChange={setCompareOpen}
       />
 
+      {/* t1010 — the selection's pace: the local well (the same lib the
+          project face drinks from), scoped to the selected rows. t1016 —
+          the internal wires ride along: the face walks the critical chain
+          within the selection when the picks actually connect. */}
+      <PaceDialog
+        open={paceOpen}
+        onOpenChange={setPaceOpen}
+        projectId={null}
+        projectName={null}
+        jobs={sel}
+        edges={internalWires}
+      />
+
       {/* Task 127 — name-and-save the selection as a reusable template.
           The dialog steals focus for typing; Enter saves, Esc cancels. */}
       <Dialog open={tplOpen} onOpenChange={setTplOpen}>
-        <DialogContent className="max-w-sm gap-3" data-canvas-ui="save-template-dialog">
+        <DialogContent className="sm:max-w-sm gap-3" data-canvas-ui="save-template-dialog">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
               <LayoutTemplate className="size-4 text-primary" aria-hidden="true" />
@@ -875,6 +962,7 @@ const SelectionToolbar = React.memo(function SelectionToolbar({
             <Button
               size="sm"
               disabled={tplBusy || !tplName.trim()}
+              aria-label={tplBusy ? "Save template (saving the template)" : !tplName.trim() ? "Save template (name the template first)" : "Save template"}
               onClick={() => {
                 setTplBusy(true);
                 void saveSelectionTemplate(tplName).finally(() => {
@@ -2390,6 +2478,17 @@ export function WorkflowCanvas() {
   const project = useWorkflowStore((s) => s.project);
   const [bookmarksOpen, setBookmarksOpen] = React.useState(false);
   const [bookmarkName, setBookmarkName] = React.useState("");
+  // t1001 — the bookmarks popover's doors keep no draft: EVERY close path
+  // (the outside click, Escape, the trigger toggle) routes through this
+  // ONE mouth, so a reopened popover opens EMPTY instead of resurrecting
+  // the abandoned name (the t1000 one-mouth law's popover form — the
+  // create dialog's closeCreate, carried to the toolbar). A saved
+  // bookmark keeps its own already-emptying success path and stays
+  // open — saving is not closing.
+  const openBookmarksDoor = React.useCallback((o: boolean) => {
+    setBookmarksOpen(o);
+    if (!o) setBookmarkName("");
+  }, []);
   // bookmark key mirrors the store actions' derivation (project?.id, NOT
   // jobs[0].projectId): bookmarks are a per-(project:workspace) USER asset —
   // they must survive deleting the last job, unlike fitKey which frames
@@ -2479,7 +2578,7 @@ export function WorkflowCanvas() {
     } catch (err) {
       toast({
         title: "Export failed",
-        description: err instanceof Error ? err.message : "Unknown error",
+        description: err instanceof Error ? err.message : "the failure threw no readable reason",
         variant: "destructive",
       });
     } finally {
@@ -2509,7 +2608,7 @@ export function WorkflowCanvas() {
     } catch (err) {
       toast({
         title: "Copy failed",
-        description: err instanceof Error ? err.message : "Unknown error",
+        description: err instanceof Error ? err.message : "the failure threw no readable reason",
         variant: "destructive",
       });
     } finally {
@@ -2866,6 +2965,10 @@ export function WorkflowCanvas() {
         </span>
       )}
 
+      {/* t1011 — the selection's live receipt (always mounted — a live
+          region must precede the change it reports) */}
+      <SelectionLiveReceipt />
+
       {/* Bulk-selection toolbar (align · distribute · duplicate · delete) */}
       <SelectionToolbar rootRef={rootRef} hidden={band != null} />
 
@@ -2916,7 +3019,7 @@ export function WorkflowCanvas() {
             type="button"
             onClick={cancelConnect}
             aria-label="Cancel connection"
-            className="rounded-full p-0.5 text-muted-foreground transition-colors hover:text-foreground"
+            className="rounded-full p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <X className="size-3.5" />
           </button>
@@ -2990,10 +3093,19 @@ export function WorkflowCanvas() {
         </div>
       )}
 
-      {/* Zoom controls + auto-arrange */}
+      {/* Zoom controls + auto-arrange — t911: the strip WRAPS at the narrow
+          doors. The strip is 521px of tools; on a 320 viewport it used to
+          clip its whole right tail inside the section's overflow-hidden
+          (Redo, History, Auto-arrange, Viewport bookmarks — none with a
+          keyboard path, all gone for touch). The house wrap law (the door
+          keymap row's flex-wrap, pinned by the t909 audit) now owns the
+          tail: max-width keeps a 12px gutter each side (left-3's own
+          measure), flex-wrap carries the overflow to a second row, and the
+          bottom-3 anchor grows the strip UPWARD — wide canvases never
+          notice (521px < any max-width that matters). */}
       <div
         data-canvas-ui="zoom-controls"
-        className="no-print card-lift absolute bottom-3 left-3 z-30 flex items-center gap-0.5 rounded-lg border bg-card/95 p-1 backdrop-blur"
+        className="no-print card-lift absolute bottom-3 left-3 z-30 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-0.5 rounded-lg border bg-card/95 p-1 backdrop-blur"
       >
         <Button
           variant="ghost"
@@ -3001,7 +3113,7 @@ export function WorkflowCanvas() {
           className="size-7"
           onClick={() => zoomAroundCenter(zoom - ZOOM_STEP)}
           disabled={zoom <= ZOOM_MIN}
-          aria-label="Zoom out"
+          aria-label={zoom <= ZOOM_MIN ? "Zoom out (already at minimum zoom)" : "Zoom out"}
         >
           <ZoomOut className="size-4" />
         </Button>
@@ -3026,7 +3138,7 @@ export function WorkflowCanvas() {
           className="size-7"
           onClick={() => zoomAroundCenter(zoom + ZOOM_STEP)}
           disabled={zoom >= ZOOM_MAX}
-          aria-label="Zoom in"
+          aria-label={zoom >= ZOOM_MAX ? "Zoom in (already at maximum zoom)" : "Zoom in"}
         >
           <ZoomIn className="size-4" />
         </Button>
@@ -3093,7 +3205,7 @@ export function WorkflowCanvas() {
           onClick={() => useWorkflowStore.getState().toggleCriticalLens()}
           disabled={criticalWalk == null}
           aria-pressed={criticalLens}
-          aria-label="Toggle critical path lens"
+          aria-label={criticalWalk == null ? "Toggle critical path lens (no finished chain to walk)" : "Toggle critical path lens"}
           title="Toggle the critical path lens (P) — keep the chain that set the finish at full ink, dim everything else"
           data-canvas-ui="critical-toggle"
         >
@@ -3197,7 +3309,7 @@ export function WorkflowCanvas() {
             (localStorage, cross-session), unlike the per-workspace memory
             (sessionStorage, per-tab). Same toolbar dialect as the rest:
             ghost icon + Popover panel. */}
-        <Popover open={bookmarksOpen} onOpenChange={setBookmarksOpen}>
+        <Popover open={bookmarksOpen} onOpenChange={openBookmarksDoor}>
           <PopoverTrigger asChild>
             <Button
               variant="ghost"
@@ -3235,7 +3347,7 @@ export function WorkflowCanvas() {
                 size="icon"
                 className="size-7 shrink-0"
                 disabled={!bookmarkName.trim()}
-                aria-label="Save current view"
+                aria-label={!bookmarkName.trim() ? "Save current view (name the view first)" : "Save current view"}
                 data-canvas-ui="viewport-bookmark-save"
                 onClick={() => {
                   if (saveViewportBookmark(bookmarkName)) setBookmarkName("");
@@ -3273,7 +3385,7 @@ export function WorkflowCanvas() {
                     )}
                     <button
                       type="button"
-                      className="flex min-w-0 flex-1 items-center justify-between rounded px-1.5 py-1 text-left text-xs hover:bg-accent"
+                      className="flex min-w-0 flex-1 items-center justify-between rounded px-1.5 py-1 text-left text-xs hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                       onClick={() => {
                         // t588 — the row click is an ARRIVAL, not a
                         // teleport: same dialogue as the slot keys (hold,
@@ -3313,7 +3425,7 @@ export function WorkflowCanvas() {
           className="size-7"
           onClick={() => void handleExportPng()}
           disabled={posterBusy !== null || jobs.length === 0}
-          aria-label="Export canvas as PNG"
+          aria-label={posterBusy !== null ? "Export canvas as PNG (a poster render is running)" : jobs.length === 0 ? "Export canvas as PNG (the world has no jobs yet)" : "Export canvas as PNG"}
           title="Export the whole workflow as a poster PNG (content-fit, with footer)"
         >
           {posterBusy === "download" ? (
@@ -3396,6 +3508,7 @@ export function WorkflowCanvas() {
                   data-canvas-ui="kind-legend-item"
                   data-kind={k}
                   className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                     "flex items-center gap-1.5 rounded px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
                     active && "bg-accent text-foreground"
                   )}
@@ -3464,13 +3577,24 @@ export function WorkflowCanvas() {
         </section>
       </ContextMenuTrigger>
 
+      {/* t1091 — the paper RECEIPT LEDGER: the fit-to-paper map keeps its
+          one-page contract (the scaled world box is untouched), but its
+          cards truncate their receipts at layout width and paper cannot
+          hover — the OOM/SLURM stories were unreachable on the very sheet
+          a scientist archives. The ledger is the truth's own document-
+          flow voice below the map: one line per job, FULL type label +
+          FULL receipt, pages naturally (a torn tail is worse than a
+          second sheet). Hidden on screen; empty world prints nothing;
+          the Task 114 inspector step-aside kills it with the page. */}
+      <PrintReceiptLedger jobs={jobs} />
+
       {/* background menu — right-click empty canvas (cards open their own) */}
       <ContextMenuContent className="w-56">
         <ContextMenuLabel>
           Canvas · {jobs.length} job{jobs.length === 1 ? "" : "s"}
         </ContextMenuLabel>
         <ContextMenuSeparator />
-        <ContextMenuItem onClick={zoomToFit} disabled={jobs.length === 0}>
+        <ContextMenuItem onClick={zoomToFit} disabled={jobs.length === 0} aria-label={jobs.length === 0 ? "Zoom to fit workflow (the canvas is empty)" : "Zoom to fit workflow"}>
           <ZoomIn />
           Zoom to fit workflow
         </ContextMenuItem>
@@ -3482,11 +3606,12 @@ export function WorkflowCanvas() {
         <ContextMenuItem
           onClick={() => void applyLayout()}
           disabled={jobs.length === 0}
+          aria-label={jobs.length === 0 ? "Tidy layout (the canvas is empty)" : "Tidy layout"}
         >
           <Wand2 />
           Tidy layout
         </ContextMenuItem>
-        <ContextMenuItem onClick={() => void handleExportPng()} disabled={jobs.length === 0 || posterBusy !== null}>
+        <ContextMenuItem onClick={() => void handleExportPng()} disabled={jobs.length === 0 || posterBusy !== null} aria-label={posterBusy !== null ? "Export canvas as PNG (a poster render is running)" : jobs.length === 0 ? "Export canvas as PNG (the canvas is empty)" : "Export canvas as PNG"}>
           <Download />
           Export canvas as PNG
         </ContextMenuItem>
@@ -3494,11 +3619,12 @@ export function WorkflowCanvas() {
           onClick={() => void handleCopyPng()}
           disabled={jobs.length === 0 || posterBusy !== null}
           data-canvas-ui="canvas-menu-png-copy"
+          aria-label={posterBusy !== null ? "Copy canvas as PNG image (a poster render is running)" : jobs.length === 0 ? "Copy canvas as PNG image (the canvas is empty)" : "Copy canvas as PNG image"}
         >
           <ImageUp />
           Copy canvas as PNG image
         </ContextMenuItem>
-        <ContextMenuItem onClick={handleExportJson} disabled={jobs.length === 0}>
+        <ContextMenuItem onClick={handleExportJson} disabled={jobs.length === 0} aria-label={jobs.length === 0 ? "Export workflow as JSON (the canvas is empty)" : "Export workflow as JSON"}>
           <FileJson />
           Export workflow as JSON
         </ContextMenuItem>

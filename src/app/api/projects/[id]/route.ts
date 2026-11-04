@@ -13,6 +13,7 @@ import {
   readRuns,
   stopRun,
 } from "@/lib/relion/engine";
+import { serverErrorReply } from "@/lib/server-error";
 import { getConnection, loadConnections } from "@/lib/remote/connections";
 import {
   cancelDispatch,
@@ -124,8 +125,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       ...(remoteTouched ? { rebound: true } : {}),
     });
   } catch (error) {
-    console.error("PATCH /api/projects/[id] failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("PATCH /api/projects/[id]", error);
   }
 }
 
@@ -372,7 +372,6 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       },
     });
   } catch (error) {
-    console.error("DELETE /api/projects/[id] failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("DELETE /api/projects/[id]", error);
   }
 }

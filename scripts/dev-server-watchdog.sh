@@ -1,5 +1,7 @@
 #!/bin/bash
-# dev-server-watchdog.sh — the t404 promotion of the t403 band-aid, v2 (t405), cache hygiene v2.1 (t406).
+# dev-server-watchdog.sh — the t404 promotion of the t403 band-aid, v2 (t405),
+# cache hygiene v2.1 (t406), the thin-host recycle v3 (t1023), the storm law
+# extended to the fat arm v3.2 (t1080).
 #
 # /tmp/revive.sh (Task 403) kept the DEV server alive through the sandbox
 # patrol's reaping sprees, but it lived in /tmp with a 90-minute window
@@ -56,8 +58,158 @@
 # ~210s, cold compile done"). Old quarantines beyond the newest two are
 # reaped so the hygiene itself cannot fill the disk (each .next ~330MB).
 #
+# v3 (t1023) — THE THIN-HOST RECYCLE. The t1022 window's dmesg receipt:
+#
+#   oom-kill:...,task=next-server (v1,pid=16066 ...) anon-rss:1970692kB
+#
+# the kernel shot the server at 1.97GB — 630MB BELOW the v2 fixed line
+# (2600000KB) that was watching the whole time. The kernel's kill point was
+# never a fixed RSS: it is HOST EXHAUSTION — chrome and the suites held the
+# rest of the box and the fattest victim died mid-whatever. The t1021 fuel
+# law stated the principle on the import route ("the budget reads the
+# HOST's own numbers — never a fixed cap"); this version applies it to the
+# recycle: the loop now reads MemAvailable from /proc/meminfo (the kernel's
+# own honest figure — reclaimable cache already subtracted) and recycles
+# when EITHER arm fires:
+#
+#   the FAT arm (v2's law):             rss >= RSS_RECYCLE_KB
+#   the THIN-HOST arm (new):            rss >= RSS_SOFT_KB  AND
+#                                       avail <= HOST_FLOOR_KB
+#
+#   RSS_SOFT_KB (1900000, ~1.81GB) sits BELOW the witnessed kill (1.97GB)
+#   and BELOW the born footprint of the default lane (~2.0GB steady, the
+#   t524 mem-profile note) — the server at its BORN size already holds half
+#   the box, and the t1022 kill happened exactly there.
+#   HOST_FLOOR_KB (786432, 768MB) is the runway: a compile burst
+#   (~200-400MB) plus a chrome spawn (~600MB) still fit inside it — at
+#   avail below the floor the NEXT big allocation is the exact shape that
+#   draws the kernel's SIGKILL, so the recycle happens on our schedule
+#   first.
+#   RECYCLE_COOLDOWN_S (300) is the STORM LAW: a boot younger than the
+#   dwell already relieved the host by ~2GB; recycling again inside the
+#   dwell is skipped and logged once — if the host is STILL thin five
+#   minutes after a 2GB reclaim, the hog is elsewhere and one more
+#   scheduled recycle is still ours to take, but never at poll cadence
+#   (the t524 boot->recycle->boot shape, forbidden by construction).
+#
+#   The fire line carries ALL FOUR numbers (rss, avail, and the two
+#   thresholds) plus which arm fired — the refusal's words law (t1021)
+#   applied to the guardian: the log IS the verdict's receipt.
+#
+#   The decision lives in ONE pure function — recycle_decision(rss, avail,
+#   since_boot) -> "fire <arm> ..." | "skip cooldown ..." | "hold ..." —
+#   no probes, no side effects; WATCHDOG_UNIT_MODE=1 hands a caller the
+#   constants and the function and exits before the lock and the loop, so
+#   the unit rides the REAL arithmetic without ever approaching the kill
+#   paths (a sourced unit must not fight the live keeper's flock — the
+#   single-keeper law would execute it after 15s).
+#
+# v3.2 (t1080) — THE STORM LAW COVERS THE FAT ARM. The t1080 window
+# witnessed the recycle storm the v2 tuning words had already named but
+# the v3 code had only half-coded:
+#
+#   the t1080 morning: server generations dying at 30-60s of age
+#   (PIDs 12336 -> 12669 -> 12849 -> 14001 within minutes), every one
+#   mid-compile ("Compiling /api/jobs ..." its last words), zero kernel
+#   record — and the watchdog's own fire line confessing: a generation
+#   watched at rss=2737152KB, FIVE SECONDS old. The tree's compile burst
+#   had grown past the fat line (2.6GB): the burst itself now crosses the
+#   threshold, and the fat arm — cooldown-free since v2 — murdered every
+#   cold compile mid-flight, booted the next one, murdered it again.
+#   The dirty-cache cure could never fire (prewarm / answers warm; the
+#   disease moved to the API route), the storm law never applied (it
+#   guarded only the thin-host arm), the loop recycled at poll cadence —
+#   the exact "recycle growth, not bursts" violation the t405 retune
+#   (2.35 -> 2.6) was written to prevent, reborn one era later.
+#
+#   The cure is ONE guard, the storm law applied where it always
+#   belonged: the fat arm now honors the same boot-clock dwell as the
+#   thin-host arm. A boot younger than RECYCLE_COOLDOWN_S whose RSS
+#   crosses the fat line is a BURST IN FLIGHT — skipped (logged once per
+#   episode, the same once-per-episode honesty), never killed mid-compile.
+#   If the RSS is still at or above the fat line when the dwell expires,
+#   it is STEADY fat — the controlled recycle happens then, on our
+#   schedule, at the storm-law cadence (never at poll cadence). The
+#   threshold itself does not move: the fat line keeps its meaning
+#   (the absolute growth line), only the cadence gets the guard.
+#
+# v3.3 (t1177) — THE BORN-FAT RE-SEAT + THE GUARDIAN NEVER FEEDS THE
+# CANVAS. Two witnesses from the t1173-merged tree's first night:
+#
+#   (a) THE RECYCLE STORM, three full cycles on camera (dev-watchdog.log
+#   01:24-01:41Z): the merged tree is BORN HEAVY — generations witnessed
+#   at 2936460 / 2996520 / 3108328KB within their first two minutes,
+#   settling to ~2.65-2.75GB — and the v3.2 fat line (2650000) sat BELOW
+#   the birth weight. Every generation was condemned at birth: dwell
+#   expiry -> "fire fat" -> reboot -> born fat again. The t1080 lesson
+#   generalized: recycle GROWTH, not bursts — and not BIRTHS either. The
+#   fat line moves above the born PEAK (3108328 witnessed): 3250000 keeps
+#   the arm's meaning (growth beyond the tree's own birth), while staying
+#   below the kernel's witnessed corpse line (3435408, twice this night).
+#
+#   (b) THE THIN-HOST ARM INHERITED THE STORM: on the born-fat tree, a
+#   healthy generation leaves MemAvailable hovering 400-900MB — the 768MB
+#   floor was permanently true, so with the fat arm re-seated the
+#   thin-host conjunction would fire every dwell forever. The floor drops
+#   to 320000 (320MB): the arm now means exactly what it always said —
+#   the BOX is about to die (the next allocation draws the kernel's
+#   SIGKILL), recycle the fattest thing on our schedule. A healthy
+#   born-fat generation (avail 425-870MB witnessed all night) holds.
+#
+#   (c) THE TWO-MOUTHS LAW REACHES THE GUARDIAN: the health check and the
+#   prewarm both hit `/` — the canvas whale's own URL. The t1170 cure
+#   removed the instrumentation's get("/") but the guardian's mouth
+#   remained: every resurrect-boot prewarmed the canvas (a cold
+#   post-quarantine boot would compile 3.4GB for nobody, mid-corps, on
+#   the thinnest box of its life). Both mouths move to the API lane
+#   (/api/projects — cheap, always real, first of the t1170 boot five):
+#   the canvas compiles when a VISITOR arrives or when the quiet-compile
+#   walk asks for it — never for the guardian's health check.
+#
+# v4 (t1177, landing the t1080 contract) — THE PAUSE DOOR + BIRTH
+# CONTROL. The t1079/t1080 build-day law named the keeper's own resurrect
+# as the build lane's enemy: the build stops the dev lane, the keeper's
+# RESURRECT law reads the silence as a corpse, the dev server boots
+# MID-BUILD, the kernel draws. Two doors, both named by the build-guard's
+# PAUSE-FIRST verdict (exit 3):
+#   the FLAG file ($WATCHDOG_PAUSE_FILE): touch it and every arm of the
+#   RUNNING keeper holds — the pause seat is the loop's FIRST seat (a
+#   paused keeper does zero work: no health curl, no arms), speaks ONCE
+#   per episode, sleeps through. Lift with rm.
+#   the ENV (CRYOFLOW_NO_WATCHDOG=1): a keeper not yet born declines to
+#   be born (checked after the unit-mode return, before the flock — a
+#   declined keeper never takes the lock).
+#
+# v4.1 (t1178) — THE QUARANTINE'S DEEP-WITNESS GATE. The v2.1 cache
+# hygiene read "cache dirty" out of ANY three consecutive boot failures;
+# the t1177 morning proved a broken TREE can wear that signature (the
+# file-level harvest ate next/dist while every headcount read whole — the
+# quarantine fired twice on a healthy .next). The mv now requires the tree
+# to be provably whole: entrance file + headcount, the same two witnesses
+# the launcher's own restore asks for. See the gate in boot().
+#
+# THE RENAME LAW (t1023, the t894 lesson applied to this file itself):
+# this script is RUNNING somewhere, always. bash reads a script
+# incrementally — editing the live inode in place (sed -i, >>, truncate)
+# shifts the running reader's offsets and corrupts execution mid-loop.
+# To change this file: write a NEW file, `bash -n` it, `mv` it over this
+# path (a rename swaps the dirent; the running keeper keeps the OLD inode
+# by fd and finishes its loop uncorrupted), then restart the keeper (kill
+# the old pid; the new instance's flock retry rides out the dying-keeper
+# window, the t531 law). NEVER edit in place.
+#
+# THE SWAP AMENDMENT (t1023, the inheritance-law witness): killing the
+# keeper does NOT free the lock if a PRE-v3.1 boot leaked fd 9 into the
+# server tree (the lock rides the OFD shared with node/next-server). If a
+# fresh keeper fails its flock against a holder that is not a keeper, the
+# leak carrier is the server tree: kill it (pkill -f "next dev";
+# pkill -f "next-server") — the lock dies with it and the fresh keeper
+# reboots the server itself. Pre-v3.1 keepers can also re-leak on their
+# next boot; the swap is not clean until the keeper running the loop is a
+# v3.1 one.
+#
 # Run detached:  (nohup bash scripts/dev-server-watchdog.sh >> /tmp/cryoflow-qa/dev-watchdog.log 2>&1 &)
-# Stop with:     pkill -f dev-server-watchdog
+# Stop with:     kill <keeper pid>   (then relaunch per the line above)
 cd "$(dirname "$0")/.." || exit 1
 # t503 — logs live OUTSIDE the repo tree (see dev-server.sh's note): an
 # in-tree heartbeat fed Next's dev watcher a rebuild fire that ate ~44MB/s
@@ -65,6 +217,207 @@ cd "$(dirname "$0")/.." || exit 1
 QA_LOG_DIR="${CRYOFLOW_QA_LOG_DIR:-/tmp/cryoflow-qa}"
 mkdir -p "$QA_LOG_DIR"
 LOG="$QA_LOG_DIR/dev-watchdog.log"
+# v4 — the pause door's flag file (one door, both scripts derive the same
+# path: build-guard.sh carries the PAUSE-FIRST verdict that names it)
+WATCHDOG_PAUSE_FILE="$QA_LOG_DIR/dev-watchdog.pause"
+
+SILENT_ZOMBIE_S="${WATCHDOG_ZOMBIE_S:-240}"       # silent + process present => corpse. 240s: must cover a COLD webpack compile of the home graph (~45s warm cache, minutes truly cold — the zombie it exists for was 8 HOURS stale, so a generous grace costs nothing)
+# t405, retuned once live: the kernel's OOM kill landed at anon-rss 2.84GB
+# (chrome-headless was allocating; the kernel shoots the fattest victim) —
+# 2.6GB lost ONE race to a compile burst while chrome held 600MB (the 2.84GB
+# kill); retuned 2.35 -> 2.6: the compile BURST itself spikes to ~2.2GB+
+# within 33s and a 2.35 threshold murders every cold compile mid-flight — recycle growth, not bursts.
+# t1080 — the burst outgrew the line (witnessed 2737152KB at 5s of age) and
+# the line also sat BELOW the tree's measured steady state (2613212KB after
+# a completed walk — every idle generation would have been recycled at dwell
+# expiry). v3.2's answer is twofold: the cooldown guard (bursts inside the
+# dwell are growth in flight, never killed mid-compile) AND the line
+# re-seated at 2650000KB — just above the measured steady state, still
+# below the kernel's host-starved kill zone (2722164 / 2734924 witnessed).
+# The host-starved case stays the THIN-HOST arm's business (soft 1.9GB +
+# floor 768MB), which keeps its own cooldown.
+# t1177 — the v3.3 re-seat (2650000 -> 3250000): the line now sits ABOVE
+# the merged tree's born peak (3108328 witnessed) and below the kernel's
+# corpse line (3435408 witnessed) — recycle growth beyond birth, never
+# births. See the v3.3 header block for the storm witnesses.
+RSS_RECYCLE_KB="${WATCHDOG_RECYCLE_KB:-3250000}"
+# t1023 — the thin-host arm's two thresholds and the storm dwell (see the
+# v3 header for the witnesses and the arithmetic).
+RSS_SOFT_KB="${WATCHDOG_RECYCLE_SOFT_KB:-1900000}"
+# t1177 — the v3.3 floor re-seat (786432 -> 320000): on the born-fat tree
+# the old floor was permanently true (healthy generations leave avail at
+# 400-900MB), a second storm wearing the t1023 arm. The floor now marks
+# the BOX's dying breath, not the born-fat steady state. See v3.3 (b).
+HOST_FLOOR_KB="${WATCHDOG_HOST_FLOOR_KB:-320000}"
+RECYCLE_COOLDOWN_S="${WATCHDOG_RECYCLE_COOLDOWN_S:-300}"
+
+silent_since=""
+boot_fail_streak=0
+DIRTY_CACHE_STREAK="${WATCHDOG_DIRTY_STREAK:-3}"
+skip_logged=0
+pause_logged=0   # v4 — the paused episode speaks ONCE
+
+prewarm() {
+  # v3.3 — the API lane, never the canvas (the two-mouths law): poll
+  # /api/projects until the boot's API warm-up lane (the t1170 five, run
+  # by the server's own instrumentation) has the require cache warm. The
+  # canvas belongs to the visitor and the quiet-compile walk.
+  for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14; do
+    if curl -s -o /dev/null --max-time 5 http://localhost:3000/api/projects; then
+      echo "[$(date -u +%H:%M:%SZ)] prewarm: /api/projects answers (attempt $i)" >> "$LOG"
+      return 0
+    fi
+    sleep 5
+  done
+  echo "[$(date -u +%H:%M:%SZ)] prewarm: /api/projects still silent after 70s (slow compile? flap window?)" >> "$LOG"
+  return 1
+}
+
+# v4 — THE PAUSE DOOR's pure seat (the recycle_decision pattern): the
+# flag file's existence law and nothing else — no probes, no side effects.
+pause_decision() {
+  if [ -f "$WATCHDOG_PAUSE_FILE" ]; then echo "paused"; else echo "live"; fi
+}
+
+boot() {
+  last_boot_ts=$(date +%s)
+  skip_logged=0
+  echo "[$(date -u +%H:%M:%SZ)] server down, no next dev process — booting with hardened env" >> "$LOG"
+  # t524 — boot the DEFAULT lane, not the webpack escape hatch. t416's
+  # DEV_HEAP_MB=1792 + --webpack predates the t461 verdict ("QA runs on the
+  # dev lane, the verified recipe") and the t524 mem-profile verdict: on
+  # today's tree the webpack lane is BORN at ~2.5GB RSS — 100MB under this
+  # watchdog's own recycle line, a recycle storm by construction (boot ->
+  # 2.5GB -> recycle -> boot ...) — while the turbopack default (896 heap)
+  # is born at ~2.0GB steady state and compiles routes normally (live
+  # witness this window: born 2.0GB, zero growth over 45s of traffic).
+  # The default lane is the single source of truth; the watchdog boots it.
+  # v3.1 — THE INHERITANCE LAW: fd 9 (the single-keeper lock) has no
+  # close-on-exec; without 9>&- the boot child inherits it and passes it
+  # down the WHOLE server tree (dev-server.sh -> node next dev ->
+  # next-server), so the flock rides the guarded process for its lifetime.
+  # Witnessed live (t1023): the 11:17 boot leaked the lock into the server
+  # tree; the keeper swap at 11:25 then deadlocked twice — the fresh
+  # keeper's flock failed 15s straight against a lock held by node 23072,
+  # and the world stood unguarded. The lock NEVER reaches the guarded
+  # tree again.
+  bash scripts/dev-server.sh 9>&- >> "$LOG" 2>&1
+  if prewarm; then
+    boot_fail_streak=0
+    return 0
+  fi
+  # v2.1 — the dirty-cache verdict: prewarm just failed. A WARM boot answers
+  # in ~30-45s and a cold clean boot in ~210s; failing the 70s prewarm window
+  # on the FIRST miss is normal (cold), but missing it DIRTY_CACHE_STREAK
+  # times IN A ROW means every boot dies mid-compile — the OOM-corrupted
+  # cache signature. Quarantine and let the next boot compile clean.
+  boot_fail_streak=$((boot_fail_streak + 1))
+  if [ "$boot_fail_streak" -ge "$DIRTY_CACHE_STREAK" ]; then
+    # v4.1 — THE QUARANTINE'S DEEP-WITNESS GATE (the t1177 false positive's
+    # cure). The hygiene reads "cache dirty" out of ANY three consecutive
+    # boot failures — but that morning's failures were a broken TREE wearing
+    # the cache's symptoms (next/dist eaten at file level, MODULE_NOT_FOUND
+    # at the entrance while every headcount read 643/643 whole): the
+    # quarantine fired TWICE on a healthy .next and the warm canvas graph
+    # had to be restored from .next.corrupt-* both times. The quarantine is
+    # the CACHE's medicine and must be withheld when the TREE cannot boot:
+    # the entrance file missing (or the headcount thin) means the launcher's
+    # deep-witness restore is the cure, never the mv. Only a WHOLE tree with
+    # three dead boots convicts the cache.
+    if [ -d .next ] && [ -f node_modules/next/dist/bin/next ] && [ "$(ls node_modules 2>/dev/null | wc -l)" -ge 600 ]; then
+      echo "[$(date -u +%H:%M:%SZ)] boot failed $boot_fail_streak times in a row — OOM-corrupted-cache signature, quarantining .next (v2.1 cache hygiene; the tree whole — the v4.1 deep-witness gate passed)" >> "$LOG"
+      ts=$(date +%Y%m%d-%H%M%S)
+      mv .next ".next.corrupt-$ts" 2>/dev/null
+      # keep only the two newest quarantines — the hygiene must not fill the disk
+      ls -1dt .next.corrupt-* 2>/dev/null | tail -n +3 | while read -r old; do
+        echo "[$(date -u +%H:%M:%SZ)] reaping old quarantine $old" >> "$LOG"
+        rm -rf "$old"
+      done
+    else
+      echo "[$(date -u +%H:%M:%SZ)] boot failed $boot_fail_streak times in a row — quarantine WITHHELD (v4.1 deep-witness gate): the tree itself cannot boot (entrance/headcount), the cache is not the disease — the launcher's restore is the cure" >> "$LOG"
+    fi
+    boot_fail_streak=0
+  fi
+  return 1
+}
+
+next_server_rss_kb() {
+  # max RSS across the server tree's workers (the kernel's OOM victim is the
+  # worker, not the launcher — witness: "task=next-server").
+  # t1135 — BOTH lanes answer: the dev lane's next-server workers AND the
+  # prod standalone server (bun/node .../standalone/server.js — the t417
+  # verdict's lane on this box). The guard guards THE server serving :3000,
+  # whatever name the lane wears; the lane-blind matcher read rss=0 on a
+  # healthy standalone world (census r1's only RED) and L9 told the truth
+  # about the reader, not the world.
+  local p max=0 r
+  for p in $(pgrep -f 'next-server|standalone/server\.js' 2>/dev/null); do
+    r=$(ps -o rss= -p "$p" 2>/dev/null | tr -d ' ')
+    [ -n "$r" ] && [ "$r" -gt "$max" ] && max=$r
+  done
+  echo "$max"
+}
+
+host_avail_kb() {
+  # t1023 — the HOST's own number: MemAvailable already subtracts what the
+  # kernel knows it cannot reclaim, the same figure the OOM killer's own
+  # arithmetic reads. No free/awk parsing drama, one source of truth.
+  awk '/^MemAvailable:/{print $2; exit}' /proc/meminfo 2>/dev/null || echo 0
+}
+
+recycle_decision() {
+  # t1023 — the pure decision: (rss_kb, avail_kb, seconds_since_boot) ->
+  # one line: "fire fat ..." | "skip cooldown fat ..." | "fire thin-host ..."
+  # | "skip cooldown ..." | "hold ...". No probes, no side effects — the
+  # unit rides this directly (WATCHDOG_UNIT_MODE=1), the loop rides it
+  # every poll.
+  # v3.2 — the storm law covers the fat arm: a boot inside the dwell whose
+  # RSS crosses the fat line is a compile burst in flight (the t1080
+  # witness: 2737152KB at 5s of age, every generation murdered mid-compile
+  # at poll cadence) — skipped, never killed mid-compile; at dwell expiry
+  # it is steady fat and the controlled recycle happens then.
+  local rss="$1" avail="$2" since_boot="$3"
+  if [ "$rss" -ge "$RSS_RECYCLE_KB" ]; then
+    if [ "$since_boot" -lt "$RECYCLE_COOLDOWN_S" ]; then
+      echo "skip cooldown fat rss=${rss}KB avail=${avail}KB since_boot=${since_boot}s"
+      return 1
+    fi
+    echo "fire fat rss=${rss}KB avail=${avail}KB"
+    return 0
+  fi
+  if [ "$rss" -ge "$RSS_SOFT_KB" ] && [ "$avail" -le "$HOST_FLOOR_KB" ]; then
+    if [ "$since_boot" -lt "$RECYCLE_COOLDOWN_S" ]; then
+      echo "skip cooldown rss=${rss}KB avail=${avail}KB since_boot=${since_boot}s"
+      return 1
+    fi
+    echo "fire thin-host rss=${rss}KB avail=${avail}KB"
+    return 0
+  fi
+  echo "hold rss=${rss}KB avail=${avail}KB"
+  return 1
+}
+
+# t1023 — the unit's seat: WATCHDOG_UNIT_MODE=1 hands the caller the
+# constants and the pure decision function and EXITS before the lock and
+# the loop — a sourced unit never fights the live keeper's flock (the
+# single-keeper law would execute it after 15s) and never approaches the
+# kill paths. The verdict is unambiguous: sourced -> return from the file;
+# executed -> exit quietly.
+if [ "${WATCHDOG_UNIT_MODE:-0}" = "1" ]; then
+  if [ "${BASH_SOURCE[0]}" != "$0" ]; then
+    return 0
+  fi
+  exit 0
+fi
+
+# v4 — THE BIRTH CONTROL: a keeper not yet born declines to be born when
+# the env says so (the build lane stands alone). Seated after the
+# unit-mode return (sourced units never exit) and BEFORE the flock (a
+# declined keeper never takes the lock).
+if [ "${CRYOFLOW_NO_WATCHDOG:-0}" = "1" ]; then
+  echo "[$(date -u +%H:%M:%SZ)] CRYOFLOW_NO_WATCHDOG=1 — the keeper declines to be born (v4 birth control; the build lane stands alone)" >> "$LOG"
+  exit 0
+fi
 
 # single-keeper, kernel edition (t405): the first pgrep-count guard (loose
 # pattern) matched its own launcher's command string; the anchored rewrite
@@ -95,91 +448,67 @@ if [ "$lock_ok" = 0 ]; then
   exit 0
 fi
 
-SILENT_ZOMBIE_S="${WATCHDOG_ZOMBIE_S:-240}"       # silent + process present => corpse. 240s: must cover a COLD webpack compile of the home graph (~45s warm cache, minutes truly cold — the zombie it exists for was 8 HOURS stale, so a generous grace costs nothing)
-# t405, retuned once live: the kernel's OOM kill landed at anon-rss 2.84GB
-# (chrome-headless was allocating; the kernel shoots the fattest victim) —
-# 2.6GB lost ONE race to a compile burst while chrome held 600MB (the 2.84GB
-# kill); retuned 2.35 -> 2.6: the compile BURST itself spikes to ~2.2GB+
-# within 33s and a 2.35 threshold murders every cold compile mid-flight — recycle growth, not bursts.
-RSS_RECYCLE_KB="${WATCHDOG_RECYCLE_KB:-2600000}"
-
-silent_since=""
-boot_fail_streak=0
-DIRTY_CACHE_STREAK="${WATCHDOG_DIRTY_STREAK:-3}"
-
-prewarm() {
-  # a fresh boot's home route compiles on first hit (~30-45s warm cache);
-  # poll it now so a suite's first goto lands on a compiled route
-  for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14; do
-    if curl -s -o /dev/null --max-time 5 http://localhost:3000/; then
-      echo "[$(date -u +%H:%M:%SZ)] prewarm: / answers (attempt $i)" >> "$LOG"
-      return 0
-    fi
-    sleep 5
-  done
-  echo "[$(date -u +%H:%M:%SZ)] prewarm: / still silent after 70s (slow compile? flap window?)" >> "$LOG"
-  return 1
-}
-
-boot() {
-  echo "[$(date -u +%H:%M:%SZ)] server down, no next dev process — booting with hardened env" >> "$LOG"
-  # t524 — boot the DEFAULT lane, not the webpack escape hatch. t416's
-  # DEV_HEAP_MB=1792 + --webpack predates the t461 verdict ("QA runs on the
-  # dev lane, the verified recipe") and the t524 mem-profile verdict: on
-  # today's tree the webpack lane is BORN at ~2.5GB RSS — 100MB under this
-  # watchdog's own recycle line, a recycle storm by construction (boot ->
-  # 2.5GB -> recycle -> boot ...) — while the turbopack default (896 heap)
-  # is born at ~2.0GB steady state and compiles routes normally (live
-  # witness this window: born 2.0GB, zero growth over 45s of traffic).
-  # The default lane is the single source of truth; the watchdog boots it.
-  bash scripts/dev-server.sh >> "$LOG" 2>&1
-  if prewarm; then
-    boot_fail_streak=0
-    return 0
-  fi
-  # v2.1 — the dirty-cache verdict: prewarm just failed. A WARM boot answers
-  # in ~30-45s and a cold clean boot in ~210s; failing the 70s prewarm window
-  # on the FIRST miss is normal (cold), but missing it DIRTY_CACHE_STREAK
-  # times IN A ROW means every boot dies mid-compile — the OOM-corrupted
-  # cache signature. Quarantine and let the next boot compile clean.
-  boot_fail_streak=$((boot_fail_streak + 1))
-  if [ "$boot_fail_streak" -ge "$DIRTY_CACHE_STREAK" ]; then
-    if [ -d .next ]; then
-      echo "[$(date -u +%H:%M:%SZ)] boot failed $boot_fail_streak times in a row — OOM-corrupted-cache signature, quarantining .next (v2.1 cache hygiene)" >> "$LOG"
-      ts=$(date +%Y%m%d-%H%M%S)
-      mv .next ".next.corrupt-$ts" 2>/dev/null
-      # keep only the two newest quarantines — the hygiene must not fill the disk
-      ls -1dt .next.corrupt-* 2>/dev/null | tail -n +3 | while read -r old; do
-        echo "[$(date -u +%H:%M:%SZ)] reaping old quarantine $old" >> "$LOG"
-        rm -rf "$old"
-      done
-    fi
-    boot_fail_streak=0
-  fi
-  return 1
-}
-
-next_server_rss_kb() {
-  # max RSS across next-server workers (the kernel's OOM victim is the worker,
-  # not the launcher — witness: "task=next-server")
-  local p max=0 r
-  for p in $(pgrep -f 'next-server' 2>/dev/null); do
-    r=$(ps -o rss= -p "$p" 2>/dev/null | tr -d ' ')
-    [ -n "$r" ] && [ "$r" -gt "$max" ] && max=$r
-  done
-  echo "$max"
-}
+# t1023 — the boot clock: seeded from the RUNNING server's own elapsed
+# seconds (a keeper starting next to a just-booted server inherits the
+# cooldown — the relief already happened, whoever performed it), updated
+# on every boot() this keeper performs.
+last_boot_ts=0
+_seed_pid=$(pgrep -f 'next-server' 2>/dev/null | head -1)
+if [ -n "$_seed_pid" ]; then
+  _etimes=$(ps -o etimes= -p "$_seed_pid" 2>/dev/null | tr -d ' ')
+  case "$_etimes" in
+    *[0-9]*) last_boot_ts=$(( $(date +%s) - _etimes )) ;;
+  esac
+fi
 
 while true; do
-  if curl -s -o /dev/null --max-time 3 http://localhost:3000/; then
+  # v4 — THE PAUSE SEAT, FIRST: a paused keeper does zero work (no health
+  # curl, no arms), speaks ONCE per episode, sleeps through. Lift: rm the
+  # flag (the build-guard's PAUSE-FIRST verdict names this door).
+  if [ "$(pause_decision)" = "paused" ]; then
+    if [ "$pause_logged" = 0 ]; then
+      echo "[$(date -u +%H:%M:%SZ)] PAUSED — flag file seen ($WATCHDOG_PAUSE_FILE); every arm holds. Lift with: rm $WATCHDOG_PAUSE_FILE" >> "$LOG"
+      pause_logged=1
+    fi
+    sleep 10
+    continue
+  fi
+  pause_logged=0
+  # v3.3 — the health check rides the API lane too (the two-mouths law):
+  # a liveness probe must never be the canvas whale's feeder.
+  if curl -s -o /dev/null --max-time 3 http://localhost:3000/api/projects; then
     silent_since=""
     rss=$(next_server_rss_kb)
-    if [ "$rss" -ge "$RSS_RECYCLE_KB" ]; then
-      echo "[$(date -u +%H:%M:%SZ)] next-server RSS ${rss}KB >= ${RSS_RECYCLE_KB}KB — controlled recycle before the kernel OOM does it" >> "$LOG"
-      pkill -f "next dev" 2>/dev/null; pkill -f "next-server" 2>/dev/null
-      sleep 2
-      boot
-    fi
+    avail=$(host_avail_kb)
+    since_boot=$(( $(date +%s) - last_boot_ts ))
+    decision=$(recycle_decision "$rss" "$avail" "$since_boot")
+    case "$decision" in
+      fire*)
+        echo "[$(date -u +%H:%M:%SZ)] recycle: ${decision} — thresholds fat>=${RSS_RECYCLE_KB}KB soft>=${RSS_SOFT_KB}KB floor<=${HOST_FLOOR_KB}KB — controlled recycle before the kernel OOM does it" >> "$LOG"
+        # t1128 — the consequence must be spoken where the kill is decided:
+        # the HMR reconnect after this kill FULL-RELOADS every open tab, and
+        # a reload evicts the whole modal chain silently (no console error,
+        # no focus event — the DOM removal moves focus to body without one).
+        # The t1128 witness: a Mol* ride died mid-walk with an empty
+        # recorder — this line is the killer confessing at the scene.
+        echo "[$(date -u +%H:%M:%SZ)] recycle: this kill full-reloads every open tab (HMR reconnect) — open dialogs evaporate silently (t1128 hollow-shell autopsy)" >> "$LOG"
+        pkill -f "next dev" 2>/dev/null; pkill -f "next-server" 2>/dev/null
+        sleep 2
+        boot
+        ;;
+      skip*)
+        # the storm law's honest silence: the skip speaks ONCE per episode,
+        # with its numbers — a line per poll would be the t503 heartbeat
+        # again
+        if [ "$skip_logged" = 0 ]; then
+          echo "[$(date -u +%H:%M:%SZ)] recycle: ${decision} — the boot clock guards the storm" >> "$LOG"
+          skip_logged=1
+        fi
+        ;;
+      *)
+        skip_logged=0
+        ;;
+    esac
   else
     now=$(date +%s)
     if pgrep -f "next dev" > /dev/null; then
@@ -187,6 +516,10 @@ while true; do
       dt=$((now - silent_since))
       if [ "$dt" -ge "$SILENT_ZOMBIE_S" ]; then
         echo "[$(date -u +%H:%M:%SZ)] silent ${dt}s with process present — lock-dead zombie, executing" >> "$LOG"
+        # t1128 — same spoken consequence as the recycle arm's fire: the
+        # reboot's HMR reconnect full-reloads open tabs and evicts their
+        # dialogs silently.
+        echo "[$(date -u +%H:%M:%SZ)] zombie kill: this kill full-reloads every open tab (HMR reconnect) — open dialogs evaporate silently (t1128 hollow-shell autopsy)" >> "$LOG"
         pkill -f "next dev" 2>/dev/null; pkill -f "next-server" 2>/dev/null
         sleep 2
         silent_since=""

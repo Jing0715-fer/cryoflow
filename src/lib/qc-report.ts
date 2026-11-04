@@ -36,6 +36,7 @@ import {
   type GuinierResponse,
   type MotionResponse,
   type TopazTrainingResponse,
+  fmtBFactor,
 } from "@/lib/chart-rows";
 
 /* ------------------------------------------------------------------ */
@@ -832,7 +833,8 @@ export const curveVerdictOf = (
       const d = data as GuinierResponse;
       if (!d.points || d.points.length === 0) return null;
       let v = `Guinier ${d.points.length} pts`;
-      if (d.bfactor != null) v += ` · B-factor ${d.bfactor.toFixed(1)} Å² (used for sharpening)`;
+      if (d.bfactor != null) v += ` · B-factor ${fmtBFactor(d.bfactor)} (used for sharpening)`; // t1155 — the B-factor word rides its ONE father (the agent's Guinier line spoke the same grain by a second hand)
+      // the range word is its own dialect (an en-dash join, not a value) — its 1-decimal grain already matches the Å father's
       const interp = d.interpretation;
       if (interp?.rangeAngstrom) v += ` · covers ${interp.rangeAngstrom.from.toFixed(1)}–${interp.rangeAngstrom.to.toFixed(1)} Å`;
       if (interp?.hasSharpened) v += " · sharpened curve in plot";

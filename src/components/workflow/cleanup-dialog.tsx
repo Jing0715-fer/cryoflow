@@ -76,14 +76,8 @@ import {
 import { toast } from "@/hooks/use-toast";
 import type { CleanupHistoryEntry } from "@/lib/relion/cleanup-history";
 import type { JobDTO } from "@/lib/types";
+import { fmtBytes } from "@/lib/relion/disk-usage"; // t1152 — the byte word rides its ONE father (the local twin died: this dialog's dialect was the father's birthplace)
 import { jobType, pourKindsOf, PORT_COLORS } from "@/lib/workflow"; // t767 — the kind vocabulary's TWENTY-SEVENTH reader joins the cleanup dialog
-
-function fmtBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-}
 
 interface CleanupDialogProps {
   job: JobDTO;
@@ -282,7 +276,7 @@ export function CleanupDialog({ job, open, onOpenChange, onCleaned }: CleanupDia
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
           data-cleanup-dialog=""
-          className="flex max-h-[85vh] w-full max-w-lg flex-col gap-0 overflow-hidden p-0 sm:max-w-lg"
+          className="flex max-h-[85vh] w-full sm:max-w-lg flex-col gap-0 overflow-hidden p-0 sm:max-w-lg"
         >
           <DialogHeader className="shrink-0 border-b px-5 py-4 sm:px-6">
             <DialogTitle className="flex items-center gap-2 text-sm font-semibold">
@@ -460,7 +454,7 @@ export function CleanupDialog({ job, open, onOpenChange, onCleaned }: CleanupDia
               className="h-7 gap-1.5 px-2.5 text-xs"
               onClick={() => void loadPlan(true)}
               disabled={loading || executing}
-              aria-label="Re-survey the run directory (fresh)"
+              aria-label={executing ? "Re-survey locked (a cleanup is executing)" : loading ? "Surveying the run directory…" : "Re-survey the run directory (fresh)"}
             >
               <RefreshCw className="size-3.5" aria-hidden="true" />
               Refresh
@@ -471,6 +465,7 @@ export function CleanupDialog({ job, open, onOpenChange, onCleaned }: CleanupDia
               className="h-7 px-3 text-xs"
               onClick={() => onOpenChange(false)}
               disabled={executing}
+              aria-label={executing ? "Close (the cleanup is running)" : "Close"}
             >
               Close
             </Button>
@@ -511,12 +506,17 @@ export function CleanupDialog({ job, open, onOpenChange, onCleaned }: CleanupDia
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="h-8 text-xs" disabled={executing}>
+            <AlertDialogCancel
+              className="h-8 text-xs"
+              disabled={executing}
+              aria-label={executing ? "Keep them (the cleanup is running)" : "Keep them"}
+            >
               Keep them
             </AlertDialogCancel>
             <AlertDialogAction
               className="h-8 gap-1.5 bg-danger-600 text-xs text-white hover:bg-danger-700"
               disabled={executing}
+              aria-label={executing ? "Delete them (the cleanup is running)" : "Delete them"}
               onClick={(e) => {
                 e.preventDefault();
                 void execute();

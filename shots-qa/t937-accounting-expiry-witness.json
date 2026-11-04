@@ -1,0 +1,27 @@
+{
+  "resetAt": "2026-10-12T19:05:10.934Z",
+  "stage1": {
+    "pass": 25,
+    "fail": 0,
+    "slurmId": "383",
+    "openedAt": 1791831945474,
+    "origConnId": "conn-mv5lwexm"
+  },
+  "at": "2026-10-12T19:17:58.906Z",
+  "stage2mid": {
+    "pass": 8,
+    "fail": 0,
+    "at": "2026-10-12T19:10:45.507Z"
+  },
+  "stage2": {
+    "pass": 16,
+    "fail": 0,
+    "expiryLine": "remote-run: the accounting question for \"t916 class2d witness\" expired unheard (no live connection) — the stop receipt's stamp stands"
+  },
+  "stage3": {
+    "pass": 26,
+    "fail": 0,
+    "manifestFiles": 190,
+    "restore": "done"
+  }
+}

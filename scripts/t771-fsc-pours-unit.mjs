@@ -214,8 +214,8 @@ console.log("C — the face (sixteenth address, flex host, boundary clause)");
   assert(
     code.includes("flex cursor-pointer items-center gap-2.5") &&
       code.includes("text-muted-foreground/70\">\n                  {job.type}\n                </span>\n                {pouring.length > 0 && (") &&
-      payments === 11,
-    "C7 boundary clause two faces: flex host owes nothing (gap speaks), ELEVEN code text-flow payments intact (stripped census — the full source's fourteen include three prose mentions ABOUT overflow)",
+      payments === 12,
+    "C7 boundary clause two faces: flex host owes nothing (gap speaks), TWELVE code text-flow payments intact (t1137 amendment 11→12, enumerated: the dialog body's Task-64 overflow-y-auto + the reading region's overflow-y-auto + the ten min-w-0/truncate row payments — the stripped census; the full source's fourteen include the two prose mentions ABOUT overflow in the Task-64 comment)",
     `found ${payments}`,
   );
   assert(

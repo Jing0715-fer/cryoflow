@@ -1,0 +1,69 @@
+{
+  "task": "t882",
+  "window": "cron 2026-11-02 14:50:37 +08:00 (trace 1a07549302235a99-cron-agent-loop-202611021457)",
+  "purpose": "the run-compare puzzle — is its Escape consumer alive where fsc-compare's is dead?",
+  "checks": [
+    {
+      "label": "R1 the canvas opens bare",
+      "pass": true,
+      "detail": "waited=0s"
+    },
+    {
+      "label": "R1b the Workflow tab active",
+      "pass": false,
+      "detail": "{\"found\":false}"
+    },
+    {
+      "label": "R1c the job cards on the canvas",
+      "pass": true,
+      "detail": "cards=15"
+    },
+    {
+      "label": "R2 the canvas panned onto the host card",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "R2b the host card dispatched",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "R3 the inspector arrived",
+      "pass": true,
+      "detail": "heads=[2D Classification (tutorial) — job inspector]"
+    },
+    {
+      "label": "R4 the Class A/B door present",
+      "pass": true,
+      "detail": "al=\"Class A/B — compare with another completed run (1 sibling runs available)\""
+    },
+    {
+      "label": "R5 the A/B dialog floats over the inspector (TWO dialogs)",
+      "pass": true,
+      "detail": "dlgs=2 heads=[2D Classification (tutorial) — job inspector | Class A/B — Occupancy share]"
+    },
+    {
+      "label": "R6 the consumer neutralized through the fiber",
+      "pass": true,
+      "detail": "{\"neutralized\":true,\"atHop\":0}"
+    },
+    {
+      "label": "R7 the neutralized fire's read",
+      "pass": true,
+      "detail": "fire={\"sent\":true,\"target\":\"DIV\"} post={\"dlgCount\":2,\"heads\":[\"2D Classification (tutorial) — job inspector\",\"Class A/B — Occupancy share\"]} late={\"landed\":true,\"atMs\":500} noopSynth=0"
+    },
+    {
+      "label": "R8 VERDICT: the consumer is DEAD HERE TOO — t874's cure was something else",
+      "pass": true,
+      "detail": "ONE layer peeled with the handler neutralized — (b) stands: both consumers are dead code; the t874 fix's green face must be explained by its side effect (a re-render? a structural change?) — BOTH comments need the measured truth"
+    },
+    {
+      "label": "R9 the world restored",
+      "pass": true,
+      "detail": "dlgs=0"
+    }
+  ],
+  "pass": 11,
+  "fail": 1
+}

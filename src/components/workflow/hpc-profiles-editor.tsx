@@ -304,7 +304,7 @@ export function HpcProfilesEditor({
           is a named keyboard region so its ground is reachable without a
           mouse. */}
       <DialogContent
-        className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 max-w-4xl"
+        className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl"
         onKeyDown={onEscapeClose(() => setOpen(false))}
       >
         <DialogHeader className="shrink-0 border-b px-5 pb-4 pt-5">
@@ -356,6 +356,7 @@ export function HpcProfilesEditor({
                       setConfirmDelete(false);
                     }}
                     className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                       "w-full rounded-md border px-2.5 py-2 text-left transition-colors",
                       p.id === selectedId
                         ? "border-primary/50 bg-primary/[0.06]"
@@ -389,6 +390,7 @@ export function HpcProfilesEditor({
                   className="h-7 flex-1 text-[11px]"
                   onClick={addProfile}
                   disabled={profiles.length >= MAX_PROFILES}
+                  aria-label={profiles.length >= MAX_PROFILES ? "Add (the profile limit is reached)" : "Add"}
                 >
                   <Plus className="size-3" aria-hidden="true" /> Add
                 </Button>
@@ -398,7 +400,7 @@ export function HpcProfilesEditor({
                   className="h-7 w-7 shrink-0 px-0"
                   onClick={duplicateProfile}
                   disabled={!selected || profiles.length >= MAX_PROFILES}
-                  aria-label="Duplicate selected profile"
+                  aria-label={!selected ? "Duplicate selected profile (pick a profile first)" : profiles.length >= MAX_PROFILES ? "Duplicate selected profile (the profile limit is reached)" : "Duplicate selected profile"}
                   title="Duplicate selected profile"
                 >
                   <Copy className="size-3" aria-hidden="true" />
@@ -670,7 +672,13 @@ export function HpcProfilesEditor({
             <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setOpen(false)}>
               Close
             </Button>
-            <Button size="sm" className="h-8 text-xs" onClick={() => void save()} disabled={saving || loading || !profiles.length}>
+            <Button
+              size="sm"
+              className="h-8 text-xs"
+              onClick={() => void save()}
+              disabled={saving || loading || !profiles.length}
+              aria-label={saving ? "Save to server (saving the profiles)" : loading ? "Save to server (loading the profiles)" : !profiles.length ? "Save to server (no profiles to save)" : "Save to server"}
+            >
               {saving ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : null}
               Save to server
             </Button>

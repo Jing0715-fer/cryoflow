@@ -1,0 +1,224 @@
+{
+  "jobId": "cmv42atyj0007ltnrs1tdxwbm",
+  "SLOW_MS": 1500,
+  "POLL_MS": 300,
+  "samples": [
+    {
+      "t": 134,
+      "routeStatus": "missing-dir",
+      "jobStatus": "pending",
+      "files": 0,
+      "covered": null,
+      "total": null,
+      "note": null
+    },
+    {
+      "t": 455,
+      "routeStatus": "missing-dir",
+      "jobStatus": null,
+      "files": 0,
+      "covered": null,
+      "total": null,
+      "note": null
+    },
+    {
+      "t": 816,
+      "routeStatus": "missing-dir",
+      "jobStatus": null,
+      "files": 0,
+      "covered": null,
+      "total": null,
+      "note": null
+    },
+    {
+      "t": 1190,
+      "routeStatus": "missing-dir",
+      "jobStatus": null,
+      "files": 0,
+      "covered": null,
+      "total": null,
+      "note": null
+    },
+    {
+      "t": 3024,
+      "routeStatus": "missing-dir",
+      "jobStatus": "running",
+      "files": 0,
+      "covered": null,
+      "total": null,
+      "note": null
+    },
+    {
+      "t": 3397,
+      "routeStatus": "ok",
+      "jobStatus": null,
+      "files": 7,
+      "covered": 0,
+      "total": 4,
+      "note": "0 of 4 denoised images synced home — 4 live on the cluster only"
+    },
+    {
+      "t": 3715,
+      "routeStatus": "ok",
+      "jobStatus": null,
+      "files": 7,
+      "covered": 0,
+      "total": 4,
+      "note": "0 of 4 denoised images synced home — 4 live on the cluster only"
+    },
+    {
+      "t": 4091,
+      "routeStatus": "ok",
+      "jobStatus": null,
+      "files": 7,
+      "covered": 0,
+      "total": 4,
+      "note": "0 of 4 denoised images synced home — 4 live on the cluster only"
+    },
+    {
+      "t": 4435,
+      "routeStatus": "ok",
+      "jobStatus": "running",
+      "files": 7,
+      "covered": 0,
+      "total": 4,
+      "note": "0 of 4 denoised images synced home — 4 live on the cluster only"
+    },
+    {
+      "t": 4818,
+      "routeStatus": "ok",
+      "jobStatus": null,
+      "files": 7,
+      "covered": 1,
+      "total": 4,
+      "note": "1 of 4 denoised images synced home — 3 live on the cluster only"
+    },
+    {
+      "t": 5142,
+      "routeStatus": "ok",
+      "jobStatus": null,
+      "files": 7,
+      "covered": 1,
+      "total": 4,
+      "note": "1 of 4 denoised images synced home — 3 live on the cluster only"
+    },
+    {
+      "t": 5462,
+      "routeStatus": "ok",
+      "jobStatus": null,
+      "files": 7,
+      "covered": 1,
+      "total": 4,
+      "note": "1 of 4 denoised images synced home — 3 live on the cluster only"
+    },
+    {
+      "t": 5865,
+      "routeStatus": "ok",
+      "jobStatus": "running",
+      "files": 7,
+      "covered": 1,
+      "total": 4,
+      "note": "1 of 4 denoised images synced home — 3 live on the cluster only"
+    },
+    {
+      "t": 6184,
+      "routeStatus": "ok",
+      "jobStatus": null,
+      "files": 7,
+      "covered": 1,
+      "total": 4,
+      "note": "1 of 4 denoised images synced home — 3 live on the cluster only"
+    },
+    {
+      "t": 6511,
+      "routeStatus": "ok",
+      "jobStatus": null,
+      "files": 7,
+      "covered": 2,
+      "total": 4,
+      "note": "2 of 4 denoised images synced home — 2 live on the cluster only"
+    },
+    {
+      "t": 6891,
+      "routeStatus": "ok",
+      "jobStatus": null,
+      "files": 7,
+      "covered": 2,
+      "total": 4,
+      "note": "2 of 4 denoised images synced home — 2 live on the cluster only"
+    },
+    {
+      "t": 7227,
+      "routeStatus": "ok",
+      "jobStatus": "running",
+      "files": 7,
+      "covered": 2,
+      "total": 4,
+      "note": "2 of 4 denoised images synced home — 2 live on the cluster only"
+    },
+    {
+      "t": 7628,
+      "routeStatus": "ok",
+      "jobStatus": null,
+      "files": 7,
+      "covered": 2,
+      "total": 4,
+      "note": "2 of 4 denoised images synced home — 2 live on the cluster only"
+    },
+    {
+      "t": 7949,
+      "routeStatus": "ok",
+      "jobStatus": null,
+      "files": 7,
+      "covered": 3,
+      "total": 4,
+      "note": "3 of 4 denoised images synced home — 1 live on the cluster only"
+    },
+    {
+      "t": 8332,
+      "routeStatus": "ok",
+      "jobStatus": null,
+      "files": 7,
+      "covered": 3,
+      "total": 4,
+      "note": "3 of 4 denoised images synced home — 1 live on the cluster only"
+    },
+    {
+      "t": 8675,
+      "routeStatus": "ok",
+      "jobStatus": "running",
+      "files": 7,
+      "covered": 3,
+      "total": 4,
+      "note": "3 of 4 denoised images synced home — 1 live on the cluster only"
+    },
+    {
+      "t": 9049,
+      "routeStatus": "ok",
+      "jobStatus": null,
+      "files": 7,
+      "covered": 3,
+      "total": 4,
+      "note": "3 of 4 denoised images synced home — 1 live on the cluster only"
+    },
+    {
+      "t": 9366,
+      "routeStatus": "ok",
+      "jobStatus": null,
+      "files": 7,
+      "covered": 3,
+      "total": 4,
+      "note": "3 of 4 denoised images synced home — 1 live on the cluster only"
+    },
+    {
+      "t": 9740,
+      "routeStatus": "ok",
+      "jobStatus": null,
+      "files": 7,
+      "covered": 4,
+      "total": 4,
+      "note": null
+    }
+  ],
+  "at": "2026-10-11T16:53:22.000Z"
+}

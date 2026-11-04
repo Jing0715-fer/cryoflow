@@ -1,3 +1,5 @@
+import { fmtAngstrom, fmtBFactor, fmtPixel } from "@/lib/chart-rows"; // t1155 — the Å/Å² words ride their ONE fathers (the local fmt birth and the three sharpening words died the same day); t1156 — the sampling rate rides fmtPixel (the null angpix said "undefined Å/px" aloud)
+
 /**
  * CryoFlow — the postprocess verdict domain module (t457).
  *
@@ -130,20 +132,20 @@ export function sharpeningRead(bfactor: number | null): SharpeningRead | null {
     return {
       word: "gentle",
       detail:
-        `a gentle ${bfactor.toFixed(1)} Å² — the map stays close to its raw contrast`,
+        `a gentle ${fmtBFactor(bfactor)} — the map stays close to its raw contrast`,
     };
   }
   if (mag <= BFACTOR_STRONG) {
     return {
       word: "strong",
       detail:
-        `a strong ${bfactor.toFixed(1)} Å² — high frequencies are amplified; the map owes its crispness to this dial`,
+        `a strong ${fmtBFactor(bfactor)} — high frequencies are amplified; the map owes its crispness to this dial`,
     };
   }
   return {
     word: "aggressive",
     detail:
-      `an aggressive ${bfactor.toFixed(1)} Å² — expect amplified noise riding the sharpened high frequencies`,
+      `an aggressive ${fmtBFactor(bfactor)} — expect amplified noise riding the sharpened high frequencies`,
   };
 }
 
@@ -183,7 +185,7 @@ export interface PostprocessVerdict {
   sharpening: SharpeningRead | null;
 }
 
-const fmt = (v: number): string => v.toFixed(1);
+// t1155 — the local fmt birth (v.toFixed(1)) is DEAD: every Å face here rides fmtAngstrom (the father), every Å² face rides fmtBFactor. The father's rounding rule (Math.round half-up) replaces toFixed's float quirks at the x.x5 edge.
 
 /**
  * The honesty read. Null unless the input is genuinely a postprocess
@@ -251,32 +253,32 @@ export function postprocessVerdictOf(
   if (nyquist != null && official < nyquist) {
     word = "beyond the box";
     detail =
-      `${fmt(official)} Å is finer than the box edge (${fmt(nyquist)} Å at ${angpix?.toFixed(2)} Å/px) — ` +
+      `${fmtAngstrom(official)} is finer than the box edge (${fmtAngstrom(nyquist)} at ${fmtPixel(angpix)} Å/px) — ` +
       `no honest postprocess can claim it; check the star's pixel size and the FSC table`;
   } else if (unmaskedCrossing == null) {
     word = "mask-carried";
     detail =
       `the unmasked halves never cross ${FSC_CRITERION} inside this table — ` +
-      `the mask carries the entire ${fmt(official)} Å estimate; treat the number as the mask's word, not the halves'`;
+      `the mask carries the entire ${fmtAngstrom(official)} estimate; treat the number as the mask's word, not the halves'`;
   } else if (maskGift != null && maskGift < 0) {
     word = "honest";
     detail =
-      `the unmasked halves cross finer than the corrected curve (${fmt(unmaskedCrossing)} Å vs ${fmt(official)} Å) — ` +
+      `the unmasked halves cross finer than the corrected curve (${fmtAngstrom(unmaskedCrossing)} vs ${fmtAngstrom(official)}) — ` +
       `an unusual read; the mask's correction cost more than it bought, and the number stays the halves' own`;
   } else if (maskGift != null && maskGift <= GIFT_MODEST_ANGSTROM) {
     word = "honest";
     detail =
-      `the mask bought ${maskGift.toFixed(1)} Å over the naked halves (${fmt(unmaskedCrossing)} Å → ${fmt(official)} Å) — ` +
+      `the mask bought ${fmtAngstrom(maskGift)} over the naked halves (${fmtAngstrom(unmaskedCrossing)} → ${fmtAngstrom(official)}) — ` +
       `the estimate is what the halves already said`;
   } else if (maskGift != null && maskGift <= GIFT_GENEROUS_ANGSTROM) {
     word = "modest gift";
     detail =
-      `the mask bought ${maskGift.toFixed(1)} Å (${fmt(unmaskedCrossing)} Å unmasked → ${fmt(official)} Å official) — ` +
+      `the mask bought ${fmtAngstrom(maskGift)} (${fmtAngstrom(unmaskedCrossing)} unmasked → ${fmtAngstrom(official)} official) — ` +
       `a real gift, in the range a well-fit solvent mask earns`;
   } else {
     word = "generous gift";
     detail =
-      `the mask bought ${maskGift?.toFixed(1)} Å (${fmt(unmaskedCrossing)} Å unmasked → ${fmt(official)} Å official) — ` +
+      `the mask bought ${fmtAngstrom(maskGift)} (${fmtAngstrom(unmaskedCrossing)} unmasked → ${fmtAngstrom(official)} official) — ` +
       `a big gift; check the mask for over-tightening, which inflates the correlation it then reports`;
   }
 
@@ -284,13 +286,13 @@ export function postprocessVerdictOf(
   // the word's own sentence gets its period here so the two read as two
   if (clawBack != null && rawMaskedCrossing != null && word !== "beyond the box") {
     detail +=
-      `${detail.endsWith(".") ? " " : ". "}The raw mask crossed at ${fmt(rawMaskedCrossing)} Å; ` +
-      `the phase-randomization correction clawed ${clawBack.toFixed(1)} Å of that flattery back.`;
+      `${detail.endsWith(".") ? " " : ". "}The raw mask crossed at ${fmtAngstrom(rawMaskedCrossing)}; ` +
+      `the phase-randomization correction clawed ${fmtAngstrom(clawBack)} of that flattery back.`;
   }
 
-  const parts: string[] = [`${fmt(official)} Å final (masked, corrected)`];
-  if (unmaskedCrossing != null) parts.push(`unmasked halves said ${fmt(unmaskedCrossing)} Å`);
-  if (rawMaskedCrossing != null) parts.push(`the raw mask flattered ${fmt(rawMaskedCrossing)} Å`);
+  const parts: string[] = [`${fmtAngstrom(official)} final (masked, corrected)`];
+  if (unmaskedCrossing != null) parts.push(`unmasked halves said ${fmtAngstrom(unmaskedCrossing)}`);
+  if (rawMaskedCrossing != null) parts.push(`the raw mask flattered ${fmtAngstrom(rawMaskedCrossing)}`);
 
   return {
     official,

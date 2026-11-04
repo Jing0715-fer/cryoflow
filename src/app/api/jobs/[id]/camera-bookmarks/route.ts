@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { isLocalRequest } from "@/lib/http-guard";
+import { serverErrorMessage, serverErrorReply, badJsonReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -185,8 +186,12 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
       bookmarks = []; // corrupt row reads as empty — the client rewrites it
     }
     return NextResponse.json({ bookmarks, updatedAt: row.updatedAt });
-  } catch {
-    return NextResponse.json({ bookmarks: [], error: "read failed" }, { status: 500 });
+  } catch (error) {
+    console.error("GET /api/jobs/[id]/camera-bookmarks failed:", error);
+    return NextResponse.json(
+      { bookmarks: [], error: serverErrorMessage("GET /api/jobs/[id]/camera-bookmarks", error) },
+      { status: 500 }
+    );
   }
 }
 
@@ -201,8 +206,8 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
   let body: unknown;
   try {
     body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
+  } catch (error) {
+    return badJsonReply("PUT /api/jobs/[id]/camera-bookmarks", error);
   }
   const bookmarks = sanitize((body as { bookmarks?: unknown } | null)?.bookmarks);
   try {
@@ -219,7 +224,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
       });
     }
     return NextResponse.json({ ok: true, count: bookmarks.length });
-  } catch {
-    return NextResponse.json({ error: "persist failed" }, { status: 500 });
+  } catch (error) {
+    return serverErrorReply("PUT /api/jobs/[id]/camera-bookmarks", error);
   }
 }

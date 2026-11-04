@@ -1,0 +1,29 @@
+{
+  "walk": "t1141-ledger-storage-survey",
+  "at": "2026-11-01T23:21:39.211Z",
+  "pass": 10,
+  "fail": 0,
+  "phaseTrace": [],
+  "results": [],
+  "survey": {
+    "capEnvelopeBytes": 18976,
+    "capRows": 240,
+    "quotaUsage": 0,
+    "quotaBytes": 10737418240,
+    "sessionWrite": true,
+    "localWrite": true,
+    "sessionProbeBytes": 18976,
+    "localProbeBytes": 18976,
+    "sessionLeftover": false,
+    "localLeftover": false,
+    "buildCarriesLedger": false,
+    "probedChunks": 1,
+    "liveBytes": 0,
+    "liveVersion": null,
+    "liveRows": 0,
+    "localCryoflowKeys": [],
+    "localTotalKeys": 0,
+    "foreignVersionRefused": true,
+    "sessionKeysTotal": 1
+  }
+}

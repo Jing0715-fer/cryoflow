@@ -1,0 +1,37 @@
+{
+  "walk": "t1137-w1-clean-state-synth",
+  "at": "2026-11-01T21:23:59.237Z",
+  "pass": 18,
+  "fail": 0,
+  "phaseTrace": [],
+  "results": [],
+  "buildKey": "\"unknown\"",
+  "counters": {
+    "synth": 0,
+    "synthTs": 0,
+    "docCapture": 1,
+    "docCaptureTs": 4501.699999999255,
+    "docBubble": 0,
+    "docBubbleTs": 0,
+    "pressTs": 4455.699999999255
+  },
+  "postCloseCounters": {
+    "synth": 0,
+    "synthTs": 0,
+    "docCapture": 1,
+    "docCaptureTs": 4501.699999999255,
+    "docBubble": 0,
+    "docBubbleTs": 0,
+    "pressTs": 4455.699999999255
+  },
+  "chronology": [
+    "capture@46ms"
+  ],
+  "lateTrace": {
+    "landed": true,
+    "atMs": 250
+  },
+  "closer": "NAMED BY THE ACT-2 STOPPER CENSUS (capture=1, the WRAP counter reads 0 in both reads, bubble=0, the close still lands — the wrap-on-__reactProps counter is the instrument's blind leg, the Event.prototype patch is the live witness: scripts/t1137-w1-stopper-census.mjs caught the content's own onKeyDown RUNNING with stopPropagation from the app chunk, Radix's document-capture useEscapeKeydown dismissed BEFORE descent, and the document-bubble + window-bubble seats empty — the consumer is ALIVE, Radix closes first, the consumer guards the world beyond body)",
+  "dialogsVisibleAfter": 1,
+  "question": "the fork's re-queued W1 clean-state synth probe — is the content's own Escape consumer dead code in a clean world too?"
+}

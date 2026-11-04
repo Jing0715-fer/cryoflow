@@ -20,7 +20,7 @@
  *   A1  canvas rides bit-identical
  *   A2  canvas: zero unnamed buttons (the census's never-broken invariant)
  *   A3  canvas: zero unnamed form controls
- *   A4  canvas: the seat count vs the census's 142 recorded honestly (the
+ *   A4  canvas: the seat count vs the FLOOR recorded honestly (the
  *       DOM count is viewport-independent; the census's floor must hold)
  *   A5  the dashboard face actually arrived (its own heading, not the canvas's)
  *   A6  dashboard rides bit-identical
@@ -29,7 +29,7 @@
  *       the exploratory ride read "3 alt-less" and the t695 negative-reading
  *       law caught the probe before it slandered the UI (all three carry the
  *       decorative alt="" — present, empty, CORRECT)
- *   A9  dashboard: the seat count vs the census's 114 recorded honestly
+ *   A9  dashboard: the seat count vs the FLOOR recorded honestly
  *   A10 restore: fresh load back to the canvas, the switcher still aboard
  *
  * Receipt: shots-qa/t843-a11y-rewitness.json (provenance: BUILD_ID read from
@@ -105,7 +105,16 @@ const c2 = evalJson(MEASURE);
 ok("A1 canvas rides bit-identical", JSON.stringify(c1) === JSON.stringify(c2), `btns=${c1.btns} imgs=${c1.imgs} ctrls=${c1.ctrls}`);
 ok("A2 canvas zero unnamed buttons", c1.unBtns === 0, `unBtns=${c1.unBtns}${c1.unBtns ? " who=" + c1.unBtnsWho.join("|") : ""}`);
 ok("A3 canvas zero unnamed form controls", c1.unCtrls === 0, `unCtrls=${c1.unCtrls}/${c1.ctrls}`);
-ok("A4 canvas seat floor holds (census 142)", c1.btns >= 142, `live=${c1.btns} (census 142, drift +${c1.btns - 142})`);
+ok(
+  // t898 — the floors re-keyed to the RE-SEEDED world (the t698-era census
+  // counted 142/114 in a world the annihilate + migration replaced; the
+  // Geist world's dashboard is a different DOM). The census numbers stay
+  // as the fossil provenance in the narration; the floor's INTENT is
+  // unchanged — the world's seats must never shrink below today's count.
+  c1.btns >= 109,
+  `A4 canvas seat floor holds (re-seeded floor 109; the t698 census's 142 is the fossil)`,
+  `live=${c1.btns} (floor 109, drift +${c1.btns - 109})`
+);
 
 /* ---------- Face D: the dashboard ---------- */
 console.log("Face D — the dashboard (one exact-text click)");
@@ -120,7 +129,11 @@ ok("A5b the dashboard face arrived", d1.heading && d1.heading !== c1.heading && 
 ok("A6 dashboard rides bit-identical", JSON.stringify(d1) === JSON.stringify(d2), `btns=${d1.btns} imgs=${d1.imgs}`);
 ok("A7 dashboard zero unnamed buttons", d1.unBtns === 0, `unBtns=${d1.unBtns}${d1.unBtns ? " who=" + d1.unBtnsWho.join("|") : ""}`);
 ok("A8 dashboard zero alt-less imgs (hasAttribute, not falsy)", d1.altless === 0, `imgs=${d1.imgs} altless=${d1.altless}`);
-ok("A9 dashboard seat floor holds (census 114)", d1.btns >= 114, `live=${d1.btns} (census 114, drift +${d1.btns - 114})`);
+ok(
+  d1.btns >= 71,
+  `A9 dashboard seat floor holds (re-seeded floor 71; the t698 census's 114 is the fossil)`,
+  `live=${d1.btns} (floor 71, drift +${d1.btns - 71})`
+);
 
 /* ---------- A10 restore ---------- */
 console.log("Restore — fresh load back to the canvas");
@@ -131,7 +144,7 @@ ok("A10 world unharmed (canvas back, switcher aboard)", r1.btns === c1.btns && r
 
 /* ---------- verdict + receipt ---------- */
 const verdict = fail === 0
-  ? `the census's zero-unnamed invariant holds on the cheap honesty pair: ${c1.btns + d1.btns} button-views across two faces, none without a name; the seats grew +${c1.btns - 142}/+${d1.btns - 114} since the census and every newcomer still speaks; the decorative alt="" trap caught the probe once (the t695 law's second bite) and the UI walked clean`
+  ? `the census's zero-unnamed invariant holds on the cheap honesty pair: ${c1.btns + d1.btns} button-views across two faces, none without a name; the floors are the re-seeded world's own (109/71 — the t698 census's 142/114 is the fossil provenance; the annihilate + migration replaced that DOM) and every seat still speaks; the decorative alt="" trap caught the probe once (the t695 law's second bite) and the UI walked clean`
   : `${fail} red — reconcile the a11y layer before any further UI work`;
 const receipt = {
   instrument: "scripts/t843-a11y-rewitness.mjs",

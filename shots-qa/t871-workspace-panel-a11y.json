@@ -1,0 +1,262 @@
+{
+  "instrument": "scripts/t871-workspace-panel-a11y.mjs",
+  "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
+  "build": "dev@31eccb9c8237",
+  "worldMode": "dev",
+  "date": "2026-10-14T04:18:39.198Z",
+  "chain": "clean room -> workspaces tab (t863 mousedown) -> panel seats (rows, doors, t803 stop) -> rename seat (open + cancel, no write) -> create dialog (honest disabled -> typed -> born) -> switch walk (empty canvas -> home bit-for-bit) -> delete seat (the alert contract -> confirm) -> worldBack + seed hygiene (one command)",
+  "doors": {
+    "tab": "mousedown on the workspaces TabsTrigger — the t863 Radix law",
+    "row": "click / Enter / Space on the role=button row — the keyboard citizen",
+    "create": "the Create a new workspace door -> the label[for]-named input -> the Create workspace commit",
+    "delete": "the Delete door -> the AlertDialog's Delete workspace confirm"
+  },
+  "openingCanvas": 144,
+  "faces": {
+    "wsPanel": {
+      "live": {
+        "pageBtns": 92,
+        "pageUnnamed": 0,
+        "panelUp": true,
+        "headerText": "Workspaces1New",
+        "count": "1",
+        "newDoor": true,
+        "listNamed": "Workspaces",
+        "listTabbable": true,
+        "rows": 1,
+        "activeRow": {
+          "named": true,
+          "current": "true",
+          "name": "Main"
+        },
+        "renameDoors": [
+          "Rename Main"
+        ],
+        "deleteDoors": [
+          "Delete Main"
+        ]
+      }
+    },
+    "createDialog": {
+      "live": {
+        "up": true,
+        "isAlert": false,
+        "pageBtns": 95,
+        "title": "New workspace",
+        "desc": "A fresh canvas inside the current project — e.g. for a classification round, a refinement branch, or post-processing.",
+        "ip": {
+          "named": true,
+          "labelFor": true,
+          "value": "",
+          "focused": true
+        },
+        "btns": [
+          {
+            "name": "Cancel",
+            "disabled": false
+          },
+          {
+            "name": "Create workspace",
+            "disabled": true
+          },
+          {
+            "name": "Close",
+            "disabled": false
+          }
+        ],
+        "unnamed": 0,
+        "focusIn": true
+      }
+    },
+    "worldBack": {
+      "live": {
+        "pageBtns": 144,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "hasDlg": false,
+        "wsPanelUp": false,
+        "heading": "Main"
+      }
+    }
+  },
+  "checks": [
+    {
+      "label": "O0 the panel is absent before the door (summoned by the tab, never resident)",
+      "pass": true,
+      "detail": "pageBtns=144"
+    },
+    {
+      "label": "T1 the workspaces tab found and pressed (mousedown door)",
+      "pass": true,
+      "detail": "trigger=\"Workspaces1\""
+    },
+    {
+      "label": "T2 the panel arrived (the header speaks the room)",
+      "pass": true,
+      "detail": "header=\"Workspaces1New\""
+    },
+    {
+      "label": "T3 the header count speaks the census (1 workspace in the canonical world)",
+      "pass": true,
+      "detail": "count=\"1\""
+    },
+    {
+      "label": "T4 the Create door named (aria-label, not the visible New's crutch)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "T5 the list region named with its t803 keyboard stop",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "T6 the row is a real keyboard citizen (role=button, present, active)",
+      "pass": true,
+      "detail": "rows=1 active=\"Main\""
+    },
+    {
+      "label": "T7 the Rename/Delete doors named per workspace",
+      "pass": true,
+      "detail": "rename=[\"Rename Main\"] delete=[\"Delete Main\"]"
+    },
+    {
+      "label": "T8 zero unnamed page-wide with the panel up",
+      "pass": true,
+      "detail": "btns=92"
+    },
+    {
+      "label": "T9 the row's Space door re-selects without harm (the keyboard face works)",
+      "pass": true,
+      "detail": "btns=92 (panel-up baseline 92)"
+    },
+    {
+      "label": "R1 the inline edit arrived, named, focused, speaking the world's word",
+      "pass": true,
+      "detail": "value=\"Main\""
+    },
+    {
+      "label": "R2 Escape cancelled the edit (no rename committed, no input left)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "C1 the New workspace dialog arrived as the topmost layer, focus inside",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "C2 the input named through label[for] (the Name label's own seam)",
+      "pass": true,
+      "detail": "named=true labelFor=true"
+    },
+    {
+      "label": "C3 the Create door HONESTLY DISABLED on an empty name",
+      "pass": true,
+      "detail": "disabled=true"
+    },
+    {
+      "label": "C4 the typed name enables the door (the disabled state follows the world)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "C5 the commit closed the dialog and the row arrived (the census speaks 2)",
+      "pass": true,
+      "detail": "count=\"2\" rows=2"
+    },
+    {
+      "label": "S1 the new row took aria-current and the canvas EMPTIED (a fresh room: zero job cards)",
+      "pass": true,
+      "detail": "active=\"QA Second Room\" cards=0 btns=41 (opening 144)"
+    },
+    {
+      "label": "S2 the Main row took it back and the canvas returned (the fifteen job cards home, the history's own button immaterial)",
+      "pass": true,
+      "detail": "active=\"Main\" cards=15 (opening 15) btns=94"
+    },
+    {
+      "label": "D1 the AlertDialog arrived (the alert role, the name spoken, both doors named)",
+      "pass": true,
+      "detail": "title=\"Delete “QA Second Room”?\""
+    },
+    {
+      "label": "D2 the description speaks the moved-not-deleted contract",
+      "pass": true,
+      "detail": "desc=\"The workspace is removed, but its jobs (including linked copies) are moved to the project's default workspace — nothing is deleted. This action cannot be undone.\""
+    },
+    {
+      "label": "D3 the confirm removed the row and the census speaks 1 again",
+      "pass": true,
+      "detail": "count=\"1\" rows=1"
+    },
+    {
+      "label": "W1 the world back bit-for-bit (the catalog tab, the panel down, zero unnamed)",
+      "pass": true,
+      "detail": "btns=144 (opening 144)"
+    },
+    {
+      "label": "W2 the walk leaves no session seed (the t157 two-way door's honest none — the t866 lesson rides every page)",
+      "pass": true,
+      "detail": "seed=null"
+    },
+    {
+      "label": "L wsPanel face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L createDialog face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L worldBack face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    }
+  ],
+  "passed": 27,
+  "failed": 0,
+  "total": 27,
+  "verdict": "the workspace-panel faces hold — the ws-orphan law's own surface walked: the clean room held (the panel summoned by the tab, never resident), the t863 Radix door opened it (the header speaks the census, the Create door named, the list named with its t803 stop, the row a real keyboard citizen whose Space re-selects without harm), the rename seat opened and CANCELLED without a world write (the name is the census's own), the create dialog's door was honestly disabled on an empty name and \"QA Second Room\" was born through the family's own door (the census spoke 2), the switch walk emptied and restored the canvas bit-for-bit (aria-current followed the rows), the delete seat spoke the moved-not-deleted contract and the confirm restored the census to 1, the world came back bit-for-bit with no session seed — a real world write, exercised and cleaned up inside one walk, the ledger aboard from birth (three faces, the shared law)",
+  "driftLedger": {
+    "prevFound": true,
+    "prevBuild": "dev@31eccb9c8237",
+    "prevDate": "2026-10-14T04:18:00.681Z",
+    "sameBuild": true,
+    "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
+    "faces": {
+      "wsPanel": {
+        "prev": 92,
+        "live": 92,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "createDialog": {
+        "prev": 95,
+        "live": 95,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "worldBack": {
+        "prev": 144,
+        "live": 144,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      }
+    }
+  }
+}

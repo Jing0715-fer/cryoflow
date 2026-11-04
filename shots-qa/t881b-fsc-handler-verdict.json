@@ -1,0 +1,54 @@
+{
+  "task": "t881b",
+  "window": "cron 2026-11-02 14:20:37 +08:00 (trace 1a07549302235a99-cron-agent-loop-202611021424)",
+  "purpose": "the behavioural discriminator — the fsc-compare Escape consumer, alive or dead",
+  "checks": [
+    {
+      "label": "B1 the world dressed clean",
+      "pass": true,
+      "detail": "pageBtns=101 dlgs=0 waited=4s"
+    },
+    {
+      "label": "B2 the Workflow tab active",
+      "pass": true,
+      "detail": "{\"found\":true,\"selected\":true}"
+    },
+    {
+      "label": "B3 the inspector open on the 3D Refine card",
+      "pass": true,
+      "detail": "cards=15"
+    },
+    {
+      "label": "B4 the Results tab active",
+      "pass": true,
+      "detail": "{\"found\":true,\"selected\":true}"
+    },
+    {
+      "label": "B5 the compare dialog open",
+      "pass": true,
+      "detail": "door=true opened=true"
+    },
+    {
+      "label": "B6 the handler neutralized through the fiber (props intact)",
+      "pass": true,
+      "detail": "{\"neutralized\":true,\"atHop\":0}"
+    },
+    {
+      "label": "B7 the neutralized fire's read",
+      "pass": true,
+      "detail": "fire={\"sent\":true,\"target\":\"BUTTON:fsc-compare-rescan\"} post={\"dlgCount\":2,\"heads\":[\"3D Refine (tutorial) — job inspector3D R\",\"Compare FSC curves1/6\"],\"fscOpen\":true} late={\"landed\":true,\"atMs\":500} noopSynth=0"
+    },
+    {
+      "label": "B8 VERDICT: the consumer is DEAD CODE (Radix's layer stack peels one layer alone)",
+      "pass": true,
+      "detail": "one layer peeled with the handler neutralized — (a) stands; the comment is rewritten; the handler may be retired (its close-path duty already lives in onOpenChange)"
+    },
+    {
+      "label": "B9 the world restored (fresh load, no dialogs)",
+      "pass": true,
+      "detail": "dlgs=0 pageBtns=0"
+    }
+  ],
+  "pass": 9,
+  "fail": 0
+}

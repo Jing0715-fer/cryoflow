@@ -1,0 +1,54 @@
+{
+  "task": "t1167 (2026-11-03, 20:51→21:21 dispatches, Job 362852 — traces …-cron-202611032054/2106/2121; one arc, three dispatches, finished before forked)",
+  "title": "the two-db trap's root closed — the app client pins its own landing, the launcher reborn at L82, the orphan gate joins the census",
+  "date": "2026-11-03",
+  "the_vein": {
+    "name": "t1166 guidance candidate #4 — the .env template-leak cure at the source, and the ONE-world law pinned in a seat",
+    "the_trap_rediscovered": [
+      "the t1114/t1115 era had ALREADY fought this trap: db-world.ts is the verdict's ONE home (RUNTIME_DB_BASELINE + templateWorldWarnOf, hardened against look-alikes), .env.example's contract is file:../db/cryoflow.db, and a dev-server.sh exported the runtime url at L82 before spawning next",
+      "the fall: dev-server.sh was untracked and died with a recycled sandbox; the platform's boots regenerate .env toward the template (db/custom.db, a User/Post-only world); the t1130-env-world gate seat was left OUT of the census (an orphan — 0 mentions in t927's roster) so nobody heard the flap; and src/lib/db.ts had DRIFTED from the t1115 design (the comment promised a warn call at import time; the 17-line file had none — the watchman stood mute)",
+      "this window ran the orphan seat: 2/5 — (a) the .env heal gone, (c) a bare client landing on the 3-job template, (e) the watchman missing. The flap theory proven: the platform regenerated .env between the t1166 census (104/104 at 20:33 with a healed .env) and this window's boot (custom.db again)"
+    ],
+    "the_cure": [
+      "src/lib/db.ts: the client pins its own landing — datasourceUrl = CRYOFLOW_DB_URL || file:${RUNTIME_DB_BASELINE} (the ONE override knob, the ONE path birthplace); zero env-var reliance; NO env, NO launch method, NO regenerated .env can move the world under the app",
+      "the watchman restored at the import (the t1115 comment's promise kept), UPGRADED: it watches the RESOLVED world (a template-pointing CRYOFLOW_DB_URL sings before a query is born), dev-only by the caller's hand (production:false/true passed explicitly)",
+      "the warn's sentence made honest: 'DATABASE_URL points at' → 'the db url points at' (the caller now feeds the resolved url — the message must not name a var it did not read; t1053's content pins unaffected)",
+      "dev-server.sh REBORN (the canonical launcher): the export post back at L82 — the exact line the warn's sentence quotes (the address verified by grep and pinned by seat B7b) — the x-bit carried via update-index --chmod=+x (core.filemode=false ate the plain chmod; the t1159 law), the heap cap and the stale-lock sweep ride in it",
+      ".env healed locally to the example's law (file:../db/cryoflow.db) — best-effort, untracked, may regenerate; the app is immune either way; the prisma CLI and the bare-prisma seats benefit until then"
+    ],
+    "duty_split": "t1053 owns the warn's PURE face (buckets, look-alikes, production silence) · t1130 (seat 106) watches the .env/CLI contract and FLAPS on regeneration — the re-heal reminder · t1167 (seat 105) pins the app's immunity — it never flaps, the landing depends on nothing the platform owns"
+  },
+  "units": {
+    "t1167-one-world-unit": {
+      "pins": "19 green-path ok pins (19 ok() calls, all unconditional)",
+      "groups": "A the functional proof (DATABASE_URL deliberately pointed at the TEMPLATE — the trap's exact semantics replayed — and the imported app client STILL counts the living world, equal to the REAL probe's liveJobs, knob-agnostic; the singleton law); B the source law (the ONE birthplace import, the ONE knob first, datasourceUrl pinned, zero env(\"DATABASE_URL\") in the client, the watchman restored watching the RESOLVED world, the instruments' own resolution quoted, the launcher reborn with the export REAL at L82 and the x-bit on); C the integration (schema.prisma's env fallback stays the CLI record, the census's clean-env habit, the fuel family's world gate as the standing alarm, the production silence, the honest wording, the example's contract)",
+      "result": "19/19 green (one draft pin caught its own comment quoting the literal — the comment reworded, the pin's meaning kept)"
+    },
+    "t1130-env-world-unit": "5/5 (resurrected: the heal restored (a), the living landing (c), the watchman (e); enrolled as seat 106 — a flap is now a standing alarm, not silence)"
+  },
+  "live_rides": [
+    "the REBORN launcher's debut: bash dev-server.sh booted the server — '[dev-server] DATABASE_URL=file:…/db/cryoflow.db (the runtime world; .env's template is NOT load-bearing)' printed, the heap cap carried, the boot clean",
+    "agent-browser QA: the diagnostics dialog opened live — the World durability card rendered STALE, console CLEAN (zero messages — the watchman correctly silent on the runtime world), zero page errors; screenshot shots-qa/t1167-one-world-dialog.png",
+    "the same-origin API read: the durability face rides the payload verbatim — ok:true, STALE, red:false, 15/15, snapshotHead 050c5087 → treeHead (the window's own head), probedAt fresh"
+  ],
+  "standing_instruments": {
+    "census": "106 seats · 106 GREEN · 0 RED (seats 105/106 enrolled by the formal rekey t1167-census-rekey.mjs, idempotent ×2, bash -n green, arrays verified 106/106/106 with lanes 1/0 and pins 19/5)",
+    "probe_vs_doctor": "STALE, red=false, 15/15 — agreement held (data faithful; the head gap is the machine-id auto-commit's own footprint)",
+    "tsc": 0,
+    "eslint": 0,
+    "memory": "3519MB available at bed rolls (the 17th consecutive non-build day; the prod lane build stays queued)",
+    "reexport_duty": "NOT owed — code-only window (no jobs created/deleted; liveJobs 15 stable)"
+  },
+  "scars": [
+    "the machine-id auto-commit fired a THIRD time (21:21:23, mid-arc) and swept three feat files with a container-id subject AND the wrong file mode (core.filemode=false ate dev-server.sh's +x) — reworded to house style and amended into the feat car with update-index --chmod=+x; the amend moved the hash the snapshot's tree-head had quoted (the honest STALE re-priced itself, data faithful)",
+    "the seat's first B4 pin caught its own comment quoting the env(\"DATABASE_URL\") literal — a pin that reads source reads comments too; the comment reworded (the meaning kept, the literal retired from the file)",
+    "the L82 addressing took three passes (a drafting-slip line caught on read-back; a sed range ate the narrative block; the +8-line header edit shifted the post) — the lesson: a pinned LINE NUMBER is load-bearing, verify with grep after every edit that touches the region",
+    "the rekey's placeholder-in-template-literal trick exploded at construction (ReferenceError before any write — the arrays stayed 104/104/104, atomicity held); inline the text, never pre-interpolate a placeholder"
+  ],
+  "judge_lines": [
+    "「一世界一律，钉在代码」: the t1115 warn was the right alarm but not a cure — a flap the platform can trigger must be answered by a landing the platform cannot move; the app's world is now a fact of the code, not of the env",
+    "「哑的守卫要复位」: the t1115 comment promised a call the file no longer made — a drift between the documented law and the compiled law is a mute watchman; the seat (e) pin was written for the promise and held the truth until the window came",
+    "「孤哨入列才是哨」: the t1130 gate existed but rode no roster — a gate nobody hears is a decoration; enrolled, its flap becomes the re-heal reminder and the platform's regeneration loses its invisibility",
+    "「句子不说它没读过的名」: the warn's sentence named DATABASE_URL while watching a resolved url — a message must not lie about its input; the honest wording rode without breaking a single content pin"
+  ]
+}

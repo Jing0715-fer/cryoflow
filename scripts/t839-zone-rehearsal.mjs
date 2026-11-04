@@ -73,6 +73,42 @@
  *   node scripts/t839-zone-rehearsal.mjs
  */
 
+/* ================= t901 PREMISE AUDIT — RETIRED WITH ITS WORLD =================
+ *
+ * This instrument's premise was the T510 PAINT RESIDUE: trigger 130 filled its
+ * 115.3 wrapper, 2.7px of the trigger painted into the RELION chip's box, the
+ * painted zone [1280..1286], and this rehearsal pre-filmed the overflow-hidden
+ * fix's AFTER on a throwaway clone. THAT WORLD IS DEAD, twice over:
+ *
+ *   1. the re-seed + the T895 FONT LAW: Geist now loads AND is consumed
+ *      (the fallback metrics died) — the decisive experiment measured
+ *      trigR − chipL = −32.8 at 1280: a GAP, not paint. The wrapper has
+ *      SLACK (158.9 ≥ 130 — the min-w-0 shock absorber retired). The residue
+ *      does not exist; the fix candidate this rehearsal served was retired
+ *      honestly with the experiment as its headstone (t895).
+ *   2. t897 re-derived the coefficient families on the Geist world and cut
+ *      the GAP LAW into the sweep: overlap(W) = −40.9 − 0.52×(W−1280), zero
+ *      painted widths in [1280..1440], the MD birth-squeeze dead.
+ *
+ * There is nothing left to rehearse: the fix has no subject. The zone-layer
+ * ruler this instrument carried lives on in t834's E-section (the gap world's
+ * own re-derived laws, 83/83 at the current pin). This file refuses to ride —
+ * LOUDLY, exit 0 (a retired instrument is not a failure) — and writes NO
+ * receipt: the fossil receipt shots-qa/t839-zone-rehearsal.json stays
+ * untouched as the dead world's provenance, alongside the seats it fed
+ * (t847/t849's band-layer and width-free PAINT lessons).
+ *
+ * Re-birth conditions (if the world ever grows a real overlap again): re-derive
+ * the geometry measure-first, re-film the fix's AFTER on a fresh clone, and
+ * re-pin from rides — the harness (open-first, clone-swap, restore, two-ride
+ * bit-identity, the drift ledger) remains the template, in the git history.
+ * ============================================================================== */
+
+console.log(
+  "t839 zone rehearsal — RETIRED (the t901 premise audit): the T510 paint residue died with the fallback-font world (t895: a −32.8 GAP, not paint; t897: the GAP law −40.9 − 0.52×(W−1280), zero painted widths). The fix candidate was retired with the experiment as its headstone; there is nothing left to rehearse. The fossil receipt stays as provenance; the zone-layer ruler lives in t834's E-section."
+);
+process.exit(0);
+
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";

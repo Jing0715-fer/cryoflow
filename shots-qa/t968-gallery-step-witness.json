@@ -1,0 +1,21 @@
+{
+  "mode": "gate",
+  "face": {
+    "thumbs": 6,
+    "cols": 2,
+    "template": "116.594px 116.594px",
+    "cell0": 117,
+    "cells": [
+      117,
+      117,
+      117,
+      117
+    ],
+    "panelW": 305,
+    "gridW": 239,
+    "shellOverX": false,
+    "panelOverX": true
+  },
+  "pass": 6,
+  "fail": 0
+}

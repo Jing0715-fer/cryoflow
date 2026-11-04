@@ -103,11 +103,24 @@ async function warmBoot(): Promise<void> {
   const logRes = await get(`/api/jobs/${logId ?? "warmup"}/log`);
   marks.push(`/log ${logRes?.status ?? "x"}`);
 
-  // 3. the project list + the page itself (the canvas's own graph)
+  // 3. the project list — the API lane ONLY. t1170 — the whale strike:
+  //    this list once warmed "/" too ("the page itself (the canvas's own
+  //    graph)"), and the warm-up sank the box it warmed: the canvas page's
+  //    dev compile is a ~3.4 GB RESIDENCY on the 4 GB box (measured
+  //    2026-11-03, the t1170 certification census: `GET / 200 in 58s
+  //    (compile: 58s)`, then dmesg's `Out of memory: Killed process 795
+  //    (next-server) … anon-rss:3379696kB` — the kernel's GLOBAL OOM,
+  //    past the launcher's 2048 MB heap cap, because the whale's compiled
+  //    graph stays resident while the census's seats allocate on top of
+  //    it; four live legs — t1022/1023/1024/t1164 — died reading a
+  //    refused connection where the world should have spoken). A warm-up
+  //    that kills the server is not a warm-up. The census's live-lane law
+  //    (t927: the canvas page is NEVER compiled by the census) now has a
+  //    second mouth here: the boot warm-up never compiles the whale
+  //    either — the canvas compiles when a real visitor opens it, once,
+  //    on demand, and that is the only compile it ever gets in dev.
   const projectsRes = await get("/api/projects");
   marks.push(`/api/projects ${projectsRes?.status ?? "x"}`);
-  const pageRes = await get("/");
-  marks.push(`/ ${pageRes?.status ?? "x"}`);
 
   // 4. the AI settings route — the assistant panel's on-open fetch
   const aiRes = await get("/api/ai/settings");

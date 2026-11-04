@@ -114,9 +114,13 @@ console.log("T1. the catalog wears the settled read");
 
 const convTool = AI_TOOLS.find((t) => t.name === "check_convergence");
 must(convTool != null, "T1a: check_convergence is in the catalog (the 17th tool)");
+// t945 re-key — the count was stale at 34 ("t530's diagnostics read is
+// the newest birth"): get_cleanup_history's ledger read (the t518
+// window's 35th birth) landed without re-keying THIS pin — caught live
+// this window, the tree red before any t945 byte rode.
 must(
-  AI_TOOLS.length === 34 && new Set(AI_TOOLS.map((t) => t.name)).size === 34,
-  `T1b: 34 unique tools — t530's diagnostics read is the newest birth (got ${AI_TOOLS.length})`,
+  AI_TOOLS.length === 35 && new Set(AI_TOOLS.map((t) => t.name)).size === 35,
+  `T1b: 35 unique tools — get_cleanup_history's ledger read is the newest birth (got ${AI_TOOLS.length})`,
 );
 const convParams = (convTool?.parameters ?? {}) as {
   properties?: Record<string, unknown>;

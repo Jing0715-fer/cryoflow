@@ -33,6 +33,8 @@
 
 import { useEffect, useState } from "react";
 import { ArrowUpRight, ClipboardCheck, Sparkles } from "lucide-react";
+import { fmtStampChip } from "@/lib/duration";
+import { formatCountFull } from "@/lib/result-counts";
 import type { SelectionReceipt } from "@/lib/selection-receipt";
 import { useWorkflowStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
@@ -55,7 +57,9 @@ export interface ReceiptResponse {
   };
 }
 
-const nfmt = (n: number): string => n.toLocaleString("en-US");
+// t1158: the counts ride the digits' ONE father (a local en-US pin was the
+// codemod's blind spot — pre-pinned births escaped the bare-call sweep).
+const nfmt = formatCountFull;
 
 const MODE_CHIP: Record<string, { label: string; cls: string }> = {
   manual: {
@@ -158,14 +162,8 @@ export function SelectionReceipt({
   const provenance = data.provenance;
   const fromName = provenance?.sourceJobName ?? receipt.source ?? null;
 
-  const ranAtLabel = receipt.ranAtMs
-    ? new Date(receipt.ranAtMs).toLocaleString(undefined, {
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : null;
+  // t1158: the compact chip stamp rides its ONE father (the byte-twin died).
+  const ranAtLabel = receipt.ranAtMs ? fmtStampChip(receipt.ranAtMs) : null;
 
   return (
     <section

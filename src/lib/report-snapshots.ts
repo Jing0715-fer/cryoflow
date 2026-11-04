@@ -21,6 +21,7 @@
  */
 
 import { svgToPngDataUrl } from "./fsc-snapshot";
+import { fmtAngstrom } from "./chart-rows"; // t1155 — the chart's annotation words ride the Å father (the labels said 2 decimals while the same SVG's y axis said 1)
 
 export { svgToPngDataUrl };
 
@@ -266,8 +267,8 @@ export function buildResolutionSvg(input: {
   const last = pts[pts.length - 1];
   const annotations: SnapshotAnnotation[] = [];
   if (best !== last && best.resolution < last.resolution)
-    annotations.push({ x: best.iteration, y: best.resolution, label: `best ${best.resolution.toFixed(2)} Å`, color: C.violet });
-  annotations.push({ x: last.iteration, y: last.resolution, label: `current ${last.resolution.toFixed(2)} Å`, color: C.amber });
+    annotations.push({ x: best.iteration, y: best.resolution, label: `best ${fmtAngstrom(best.resolution)}`, color: C.violet });
+  annotations.push({ x: last.iteration, y: last.resolution, label: `current ${fmtAngstrom(last.resolution)}`, color: C.amber });
   const yMin = Math.min(...series.map((p) => p[1]));
   return simpleLineChart({
     title: `${input.title} — resolution per iteration`,

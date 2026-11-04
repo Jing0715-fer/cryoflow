@@ -37,8 +37,10 @@ import {
 import { Chip } from "@/components/ui/chip";
 import { useChartResource } from "@/lib/use-chart-resource";
 import { cn } from "@/lib/utils";
+import { fmtPixel } from "@/lib/chart-rows"; // t1156 — the optics chip's sampling digits ride the pixel father (the RAW STAR float spoke "1.23666667 Å/px" beside the report's "1.24 Å / voxel" for the SAME particles)
 import { ChartErrorStrip } from "./chart-error-strip";
 import { MrcImage } from "./mrc-image";
+import { formatCountFull } from "@/lib/result-counts"; // t1157 — the thousands word rides its ONE father (the locale pin lives in result-counts, the parser's own contract)
 
 interface ParticleGroup {
   name: string;
@@ -185,7 +187,7 @@ function GroupSection({
             {group.name}
           </p>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            {chip(<>{group.count.toLocaleString()} particles</>)}
+            {chip(<>{formatCountFull(group.count)} particles</>)}
             {group.meanFom != null ? (
               <Chip size="sm" tone="muted" className={fomTone(group.meanFom)} title="Mean CTF figure of merit">
                 FOM {group.meanFom.toFixed(3)}
@@ -234,7 +236,7 @@ function GroupSection({
               <div className="mt-2 flex items-center justify-between">
                 <span className="text-[10px] tabular-nums text-muted-foreground">
                   {page.offset + 1}–{Math.min(page.offset + page.particles.length, page.total)} of{" "}
-                  {page.total.toLocaleString()}
+                  {formatCountFull(page.total)}
                 </span>
                 {/* t492 — a mid-paging blip keeps the old page (stale but
                     alive) and says so, instead of silently doing nothing */}
@@ -253,7 +255,7 @@ function GroupSection({
                       data-page-error-retry=""
                       onClick={() => void loadPage(page.offset)}
                       aria-label="Retry loading this page"
-                      className="inline-flex shrink-0 items-center gap-0.5 rounded border border-destructive/30 bg-destructive/10 px-1 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wide transition-colors hover:bg-destructive/20"
+                      className="inline-flex shrink-0 items-center gap-0.5 rounded border border-destructive/30 bg-destructive/10 px-1 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wide transition-colors hover:bg-destructive/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     >
                       <RefreshCw className="size-2.5" aria-hidden="true" />
                       Retry
@@ -268,7 +270,7 @@ function GroupSection({
                       const off = Math.max(0, page.offset - PAGE_SIZE);
                       void loadPage(off);
                     }}
-                    aria-label="Previous particle page"
+                    aria-label={page.offset === 0 ? "Previous particle page (already at the first page)" : loading ? "Loading the previous page…" : "Previous particle page"}
                     className="rounded border bg-card p-1 text-muted-foreground outline-none transition-colors hover:bg-muted disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <ChevronLeft className="size-3.5" aria-hidden="true" />
@@ -280,7 +282,7 @@ function GroupSection({
                       const off = page.offset + PAGE_SIZE;
                       void loadPage(off);
                     }}
-                    aria-label="Next particle page"
+                    aria-label={page.offset + PAGE_SIZE >= page.total ? "Next particle page (already at the last page)" : loading ? "Loading the next page…" : "Next particle page"}
                     className="rounded border bg-card p-1 text-muted-foreground outline-none transition-colors hover:bg-muted disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <ChevronRight className="size-3.5" aria-hidden="true" />
@@ -306,7 +308,7 @@ function GroupSection({
                 data-page-error-retry=""
                 onClick={() => void loadPage(0)}
                 aria-label="Retry loading this page"
-                className="inline-flex shrink-0 items-center gap-1 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide transition-colors hover:bg-destructive/20"
+                className="inline-flex shrink-0 items-center gap-1 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide transition-colors hover:bg-destructive/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 <RefreshCw className="size-3" aria-hidden="true" />
                 Retry
@@ -323,7 +325,7 @@ function GroupSection({
       {/* single-particle lightbox */}
       <Dialog open={zoomed != null} onOpenChange={(o) => !o && setZoomed(null)}>
         <DialogContent
-          className="max-w-md sm:max-w-md"
+          className="sm:max-w-md"
           onKeyDown={onEscapeClose(() => setZoomed(null))}
         >
           {zoomed ? (
@@ -404,12 +406,12 @@ export function ParticleBrowser({
         {chip(
           <>
             <Layers className="mr-0.5 inline h-3 w-3 align-[-2px]" aria-hidden="true" />
-            {data.total.toLocaleString()} particles
+            {formatCountFull(data.total)} particles
           </>,
           "Total extracted particles across all micrograph stacks"
         )}
         {o.boxSize ? chip(<>{o.boxSize} px box</>) : null}
-        {o.pixelSize ? chip(<>@ {o.pixelSize} Å/px</>) : null}
+        {o.pixelSize ? chip(<>@ {fmtPixel(o.pixelSize)} Å/px</>) : null}
         {o.voltage ? chip(<>{Math.round(o.voltage)} kV</>) : null}
         {chip(<>{data.groups.length} micrographs</>)}
       </div>

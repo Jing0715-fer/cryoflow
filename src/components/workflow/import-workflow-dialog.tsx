@@ -41,6 +41,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { useWorkflowStore } from "@/lib/store";
+import { fmtStampRow } from "@/lib/duration";
 import { jobType } from "@/lib/workflow";
 import { Button } from "@/components/ui/button";
 import {
@@ -53,19 +54,10 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
+// t1158: the row stamp rides its ONE father (the year stays — a shelf
+// entry can be a year old); the honest absence keeps this face's own word.
 function fmtDate(iso: string): string {
-  if (!iso) return "unknown date";
-  try {
-    return new Date(iso).toLocaleString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return "unknown date";
-  }
+  return (iso ? fmtStampRow(iso) : null) ?? "unknown date";
 }
 
 /** Tooltip copy for the per-file rename chip (grammar for 1 vs N).
@@ -164,7 +156,7 @@ export function ImportWorkflowDialog() {
         if (!o) closePreview();
       }}
     >
-      <DialogContent className="max-w-md gap-4" data-canvas-ui="import-workflow-dialog">
+      <DialogContent className="sm:max-w-md gap-4" data-canvas-ui="import-workflow-dialog">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <ArrowDownToLine className="size-4 text-running-600" aria-hidden="true" />
@@ -315,6 +307,7 @@ export function ImportWorkflowDialog() {
                         aria-checked={active}
                         onClick={() => setTargetWs(w.id)}
                         className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                           "flex items-center gap-2.5 rounded-md border px-2.5 py-2 text-left transition-all",
                           active
                             ? "border-primary bg-primary/5 ring-1 ring-primary"
@@ -372,7 +365,13 @@ export function ImportWorkflowDialog() {
         ) : null}
 
         <DialogFooter className="gap-2 sm:gap-2">
-          <Button variant="ghost" size="sm" onClick={closePreview} disabled={busy}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={closePreview}
+            disabled={busy}
+            aria-label={busy ? "Cancel (the import is running)" : "Cancel"}
+          >
             Cancel
           </Button>
           <Button
@@ -380,6 +379,7 @@ export function ImportWorkflowDialog() {
             className="gap-1.5"
             onClick={() => void confirm()}
             disabled={busy || !targetWs || entries.length === 0}
+            aria-busy={busy}
           >
             <ArrowDownToLine className="size-3.5" aria-hidden="true" />
             {busy

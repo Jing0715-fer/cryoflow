@@ -1,0 +1,10 @@
+{
+  "unit": "t1020-stop-walk-unit",
+  "verdict": "GREEN",
+  "pass": 9,
+  "fail": 0,
+  "at": "2026-11-04T09:42:30.457Z",
+  "bands": [
+    "W the stop door at source (inspector button, receipt dialect, route words)"
+  ]
+}

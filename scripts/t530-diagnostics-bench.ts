@@ -190,6 +190,18 @@ const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8"
     disk: { totalMb: 10138, freeMb: 2048, usedPct: 79 },
     provenance: { commit: "93bd005", standalone: true },
     world: { projects: 3, jobs: 32, runningJobs: 1 },
+    // t1165 — the durability face rides the payload and its locator line
+    durability: {
+      ok: true,
+      verdict: "STALE",
+      red: false,
+      snapshotJobs: 15,
+      liveJobs: 15,
+      snapshotHead: "6cb3556a",
+      treeHead: "587c6570",
+      exportedAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+      probedAt: new Date().toISOString(),
+    },
     generatedAt: new Date().toISOString(),
   });
   must(res.ok, "presenter — a full payload is ok:true");
@@ -198,6 +210,9 @@ const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8"
   must(/93bd005/.test(summary) && /standalone/.test(summary), "presenter — summary carries provenance");
   must(/3 projects/.test(summary) && /32 jobs/.test(summary) && /1 running/.test(summary), "presenter — summary carries the census");
   must(/disk 79%/.test(summary), "presenter — summary carries disk");
+  must(/world durability STALE \(not red\)/.test(summary), "presenter — summary carries the durability verdict and its red word");
+  must(/snapshot 15 · live 15/.test(summary), "presenter — summary carries the durability counts");
+  must(/exported 1h ago/.test(summary), "presenter — the exported age word rides the ONE father");
   const detail = res.detail as { memory?: unknown; world?: unknown };
   must(Boolean(detail?.memory) && Boolean(detail?.world), "presenter — annex carries the payload");
 
@@ -207,11 +222,23 @@ const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8"
     disk: null,
     provenance: { commit: null, standalone: false },
     world: null,
+    durability: null,
     generatedAt: new Date().toISOString(),
   });
   must(partial.ok, "presenter — a null-lane payload still answers (the read worked, the lanes didn't)");
   must(/unreadable/.test(partial.summary ?? ""), "presenter — null lanes speak 'unreadable', never a guess");
   must(/no provenance stamp/.test(partial.summary ?? ""), "presenter — a stampless lane says so");
+
+  // the mute face speaks its WHY, never a guessed verdict (t1165)
+  const muted = presentSystemDiagnostics({
+    memory: null,
+    disk: null,
+    provenance: { commit: null, standalone: false },
+    world: null,
+    durability: { ok: false, why: "the probe instrument (scripts/world-snapshot.mjs) was not found on this lane" },
+    generatedAt: new Date().toISOString(),
+  });
+  must(/world durability unreadable \(the probe instrument/.test(muted.summary ?? ""), "presenter — a muted probe speaks its why, worded");
 }
 
 /* ------------------------------------------------------------------ */

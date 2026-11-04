@@ -124,6 +124,10 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: "P", text: "Critical path lens — dim everything the finish didn't wait on" },
       { keys: "Delete", text: "Delete the selection (asks first)" },
       { keys: "⇧ Click", text: "Toggle a card in the selection" },
+      // t1011 — the keyboard multi-select's doc row: the verb shipped in
+      // t1010 (Shift+Space on a focused card), the manual now teaches it
+      // beside its pointer siblings — the help never lags the verb.
+      { keys: "⇧ Space", text: "Toggle the focused card in the selection — the keyboard's shift+click" },
       { keys: "⇧ Drag", text: "Box-select on empty canvas" },
     ],
   },
@@ -356,9 +360,9 @@ export function ShortcutsDialog() {
                       {g.rows.map((r) => (
                         <div
                           key={r.keys ?? r.text}
-                          className="flex items-center justify-between gap-4 rounded-md px-1.5 py-1 transition-colors hover:bg-muted/50"
+                          className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 rounded-md px-1.5 py-1 transition-colors hover:bg-muted/50"
                         >
-                          <dd className="text-xs leading-relaxed text-muted-foreground">
+                          <dd className="min-w-0 text-xs leading-relaxed text-muted-foreground">
                             {r.text}
                           </dd>
                           <dt className="flex shrink-0 items-center gap-1">

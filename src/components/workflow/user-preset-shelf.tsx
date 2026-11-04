@@ -199,7 +199,11 @@ export function UserPresetShelf() {
     <section
       aria-label="Your parameter presets across all job types"
       data-testid="preset-shelf"
-      className="card-lift rounded-xl border bg-card px-4 py-3.5 sm:px-5"
+      /* the t1089 paper honesty: an EMPTY shelf is a door to a browser act —
+         on paper the door is noise (zero snapshots is the header's whole
+         story); a populated shelf keeps printing, the operator's presets
+         are real content */
+      className={"card-lift rounded-xl border bg-card px-4 py-3.5 sm:px-5" + (isEmpty ? " no-print" : "")}
     >
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <SlidersHorizontal className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -387,7 +391,7 @@ export function UserPresetShelf() {
             type="button"
             data-testid="preset-shelf-expand"
             onClick={() => setShowAll(true)}
-            className="flex min-h-[64px] items-center justify-center rounded-lg border border-dashed text-xs text-muted-foreground transition-colors motion-reduce:transition-none hover:bg-muted"
+            className="flex min-h-[64px] items-center justify-center rounded-lg border border-dashed text-xs text-muted-foreground transition-colors motion-reduce:transition-none hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             +{hidden} more snapshot{hidden === 1 ? "" : "s"}
           </button>
@@ -526,6 +530,7 @@ export function UserPresetShelf() {
                   data-testid="preset-import-apply"
                   onClick={onImportApply}
                   disabled={pendingReceipt.added.length === 0}
+                  aria-label={pendingReceipt.added.length === 0 ? "Import (nothing is staged yet)" : undefined}
                   className="h-8 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors motion-reduce:transition-none hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:pointer-events-none disabled:opacity-50"
                 >
                   Import {pendingReceipt.added.length > 0 ? pendingReceipt.added.length : ""}

@@ -1,0 +1,39 @@
+{
+  "resetAt": "2026-10-12T23:37:20.834Z",
+  "stage1": {
+    "pass": 19,
+    "fail": 0,
+    "slurmId": "469",
+    "lever": "sparse-20400x600MB",
+    "padCount": 20400,
+    "padRealMB": 0.5,
+    "leverSeconds": 3.6
+  },
+  "at": "2026-10-12T23:39:46.516Z",
+  "stage2": {
+    "pass": 33,
+    "fail": 0,
+    "syncedFiles": 678,
+    "skippedFirst": "t944-pad/f00099.pad (600 MB > 16 MB key-file cap)",
+    "manifestTruncated": true,
+    "manifestFiles": 20000,
+    "mirrorCount": 678,
+    "noteByteExact": true
+  },
+  "stage3Door": {
+    "shape": "finalize-capped-200",
+    "probe": "run_it001_sampling.star",
+    "total": 20000,
+    "remaining": 19322
+  },
+  "stage3": {
+    "pass": 31,
+    "fail": 0,
+    "door": "finalize-capped-200",
+    "curePins": {
+      "filesTabNote": true,
+      "resultsNote": true
+    },
+    "restore": "done"
+  }
+}

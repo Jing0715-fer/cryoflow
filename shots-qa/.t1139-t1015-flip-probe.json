@@ -1,0 +1,31 @@
+{
+ "unit": "t1139-t1015-flip-probe",
+ "at": "2026-11-01T22:37:47.291Z",
+ "pass": 9,
+ "fail": 0,
+ "trace": [
+  {
+   "t": 0,
+   "status": "mint",
+   "rec": null
+  },
+  {
+   "t": 242,
+   "status": "running"
+  },
+  {
+   "t": 392,
+   "status": "completed"
+  }
+ ],
+ "curlExit": {
+  "atMs": 271,
+  "code": 0
+ },
+ "runningAtMs": 242,
+ "endStatus": "completed",
+ "world": {
+  "before": 15,
+  "after": 15
+ }
+}

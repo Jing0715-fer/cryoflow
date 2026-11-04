@@ -1,0 +1,670 @@
+{
+  "instrument": "scripts/t876-ai-settings-a11y.mjs",
+  "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
+  "build": "dev@31eccb9c8237",
+  "worldMode": "dev",
+  "date": "2026-10-14T08:14:45.399Z",
+  "chain": "API warm (settings + health + models-builtin) -> the AI world measured (DTO + the file-absence fact) -> clean room -> assistant door (non-modal panel) -> settings door (layer 2, the animation tax) -> the rail face (15 rows == the API's catalog, one pressed) -> the builtin form face (no key field, the roll-call 正常, the prefilled model) -> the reprobe ride -> the OpenAI switch (the key field born, the model reset, the roll-call gone) -> the FAKE-KEY ride (trusted fill -> the debounced fetch -> role=alert -> NEVER persisted; the eye both ways) -> the switch back (nothing left) -> the switch face (local) -> the IDEMPOTENT save (toast -> self-close -> DTO bit-for-bit -> the file birth documented) -> the badge refresh -> the reopen + the two-door peel -> worldBack (canvas + jobs + DTO + seed) -> exit restore (the born file deleted, the absence restored)",
+  "doors": {
+    "assistant": "trusted CDP click on [aria-label='AI assistant'] (the header)",
+    "settings": "trusted CDP click on [aria-label='AI provider settings'] (the panel) + the animation tax",
+    "railRow": "trusted CDP click on the FILMED row's button (nth-child after the film's text check)",
+    "keyFill": "agent-browser fill — trusted events drive React onChange (the t863 law)",
+    "eye": "trusted CDP clicks on the Show/Hide labels — the type toggles both ways",
+    "switch": "trusted CDP click on [aria-label='分类完成后自动判词']",
+    "save": "synthetic click on the 保存并启用 button — the t868 text-door shape, ONE knock (no blind fallback, the t875 knock law)",
+    "close": "Escape (Radix) then the panel's own X [aria-label='关闭 AI 助手']",
+    "fileRestore": "rmSync of the born data/ai-settings.json (the absence restored) — only when the ride birthed it"
+  },
+  "openingCanvas": 144,
+  "aiWorld": {
+    "activeProvider": "builtin",
+    "catalog": 15,
+    "savedConfigs": [
+      "builtin"
+    ],
+    "fileExistedAtStart": false,
+    "fileBornByRide": true
+  },
+  "registryRestored": true,
+  "faces": {
+    "canvas": {
+      "live": {
+        "url": "/",
+        "pageBtns": 144,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "imgPending": 0,
+        "gen": 0,
+        "dlgCount": 0,
+        "heads": [],
+        "hasSettings": false,
+        "dlgUnnamed": -1,
+        "pill": null,
+        "railCount": 0,
+        "pressedCount": 0,
+        "pressedName": null,
+        "row1Name": null,
+        "row0Name": null,
+        "healthLine": null,
+        "reprobe": false,
+        "reprobeDisabled": null,
+        "keyPresent": false,
+        "keyType": null,
+        "keyLen": -1,
+        "eyeLabel": null,
+        "keyHint": null,
+        "modelVal": null,
+        "dlistOpts": -1,
+        "vlmVal": null,
+        "switchChecked": null,
+        "alertText": null,
+        "problems": false,
+        "cancelPresent": false,
+        "saveDisabled": null,
+        "prose": null,
+        "idLine": null,
+        "toasts": [],
+        "settingsDoor": false,
+        "panelX": false,
+        "panelBadge": false,
+        "seed": ""
+      }
+    },
+    "dialogFace": {
+      "live": {
+        "url": "/",
+        "pageBtns": 173,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 5,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "imgPending": 0,
+        "gen": 0,
+        "dlgCount": 2,
+        "heads": [
+          "",
+          "AI 助手设置"
+        ],
+        "hasSettings": true,
+        "dlgUnnamed": 0,
+        "pill": "当前使用：Built-in (GLM) · glm-4-plus",
+        "railCount": 15,
+        "pressedCount": 1,
+        "pressedName": "BBuilt-in (GLM)",
+        "row1Name": "OOpenAI",
+        "row0Name": "BBuilt-in (GLM)",
+        "healthLine": "连通性：正常in-process SDK lane — no endpoint to miss",
+        "reprobe": true,
+        "reprobeDisabled": false,
+        "keyPresent": false,
+        "keyType": null,
+        "keyLen": -1,
+        "eyeLabel": null,
+        "keyHint": null,
+        "modelVal": "glm-4-plus",
+        "dlistOpts": 1,
+        "vlmVal": "",
+        "switchChecked": "true",
+        "alertText": null,
+        "problems": false,
+        "cancelPresent": true,
+        "saveDisabled": false,
+        "prose": "已获取 1 个模型（内置清单）",
+        "idLine": "builtin",
+        "toasts": [],
+        "settingsDoor": true,
+        "panelX": true,
+        "panelBadge": true,
+        "seed": ""
+      }
+    },
+    "formFace": {
+      "live": {
+        "url": "/",
+        "pageBtns": 173,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 6,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "imgPending": 0,
+        "gen": 0,
+        "dlgCount": 2,
+        "heads": [
+          "",
+          "AI 助手设置"
+        ],
+        "hasSettings": true,
+        "dlgUnnamed": 0,
+        "pill": "当前使用：Built-in (GLM) · glm-4-plus",
+        "railCount": 15,
+        "pressedCount": 1,
+        "pressedName": "OOpenAI",
+        "row1Name": "OOpenAI",
+        "row0Name": "BBuilt-in (GLM)",
+        "healthLine": null,
+        "reprobe": false,
+        "reprobeDisabled": null,
+        "keyPresent": true,
+        "keyType": "password",
+        "keyLen": 0,
+        "eyeLabel": "Show the API key",
+        "keyHint": "未保存",
+        "modelVal": "",
+        "dlistOpts": 6,
+        "vlmVal": "",
+        "switchChecked": "true",
+        "alertText": null,
+        "problems": false,
+        "cancelPresent": true,
+        "saveDisabled": false,
+        "prose": "填写 API key 后自动获取，或手动输入模型名",
+        "idLine": "openai",
+        "toasts": [],
+        "settingsDoor": true,
+        "panelX": true,
+        "panelBadge": true,
+        "seed": ""
+      }
+    },
+    "mutationFace": {
+      "live": {
+        "url": "/",
+        "pageBtns": 173,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 5,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "imgPending": 0,
+        "gen": 0,
+        "dlgCount": 2,
+        "heads": [
+          "",
+          "AI 助手设置"
+        ],
+        "hasSettings": true,
+        "dlgUnnamed": 0,
+        "pill": "当前使用：Built-in (GLM) · glm-4-plus",
+        "railCount": 15,
+        "pressedCount": 1,
+        "pressedName": "BBuilt-in (GLM)",
+        "row1Name": "OOpenAI",
+        "row0Name": "BBuilt-in (GLM)",
+        "healthLine": "连通性：正常in-process SDK lane — no endpoint to miss",
+        "reprobe": true,
+        "reprobeDisabled": false,
+        "keyPresent": false,
+        "keyType": null,
+        "keyLen": -1,
+        "eyeLabel": null,
+        "keyHint": null,
+        "modelVal": "glm-4-plus",
+        "dlistOpts": 1,
+        "vlmVal": "",
+        "switchChecked": "true",
+        "alertText": null,
+        "problems": false,
+        "cancelPresent": true,
+        "saveDisabled": false,
+        "prose": "已获取 1 个模型（内置清单）",
+        "idLine": "builtin",
+        "toasts": [],
+        "settingsDoor": true,
+        "panelX": true,
+        "panelBadge": true,
+        "seed": ""
+      },
+      "saveFace": {
+        "url": "/",
+        "pageBtns": 153,
+        "pageUnnamed": 1,
+        "unWho": [
+          "absolute right-1 top-1 rounded-md p-1 text-foregro"
+        ],
+        "ctrls": 3,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "imgPending": 0,
+        "gen": 0,
+        "dlgCount": 1,
+        "heads": [
+          ""
+        ],
+        "hasSettings": false,
+        "dlgUnnamed": -1,
+        "pill": null,
+        "railCount": 0,
+        "pressedCount": 0,
+        "pressedName": null,
+        "row1Name": null,
+        "row0Name": null,
+        "healthLine": null,
+        "reprobe": false,
+        "reprobeDisabled": null,
+        "keyPresent": false,
+        "keyType": null,
+        "keyLen": -1,
+        "eyeLabel": null,
+        "keyHint": null,
+        "modelVal": null,
+        "dlistOpts": -1,
+        "vlmVal": null,
+        "switchChecked": null,
+        "alertText": null,
+        "problems": false,
+        "cancelPresent": false,
+        "saveDisabled": null,
+        "prose": null,
+        "idLine": null,
+        "toasts": [],
+        "settingsDoor": true,
+        "panelX": true,
+        "panelBadge": true,
+        "seed": ""
+      }
+    },
+    "worldBack": {
+      "live": {
+        "url": "/",
+        "pageBtns": 144,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "imgPending": 0,
+        "gen": 0,
+        "dlgCount": 0,
+        "heads": [],
+        "hasSettings": false,
+        "dlgUnnamed": -1,
+        "pill": null,
+        "railCount": 0,
+        "pressedCount": 0,
+        "pressedName": null,
+        "row1Name": null,
+        "row0Name": null,
+        "healthLine": null,
+        "reprobe": false,
+        "reprobeDisabled": null,
+        "keyPresent": false,
+        "keyType": null,
+        "keyLen": -1,
+        "eyeLabel": null,
+        "keyHint": null,
+        "modelVal": null,
+        "dlistOpts": -1,
+        "vlmVal": null,
+        "switchChecked": null,
+        "alertText": null,
+        "problems": false,
+        "cancelPresent": false,
+        "saveDisabled": null,
+        "prose": null,
+        "idLine": null,
+        "toasts": [],
+        "settingsDoor": false,
+        "panelX": false,
+        "panelBadge": false,
+        "seed": ""
+      }
+    }
+  },
+  "checks": [
+    {
+      "label": "S0 the settings DTO speaks through the guard's own door (t709: metadata in, curl out)",
+      "pass": true,
+      "detail": "active=builtin catalog=15"
+    },
+    {
+      "label": "S1 the world's AI file state measured honestly (absent == pure defaults)",
+      "pass": true,
+      "detail": "absent"
+    },
+    {
+      "label": "O0 the canvas calm at open (zero unnamed page-wide)",
+      "pass": true,
+      "detail": "btns=144 imgs=0"
+    },
+    {
+      "label": "O1 no dialogs at open",
+      "pass": true,
+      "detail": "dlgCount=0"
+    },
+    {
+      "label": "A0 the panel arrived (one dialog, the settings door aboard)",
+      "pass": true,
+      "detail": "dlgCount=1"
+    },
+    {
+      "label": "A1 the panel is the non-modal companion (aria-modal=false — the t500 law)",
+      "pass": true,
+      "detail": "modal=false"
+    },
+    {
+      "label": "D0 the dialog arrived as layer 2 (panel + settings)",
+      "pass": true,
+      "detail": "dlgCount=2"
+    },
+    {
+      "label": "D1 the title speaks (AI 助手设置)",
+      "pass": true,
+      "detail": " | AI 助手设置"
+    },
+    {
+      "label": "D2 the 当前使用 pill speaks the active provider",
+      "pass": true,
+      "detail": "当前使用：Built-in (GLM) · glm-4-plus"
+    },
+    {
+      "label": "D3 the rail: the UI's rows == the API's catalog, exactly ONE pressed (builtin; the row's name carries the avatar letter — the G4 law: measured, never assumed)",
+      "pass": true,
+      "detail": "rows=15==15 pressed=BBuilt-in (GLM)"
+    },
+    {
+      "label": "D4 zero unnamed at two layers (page-wide + the dialog's own controls)",
+      "pass": true,
+      "detail": "page=0 dlg=0"
+    },
+    {
+      "label": "F0 the identity block speaks the provider id",
+      "pass": true,
+      "detail": "builtin"
+    },
+    {
+      "label": "F1 the t474 roll-call line speaks 正常 + the in-process detail",
+      "pass": true,
+      "detail": "连通性：正常in-process SDK lane — no endpoint to miss"
+    },
+    {
+      "label": "F2 the 重新测活 door present and enabled",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "F3 the key field's honest absence (needsKey=false)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "F4 the model input prefilled glm-4-plus over its datalist",
+      "pass": true,
+      "detail": "val=glm-4-plus opts=1"
+    },
+    {
+      "label": "F5 the model prose speaks the auto-fetch's own answer (the builtin lane: 已获取 N == the datalist's N — two wells one world)",
+      "pass": true,
+      "detail": "已获取 1 个模型（内置清单） (opts=1)"
+    },
+    {
+      "label": "F6 the autoJudge switch checked",
+      "pass": true,
+      "detail": "checked=true"
+    },
+    {
+      "label": "F7 the footer's two doors (取消 present, 保存并启用 enabled)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "F8 no problems banner (the honest clean)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "R0 the reprobe door rode (native or the arrival-gated synthetic) and the roll-call still speaks 正常",
+      "pass": true,
+      "detail": "连通性：正常in-process SDK lane — no endpoint to miss"
+    },
+    {
+      "label": "P0 the FILMED row 1 speaks OpenAI (the avatar letter rides the text — the G4 law)",
+      "pass": true,
+      "detail": "OOpenAI"
+    },
+    {
+      "label": "P1 aria-pressed MOVED to OpenAI",
+      "pass": true,
+      "detail": "OOpenAI"
+    },
+    {
+      "label": "P2 the identity speaks openai",
+      "pass": true,
+      "detail": "openai"
+    },
+    {
+      "label": "P3 the key field RENDERED (type=password, the eye, 未保存)",
+      "pass": true,
+      "detail": "type=password eye=Show the API key hint=未保存"
+    },
+    {
+      "label": "P4 the model field RESET",
+      "pass": true,
+      "detail": "val=\"\""
+    },
+    {
+      "label": "P5 the roll-call line GONE (the saved-only law)",
+      "pass": true,
+      "detail": "null"
+    },
+    {
+      "label": "P6 the model prose speaks the fetch-teaching word",
+      "pass": true,
+      "detail": "填写 API key 后自动获取，或手动输入模型名"
+    },
+    {
+      "label": "K0 the debounced auto-fetch ANSWERED (the alert or a fetched list — never the curated skeleton)",
+      "pass": true,
+      "detail": "OpenAI answered 403: {\"error\":{\"code\":\"unsupported_country_region_terr"
+    },
+    {
+      "label": "K1 the failure speaks role=alert (the provider's own message; the fake key cannot list)",
+      "pass": true,
+      "detail": "OpenAI answered 403: {\"error\":{\"code\":\"unsupported_country_region_terr"
+    },
+    {
+      "label": "K2 the eye SHOWS (type text, label Hide)",
+      "pass": true,
+      "detail": "eye=Hide the API key type=text"
+    },
+    {
+      "label": "K3 the eye HIDES (type password, label Show)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "K4 the fake key was NEVER persisted (no openai entry, builtin still active)",
+      "pass": true,
+      "detail": "saved=[builtin]"
+    },
+    {
+      "label": "B0 aria-pressed returned to builtin",
+      "pass": true,
+      "detail": "BBuilt-in (GLM)"
+    },
+    {
+      "label": "B1 the key field vanished, the model re-prefilled, the roll-call returned",
+      "pass": true,
+      "detail": "key=false model=glm-4-plus"
+    },
+    {
+      "label": "B2 the fake key left NOTHING in the form",
+      "pass": true,
+      "detail": "keyLen=-1"
+    },
+    {
+      "label": "V0 the switch flipped OFF",
+      "pass": true,
+      "detail": "checked=false"
+    },
+    {
+      "label": "V1 the switch returned ON",
+      "pass": true,
+      "detail": "checked=true"
+    },
+    {
+      "label": "E0 the toast spoke the activation (AI 已配置：… · glm-4-plus — caught by the viewport's text, the role=status mayfly's elder sibling)",
+      "pass": true,
+      "detail": "[\"Notification AI 已配置：Built-in (GLM) · glm-4-plus\"]"
+    },
+    {
+      "label": "E1 the dialog closed ITSELF (the panel remains)",
+      "pass": true,
+      "detail": "dlgCount=1"
+    },
+    {
+      "label": "E2 the idempotent save: the CONFIG after == the CONFIG before bit-for-bit (the health probe's refetch is the t472 design — the PUT drops the cache so the next GET re-probes)",
+      "pass": true,
+      "detail": "the config identical; the health block re-probed (checkedAt moved)"
+    },
+    {
+      "label": "E3 the file birth documented (the exit restore owes its absence)",
+      "pass": true,
+      "detail": "data/ai-settings.json born this ride"
+    },
+    {
+      "label": "A2 the badge re-fetched on the dialog's close (the provider spoken without a reload)",
+      "pass": true,
+      "detail": "glm-4-plus in the panel text"
+    },
+    {
+      "label": "X0 the dialog re-opened at layer 2",
+      "pass": true,
+      "detail": "dlgCount=2"
+    },
+    {
+      "label": "X1 the reopen re-fetched (the key field absent again, the model prefilled)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "X2 Escape peeled ONE layer (2 -> 1, the settings gone, the panel remains)",
+      "pass": true,
+      "detail": "dlgCount=1"
+    },
+    {
+      "label": "X3 the panel's own X peeled the last (1 -> 0), the canvas bare",
+      "pass": true,
+      "detail": "dlgCount=0"
+    },
+    {
+      "label": "W0 the world unharmed (canvas count == the opening count, zero unnamed)",
+      "pass": true,
+      "detail": "btns=144 (opening 144)"
+    },
+    {
+      "label": "W1 the jobs count == the opening count (the rogue-row census's guard)",
+      "pass": true,
+      "detail": "jobs 15 -> 15"
+    },
+    {
+      "label": "W2 the AI world still bit-for-bit (the CONFIG; the health probe's refetch is the t472 design)",
+      "pass": true,
+      "detail": "the opening config == the closing config"
+    },
+    {
+      "label": "W3 the ride leaves no session seed (the t157 two-way door's honest none)",
+      "pass": true,
+      "detail": "seed=\"\""
+    },
+    {
+      "label": "L canvas face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L dialogFace face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L formFace face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L mutationFace face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L worldBack face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    }
+  ],
+  "passed": 56,
+  "failed": 0,
+  "total": 56,
+  "verdict": "the AI provider settings dialog's faces hold — the rotation's second candidate ridden at ~dev: the API warm paid the routes' tax outside any ride, the settings DTO measured through the guard's own door (t709), the assistant panel summoned non-modally and the dialog as layer 2 with the 当前使用 pill, a 15-row rail whose pressed row == the API's active provider, the builtin form's honest absence (no key field, the no-key prose, the prefilled model over its datalist), the reprobe ride (the in-process lane answers 正常), the OpenAI switch (the key field born with the eye and the 未保存 hint, the model reset, the saved-only roll-call gone), the FAKE-KEY ride (trusted fill, the debounced auto-fetch, the failure's role=alert, the key NEVER persisted, the eye both ways), the switch back (nothing left in the form), the switch face (local, both ways), the IDEMPOTENT save (the toast spoke, the dialog closed itself, the DTO bit-for-bit, the file birth documented for the exit restore), the badge's no-reload refresh, the two-door peel, and the world back bit-for-bit with no seed — the ledger aboard from birth (five faces, the shared law)",
+  "driftLedger": {
+    "prevFound": true,
+    "prevBuild": "dev@31eccb9c8237",
+    "prevDate": "2026-10-14T08:14:04.664Z",
+    "sameBuild": true,
+    "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
+    "faces": {
+      "canvas": {
+        "prev": 144,
+        "live": 144,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "dialogFace": {
+        "prev": 173,
+        "live": 173,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "formFace": {
+        "prev": 173,
+        "live": 173,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "mutationFace": {
+        "prev": 173,
+        "live": 173,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "worldBack": {
+        "prev": 144,
+        "live": 144,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      }
+    }
+  }
+}

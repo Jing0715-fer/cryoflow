@@ -1,0 +1,13 @@
+{
+  "at": "2026-10-18T07:06:59.111Z",
+  "pass": 20,
+  "fail": 0,
+  "law": "t703 movies dialect — every micrograph-name reader speaks both star shapes by declared column index",
+  "consumers": [
+    "relion_autopick",
+    "relion_preprocess",
+    "relion_run_ctffind",
+    "relion_python_topaz"
+  ],
+  "receipt": "shots-qa/.t1025-movies-dialect-unit.json"
+}

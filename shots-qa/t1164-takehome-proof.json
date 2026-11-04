@@ -1,0 +1,59 @@
+{
+  "task": "t1164",
+  "title": "the take-home proof — the no-trace-neighbor law made a pin on the smoke sentinel, and the vacuum became a verb",
+  "date": "2026-11-03",
+  "units": {
+    "seat": "t1164-takehome-proof-unit",
+    "result": "13/13 green at birth",
+    "coverage": {
+      "A_live_face": [
+        "A1 the dev lane holds zero QA-family jobs right now (t1163's residue cured)",
+        "A2 the take-home idempotent on a clean lane — a REAL run, exit 0, count stays 0",
+        "A3 the byte face — the lane reads its canonical page-quantized 143360 after a smoke ride"
+      ],
+      "B_source_law": [
+        "B1 the take-home returns a bool (a warned cleanup is not a cleanup)",
+        "B2 the proof runs before the green word (take-home → assert → SMOKE GREEN)",
+        "B3 the count is argv-direct spawnSync (the shell eats $disconnect through quote-nesting — observed live)",
+        "B4 the naming contract — startsWith 'QA '",
+        "B5 the lane contract — file:…/db/cryoflow.db (the server's own world)",
+        "B6 the FATAL path keeps its take-home (t630 doctrine untouched)"
+      ],
+      "C_immunity_and_contract": [
+        "C1 the tracked spine is immune — zero QA-named jobs among the tracked 15 (all tutorial-named)",
+        "C2 the header speaks the no-trace contract",
+        "C3 the tail runs the vacuum — no trace in rows OR in bytes",
+        "C4 the vacuum is the instrument's own verb (world-snapshot.mjs vacuum, in the usage line)"
+      ]
+    }
+  },
+  "the_investigation": {
+    "t1163_question": "is qa63's 5-job footprint a known footprint or a hygiene gap?",
+    "answer": "neither, exactly: qa63 is SELF-CLEANING by design (take-home on normal/FATAL/throw paths) and PROVEN so live (a full ride left zero QA-family jobs); t1163's 15→20 was a SILENT take-home failure that ride (the warn was swallowed, PASS did not mean cleaned)",
+    "the_cure": "the take-home's truth is now asserted: assertNoLeftovers counts QA * rows in the dev lane and must(0) runs before SMOKE GREEN — a green word carries the no-trace proof"
+  },
+  "the_second_cure": {
+    "what": "the census went RED ×3 AGAIN (t1021/t1022/t1023) after this window's qa63 rides: the byte face grows on ANY product-door ride (create+delete leave freelist pages), not only restore",
+    "the_cure": "world-snapshot.mjs vacuum — a command of its own (before → after bytes, 'the freelist returned' / 'already compact'); t1163 taught restore to compact what it rebuilds, t1164 generalizes: every world-changing rider compacts what IT moved — qa63's tail runs it as the byte-half of the no-trace contract",
+    "verified": "vacuum 147456 → 143360 (the freelist returned); a fresh qa63 ride ended at 143360 with no manual step"
+  },
+  "live_rides": [
+    {
+      "what": "qa63-smoke full ride (post-fix)",
+      "result": "SMOKE GREEN with the no-trace assertion spoken (got 0 standing) and the db at 143360 after the tail vacuum — zero trace in rows AND bytes",
+      "world_after": "STALE red=false 15/15 (probe) · 15 jobs · 14 edges"
+    }
+  ],
+  "standing_instruments": {
+    "census": "102 seats: 102 GREEN · 0 RED (seat 102 t1164-takehome-proof-unit 13/13 aboard; enrolled by t1164-census-rekey.mjs, idempotent ×2, bash -n green; the rekey's first cut said 10 pins and was corrected to 13 BEFORE the roster ride — counted surgery)",
+    "selftest": "7/7 pins (the vacuum verb did not break the older faces)",
+    "probe": "STALE red=false (15/15, head 6cb3556a vs tree 3c90aea3) — the honest docs/qa footprint; doctor agrees",
+    "world_gate": "15 jobs · 15 done · 14 edges · db 143360 (canonical)",
+    "tsc": "0 errors",
+    "eslint": "0 errors (4 touched files)"
+  },
+  "scars": [
+    "the inline `node -e` inside sh() died of quote-nesting: the shell ate $disconnect as its own variable (p.() syntax error) — the count is now spawnSync argv-direct; the nail: code through a shell is code the shell edits first",
+    "the rekey's first cut said 10 pins while the seat grew to 13 — caught by counting the ok() calls before the roster rode; the rekey tool was corrected (10→13) and census.sh reset to HEAD before the formal re-key ran"
+  ]
+}

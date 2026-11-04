@@ -18,6 +18,40 @@
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT" || exit 1
 
+# t1174 — THE NODE_MODULES REAPER'S CURE. The platform's disk-pressure
+# cleaner unlinks node_modules BETWEEN tool calls (six witnesses across
+# the t1173/t1174 windows: a verified 643-entry tree at call end, gone at
+# the next call start; every boot-after-reap dies with MODULE_NOT_FOUND on
+# the ENTRY itself — requireStack: [] — and the watchdog looped 70
+# hardened boots against that wall). The hardlink store .nm-store shares
+# every inode with node_modules: `cp -al` is metadata-only (~1.2s for 643
+# packages, zero data copied), needs no symlink (the sandbox refuses
+# `ln -s` — the t874 lesson), and survives the cleaner's unlink of the
+# node_modules NAME. Restore on boot; refresh the store just before the
+# boot spawn below (idempotent re-link; new files from fresh installs
+# join, the store always tracks the healthy tree).
+# t1175 — the reaper's harvest is PARTIAL: it can empty the tree while
+# leaving the directory and even a few entries (witnessed: exactly `next`
+# surviving, so the entry point exists and the first require dies with
+# MODULE_NOT_FOUND requireStack:[]). The guard therefore counts, not
+# exists: fewer than 600 of the known 643 packages means reaped.
+mv_nm_count() { ls node_modules 2>/dev/null | wc -l; }
+# t1177 — THE DEEP WITNESS. The harvest went FILE-LEVEL: witnessed
+# 02:09-02:17Z, 643 top-level entries counted WHOLE while next/dist was
+# eaten out of the tree (the launcher's own spawn died with
+# MODULE_NOT_FOUND requireStack:[] at node_modules/next/dist/bin/next,
+# three boot-fails in a row, the dirty-cache quarantine firing on a
+# healthy cache — the false positive that named this guard's blind spot).
+# The headcount asks the tree's SURFACE; the boot asks its ENTRANCE. The
+# restore now fires on EITHER witness: a thin headcount OR a missing deep
+# file. (The store must carry the same witness — the t1177 harvest ate it
+# there too; the reinstall + the boot-time refresh below heal both.)
+if { [ "$(mv_nm_count)" -lt 600 ] || [ ! -f node_modules/next/dist/bin/next ]; } && [ -d .nm-store ]; then
+  echo "[dev-server] node_modules reaped (partial harvest: $(mv_nm_count) left) — hardlink-restore from .nm-store"
+  rm -rf node_modules
+  cp -al .nm-store node_modules
+fi
+
 # t524 — THE GUARD RIDES WITH THE SERVER. The watchdog's own header says
 # "Run detached: (nohup bash scripts/dev-server-watchdog.sh …)" — a line a
 # human must remember, and five windows of bare-OOM deaths (t520's five
@@ -68,16 +102,18 @@ sleep 1
 # this cap, three witnesses in the t402 window) needs ~1792MB of V8 heap
 # to compile the home graph; 896 dies with "Ineffective mark-compacts".
 export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--max-old-space-size=${DEV_HEAP_MB:-896}"
-# t377 — the DB lane: the sandbox tool environment exports a TEMPLATE
-# DATABASE_URL, so t377 pinned THIS repo's own path unconditionally. That
-# pin guarded an era when custom.db was a User/Post-only template — the
-# era is over (t872's ruling: the platform owns .env, and booting
-# custom.db is a LEGAL lane; t871 witness: custom.db carries the full
-# 8/8 schema while the pinned cryoflow.db sat empty — the prod lane 500'd
-# on "no Project table" until this passthrough landed). The pin becomes
-# a DEFAULT: a preset DATABASE_URL (the platform's .env choice) rides;
-# with nothing preset, this repo's own cryoflow.db boots.
-export DATABASE_URL="${DATABASE_URL:-file:$REPO_ROOT/db/cryoflow.db}"
+# t377 — HARD overrides: the sandbox tool environment itself exports a
+# TEMPLATE DATABASE_URL (my-project's custom.db); `${VAR:-…}` passthrough
+# would poison Prisma into a User/Post-only database. These two are always
+# pinned to THIS repo's own paths.
+# t921 — the split-brain cure's second half: the sandbox's custom.db has
+# become a REAL world in later eras (the bare `next dev` session-bootstrap
+# lane rides the sandbox pin and seeds there), so two boot lanes now serve
+# TWO worlds. The pin stays the default (the t402 law stands), but an
+# operator may now pin the OTHER world EXPLICITLY via CRYOFLOW_DB_URL —
+# an operator's choice, never the template's leak (only this named var is
+# honored; the sandbox's bare DATABASE_URL is still ignored).
+export DATABASE_URL="${CRYOFLOW_DB_URL:-file:$REPO_ROOT/db/cryoflow.db}"
 export CRYOFLOW_DATA_DIR="$REPO_ROOT/data"
 export CRYOFLOW_TRUST_GATEWAY=1
 # t402 — spawn under NODE explicitly: `bunx next` / `bun next` make BUN the
@@ -104,6 +140,11 @@ mkdir -p "$QA_LOG_DIR"
 # Pinned, the busy case fails LOUD instead (Next exits EADDRINUSE, the
 # watchdog's boot-fail streak handles it) — and the cleanup pkill above
 # now matches the spawn it was written for.
+# t1174 — the store refresh rides the healthy-tree moment: node_modules is
+# complete right now (the restore above or the operator's own install), so
+# hardlink any file the store is missing (new installs, post-merge dep
+# changes) into it. Idempotent; ~1s; keeps the cure armed for the next reap.
+[ -d node_modules ] && cp -al node_modules/. .nm-store/ 2>/dev/null
 setsid node node_modules/next/dist/bin/next dev -p 3000 ${DEV_NEXT_ARGS:-} > "$QA_LOG_DIR/dev-server.log" 2>&1 < /dev/null &
 # this script exits immediately → server re-parents to init → survives
 ensure_watchdog

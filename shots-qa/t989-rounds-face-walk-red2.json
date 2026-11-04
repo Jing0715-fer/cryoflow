@@ -1,0 +1,40 @@
+{
+  "walk": "t989-rounds-face-walk",
+  "at": "2026-10-14T16:15:02.710Z",
+  "pass": 52,
+  "fail": 3,
+  "phaseTrace": [
+    "r0i0: {\"up\":true,\"loading\":true,\"err\":null,\"head\":false,\"cluster\":false,\"it200\":null}",
+    "r0i4: {\"up\":true,\"loading\":false,\"err\":null,\"head\":false,\"cluster\":false,\"it200\":null}",
+    "r0i8: {\"up\":true,\"loading\":false,\"err\":null,\"head\":false,\"cluster\":false,\"it200\":null}",
+    "r0i12: {\"up\":true,\"loading\":false,\"err\":null,\"head\":false,\"cluster\":false,\"it200\":null}",
+    "r0i16: {\"up\":true,\"loading\":false,\"err\":null,\"head\":false,\"cluster\":false,\"it200\":null}",
+    "retry#1 refresh=true",
+    "r1i0: {\"up\":true,\"loading\":true,\"err\":null,\"head\":false,\"cluster\":false,\"it200\":null}",
+    "r1i4: {\"up\":false}",
+    "r1i8: {\"up\":false}",
+    "r1i12: {\"up\":false}",
+    "r1i16: {\"up\":false}"
+  ],
+  "results": [
+    {
+      "label": "THE UPSTREAM SETTLED READ IS LIVE (\"Upstream · 2D Classification (tutorial)\" · the cluster lane badge)",
+      "cond": false,
+      "extra": "head=undefined cluster=undefined"
+    },
+    {
+      "label": "the upstream's own newest round reads (it200, the real demo family, pickable)",
+      "cond": false,
+      "extra": "label=\"undefined\""
+    },
+    {
+      "label": "the upstream round wears the newest badge",
+      "cond": false,
+      "extra": ""
+    }
+  ],
+  "face": {
+    "name": "Rounds Face (t989)",
+    "jobId": "cmv86xfmq0001usha0t85mcfb"
+  }
+}

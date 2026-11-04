@@ -1,0 +1,29 @@
+{
+  "walk": "t1000-sub8s-probe",
+  "at": "2026-10-30T05:24:18.180Z",
+  "pass": 37,
+  "fail": 0,
+  "phaseTrace": [
+    "ready i0: {\"up\":true,\"tryAgain\":false,\"msg\":null,\"loading\":true,\"refresh\":true}",
+    "vigil i0: pop={\"up\":true,\"tryAgain\":false,\"msg\":null,\"loading\":false,\"refresh\":true} ctx={\"marker\":true,\"born\":1793337800659,\"nav\":1793337798707.6}",
+    "vigil i1: pop={\"up\":true,\"tryAgain\":false,\"msg\":null,\"loading\":false,\"refresh\":true} ctx={\"marker\":true,\"born\":1793337800659,\"nav\":1793337798707.6}",
+    "vigil i2: pop={\"up\":true,\"tryAgain\":false,\"msg\":null,\"loading\":false,\"refresh\":true} ctx={\"marker\":true,\"born\":1793337800659,\"nav\":1793337798707.6}",
+    "error i0: {\"up\":true,\"tryAgain\":true,\"msg\":\"Failed to fetch\",\"loading\":false,\"refresh\":true}",
+    "outage: ctx={\"marker\":true,\"born\":1793337800659,\"nav\":1793337798707.6} pop={\"up\":true,\"tryAgain\":true,\"msg\":\"Failed to fetch\",\"loading\":false,\"refresh\":true}",
+    "respawn i0: 000",
+    "race i0: {\"up\":false,\"marker\":false,\"nav\":1793337830721.9}",
+    "reopened-ready i0: {\"up\":true,\"tryAgain\":false,\"msg\":null,\"loading\":true,\"refresh\":true}",
+    "refresh-held i0: {\"up\":true,\"tryAgain\":false,\"msg\":null,\"loading\":true,\"refresh\":true}"
+  ],
+  "results": [],
+  "face": "Rounds Face (t989)",
+  "outcome": "reload",
+  "navAtBirth": 1793337798707.6,
+  "firstRaceSample": {
+    "up": false,
+    "marker": false,
+    "nav": 1793337830721.9
+  },
+  "asFound": "cmvuhirhs0002obuvhhpn7gmk:completed:Import Movies 1|cmvuhirhu0004obuv24kj1mzx:completed:Motion Correction 1|cmvuhirhv0006obuvhua9o328:completed:CTF Estimation 1|cmvuhjumy000cobuvdh4pjv3a:completed:Remote Ledger Door (t963)|cmvuhjurt000eobuvuta14sbr:completed:Peek Stress Bench (t966)|cmvuhjuyo000gobuvhsi9yqfe:failed:Failed Diagnosis Face (t970)|cmvuhjv6j000iobuvseabpyty:idle:Idle Shape Face (t987)|cmvuhjvae000kobuvtlp5xz0d:idle:Continue Face (t988)|cmvuhjvdi000mobuvuy9y0cxw:idle:Rounds Face (t989)|cmvuhjw65000oobuvf16dd27a:failed:Custom Error Face (t995)|cmvuhjwey000qobuvxf5dfgh2:failed:Negative Diagnosis Face (t972)|cmvuhjwlf000sobuvie121sjt:failed:Cancelled Diagnosis Face (t976)|cmvuhjx2d000uobuv2gl4wwnc:completed:2D Classification 1 (t978)|cmvuhjx2t000wobuvm2sxolij:completed:3D Classification 1 (t978)|cmvuhjx8l000yobuvmjyl8gv1:idle:Classes Consumer (t978)|cmvuhjx9k0010obuvlpymhmv6:idle:Particles Consumer (t978)",
+  "asLeft": "cmvuhirhs0002obuvhhpn7gmk:completed:Import Movies 1|cmvuhirhu0004obuv24kj1mzx:completed:Motion Correction 1|cmvuhirhv0006obuvhua9o328:completed:CTF Estimation 1|cmvuhjumy000cobuvdh4pjv3a:completed:Remote Ledger Door (t963)|cmvuhjurt000eobuvuta14sbr:completed:Peek Stress Bench (t966)|cmvuhjuyo000gobuvhsi9yqfe:failed:Failed Diagnosis Face (t970)|cmvuhjv6j000iobuvseabpyty:idle:Idle Shape Face (t987)|cmvuhjvae000kobuvtlp5xz0d:idle:Continue Face (t988)|cmvuhjvdi000mobuvuy9y0cxw:idle:Rounds Face (t989)|cmvuhjw65000oobuvf16dd27a:failed:Custom Error Face (t995)|cmvuhjwey000qobuvxf5dfgh2:failed:Negative Diagnosis Face (t972)|cmvuhjwlf000sobuvie121sjt:failed:Cancelled Diagnosis Face (t976)|cmvuhjx2d000uobuv2gl4wwnc:completed:2D Classification 1 (t978)|cmvuhjx2t000wobuvm2sxolij:completed:3D Classification 1 (t978)|cmvuhjx8l000yobuvmjyl8gv1:idle:Classes Consumer (t978)|cmvuhjx9k0010obuvlpymhmv6:idle:Particles Consumer (t978)"
+}

@@ -50,8 +50,10 @@ import { DATA_DIR, RELION_DIR } from "@/lib/paths";
 import {
   buildArgv,
   collectOutputs,
+  continueTargetsWorkdir,
   ctffindInputGate,
   describeExitCode,
+  explicitContinueOf,
   extractInputGate,
   getRun,
   micrographRowsFromContent,
@@ -593,7 +595,7 @@ function remoteCountLead(
 ): string | null {
   const n = counts.rows;
   if (n == null) return null;
-  const fmt = n.toLocaleString();
+  const fmt = n.toLocaleString("en-US");
   switch (type) {
     case "extract":
       return `${fmt} particles extracted`;
@@ -1873,6 +1875,32 @@ export function selfContinueInArgv(
     if (abs === root || abs.startsWith(root + "/")) return true;
   }
   return false;
+}
+
+/**
+ * t1083 — the remote resume's receipt. A cluster run whose argv carries
+ * `--continue <…run_itNNN_optimiser.star>` IS a resume (the "Continue from
+ * here:" picker's self-round — t394's carve-out — or the pipeliner
+ * dialect's own continue target). The record carries the checkpoint
+ * iteration so the inspector's Log toolbar chip speaks for the cluster
+ * lane exactly as it has spoken for the local lane since t1082: written
+ * ONCE at spawn, every later finalize spread carries it for free.
+ *
+ * Parsed from the FINAL argv (post-relativize t537, post-MPI-wrap): the
+ * grammar is RELION's own output name — run_it<NNN>_optimiser.star — and
+ * the iteration is the <NNN>. A user-typed continue aimed at a non-run
+ * optimiser name (a multi-body job's run_itNNN_it0NN_optimiser.star, say)
+ * intentionally does NOT match the receipt grammar: the chip names the
+ * refine-family checkpoint contract, and a half-guessed receipt is a
+ * lie the toolbar should never say.
+ */
+export function parseResumeIteration(argv: readonly string[]): number | null {
+  for (let i = 0; i + 1 < argv.length; i++) {
+    if (argv[i] !== "--continue") continue;
+    const m = /run_it(\d+)_optimiser\.star$/.exec(argv[i + 1] ?? "");
+    if (m) return parseInt(m[1], 10);
+  }
+  return null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -4882,7 +4910,7 @@ export async function startRemoteJob(args: {
         if (natives.length === 0) continue;
         if (natives.length > RELINK_MAX) {
           return fail(
-            `the input STAR names ${natives.length.toLocaleString()} cluster-side files — over the ${RELINK_MAX.toLocaleString()}-link ceiling (a runaway STAR, or an import wider than the door accepts) — re-import a narrower set`,
+            `the input STAR names ${natives.length.toLocaleString("en-US")} cluster-side files — over the ${RELINK_MAX.toLocaleString("en-US")}-link ceiling (a runaway STAR, or an import wider than the door accepts) — re-import a narrower set`,
           );
         }
         const plan = planRelinks(natives, takenNames);
@@ -4941,15 +4969,44 @@ export async function startRemoteJob(args: {
     // didn't re-point (first leg absent / pass-through), train_picks lives
     // in the project tree — outside the workdir, dropped by the wipe's
     // own normalization, a no-op keep.
-    const wipedMirror = wipeLocalRunProducts(localWorkdir, {
-      keepFiles:
-        job.type === "topaztrain" && resolvedInputs.train_picks
-          ? [resolvedInputs.train_picks]
-          : [],
-    });
+    const wipedMirror = (() => {
+      // t917 — the t394 law crosses the lane boundary: a re-dispatch whose
+      // params carry an explicit --continue INTO THIS WORKDIR is a RESUME,
+      // not a fresh start. The cluster side already holds the carve-out
+      // (the pre-submit wipe's selfContinueInArgv — the rounds ARE the
+      // state the run resumes); a mirror that loses them rewinds every
+      // local surface — the iterations ladder, the convergence door's
+      // whole-arc default, the chips bar — to the continue's first NEW
+      // round, witnessed live by the t917 ride: the ladder [0,1,2] became
+      // [3..7] locally while the cluster still held [0..7]. The engine's
+      // local lane has spoken this exact law since t394
+      // (explicitContinueOf + continueTargetsWorkdir — the same pair,
+      // because buildArgv reads the SAME params.fn_cont).
+      const continueTarget = explicitContinueOf(jobRef);
+      // t917 — the target's dialect: the continue-sources scan runs
+      // CLUSTER-side, so a remote resume's fn_cont names the workdir by
+      // the CLUSTER's path (/projects/<project>/<type>_<id8>/…) or, the
+      // t537 relativized dialect, PROJECT-RELATIVE (<type>_<id8>/…). Both
+      // carry the workdir's unique stable segment; the local lane's
+      // absolute path keeps the lexical comparison verbatim. A cross-job
+      // continue names ANOTHER workdir's segment — never this one — and
+      // wipes as before.
+      const workdirSeg = `${job.type}_${job.id.slice(-8)}`;
+      const keepIterations =
+        continueTarget != null &&
+        (continueTargetsWorkdir(continueTarget, localWorkdir) ||
+          continueTarget.includes(workdirSeg));
+      return wipeLocalRunProducts(localWorkdir, {
+        ...(keepIterations ? { keepIterations: true } : {}),
+        keepFiles:
+          job.type === "topaztrain" && resolvedInputs.train_picks
+            ? [resolvedInputs.train_picks]
+            : [],
+      });
+    })();
     if (wipedMirror && wipedMirror.wiped.length > 0) {
       console.log(
-        `remote-run: re-dispatch of "${job.name}" cleared ${wipedMirror.wiped.length} stale file(s) from the local mirror (t333)`
+        `remote-run: re-dispatch of "${job.name}" cleared ${wipedMirror.wiped.length} stale file(s) from the local mirror (t333${wipedMirror.keptCount > 0 ? ", the run_it* checkpoint family stays (explicit --continue, t394/t917)" : ""})`
       );
     }
   } catch {
@@ -5173,6 +5230,13 @@ export async function startRemoteJob(args: {
                 !cubic ? `non-cubic (${h.nx}×${h.ny}×${h.nz})` : refPx <= 0 ? "missing cell sizes in its header" : "anisotropic in its header"
               }) — RELION's own check decides (t365)`;
             } else if (pxOk && boxOk) {
+              // t1156 — these verification sentences keep toFixed(4) BY
+              // CONTRACT (the DIAGNOSTIC precision face, documented at the
+              // fmtPixel father in chart-rows): a MRC header division
+              // (cella/nx → 1.236666…) compared against a STAR-declared
+              // 4-decimal optics value needs exactly those digits on
+              // screen; the identity faces (map cards, chips, receipts)
+              // speak fmtPixel's 2-decimal grain, this sentence does not.
               refPrepNote = `reference verified in place — ${refBox}³ @ ${refPx.toFixed(4)} Å/px matches the particles' first optics group (t365)`;
             } else {
               // 方案 A: bring the REFERENCE to the particles' sampling —
@@ -5647,6 +5711,14 @@ export async function startRemoteJob(args: {
       } else {
         command = argv.map(shQuoteOrVar).join(" ");
       }
+      // t1083 — the resume's receipt (parseResumeIteration's doc): the FINAL
+      // argv is the witness — the continue target survived the relativize
+      // (t537) and the MPI wrap — and the record carries its iteration at
+      // the spawn faces below so the Log toolbar chip speaks for the
+      // cluster lane. argv is stable from here (no later mutation touches
+      // it: only reads), so one parse serves both the slurm and the
+      // direct-mode record write.
+      const resumeIter = parseResumeIteration(argv);
       // t382 — the cluster-side extraction pre-flight's star: the --i value
       // the final argv carries (the array lane's $SHARD maps back to
       // arrayPlan.inputStar — the same file; argv itself is never mutated on
@@ -6360,6 +6432,9 @@ export async function startRemoteJob(args: {
             ? {
                 ...rec,
                 cmd: command,
+                // t1083 — the resume's receipt rides the record from the
+                // slurm spawn face too (the finalize spreads carry it home).
+                ...(resumeIter != null ? { resumedFrom: resumeIter } : {}),
                 remote: {
                   ...rec.remote,
                   slurmId,
@@ -6472,6 +6547,9 @@ export async function startRemoteJob(args: {
                 ...rec,
                 pid,
                 cmd: command,
+                // t1083 — the resume's receipt at the direct-mode spawn face
+                // (the slurm twin above carries the same conditional).
+                ...(resumeIter != null ? { resumedFrom: resumeIter } : {}),
                 remote: {
                   ...rec.remote,
                   pid,
@@ -7994,12 +8072,35 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
             continue;
           }
           const completed = word === "COMPLETED" && exitNum === 0 && sigNum === 0;
+          // t936 — the miss class rides the question: a WIRE-DOWN stop's
+          // fate was UNKNOWABLE at stop time (the run may have finished
+          // before OR after the attempt — in the live arc it finished
+          // after), so the sentence never claims "already finished"; it
+          // names the missing wire. The refused class keeps the t935 words
+          // (the wire answered and refused — "already finished" was the
+          // cluster's own testimony at stop time).
+          const wireDown = opened.class === "wire-down";
+          // t941 — the refused class's SECOND knowledge shape: the
+          // "lost" refusal ("Invalid job id specified" — the controller
+          // no longer knew the job) means the fate was UNKNOWABLE at stop
+          // time; the run may have been alive and finished AFTER the
+          // attempt. Claiming "already finished" for it would be the
+          // t935 arc's word spoken where its knowledge never reached.
+          // The "finished" refusal (and every pre-t941 question) keeps
+          // the t935 words byte-for-byte.
+          const lostHandle = opened.refusal === "lost";
           const sentence = completed
             ? opened.missed
-              ? `the cluster ledger recorded the run COMPLETED (exit ${exitLabel}) — the stop had found nothing to kill because the run had already finished`
+              ? wireDown
+                ? `the cluster ledger recorded the run COMPLETED (exit ${exitLabel}) — the stop had no wire to the cluster; the run finished on its own`
+                : lostHandle
+                  ? `the cluster ledger recorded the run COMPLETED (exit ${exitLabel}) — the stop had found nothing to kill: the cluster no longer knew the job; the run finished on its own afterwards`
+                  : `the cluster ledger recorded the run COMPLETED (exit ${exitLabel}) — the stop had found nothing to kill because the run had already finished`
               : `the cluster ledger recorded the run COMPLETED (exit ${exitLabel}) — the stop's cancellation arrived after the run had finished`
             : opened.missed
-              ? `the cluster ledger recorded the run ${word} (exit ${exitLabel}) — the stop had found no live session to kill; the ledger's word stands`
+              ? wireDown
+                ? `the cluster ledger recorded the run ${word} (exit ${exitLabel}) — the stop had no wire to the cluster; the ledger's word stands`
+                : `the cluster ledger recorded the run ${word} (exit ${exitLabel}) — the stop had found no live session to kill; the ledger's word stands`
               : `the cluster ledger recorded the run ${word} (exit ${exitLabel}) after the stop was accepted — the ledger's word stands`;
           landAccountingVerdict(e.job.id, e.rec.startedAt, {
             exitCode: completed ? 0 : mapSacctWordToExit(word, exitNum, sigNum),
@@ -8008,8 +8109,15 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
             ...(elapsedMs != null ? { slurmElapsedMs: elapsedMs } : {}),
           });
           // the row: completed heals the whole row; any other verdict only
-          // swaps the words (both conditional on the receipt's failed row —
-          // a user re-run's running/pending row is untouchable)
+          // swaps the words. The completed heal touches a failed OR an
+          // already-completed row — only stop-records carry the open
+          // question (a natural completion's row is never touched), and
+          // the t935 echo race can flip the row completed with the
+          // wrapper's own receipt before the consult lands: the heal's
+          // richer sentence must reach the row either way. A non-completed
+          // verdict's words only ever swap onto a failed row (a completed
+          // row never grows a FAILED sentence). The user re-run's
+          // running/pending row is untouchable in both shapes.
           const flip = completed
             ? {
                 status: "completed" as const,
@@ -8019,7 +8127,12 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
               }
             : { result: sentence };
           const flipped = await db.job
-            .updateMany({ where: { id: e.job.id, status: "failed" }, data: flip })
+            .updateMany(
+              {
+                where: { id: e.job.id, status: completed ? { in: ["failed", "completed"] } : "failed" },
+                data: flip,
+              }
+            )
             .catch(() => null);
           if (flipped && flipped.count > 0) {
             const healed = await db.job.findUnique({ where: { id: e.job.id } });
@@ -8575,29 +8688,54 @@ async function finalizeRemoteRun(
       : `REMOTE[${r.user}@${r.host.split(":")[0]}]: ${stayNote}`;
   }
 
-  updateRun(job.id, (cur) =>
-    cur.startedAt === rec.startedAt && cur.remote
-      ? {
-          ...cur,
-          done: true,
-          exitCode,
-          outputs,
-          result,
-          remote: {
-            ...cur.remote,
-            remoteOutputs,
-            ...(outputProbedAt != null
-              ? { outputProbeAt: outputProbedAt, outputProbeAbsent: outputProbeAbsent ?? [] }
-              : {}),
-            syncedFiles: sync.files,
-            syncedBytes: sync.bytes,
-            skippedFiles: sync.skipped.slice(0, 50),
-            syncMs,
-            ...(sync.note ? { note: sync.note } : {}),
-          },
-        }
-      : null
-  );
+  // t934 — the confirmed stop's stamp outranks the wrapper's echo. A
+  // user-stop already finalized this record (done=true, 'stopped by
+  // user', exit 137 — the t618 contract): the wrapper exit that arrives
+  // afterwards is the mechanism's echo of OUR OWN scancel (the t297
+  // TERM trap's 143 — the first-writer rule gave the trap the scheduler's
+  // word, and the t625 landing confirmed the stamp against the ledger's
+  // CANCELLED). The verdict words and the user-stop exit stay; the
+  // sync-back's facts (outputs, sync ledger, remote twins) land as new
+  // information — a stopped run's products still come home. A MISSED
+  // stop's stamp defers by its own words ('the cluster ledger decides
+  // the final state'), so the wrapper's verdict may speak over it; and
+  // a run that actually COMPLETED before the cancellation is healed by
+  // the accounting landing, whose own RECEIPT_STAMPS law yields to the
+  // ledger's COMPLETED word.
+  // t935 — and the echo yields to the LEDGER'S OWN LANDING too: a record
+  // whose words already came from the accounting consult ('the cluster
+  // ledger recorded the run …') outranks the wrapper's exit the same way
+  // the user's hand does — the scheduler's verdict outranks its own
+  // mechanism's echo. (The stop-after-the-finish arc: the echo's
+  // completed flip used to clobber the heal sentence when it beat the
+  // consult to the row.)
+  let stampKept = false;
+  updateRun(job.id, (cur) => {
+    if (cur.startedAt !== rec.startedAt || !cur.remote) return null;
+    stampKept =
+      cur.done === true &&
+      (cur.result === "stopped by user" ||
+        cur.result?.startsWith("the cluster ledger recorded the run") === true);
+    return {
+      ...cur,
+      done: true,
+      exitCode: stampKept ? cur.exitCode : exitCode,
+      outputs,
+      result: stampKept ? cur.result : result,
+      remote: {
+        ...cur.remote,
+        remoteOutputs,
+        ...(outputProbedAt != null
+          ? { outputProbeAt: outputProbedAt, outputProbeAbsent: outputProbeAbsent ?? [] }
+          : {}),
+        syncedFiles: sync.files,
+        syncedBytes: sync.bytes,
+        skippedFiles: sync.skipped.slice(0, 50),
+        syncMs,
+        ...(sync.note ? { note: sync.note } : {}),
+      },
+    };
+  });
 
   const patch =
     exitCode === 0
@@ -8607,7 +8745,12 @@ async function finalizeRemoteRun(
           result,
           duration: Math.max(500, Date.now() - new Date(rec.startedAt).getTime()),
         }
-      : { status: "failed" as const, progress: 0, result };
+      : stampKept
+        ? // t934 — the row already speaks the stop's receipt (the route's
+          // own flip, or the sweep's terminal branch speaking the record's
+          // stamp); the echo must not rewrite it.
+          { status: "failed" as const, progress: 0 }
+        : { status: "failed" as const, progress: 0, result };
   // SQLITE_BUSY-safe flip (t262 finding #2): a swallowed flip used to leave
   // the row non-terminal forever — the orphan sweep now backs this up too.
   const updated = await updateJobWithRetry(job.id, patch);
@@ -9356,6 +9499,24 @@ export async function remoteStopRun(
   stopped: boolean;
   message: string;
   outcome: RemoteStopOutcome;
+  /** t936 — WHICH miss class the receipt names: "wire-down" = the
+   *  connection itself was gone (nothing was reachable — the run's fate
+   *  was unknowable at stop time); "refused" = the wire answered and
+   *  refused the kill (scancel's exit 1 / no live pid). The stop route's
+   *  words and the accounting question ride the class. Absent on a
+   *  confirmed kill. */
+  missClass?: "refused" | "wire-down";
+  /** t941 — WHICH WORD the cluster spoke when it refused the kill (the
+   *  refused class's second knowledge shape, riding the receipt so the
+   *  stop route can carry it into the accounting question). "finished" =
+   *  the cluster said "has already finished" — the fate was KNOWN at stop
+   *  time (the t935/t938 arcs' word). "lost" = the cluster said "Invalid
+   *  job id specified" — the controller no longer knew the job (state
+   *  loss): the fate was UNKNOWABLE at stop time, the run may be alive
+   *  and go on to finish AFTER the attempt — the heal's sentence must
+   *  never claim "already finished" for this shape. Absent on a confirmed
+   *  kill, a wire-down miss, and raw-pid refusals (no cluster word). */
+  refusal?: "finished" | "lost";
   /** t624 — did the job actually leave the queue inside the settle window?
    *  null = the question never applied (non-slurm kill, scancel failed, or
    *  no window requested — the project-delete-era shape). true = confirmed
@@ -9365,12 +9526,13 @@ export async function remoteStopRun(
 }> {
   const rec = getRun(jobId);
   if (!rec?.remote)
-    return { stopped: false, outcome: "missed", settled: null, message: "not a remote run" };
+    return { stopped: false, outcome: "missed", missClass: "refused", settled: null, message: "not a remote run" };
   const conn = getConnection(rec.remote.connectionId);
   if (!conn)
     return {
       stopped: false,
       outcome: "missed",
+      missClass: "wire-down",
       settled: null,
       message: "the connection for this run was deleted — kill the process on the cluster manually",
     };
@@ -9378,6 +9540,20 @@ export async function remoteStopRun(
   if (r.mode === "slurm" && r.slurmId) {
     const res = await exec(conn, `scancel ${shQuote(String(Number(r.slurmId)))}`, { timeoutMs: 15_000 });
     const ok = res.code === 0 && !res.error;
+    // t941 — WHICH WORD the cluster spoke when it refused: "has already
+    // finished" (the controller REMEMBERS the job, and its memory says
+    // done — the fate was known at stop time) vs "Invalid job id
+    // specified" (the controller LOST the job's handle — the fate was
+    // unknowable; the run may be alive and finish after the attempt).
+    // The heal's sentence branches on this word, so the receipt carries it.
+    const stderrWord = res.stderr.trim();
+    const refusal = ok
+      ? undefined
+      : /has already finished/.test(stderrWord)
+        ? ("finished" as const)
+        : /Invalid job id specified/.test(stderrWord)
+          ? ("lost" as const)
+          : undefined;
     // t418 — the teardown confirmation is OPTIONAL and bounded. The
     // project-delete route NEEDS it (the rm -rf below races the tree's
     // last writes); the single-job stop route asks for it since t624 —
@@ -9390,6 +9566,8 @@ export async function remoteStopRun(
     return {
       stopped: ok,
       outcome: ok ? "killed" : "missed",
+      ...(ok ? {} : { missClass: "refused" as const }),
+      ...(ok || !refusal ? {} : { refusal }),
       settled,
       message: ok
         ? `sent scancel to Slurm job ${r.slurmId} — the scheduler tears the process tree down on the compute node` +
@@ -9413,6 +9591,7 @@ export async function remoteStopRun(
   return {
     stopped: killed,
     outcome: killed ? "killed" : "missed",
+    ...(killed ? {} : { missClass: "refused" as const }),
     settled: null,
     message: killed
       ? `sent SIGTERM+SIGKILL to the cluster-side session (pid group ${rec.remote.pid})`

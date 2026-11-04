@@ -1,0 +1,83 @@
+# CryoFlow session QC report
+
+Project **β-Galactosidase Tutorial (demo)** · 22 jobs — 15 succeeded · 0 running · 4 failed · 3 waiting.
+
+## Pipeline at a glance
+
+- **15** succeeded jobs feed this report's QC sections;
+- **0** running · **4** failed — failures stay counted here, never dropped;
+- **3** waiting (idle or submitted) — no verdict exists for work that has not run;
+- **16h 12m** wall-clock span across **15** runs (first start → last end);
+- heaviest step: **2D Classification (tutorial)** at **31m 17s**;
+- **37m 29s** of measured compute (windows summed — parallel runs double-count).
+
+## Map QC
+
+## Map QC summary — Sharpened map
+
+Job `cmv8ogdvk000ysy8969rydbc5` · mean-density landscape along **Z** (64 bins).
+
+- **Peak** mean ρ at plane 0 (**0.0%** of depth) — where the specimen's mass concentrates on this axis
+- **Trough** at plane 33 (52.4%)
+- **Span** across planes: 0.2572 (max 0.0014, min -0.2558)
+
+### Comparison maps (1)
+
+| Map | Bins | Peak at | Agreement r | Verdict |
+| --- | --- | --- | --- | --- |
+| postprocess_mask | 64 | 33.3% | 0.02 | diverges |
+
+Where a comparison line follows the main landscape, the density is consistent between maps; where it parts ways lives noise or masking. Agreement r is the Pearson correlation on the shared 0–100% fraction scale — each terrain self-scaled to its own map's stats (the shape is the signal, not absolute ρ).
+
+### Local agreement
+
+| Map | Q1 (0–25%) | Q2 (25–50%) | Q3 (50–75%) | Q4 (75–100%) | Weakest | Depth (fraction) |
+| --- | --- | --- | --- | --- | --- | --- |
+| postprocess_mask | 0.16 | 0.14 | -0.08 | 0.11 | Q3 (50–75%) (-0.08) | 0.50–0.75 |
+
+A global r can hide a localized betrayal — a map can agree over most of the depth and part ways in a single band (a mask edge, a noise shelf). Each quarter of the shared fraction scale is correlated independently, and the weakest quarter is the address to inspect; the Depth column quotes that address as fractions (the same numbers the viewer's bracket door jumps to). Where the half-maps disagree with each other in one band only, suspect that band, not the reconstruction.
+
+### Reading the depth addresses
+
+Every depth in this report is a fraction of the map's thickness along the axis (0 = the front face, 1 = the back face), never an Å position — the landscape is mean density per plane, contour-independent, describing the whole map. The quarter bands are cut by an equal-count knife: each quarter holds the same number of measured planes, so a weak quarter names a real place, not a sparse one. The tables divide the labour — Comparison summarizes each map with one global r; Local addresses (the weakest quarter, quoted as depth); Pairwise corroborates (each pair measured as its own two maps). The Comparison table deliberately carries no Depth column: its address is already quoted in the Local agreement section below — a depth printed twice has two fathers and drifts apart. In the viewer, every one of these addresses is a door: press the chip or the bracket and the plane lands on the band's centre.
+
+_Exported from CryoFlow's slice instrument — the mean-density landscape is contour-independent and describes the whole map, not the current isosurface._
+
+### Session map inventory
+
+Every job in this session that owns a true 3D volume, newest walk first. The deep profiles above ride the newest owner; this inventory keeps every other owner visible — no map hides below the fold (the t211 lesson: a walk that stops at the first winner leaves the rest of the world unseen). Each row is a door — press it and the page hands you to that job's results (the t210 lesson carried onto the report: a name on a roster should never be a dead end). The Peak column quotes each owner's main map exactly the way the deep report quotes the winner — where the mass concentrates along the shared axis, as a fraction of depth; — means still measuring, never a guess. The Δ winner column reads every peak against the winner's own — the reference row speaks +0.0, its dash obeys the same law, and the lens never guesses; on the page the row farthest from the winner wears the amber edge (a lens, not a verdict — the exported bytes keep the numbers and let the reader judge). The Agreement r column gives every owner the winner's own comparison arithmetic — the same Pearson correlation on the shared 0–100% fraction scale, each owner's main landscape read against the winner's on the finer of the two grids; the reference row lands at 1.00 through the same path, and — means still measuring or a flat field, never a guess. The Weakest column answers the r column's next question — WHERE the shape does not follow: the same quarter-band cut the deep report's Local agreement table speaks, thinnest band first, Q1–Q4 with the band's own r; the reference row's thinnest quarter is perfect and the cell says so.
+
+| Job | Main map | Volumes | Peak | Δ winner | Agreement r | Weakest |
+|-----|----------|---------|------|----------|-------------|---------|
+| Post-process (tutorial) | Sharpened map | 2 | 0.0% | +0.0 | 1.00 | Q1 (1.00) |
+| 3D Refine (tutorial) | run_class001 | 63 | 1.6% | +1.6 | 1.00 | Q1 (0.99) |
+| 3D Classification (tutorial) | run_class001 | 160 | 0.0% | +0.0 | 0.98 | Q2 (0.94) |
+| Import Movies 1 | Micrograph mic_001 | 24 | 0.0% | +0.0 | 0.00 | Q3 (-0.00) |
+| Mask Create (tutorial) | Mask | 1 | 49.2% | +49.2 | -0.75 | Q2 (-0.97) |
+| Initial Model (tutorial) | run_class001 | 112 | 1.6% | +1.6 | 1.00 | Q1 (0.99) |
+| 2D Classification (tutorial) | run_class001 | 223 | 1.6% | +1.6 | 1.00 | Q1 (0.99) |
+
+## Curve verdicts
+
+Every completed job whose workdir carries a curve the charts can draw, newest first. The verdict column is worded over the same interpretation the inspector panels render and the agent's curve tool quotes — one well, three readers; the paper never re-judges what the panels already said.
+
+| Job | Curve | Verdict |
+|-----|-------|---------|
+| CTF Estimation 1 | CTF fit | 6 micrographs · mean defocus 1.348 µm · worst fit 4.4 Å (mic_003.mrc) |
+| Motion Correction 1 | Motion drift | 6 micrographs · mean drift 2.6 Å · worst 3.1 Å (mic_004.mrc) — early-frames dominate (the stage settles late) |
+| Post-process (tutorial) | FSC | FSC 0.143 at 7.8 Å (0.5 at 10.5 Å) · reported 7.8 Å — final resolution (masked, sharpened) |
+| Post-process (tutorial) | Guinier | Guinier 24 pts · B-factor -62.4 Å² (used for sharpening) · covers 7.1–169.0 Å · sharpened curve in plot |
+| 3D Refine (tutorial) | FSC | FSC 0.143 at 7.1 Å (0.5 at 9.6 Å) · reported 7.1 Å — auto-refine estimate (smoothed FSC) |
+| 3D Refine (tutorial) | Angular distribution | 5672 particles · 95/288 bins · ×3.9 — fairly even · hottest r18/t0 |
+| 3D Classification (tutorial) | FSC | FSC 0.143 at 3.7 Å (0.5 at 5 Å) · reported 3.7 Å — auto-refine estimate (smoothed FSC) |
+| 3D Classification (tutorial) | Angular distribution | 96 particles · 89/288 bins · ×1.9 — fairly even · hottest r6/t0 |
+| Initial Model (tutorial) | FSC | FSC 0.143 at 3.2 Å (0.5 at 4.3 Å) · reported 3.2 Å — auto-refine estimate (smoothed FSC) |
+| Initial Model (tutorial) | Angular distribution | 96 particles · 89/288 bins · ×1.9 — fairly even · hottest r6/t0 |
+| 2D Classification (tutorial) | FSC | FSC 0.143 at 3.2 Å (0.5 at 4.3 Å) · reported 3.2 Å — auto-refine estimate (smoothed FSC) |
+| 2D Classification (tutorial) | Angular distribution | 96 particles · 89/288 bins · ×1.9 — fairly even · hottest r6/t0 |
+
+## Scheduling sweep
+
+No sweep raced this session — open the HPC queue panel and run *Compare profiles*; the winner's verdict will be bound here verbatim.
+
+_Bound from this session's live state — the pipeline glance, the map landscape and the sweep verdict each keep their own provenance. The filename carries the export stamp._

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { loadCtf, ChartJobNotFound } from "@/lib/chart-data";
 import { isLocalRequest } from "@/lib/http-guard";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +44,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
     if (error instanceof ChartJobNotFound) {
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }
-    console.error("GET /api/jobs/[id]/ctf failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/jobs/[id]/ctf", error);
   }
 }

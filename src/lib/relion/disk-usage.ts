@@ -84,12 +84,40 @@ export function classifyStorageFile(relPath: string): StorageCategoryId {
 }
 
 /* ------------------------------------------------------------------ */
-/* Formatting — the cleanup dialog's dialect, lifted verbatim           */
+/* Formatting — the app's ONE byte word (the census father, t1152)      */
 /* ------------------------------------------------------------------ */
 
 /** 1024 base, "N B" / one decimal KB·MB / two decimals GB — the same
  * dialect the cleanup dialog (t331) already taught the user. One formatter
- * per app: two byte formats on one screen is a lie about precision. */
+ * per app: two byte formats on one screen is a lie about precision.
+ *
+ * The t1152 census: this word had SIX births and FOUR dialects — the
+ * father here (lib readers + the AI tools' t518 voice law), byte-identical
+ * twins in cleanup-dialog and job-inspector, a KB-0-decimals no-GB dialect
+ * in canvas-export ("2 KB", a 2.5 GB blob rendered "2560.0 MB"), a
+ * KB-1-decimal no-GB dialect in results-view ("1536.0 MB" for the same
+ * blob the inspector called "1.50 GB"), and the import-gallery's unit-loop
+ * dialect with whole-number shortcuts ("10 KB" beside the father's
+ * "10.0 KB"). All five twins died on 2026-11-02 (t1152): every face now
+ * imports THIS function — the same file shows one number language
+ * everywhere (the seventh face, the 3D viewer's export toasts, drank the
+ * canvas-export dialect through its import and rode the father the same
+ * day). Engine/remote phase-log prose (threshold-coupled MB words
+ * in ssh.ts / engine.ts / remote-run.ts) is the ENGINE's voice, not a UI
+ * byte badge — it keeps its own dialect. The import-gallery keeps only an
+ * ABSENCE word ("—" for an unknown size ≤ 0, which is not "0 B") and rides
+ * this father for every known byte.
+ *
+ * t1153 addendum — the EIGHTH birth: `formatStagedBytes` in
+ * job-inspector.tsx (the staging phase line + the peak-memory chip)
+ * hid under its own NAME, which is why the t1152 walk — a name-hunt
+ * (`function fmtBytes(` / `function formatBytes(`) — passed it by and
+ * its KB whole-number dialect ("512 KB" on the same screen as the
+ * outputs card's father word "512.0 KB") survived the cure. It died on
+ * 2026-11-02 (t1153) and rides this father; its absence word ("" while
+ * nothing is staged) stays the face's own. The map's lesson is now the
+ * shape-hunt law: births hide under different names — hunt by the
+ * arithmetic (1024), never only by the name. */
 export function fmtBytes(n: number): string {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;

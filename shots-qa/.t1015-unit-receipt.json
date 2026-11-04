@@ -1,0 +1,10 @@
+{
+  "unit": "t1015-native-stop-unit",
+  "at": "2026-11-02T11:49:36.866Z",
+  "pass": 42,
+  "fail": 0,
+  "world": {
+    "before": 15,
+    "after": 15
+  }
+}

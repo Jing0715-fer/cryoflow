@@ -1,0 +1,120 @@
+{
+  "instrument": "scripts/t880-clean-state-synth.mjs",
+  "world": {
+    "mode": "dev",
+    "id": "dev@d70bbea23ce4",
+    "buildId": null,
+    "srcHash": "d70bbea23ce4",
+    "note": "dev-server world — no production build; the world key is the src tree's content hash"
+  },
+  "date": "2026-11-01T13:02:37.167Z",
+  "question": "does the FSC compare dialog's own Escape consumer EVER fire? (the t879 fork's root)",
+  "arcs": [
+    {
+      "arc": 1,
+      "esc": 1,
+      "synth": 0,
+      "closed": true,
+      "closeShape": "delayed (+500ms)",
+      "wrapSurvives": null,
+      "lens": {
+        "open": true,
+        "dlgCount": 2,
+        "target": "BUTTON:fsc-compare-rescan",
+        "targetHasFiber": true,
+        "pathReachesContent": 3,
+        "pathOnKeyHop": -1,
+        "pathHops": 3,
+        "contentHasProps": true,
+        "contentOwnKind": "function",
+        "dataState": "open"
+      },
+      "arm": {
+        "armed": true,
+        "activeEl": "BUTTON"
+      },
+      "fire": {
+        "sent": true,
+        "target": "BUTTON",
+        "beats": [
+          {
+            "at": 0,
+            "open": true,
+            "synth": 0,
+            "esc": 1
+          },
+          {
+            "at": 500,
+            "open": false,
+            "synth": 0,
+            "esc": 1
+          }
+        ],
+        "finalOpen": false,
+        "dlgCount": 1,
+        "wrapSurvives": null,
+        "dataState": null
+      },
+      "room": {
+        "keys": {},
+        "sel": ""
+      }
+    },
+    {
+      "arc": 2,
+      "esc": 1,
+      "synth": 0,
+      "closed": true,
+      "closeShape": "delayed (+500ms)",
+      "wrapSurvives": null,
+      "lens": {
+        "open": true,
+        "dlgCount": 2,
+        "target": "BUTTON:fsc-compare-rescan",
+        "targetHasFiber": true,
+        "pathReachesContent": 3,
+        "pathOnKeyHop": -1,
+        "pathHops": 3,
+        "contentHasProps": true,
+        "contentOwnKind": "function",
+        "dataState": "open"
+      },
+      "arm": {
+        "armed": true,
+        "activeEl": "BUTTON"
+      },
+      "fire": {
+        "sent": true,
+        "target": "BUTTON",
+        "beats": [
+          {
+            "at": 0,
+            "open": true,
+            "synth": 0,
+            "esc": 1
+          },
+          {
+            "at": 500,
+            "open": false,
+            "synth": 0,
+            "esc": 1
+          }
+        ],
+        "finalOpen": false,
+        "dlgCount": 1,
+        "wrapSurvives": null,
+        "dataState": null
+      },
+      "room": {
+        "keys": {},
+        "sel": ""
+      }
+    }
+  ],
+  "root": "CONSUMER DEAD CODE everywhere (synth=0 both arcs, esc>=1, both closed) — Radix's document-level path closes even cleanly; the t877-era comment in fsc-compare-dialog.tsx describes an architecture that does not exist (the comment fix is a product-docs fix; Radix's top-layer rule is the real protector)",
+  "restored": {
+    "fscKeys": 1,
+    "cards": 16,
+    "dlgCount": 0
+  }
+}

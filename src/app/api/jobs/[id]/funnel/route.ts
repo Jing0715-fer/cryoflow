@@ -25,7 +25,7 @@ type RouteContext = { params: Promise<{ id: string }> };
 export async function GET(request: NextRequest, context: RouteContext) {
   const local = isLocalRequest(request);
   if (!local) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: "Cross-site access to job data is not allowed" }, { status: 403 });
   }
   try {
     const { id } = await context.params;

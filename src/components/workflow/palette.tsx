@@ -702,6 +702,7 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
             title={favOnly ? "Showing favorites only — click to show all" : "Show favorites only"}
             data-testid="palette-fav-filter"
             className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
               "ml-auto flex size-5 items-center justify-center rounded transition-colors",
               favOnly
                 ? "bg-amber-500/15 text-amber-600 ring-1 ring-inset ring-amber-500/40 dark:text-amber-400"
@@ -752,7 +753,7 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
               type="button"
               onClick={() => setQuery("")}
               aria-label="Clear search"
-              className="absolute right-1.5 top-1/2 flex size-5 -translate-y-1/2 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              className="absolute right-1.5 top-1/2 flex size-5 -translate-y-1/2 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               <X className="size-3" />
             </button>
@@ -840,6 +841,7 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
                   title={`Add ${t.label} at the viewport center — drag / touch long-press to reorder (Alt+←/→)`}
                   data-testid={`palette-fav-chip-${t.key}`}
                   className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                     "flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-card py-1 pl-1.5 pr-2.5 text-[11px] font-medium shadow-sm transition-all hover:-translate-y-px hover:shadow active:translate-y-0",
                     "hover:border-amber-500/50 hover:ring-1 hover:ring-amber-500/25",
                     dragging && !favDragViaTouch && "opacity-40 translate-y-0 scale-[0.98] shadow-none",
@@ -917,7 +919,7 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
                 }
                 setRecent([]);
               }}
-              className="ml-auto rounded px-1 py-px text-[9px] font-medium text-muted-foreground/70 transition-colors hover:text-foreground"
+              className="ml-auto rounded px-1 py-px text-[9px] font-medium text-muted-foreground/70 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               aria-label="Clear recently used list"
             >
               clear
@@ -933,6 +935,7 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
                 data-pal-face="recent"
                 style={{ "--pd": `${waveTicketOf(`recent:${t.key}`)}ms` } as React.CSSProperties}
                 className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                   "flex items-center gap-1.5 rounded-full border bg-card py-1 pl-1.5 pr-2.5 text-[11px] font-medium shadow-sm transition-all hover:-translate-y-px hover:shadow active:translate-y-0",
                   "hover:border-primary/40 hover:ring-1 hover:ring-primary/25"
                 )}
@@ -977,7 +980,7 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
             <button
               type="button"
               onClick={() => setFavOnly(false)}
-              className="mt-1.5 text-[11px] font-medium text-primary underline-offset-2 hover:underline"
+              className="mt-1.5 text-[11px] font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               Show all types
             </button>
@@ -1005,7 +1008,7 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
             <button
               type="button"
               onClick={() => setQuery("")}
-              className="mt-1.5 text-[11px] font-medium text-primary underline-offset-2 hover:underline"
+              className="mt-1.5 text-[11px] font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               Clear the search
             </button>
@@ -1025,7 +1028,7 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
                 title={cat.hint}
                 data-pal-face="cat"
                 style={{ "--pd": `${waveTicketOf(`cat:${cat.key}`)}ms` } as React.CSSProperties}
-                className="group/cat sticky top-0 z-10 flex w-full items-center gap-1.5 rounded-md bg-sidebar/80 px-2 py-1.5 text-left backdrop-blur-sm transition-colors hover:bg-accent/60"
+                className="group/cat sticky top-0 z-10 flex w-full items-center gap-1.5 rounded-md bg-sidebar/80 px-2 py-1.5 text-left backdrop-blur-sm transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 <ChevronDown
                   className={cn(

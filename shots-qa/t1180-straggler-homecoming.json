@@ -1,0 +1,68 @@
+{
+  "window": "t1180",
+  "dispatched": "2026-11-04T13:21:35+08:00",
+  "trace": "1a07549302235a99-cron-agent-loop-202611041321",
+  "the_arbitration": {
+    "summary_claimed": "t1170 closed at 5dee9986, census 110, origin/main = main",
+    "archive_said": "HEAD fdaf97c (t874), worklog ends Task 874, ahead 43 of a stale origin ref",
+    "probes": [
+      "t927-t1170 artifacts in scripts/ + shots-qa/: 0",
+      "claimed commits 5dee9986/101fc85a/2287819f: Not a valid object name x3",
+      "reflog ends at the t874 qa car; worklog mtime 2026-11-02 13:37+08:00"
+    ],
+    "fetch_verdict": "origin/main a03a29f -> b750fc0a (+2126 commits: the t875-t1179 arc real, remote-only)",
+    "adopted": "git reset --hard origin/main (local 0 ahead / 2126 behind — nothing lost)",
+    "law": "the archive won a second time; this time the archive was the remote"
+  },
+  "the_restore": {
+    "env_cure": ".env custom.db -> file:../db/cryoflow.db (t1130 5/5 in census)",
+    "schema_push_hijack": "bare `prisma db push` rode the sandbox's template DATABASE_URL to custom.db (13ms 'synced' lie) — cured by pinning the URL on the command",
+    "snapshot_restore": "world-snapshot.mjs restore: 32 rows + 15 engine states into cryoflow.db",
+    "prisma_client": "t874-era client lacked a model — npx prisma generate + pinned db push (the t858 dance)"
+  },
+  "the_chain": {
+    "listener": "services/mock-cluster/launch.sh (127.0.0.1:3022) — snapshot carries the connection record, never the daemon",
+    "probe": "POST /api/remote/connections/conn-mw1olqcw/test -> ok:true (lmod, relion/5.0.1)",
+    "legs": {
+      "import": "3.2s", "motioncorr": "28.2s", "ctffind": "40.7s", "autopick": "23.8s",
+      "extract": "5.5s", "class2d": "478s (52 outputs)", "select2d": "2.6s", "select": "2.6s",
+      "initialmodel": "230s", "class3d": "41.1s (9 outputs)", "refine3d": "19.7s",
+      "maskcreate": "5.6s", "postprocess": "2 outputs"
+    },
+    "payoff": {
+      "fsc": "200, 40 shells, 0.143 at 7.7847 A",
+      "guinier": "200",
+      "official_number": "REMOTE[cryo@127.0.0.1 · relion/5.0.1]: sharpened map · FSC(0.143) = 7.79 Å",
+      "verdict": "DEMO CHAIN RESURRECTED"
+    }
+  },
+  "the_build_day": {
+    "start_available_mb": 3457,
+    "attempts": [
+      { "cap": "uncapped", "exit": 137, "how": "Killed" },
+      { "cap": 1792, "exit": 134, "how": "V8 heap abort" },
+      { "cap": 2048, "exit": 137, "how": "Killed" },
+      { "cap": 2304, "exit": 137, "how": "Killed (mock listener down, ~3.57GB)" }
+    ],
+    "verdict": "the 19th consecutive non-build day; the gate's true shape named",
+    "next_candidates": ["2560-cap trial", "experimental.cpus throttle + revert ritual", "the >=4GB-day wait"],
+    "receipts": "/tmp/cryoflow-qa/t1180-build.log .. t1180-build4.log"
+  },
+  "the_census": {
+    "first_ride": "112 green + t1167 one-world RED (probe DRIFTED — the chain had legitimately moved the live world past the t1179 snapshot)",
+    "cure": "world-snapshot.mjs export -> FRESH @ b750fc0a (32 rows, engine-state 15)",
+    "second_ride": "113 GREEN / 0 RED",
+    "highlights": ["t1130 5/5", "t1170 15/15", "t1171 10/10", "t1173 32/32", "t1173 16/16", "t1169 19/19", "t1169 9/9"]
+  },
+  "checks": [
+    "arbitration: 3 probes vs summary, remote fetch decisive",
+    "restore: probe FRESH verdict on stdout",
+    "chain: payoff surfaces speak (fsc shells > 10, guinier 200, official number)",
+    "census: 113/113 exit 0"
+  ],
+  "judge_lines": [
+    "档案赢两次，第二次赢的是远端",
+    "快照带得走连接记录，带不走守护进程",
+    "加码要点名，败仗要入册"
+  ]
+}

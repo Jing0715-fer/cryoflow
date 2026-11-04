@@ -1,0 +1,24 @@
+{
+  "instrument": "diag-t380-empiar-pipeline (the exam lane's THIRD seat)",
+  "at": "2026-10-30T11:31Z",
+  "lane": "prod standalone (bun .next/standalone/server.js, 172MB) + mock cluster alongside (:3022) \u2014 the ceremony shape's first ride",
+  "provenance": "47115d48 (src/ byte-identical at HEAD 57bcc617 \u2014 no rebuild debt)",
+  "verdict": "86 passed, 0 failed \u2014 REAL-data mode, total wall 64s",
+  "project": "cmvuw5xh8000fobj5sgyeiqqc (swept via the product door after the ride, delete 200)",
+  "world_as_left": {
+    "jobs": 16,
+    "edges": 4,
+    "ws": 1,
+    "db": 147456
+  },
+  "the_reaper_lesson": "the first (detached setsid) ride died silently at ~4min \u2014 no kernel OOM record, no abort line, mock log frozen; the platform-level young-process reaper is the named suspect (the storm law's host-side cousin); the FOREGROUND re-ride rode the full chain clean in 64s \u2014 ride diag-t380 foreground on this box (600s cap is ample: the warm-mock chain is ~1 min)",
+  "polarities_on_prod": {
+    "P1_P2": "raw + extracted crops flip per convention on the prod bundle",
+    "P3": "dead-zone class: OLD 1.2x gate DARK (119.1<=132.9) / NEW 1.0x gate BRIGHT (52.4>35.3) / LIVE gallery BRIGHT (52.4>38.7)",
+    "P4": "3D map negative-density core renders BRIGHT",
+    "P5": "negativeStain PATCH re-pins the SAME particle DARK-on-bright (119.1<128.4), restored byte-for-byte"
+  },
+  "checks": 86,
+  "checks_note": "86 = the foreground re-ride's witnessed verdict line (the /tmp log file holds the DEAD first ride's 51 greens \u2014 the foreground ride rode through the pipe, not the file)",
+  "first_ride": "detached setsid ride died silently at ~4min (51 greens banked in /tmp/diag-t380-prod.log \u2014 the reaper lesson)"
+}

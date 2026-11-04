@@ -7,6 +7,7 @@ import { resolveInsideJobWorkdir } from "@/lib/relion/jobfile";
 import { biggestLoop, extractFsc, findPair, parseStar } from "@/lib/starfile";
 import { isLocalRequest } from "@/lib/http-guard";
 import { fetchRemoteFileIntoWorkdir } from "@/lib/remote/remote-files";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +43,16 @@ function toTsv(columns: string[], rows: string[][]): string {
 // realpath inside the app data tree. The old realpath-inside-workdir rule
 // rejected engine-created cross-job symlinks; the file route's old
 // lexical-only rule let planted links escape. Both holes are closed.
+//
+// t903 — the #6/#14 verdict, pinned where the asymmetry lives: THIS route
+// has no pathref escape hatch, and that is the policy, not a gap — the
+// engine writes markers ONLY into a job's micrographs/ directory and ONLY
+// for movie sources (importFileSet's tail), so a marker can never name a
+// .star file this route would serve; the file/subvolume-job routes carry
+// the hatch, gated on the canonical marker shape (isPathrefPath — the
+// micrographs/-scoped hidden-dotfile law). A planted file whose NAME ends
+// in .pathref elsewhere in the workdir is not a marker and gets no hatch
+// anywhere.
 
 function readStarText(file: string): { text: string; previewed: boolean } {
   const size = statSync(file).size;
@@ -169,7 +180,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
       note: previewed ? "Large file — parsed the first 5 MB only" : undefined,
     });
   } catch (error) {
-    console.error("GET /api/jobs/[id]/outputs/star failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/jobs/[id]/outputs/star", error);
   }
 }

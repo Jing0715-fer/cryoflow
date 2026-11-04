@@ -1,0 +1,14 @@
+{
+  "archive": "t1139-t1015-alias-probe",
+  "conviction": "the t1015 L1 fleet RED was a SAMPLING ALIAS, not an arm failure: the engine-native import of the 40k fixture completes in ~400-500ms on the quiet box, so the running phase is ~150-300ms — comparable to the unit's old 250ms poll gap, which aliases it (a coin flip on where the grid fell). Four full status traces at 100ms granularity, same shape every ride.",
+  "instrument": "scripts/t1139-t1015-flip-probe.mjs (GREEN 9/9 after its own r.text bug was convicted — the settle loop called r.text() on the api-wrapper object; the instrument self-test law's second application this window)",
+  "cure": "scripts/t1015-native-stop-unit.mjs L1: the flip poll rides a 50ms grid at the same 10s patience (200x50) + ONE honest race-loss retry with a fresh twin (a completed-first run is a fair race loss, not an arm failure); L2 rides the same grid; the retry twin joins the sweep. 42/42 x2 after the cure (the aliasing RED was also SHRINKING the unit — 10 assertions skipped, 32 of 42 counted).",
+  "traces": [
+    { "sample": 1, "trace": [{ "t": 0, "status": "mint" }, { "t": 329, "status": "running" }, { "t": 473, "status": "completed" }], "runningPhaseMs": 144 },
+    { "sample": 2, "trace": [{ "t": 0, "status": "mint" }, { "t": 186, "status": "running" }, { "t": 494, "status": "completed" }], "runningPhaseMs": 308 },
+    { "sample": 3, "trace": [{ "t": 0, "status": "mint" }, { "t": 265, "status": "running" }, { "t": 419, "status": "completed" }], "runningPhaseMs": 154 },
+    { "sample": 4, "trace": [{ "t": 0, "status": "mint" }, { "t": 242, "status": "running" }, { "t": 392, "status": "completed" }], "runningPhaseMs": 150 }
+  ],
+  "worldGate": { "before": 15, "after": 15 },
+  "at": "2026-11-02T06:20+08:00 window (t1139)"
+}

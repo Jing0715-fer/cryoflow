@@ -3,6 +3,14 @@
 // dialog open/close, then asserts ZERO page errors. ~60 s total (fits the
 // tool-call window that kept eating longer calls this window).
 //
+// t1164 — the NO-TRACE contract, now a pin: the suite seeds the FSC
+// fixture family (QA * jobs, idempotent by name), rides the server,
+// and PROVES the world it leaves behind is the world it found — the
+// take-home runs on every exit path (normal / FATAL / throw) AND its
+// result is asserted (assertNoLeftovers: zero QA-family jobs in the
+// dev lane before SMOKE GREEN). A silent cleanup failure can no
+// longer dress up as a green suite (t1163's live catch).
+//
 // Task 92 — MIGRATED agent-browser CLI → playwright (the last matrix
 // member still on the old channel; Task 91's "zero agent-browser" claim
 // missed it and qa58). Assertion set byte-identical, driver swapped per
@@ -12,7 +20,7 @@
 //
 // Run: node scripts/qa63-smoke.mjs   (server must be on :3000)
 import { chromium } from "playwright";
-import { execSync } from "node:child_process";
+import { execSync, spawnSync } from "node:child_process";
 
 const B = "http://localhost:3000";
 const HOST_JOB = "QA Post 320";
@@ -22,8 +30,41 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // t633 — the whole fsc fixture family goes home (t630 seeder). Sync so a
 // FATAL can run it inline before exit (playwright's exit hook reaps the
 // browser process tree); the normal path calls the same verb at the end.
+// t1164 — the take-home returns its truth (bool): t1163's live catch —
+// a silent take-home warn left 5 QA jobs standing in the world, and the
+// next strict world-gate ride refused a DRIFTED world the suite had
+// made — proved that a WARNED cleanup is a cleanup that did not
+// happen. The no-trace-neighbor law is not a habit, it is a PIN: the
+// normal path asserts zero QA-family jobs LEFT before it may say SMOKE
+// GREEN (assertNoLeftovers, below), and the FATAL path still takes its
+// specimens home on the way out.
 const takeHomeHome = () => {
-  try { sh("python3 /home/z/my-project/scripts/qa60-seed-fsc.py --take-home"); } catch (e) { console.log(`  take-home warn: ${String(e).slice(0, 120)}`); }
+  try { sh("python3 /home/z/my-project/scripts/qa60-seed-fsc.py --take-home"); return true; } catch (e) { console.log(`  take-home warn: ${String(e).slice(0, 120)}`); return false; }
+};
+
+// t1164 — the no-trace proof: the dev lane's job table holds ZERO
+// QA-family rows after the take-home (the seeder's whole family is
+// named QA * — QA Post 300/320/385, QA Refine 410; the tracked demo
+// spine's 15 jobs are all tutorial-named and are NEVER touched). The
+// count runs against the same lane the :3000 server serves — the
+// world the next reader (and the next world-gate probe) will see.
+const assertNoLeftovers = () => {
+  // spawnSync argv-direct — an inline `node -e` inside sh() would hand
+  // the code to a shell, and the shell eats `$disconnect` as its own
+  // variable (observed live: p.() syntax error, the first draft died
+  // of quote-nesting). No shell, no expansion, no third quoting layer.
+  const r = spawnSync(
+    "node",
+    [
+      "-e",
+      "const{PrismaClient}=require('@prisma/client');" +
+        "const p=new PrismaClient({datasources:{db:{url:'file:/home/z/my-project/db/cryoflow.db'}}});" +
+        "p.job.count({where:{name:{startsWith:'QA '}}}).then(c=>{console.log(c);return p.$disconnect();})",
+    ],
+    { encoding: "utf8", timeout: 60_000 },
+  );
+  const leftover = (r.stdout || "").trim().split("\n").filter(Boolean).slice(-1)[0] ?? `spawn-${r.status ?? "?"}`;
+  must(leftover === "0", `take-home leaves no QA-family jobs (got ${leftover} standing)`);
 };
 
 const must = (cond, label) => {
@@ -187,8 +228,21 @@ must(afterEsc === "NOCMP+INSP", `Esc closes compare dialog, inspector survives -
 must(consoleErrors.length === 0, `console errors: ${consoleErrors.length === 0 ? "0" : `**${consoleErrors.length}** ${JSON.stringify(consoleErrors.slice(0, 5))}`}`);
 
 await b.close();
-// the normal path uses the same take-home verb the FATAL path uses
+// the normal path uses the same take-home verb the FATAL path uses —
+// and t1164 makes it PROVE the no-trace law before the green word:
+// a warned-but-failed cleanup left 5 jobs standing once (t1163's
+// live catch); that silence is now impossible.
 takeHomeHome();
+assertNoLeftovers();
+// t1164 — the byte-half of the no-trace contract: the ride through
+// the product doors leaves SQLite freelist pages the deletes never
+// return, and the page-quantized size is a pinned face (t1021's
+// family). The rider compacts what IT moved — no trace, in rows OR
+// in bytes.
+spawnSync("node", ["/home/z/my-project/scripts/world-snapshot.mjs", "vacuum"], {
+  encoding: "utf8",
+  timeout: 60_000,
+});
 console.log("SMOKE GREEN");
 }
 

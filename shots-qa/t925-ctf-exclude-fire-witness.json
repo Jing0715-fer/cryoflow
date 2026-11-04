@@ -1,0 +1,45 @@
+{
+  "main": {
+    "pass": 86,
+    "fail": 0,
+    "prep": {
+      "autopick": "cmv536ows001xppvs91bq8r2t",
+      "beforeCatalogued": 6,
+      "beforePicks": 102
+    },
+    "replica": {
+      "improved": [
+        "mic_004.mrc",
+        "mic_002.mrc",
+        "mic_006.mrc"
+      ],
+      "regressed": [
+        "mic_005.mrc",
+        "mic_003.mrc",
+        "mic_001.mrc"
+      ],
+      "trustMedian": "0.114",
+      "trust": "Defocus agreement: median |Δ| = 0.114 µm across 6 paired micrographs — the pairing's own health check."
+    },
+    "fire": {
+      "filter": {
+        "id": "cmv5380fn001zppvsgg47ox87",
+        "name": "Exclude Micrographs 1",
+        "excludeNames": "mic_005.mrc, mic_003.mrc, mic_001.mrc"
+      },
+      "toast": "Downstream adopted by Exclude Micrographs 11 downstream wire re-wired from CTF Estimation 1 to Exclude Micrographs 1 · Automated Picking 1 (t925) now consumes Exclude Micrographs 1 · their current results stay until re-run"
+    },
+    "dataLayer": {
+      "countLaw": "3 of 6 micrographs kept · 3 excluded (list of 3)",
+      "starRows": 3,
+      "afterCatalogued": 3,
+      "survivors": [
+        "mic_002",
+        "mic_004",
+        "mic_006"
+      ]
+    },
+    "at": "2026-10-12T10:07:52.390Z"
+  },
+  "at": "2026-10-12T10:07:52.392Z"
+}

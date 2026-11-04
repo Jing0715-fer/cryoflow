@@ -551,7 +551,7 @@ export function RemoteRunButton({
             className="size-7 shrink-0"
             onClick={() => setGpus((g) => Math.max(1, g - 1))}
             disabled={gpus <= 1}
-            aria-label="One GPU less"
+            aria-label={gpus <= 1 ? "One GPU less (already at the minimum)" : "One GPU less"}
           >
             <Minus className="size-3.5" aria-hidden="true" />
           </Button>
@@ -569,7 +569,7 @@ export function RemoteRunButton({
             className="size-7 shrink-0"
             onClick={() => setGpus((g) => Math.min(maxGpus, g + 1))}
             disabled={gpus >= maxGpus}
-            aria-label="One GPU more"
+            aria-label={gpus >= maxGpus ? "One GPU more (already at the maximum)" : "One GPU more"}
           >
             <Plus className="size-3.5" aria-hidden="true" />
           </Button>
@@ -622,7 +622,7 @@ export function RemoteRunButton({
             className="size-7 shrink-0"
             onClick={() => setShards((s) => Math.max(1, s - 1))}
             disabled={shards <= 1}
-            aria-label="One shard fewer"
+            aria-label={shards <= 1 ? "One shard fewer (no split to remove)" : "One shard fewer"}
           >
             <Minus className="size-3.5" aria-hidden="true" />
           </Button>
@@ -640,7 +640,7 @@ export function RemoteRunButton({
             className="size-7 shrink-0"
             onClick={() => setShards((s) => Math.min(ARRAY_MAX_SHARDS, s + 1))}
             disabled={shards >= ARRAY_MAX_SHARDS}
-            aria-label="One shard more"
+            aria-label={shards >= ARRAY_MAX_SHARDS ? "One shard more (already at the maximum)" : "One shard more"}
           >
             <Plus className="size-3.5" aria-hidden="true" />
           </Button>
@@ -972,6 +972,7 @@ export function RemoteRunButton({
                     onClick={() => setMode("direct")}
                     onKeyDown={onModeCardKey}
                     className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                       "flex min-w-0 items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors",
                       mode === "direct"
                         ? "border-primary/50 bg-primary/5 ring-1 ring-primary/25"
@@ -1004,6 +1005,7 @@ export function RemoteRunButton({
                         : "Slurm needs a scheduler client on the cluster — the connection probe found none, so only Direct (nohup on the login node) is offered."
                     }
                     className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                       "flex min-w-0 items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors",
                       mode === "slurm"
                         ? "border-primary/50 bg-primary/5 ring-1 ring-primary/25"
@@ -1192,7 +1194,7 @@ export function RemoteRunButton({
                       disabled={subtreePlan.blocked.length > 0}
                       onCheckedChange={(v) => setSubtree(v === true)}
                       className="mt-0.5"
-                      aria-label="Also re-run the downstream subtree"
+                      aria-label={subtreePlan.blocked.length > 0 ? "Also re-run the downstream subtree (some downstream nodes are blocked)" : "Also re-run the downstream subtree"}
                       data-testid="subtree-toggle"
                     />
                     <span className="min-w-0 space-y-0.5">
@@ -1311,6 +1313,7 @@ export function RemoteRunButton({
                 className="h-9 gap-1.5 text-sm"
                 onClick={() => void submit()}
                 disabled={pending || !conn || (mode === "slurm" && !slurmAvailable)}
+                aria-busy={pending}
               >
                 {pending ? (
                   <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />

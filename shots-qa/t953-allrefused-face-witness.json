@@ -1,0 +1,34 @@
+{
+  "pass": 31,
+  "fail": 0,
+  "world": {
+    "a": "cmv683k4d0005ppoyhpygdxhb",
+    "b": "cmv683ufd0007ppoy4rfhykyp",
+    "c": "cmv6845pp0009ppoyfezlv8zx"
+  },
+  "face": {
+    "plain": {
+      "disabled": false,
+      "aria": "Continue downstream from 2D Classification 2 (t953) — re-wires 1 of 2D Classification 1 (t953)'s downstream jobs",
+      "title": "Re-wires 2D Classification 1 (t953)'s 1 downstream wire to 2D Classification 2 (t953) — their current results stay until re-run",
+      "label": "Continue downstream from run B(1)"
+    },
+    "select": {
+      "disabled": true,
+      "aria": "Continue downstream with these classes selected — unavailable: All 1 downstream wire(s) refused — port",
+      "title": "All 1 downstream wire(s) refused — port",
+      "label": "Continue downstream, selecting these(3)"
+    },
+    "contract": "Adoption re-wires 2D Classification 1 (t953)'s 1 downstream job to consume 2D Classification 2 (t953) — their current results stay until re-run.",
+    "unpaired": {
+      "text": "unpaired: 1 in A · 0 in B",
+      "title": "Only in A: Class 004\nOnly in B: "
+    }
+  },
+  "fired": "fired@try0",
+  "toast": {
+    "title": null,
+    "all": "Downstream adopted by 2D Classification 2 (t953)1 downstream wire re-wired from 2D Classification 1 (t953) to 2D Classification 2 (t953) · Classes Consumer (t953) now consumes 2D Classification 2 (t953) · their current results stay until re-run"
+  },
+  "at": "2026-10-13T05:17:28.812Z"
+}

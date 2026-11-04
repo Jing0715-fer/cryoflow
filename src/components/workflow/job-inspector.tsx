@@ -63,9 +63,11 @@ import {
   SlidersHorizontal,
   Trash,
   Square,
+  SquarePen,
   Stethoscope,
   Table2,
   Terminal,
+  TimerOff,
   WrapText,
   Wrench,
   X,
@@ -90,13 +92,14 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import { Kbd } from "@/components/ui/kbd"; // t869 — the Files tab's peek dialogs join the keymap family (the t832 law, second family's turn)
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { loadUserParamPresets, addUserParamPreset, deleteUserParamPreset, presetsForType, snapshotSpecParams, countEffectiveDiffs, reconcileUserParamPresets, USER_PARAM_PRESETS_EVENT, type UserParamPreset } from "@/lib/user-param-presets";
 import { diagnoseFailureLines, diagnoseFailureLog, type LogFinding } from "@/lib/log-diagnosis";
 import { fmtAgo, fmtClock, fmtDuration } from "@/lib/duration";
+import { fmtBytes } from "@/lib/relion/disk-usage"; // t1152 — the byte word rides its ONE father (the local formatBytes twin died)
+import { fmtProgressPct } from "@/lib/progress-scale"; // t1154 — the progress word rides its ONE father (the wire is 0–100)
 import { readJobJournal, type JobJournalKind } from "@/lib/job-journal";
 import { JOURNAL_KIND_FACE } from "./journal-kind-face";
 import { planSubtreeRun } from "@/lib/subtree-run";
@@ -109,6 +112,7 @@ import { RemoteRunButton } from "./remote-run-button";
 import { CleanupDialog } from "./cleanup-dialog";
 import { StarTable } from "./results/star-table"; // t779 — the peek doors: the Files tab speaks the same structured law the results view speaks
 import { TextPreview } from "./results/text-preview"; // t779 — and the same tail law (one brain, now three door-sets)
+import { Kbd } from "@/components/ui/kbd"; // t966 — the peek doors speak their one key in the family's one voice (the t832 seat, now in the inspector too)
 // t757 — the dry-run brochure's tools-menu home (the t399 retirement
 // verdict prophesied it); the dialog mounts CONTROLLED here — the menu
 // item owns the door, the self-trigger stays unrendered.
@@ -131,12 +135,19 @@ import { FindMarkedText, FIND_MARK_CLASS } from "./find-mark"; // t728 — the w
 const INSP_BASE_MS = 90;
 const INSP_STEP_MS = 24;
 
-/** " · 12.4 MB" for the staging phase line — "" when nothing staged yet. */
+/** " · 12.4 MB" for the staging phase line and the peak-memory chip —
+ *  "" when nothing staged yet (the ABSENCE word is this face's own; the
+ *  bytes ride the ONE father, t1153). This was the byte word's EIGHTH
+ *  birth, hiding under its own name — formatStagedBytes — which is why
+ *  the t1152 map (a name-hunt: `function fmtBytes(`) walked past it and
+ *  its KB whole-number dialect ("512 KB" on the same screen as the
+ *  outputs card's father word "512.0 KB") survived. The map's lesson is
+ *  now the law: births hide under different names — hunt by SHAPE (the
+ *  1024 arithmetic), not by name. */
 function formatStagedBytes(bytes?: number): string {
-  if (bytes == null || !Number.isFinite(bytes) || bytes <= 0) return "";
-  if (bytes >= 1024 ** 3) return ` · ${(bytes / 1024 ** 3).toFixed(1)} GB`;
-  if (bytes >= 1024 ** 2) return ` · ${(bytes / 1024 ** 2).toFixed(1)} MB`;
-  return ` · ${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return bytes == null || !Number.isFinite(bytes) || bytes <= 0
+    ? ""
+    : ` · ${fmtBytes(bytes)}`;
 }
 
 /** t269 — the time ledger's dialect: wall-clock ms spoken the way the ETA
@@ -226,6 +237,11 @@ interface OutputsResponse {
   inputs?: { flag: string; path: string }[];
   cmd?: string;
   note?: string;
+  /** t956 — the deep band's door: present when the remote join's 300-card
+   *  page ended on a truncated ledger; the value is the NEXT page's
+   *  ?remoteOffset (the "show 300 more" affordance fetches it). Absent →
+   *  the ledger is spent (or there is no remote world). */
+  remoteNextOffset?: number;
   /** t347 — the live-counted key numbers (the outputs route computes them;
    *  the Overview strip + header chips read this first, the run receipt's
    *  own counts as the fallback). */
@@ -236,15 +252,10 @@ interface OutputsResponse {
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
 
-function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-}
-
 // fmtDuration / fmtClock / fmtAgo live in @/lib/duration (Task 123) —
-// the pipeline timeline prints the same labels, one source serves both
+// the pipeline timeline prints the same labels, one source serves both;
+// fmtBytes lives in @/lib/relion/disk-usage (t1152) — the byte word's one
+// birthplace, the same law's second vein
 
 const SUBMITTED = new Set(["running", "completed", "failed"]);
 
@@ -357,8 +368,15 @@ function LogLegend() {
     /* Task 176: the legend wraps below sm — the error chip measured 33px
        past a 269px dialog (280 fold band); ≥sm never wraps. t780: the
        keyboard hint rides the legend's right edge on ≥md only — the fold
-       band keeps its four chips, the face lives where the width lives. */
-    <div className="flex max-sm:flex-wrap shrink-0 items-center gap-2.5 border-t border-zinc-800 bg-zinc-900/60 px-3 py-1">
+       band keeps its four chips, the face lives where the width lives.
+       t1092 — data-log-legend anchors the print re-ink (the console's
+       dark strip washes out on paper; its zinc text already re-inks via
+       the Task 114 console rules), and the keyboard hint carries
+       data-log-legend-keys — paper has no arrows to press. */
+    <div
+      data-log-legend=""
+      className="flex max-sm:flex-wrap shrink-0 items-center gap-2.5 border-t border-zinc-800 bg-zinc-900/60 px-3 py-1"
+    >
       <span className="text-[9px] font-medium uppercase tracking-wider text-zinc-600">legend</span>
       {items.map(([dot, label]) => (
         <span key={label} className="inline-flex items-center gap-1">
@@ -366,7 +384,10 @@ function LogLegend() {
           <span className="text-[9.5px] text-zinc-500">{label}</span>
         </span>
       ))}
-      <span className="ml-auto hidden shrink-0 items-center gap-1 text-[9.5px] text-zinc-600 md:inline-flex">
+      <span
+        data-log-legend-keys=""
+        className="ml-auto hidden shrink-0 items-center gap-1 text-[9.5px] text-zinc-600 md:inline-flex"
+      >
         <span aria-hidden="true">↑↓ scroll</span>
         <span aria-hidden="true" className="text-zinc-700">·</span>
         <span aria-hidden="true">Home/End head/tail</span>
@@ -388,6 +409,7 @@ const FINDING_ICONS: Record<string, React.ElementType> = {
   segfault: Zap,
   "mpi-abort": XOctagon,
   "python-traceback": Bug,
+  "walltime-limit": TimerOff,
 };
 
 /* ------------------------------------------------------------------ */
@@ -426,6 +448,73 @@ function writeLogSeed(jobId: string, text: string, totalLines: number): void {
   }
 }
 
+/* -------------------------------------------------------------------- */
+/* t977 — the wrap preference: the fold's reading mode survives the close */
+/* -------------------------------------------------------------------- */
+
+/**
+ * t973 armed the wrap toggle (the fold's reading aid); t977 makes the
+ * reading mode STICK: the preference is a property of the USER'S
+ * VIEWPORT, not of any job's content — one global key, the house style
+ * (`cryoflow.logWrap.v1`). The write rides the toggle's click handler
+ * (the #13 law: storage writes never render — StrictMode double-invokes
+ * updater functions, so the updater stays pure); the read is the lazy
+ * useState initializer (the console mounts client-side only, inside the
+ * dialog — no hydration lane). Both ends are guarded: private mode /
+ * quota failures degrade to the session-local default (OFF).
+ */
+const WRAP_PREF_KEY = "cryoflow.logWrap.v1";
+
+function readWrapPref(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(WRAP_PREF_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeWrapPref(on: boolean): void {
+  try {
+    window.localStorage.setItem(WRAP_PREF_KEY, on ? "1" : "0");
+  } catch {
+    /* private mode / quota — the session-local state still works */
+  }
+}
+
+/**
+ * t980 — the follow preference joins the wrap preference's law: the
+ * auto-scroll reading mode is a property of the USER'S VIEWPORT, not of
+ * any job's content — one global key, the house style
+ * (`cryoflow.logFollow.v1`). The write rides the toggle's click handler
+ * (the #13 law: storage writes never render — StrictMode double-invokes
+ * updater functions, so the updater stays pure); the read is the lazy
+ * useState initializer (the console mounts client-side only, inside the
+ * dialog — no hydration lane). Both ends are guarded: private mode /
+ * quota failures degrade to the session-local default (ON — follow is
+ * the live console's natural resting state, the wrap default's twin:
+ * the absent key reads ON here, OFF for wrap, by each mode's own
+ * natural default).
+ */
+const FOLLOW_PREF_KEY = "cryoflow.logFollow.v1";
+
+function readFollowPref(): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    return window.localStorage.getItem(FOLLOW_PREF_KEY) !== "0";
+  } catch {
+    return true;
+  }
+}
+
+function writeFollowPref(on: boolean): void {
+  try {
+    window.localStorage.setItem(FOLLOW_PREF_KEY, on ? "1" : "0");
+  } catch {
+    /* private mode / quota — the session-local state still works */
+  }
+}
+
 function LogConsole({
   job,
   initialMode,
@@ -442,8 +531,21 @@ function LogConsole({
   const [mode, setMode] = React.useState<"tail" | "full">(initialMode ?? "tail");
   const [totalLines, setTotalLines] = React.useState(0);
   const [truncated, setTruncated] = React.useState(false);
-  const [follow, setFollow] = React.useState(true);
-  const [wrap, setWrap] = React.useState(false);
+  /** t1082 — the resume receipt: the checkpoint iteration this run resumed
+   *  from (the record's resumedFrom, riding the log response). null for a
+   *  fresh run — the chip only speaks when the contract actually continued. */
+  const [resumedFrom, setResumedFrom] = React.useState<number | null>(null);
+  /** t980 — the follow mode survives the close (the t977 law's second
+   *  seat): the lazy initializer reads the stored preference ONCE at
+   *  mount (tab switches and dialog closes both remount the console —
+   *  every mount re-reads). The scroll-up dis-arm stays EPHEMERAL: it
+   *  rides atBottomRef (the reading position), never the preference —
+   *  one writer for the preference, the toggle's own handler. */
+  const [follow, setFollow] = React.useState(readFollowPref);
+  /** t977 — the reading mode survives the close: the lazy initializer
+   *  reads the stored preference ONCE at mount (tab switches and dialog
+   *  closes both remount the console — every mount re-reads). */
+  const [wrap, setWrap] = React.useState(readWrapPref);
   const [refreshing, setRefreshing] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const scrollRef = React.useRef<HTMLDivElement>(null);
@@ -503,8 +605,11 @@ function LogConsole({
       if (!res.ok) {
         // 500 etc: an {error} body has no .tail — silently rendering "" makes
         // a dead route look like an empty log. Keep the previous content and
-        // flag it; the next tick retries.
-        setLogError(`log unavailable (HTTP ${res.status})`);
+        // flag it; the next tick retries. t959 — the envelope's own text is
+        // the flag when the door spoke one ("No log (job has not run)"),
+        // the status fallback when it didn't.
+        const errBody = (await res.json().catch(() => null)) as { error?: string } | null;
+        setLogError(errBody?.error ?? `log unavailable (HTTP ${res.status})`);
         return;
       }
       const body = (await res.json()) as {
@@ -515,6 +620,7 @@ function LogConsole({
         note?: string;
         unchanged?: boolean;
         version?: string;
+        resumedFrom?: number | null;
       };
       setLogError(null);
       if (body.pending) {
@@ -533,6 +639,9 @@ function LogConsole({
       }
       setWaitingHint(null);
       setNoLog(false);
+      // t1082 — the receipt lands with the text (the first full answer after
+      // a mount carries it; the unchanged short-circuit above never blots it)
+      setResumedFrom(body.resumedFrom ?? null);
       logVersionRef.current = body.version ?? "";
       const text = body.tail ?? "";
       // t391 — identical text must not re-render the console: a new string
@@ -561,6 +670,7 @@ function LogConsole({
       setNoLog(false);
       setTotalLines(0);
       setTruncated(false);
+      setResumedFrom(null); // t1082 — another run's receipt never survives a job switch
       logVersionRef.current = ""; // t391 — another run's answer is never "unchanged"
       const seed = readLogSeed(job.id);
       if (seed) {
@@ -686,8 +796,21 @@ function LogConsole({
             {job.status}
           </span>
         )}
+        {resumedFrom != null ? (
+          /* t1082 — the resume receipt chip: the checkpoint contract kept
+             the already-paid iterations, and the toolbar says so. The
+             tooltip names the exact --continue target (the t1081 walk's
+             Act 3 receipt, now readable from the console's own face). */
+          <span
+            data-log-resumed=""
+            className="rounded-full bg-running/15 px-2 py-0.5 text-[10px] font-semibold text-running-300"
+            title={`Resumed from checkpoint iteration ${resumedFrom} (--continue run_it${String(resumedFrom).padStart(3, "0")}_optimiser.star) — the re-run kept the iterations this run had already paid for`}
+          >
+            resumed from it {resumedFrom}
+          </span>
+        ) : null}
         <span className="text-[10px] text-zinc-600">
-          {mode === "full" ? `${totalLines.toLocaleString()} lines (full)` : `${lineCount} lines`}
+          {mode === "full" ? `${formatCountFull(totalLines)} lines (full)` : `${lineCount} lines`}
         </span>
         {matchCount != null ? (
           <span
@@ -699,17 +822,17 @@ function LogConsole({
             )}
             title={`${matchCount} of ${lineCount} lines match “${query.trim()}”`}
           >
-            {matchCount.toLocaleString()} / {lineCount.toLocaleString()} match
+            {formatCountFull(matchCount)} / {formatCountFull(lineCount)} match
           </span>
         ) : null}
         {mode === "tail" && truncated ? (
           <button
             type="button"
             onClick={() => setMode("full")}
-            className="rounded-full bg-warning/15 px-2 py-0.5 text-[10px] font-medium text-warning-400 transition-colors hover:bg-warning/25"
-            title={`Showing the last 600 of ${totalLines.toLocaleString()} lines — click to load the full log`}
+            className="rounded-full bg-warning/15 px-2 py-0.5 text-[10px] font-medium text-warning-400 transition-colors hover:bg-warning/25 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            title={`Showing the last 600 of ${formatCountFull(totalLines)} lines — click to load the full log`}
           >
-            +{(totalLines - lineCount).toLocaleString()} hidden — show full log
+            +{formatCountFull(totalLines - lineCount)} hidden — show full log
           </button>
         ) : null}
         {mode === "full" && truncated ? (
@@ -749,7 +872,7 @@ function LogConsole({
                 type="button"
                 onClick={() => setQuery("")}
                 aria-label="Clear log filter"
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-zinc-500 hover:bg-zinc-700/60 hover:text-zinc-300"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-zinc-500 hover:bg-zinc-700/60 hover:text-zinc-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 <X className="size-3" aria-hidden="true" />
               </button>
@@ -766,6 +889,7 @@ function LogConsole({
                     aria-pressed={mode === m}
                     onClick={() => setMode(m)}
                     className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                       "rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide transition-colors",
                       mode === m
                         ? "bg-running/20 text-running-300"
@@ -788,7 +912,12 @@ function LogConsole({
                 size="sm"
                 aria-pressed={follow}
                 onClick={() => {
-                  setFollow((f) => !f);
+                  // t980 — the write rides the HANDLER (the #13 law: never
+                  // render, never the updater — StrictMode double-invokes
+                  // updater functions)
+                  const next = !follow;
+                  writeFollowPref(next);
+                  setFollow(next);
                   atBottomRef.current = true;
                 }}
                 className={cn(
@@ -807,8 +936,16 @@ function LogConsole({
               <Button
                 variant="ghost"
                 size="sm"
+                aria-label="Toggle line wrapping"
                 aria-pressed={wrap}
-                onClick={() => setWrap((w) => !w)}
+                onClick={() => {
+                  // t977 — the write rides the HANDLER (the #13 law: never
+                  // render, never the updater — StrictMode double-invokes
+                  // updater functions)
+                  const next = !wrap;
+                  writeWrapPref(next);
+                  setWrap(next);
+                }}
                 className={cn(
                   "h-7 rounded px-2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200",
                   wrap && "bg-zinc-800 text-running-300"
@@ -955,7 +1092,7 @@ function LogConsole({
         onScroll={onScroll}
         onKeyDown={onLogKeyDown}
         tabIndex={0}
-        className="min-h-0 flex-1 overflow-y-auto p-3 font-mono text-[11px] leading-[1.55] text-zinc-300 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-running-500/60"
+        className="min-h-0 flex-1 overflow-y-auto overflow-x-auto p-3 font-mono text-[11px] leading-[1.55] text-zinc-300 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-running-500/60"
         role="log"
         aria-label="Engine log"
       >
@@ -1070,7 +1207,7 @@ function Timeline({ job }: { job: JobDTO }) {
             ? "Completed"
             : "Failed"
           : "Pending",
-      value: running ? (queued ? "—" : `${Math.round(job.progress)}%`) : finished ? fmtDuration(duration) : "—",
+      value: running ? (queued ? "—" : fmtProgressPct(job.progress)) : finished ? fmtDuration(duration) : "—",
       sub:
         running && duration > 0
           ? formatElapsed(duration) + (queued ? " in queue" : " elapsed")
@@ -1710,7 +1847,12 @@ function ParamPresetsRow({ job }: { job: JobDTO }) {
         <span className="text-[10px] tabular-nums text-muted-foreground">
           {mine.length} for {typeLabel}
         </span>
-        <div className="ml-auto flex items-center gap-1.5">
+        {/* t969 — the button group was ONE incompressible flex item inside
+            the wrapping row: its two nowrap buttons raised the row's
+            min-content past the fold's width (+27px LEAK). The group wraps
+            INTERNALLY now — at the fold the buttons stack honestly, wide
+            they keep sitting side by side at the row's end. */}
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
           <Button
             variant="outline"
             size="sm"
@@ -1732,6 +1874,7 @@ function ParamPresetsRow({ job }: { job: JobDTO }) {
                 size="sm"
                 className="h-7 gap-1.5 px-2.5 text-xs"
                 disabled={busy}
+                aria-label={busy ? "Apply preset (a preset is being applied)" : "Apply preset"}
                 data-testid="preset-apply-menu"
               >
                 <SlidersHorizontal className="size-3.5" aria-hidden="true" />
@@ -1827,6 +1970,7 @@ function ParamPresetsRow({ job }: { job: JobDTO }) {
               size="sm"
               className="h-7 text-xs"
               disabled={!name.trim() || name.trim().length > 60}
+              aria-label={!name.trim() ? "Save preset (name the preset first)" : name.trim().length > 60 ? "Save preset (the name is over 60 characters)" : "Save preset"}
               onClick={doSave}
               data-testid="preset-save-confirm"
             >
@@ -2015,7 +2159,7 @@ function ParamsGrid({ job }: { job: JobDTO }) {
                 type="button"
                 onClick={() => setParamFilter("")}
                 aria-label="Clear parameter filter"
-                className="rounded-sm p-px hover:bg-muted"
+                className="rounded-sm p-px hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 data-testid="inspector-param-filter-clear"
               >
                 <X className="size-3" aria-hidden="true" />
@@ -2259,11 +2403,17 @@ function JobNoteSection({ job }: { job: JobDTO }) {
         : "text-muted-foreground";
 
   return (
-    <Section
-      icon={StickyNote}
-      title="Note"
-      hint={state === "idle" && draft.length === 0 ? "autosaves as you type" : undefined}
-    >
+    /* t1092 — data-note-shell lets the paper decline the EMPTY editor
+       (globals.css: :has(textarea:placeholder-shown)) while a typed note
+       still prints as the record it is. The wrapper is style-free on
+       screen — the parent's space-y rhythm treats it as any other
+       section shell. */
+    <div data-note-shell="">
+      <Section
+        icon={StickyNote}
+        title="Note"
+        hint={state === "idle" && draft.length === 0 ? "autosaves as you type" : undefined}
+      >
       <div
         className="rounded-xl border bg-card p-4 space-y-2.5"
         data-note-editor=""
@@ -2338,7 +2488,8 @@ function JobNoteSection({ job }: { job: JobDTO }) {
           </div>
         </div>
       </div>
-    </Section>
+      </Section>
+    </div>
   );
 }
 
@@ -2581,7 +2732,12 @@ function OverviewTab({
           refPath={data?.inputs?.find((i) => i.flag === "--ref")?.path ?? null}
         />
       ) : null}
-      <div className="grid gap-6 lg:grid-cols-2">
+      {/* t969 — the explicit single column is the narrow step: without it
+          the fold's auto track sizes to the content's min-content, and the
+          inputs list's nowrap mono path (329px) blew the panel open
+          (panelOverX TRUE +64px). minmax(0,1fr) starves the track's floor —
+          the truncate inside the inputs list wakes up and the grid fits. */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {data?.inputs && data.inputs.length > 0 ? (
           <Section icon={ArrowRight} title="Inputs consumed">
             <InputsCard inputs={data.inputs} />
@@ -2746,7 +2902,23 @@ const KIND_META: Record<OutputKind, { icon: React.ElementType; color: string; la
   image: { icon: FileText, color: "text-danger-600", label: "PLOT" },
 };
 
-function FilesTab({ job, data, reload }: { job: JobDTO; data: OutputsResponse | null; reload: () => void }) {
+function FilesTab({
+  job,
+  data,
+  reload,
+  remoteNext,
+  loadingMore,
+  onLoadMore,
+}: {
+  job: JobDTO;
+  data: OutputsResponse | null;
+  reload: () => void;
+  /** t956 — the deep band's door: the next ledger page's offset (null =
+   *  spent — the affordance stays home). */
+  remoteNext: number | null;
+  loadingMore: boolean;
+  onLoadMore: () => void;
+}) {
   const [query, setQuery] = React.useState("");
   const [kindFilter, setKindFilter] = React.useState<OutputKind | "all">("all");
   // t779 — the peek doors' state: textual rows preview IN-APP (the tail
@@ -2787,7 +2959,12 @@ function FilesTab({ job, data, reload }: { job: JobDTO; data: OutputsResponse | 
           />
         </div>
         {/* kind quick-filters */}
-        <div className="flex items-center gap-1" role="group" aria-label="Filter by file kind">
+        {/* the wrap keeps the kind chips' own min-content honest at a
+            320 fold — an unwrapped chip ROW is one unbreakable 326px
+            block, and it was that block (not the table) that blew the
+            dialog's width at the narrow viewport (the t963 probe's
+            offender chain: chips row → filter row → tab panel → dialog) */}
+        <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Filter by file kind">
           {(["all", ...(Object.keys(KIND_META) as OutputKind[])] as const).map((k) => {
             const active = kindFilter === k;
             const count = k === "all" ? (data?.files.length ?? 0) : (kindCounts.get(k as OutputKind) ?? 0);
@@ -2801,6 +2978,7 @@ function FilesTab({ job, data, reload }: { job: JobDTO; data: OutputsResponse | 
                 aria-pressed={active}
                 onClick={() => setKindFilter(k)}
                 className={cn(
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                   "inline-flex h-7 items-center gap-1 rounded-full border px-2.5 text-[10px] font-semibold uppercase tracking-wide transition-colors",
                   active
                     ? "border-running/40 bg-running/15 text-running-700 dark:text-running-300"
@@ -2828,6 +3006,24 @@ function FilesTab({ job, data, reload }: { job: JobDTO; data: OutputsResponse | 
           Refresh
         </Button>
       </div>
+
+      {/* t464 — the listing's honesty note was written for exactly the worlds
+          that have files (a truncated walk, a capped ledger — both imply a
+          big listing), yet this tab only spoke it in the EMPTY state: the
+          one shape the sentence can never describe. The Results view carried
+          it alone; the tab where the user actually browses the listing (and
+          wonders why it looks short) went silent. The note now rides above
+          the table — the house honesty line, never scrolled away with the
+          rows it speaks for. */}
+      {data?.note && files.length > 0 && (
+        <p
+          data-listing-note=""
+          className="flex shrink-0 items-start gap-1.5 text-[11px] leading-relaxed text-warning-700 dark:text-warning-300"
+        >
+          <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
+          {data.note}
+        </p>
+      )}
 
       <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border">
         {files.length === 0 ? (
@@ -2878,11 +3074,11 @@ function FilesTab({ job, data, reload }: { job: JobDTO; data: OutputsResponse | 
                             ? `${f.slices ?? "?"} images`
                             : `${f.slices ?? "?"}³ voxels`
                           : typeof f.rows === "number"
-                            ? `${f.rows.toLocaleString()} rows`
+                            ? `${formatCountFull(f.rows)} rows`
                             : "—"}
                       </td>
                       <td className="px-2 py-2 text-right font-mono text-[11px] tabular-nums text-muted-foreground">
-                        {formatBytes(f.size)}
+                        {fmtBytes(f.size)}
                       </td>
                       <td className="px-2 py-2 text-right">
                         {/* t779 — the peek door: textual rows preview in-app.
@@ -2927,6 +3123,40 @@ function FilesTab({ job, data, reload }: { job: JobDTO; data: OutputsResponse | 
         )}
       </div>
 
+      {/* t956 — the deep band's door: when the remote join's 300-card page
+          ended on a truncated ledger, the ledger's deeper bands (the find's
+          door→spine→front→deep priority — the t944 lesson: with a long
+          root history the budget ended INSIDE the front band) were
+          UNREACHABLE — the note named them and the table never showed
+          them. The affordance spends the next page on demand: one click,
+          300 more honest cards, the door speaks the ledger's own words.
+          A wholesale reload (poll / Refresh) collapses back to the
+          canonical first page — the listing refreshes, the band is one
+          click away again. Paper lists what the document holds — the
+          button is a screen control (no-print), like the filters. */}
+      {remoteNext != null && (
+        <button
+          type="button"
+          data-remote-more=""
+          onClick={onLoadMore}
+          disabled={loadingMore}
+          aria-busy={loadingMore}
+          className="no-print flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-2 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
+          {loadingMore ? (
+            <>
+              <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+              Fetching the ledger&apos;s next page…
+            </>
+          ) : (
+            <>
+              <ChevronDown className="size-3.5" aria-hidden="true" />
+              Show 300 more from the cluster ledger
+            </>
+          )}
+        </button>
+      )}
+
       {/* t779 — the peek dialogs: the Files tab speaks the same doors the
           results view speaks (star -> the structured table, text -> the
           64 KB tail), word forms verbatim. Radix owns the focus trap,
@@ -2934,28 +3164,35 @@ function FilesTab({ job, data, reload }: { job: JobDTO; data: OutputsResponse | 
           keyboard face (the tail takes the focus; arrows scroll it). */}
       <Dialog open={textFile !== null} onOpenChange={(o) => !o && setTextFile(null)}>
         <DialogContent
-          className="max-w-3xl sm:max-w-3xl"
+          className="sm:max-w-3xl"
           onKeyDown={onEscapeClose(() => setTextFile(null))}
         >
           {textFile && (
             <>
               <DialogHeader>
+                {/* t966 — the t913 grammar reaches the SECOND family at
+                    last: the before-witness rode the fold (320) with a
+                    47-char mono path and the dialog scrolled horizontally
+                    (descOver 72, dialogOverX true — the results view's
+                    third sibling carried the same disease before its own
+                    cure). The icon shrink-0, the name min-w-0 truncate,
+                    the description break-all — the exact words the
+                    results view speaks, so the one brain's door-sets
+                    share one grammar. */}
                 <DialogTitle className="flex items-center gap-2 text-sm">
-                  <ScrollText className="h-4 w-4 text-warning-600" aria-hidden="true" />
-                  {textFile.name}
+                  <ScrollText className="h-4 w-4 shrink-0 text-warning-600" aria-hidden="true" />
+                  <span className="min-w-0 truncate">{textFile.name}</span>
                 </DialogTitle>
-                <DialogDescription className="font-mono text-[11px]">
+                <DialogDescription className="break-all font-mono text-[11px]">
                   {textFile.path} · last 64 KB
                 </DialogDescription>
               </DialogHeader>
               <TextPreview jobId={job.id} path={textFile.path} />
-              {/* t869 — the keymap family's second-family seats: the peek
-                  dialogs speak the results-view's own word forms verbatim
-                  (one brain, one voice — the t832 must-not-lie law closes
-                  its last gap; Esc is the only key these dialogs have, so
-                  the seat teaches exactly that key). */}
+              {/* t966 — the t832 seat rides too: the results view's text
+                  door teaches Esc in one voice; the inspector's door-set
+                  is the same brain and now speaks the same key. */}
               <div
-                data-canvas-ui="text-keymap"
+                data-canvas-ui="files-text-keymap"
                 className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-[10px] leading-tight text-muted-foreground"
               >
                 <span className="inline-flex items-center gap-0.5">
@@ -2969,23 +3206,26 @@ function FilesTab({ job, data, reload }: { job: JobDTO; data: OutputsResponse | 
       </Dialog>
       <Dialog open={starFile !== null} onOpenChange={(o) => !o && setStarFile(null)}>
         <DialogContent
-          className="max-w-4xl sm:max-w-4xl"
+          className="sm:max-w-4xl"
           onKeyDown={onEscapeClose(() => setStarFile(null))}
         >
           {starFile && (
             <>
               <DialogHeader>
+                {/* t966 — the star door's half of the t913 grammar (the
+                    before-witness's face 1: descOver 52 at 320, the
+                    dialog's horizontal scroll). Same words as the
+                    results view's star door. */}
                 <DialogTitle className="flex items-center gap-2 text-sm">
-                  <Table2 className="h-4 w-4 text-violet-600" aria-hidden="true" />
-                  {starFile.label ?? starFile.name}
+                  <Table2 className="h-4 w-4 shrink-0 text-violet-600" aria-hidden="true" />
+                  <span className="min-w-0 truncate">{starFile.label ?? starFile.name}</span>
                 </DialogTitle>
-                <DialogDescription className="font-mono text-[11px]">{starFile.path}</DialogDescription>
+                <DialogDescription className="break-all font-mono text-[11px]">{starFile.path}</DialogDescription>
               </DialogHeader>
               <StarTable job={job} path={starFile.path} />
-              {/* t869 — the star peek's seat: the results-view's own
-                  word form (Esc closes), the family's fifth application. */}
+              {/* t966 — the star door's Esc seat (the t832 voice). */}
               <div
-                data-canvas-ui="star-keymap"
+                data-canvas-ui="files-star-keymap"
                 className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-[10px] leading-tight text-muted-foreground"
               >
                 <span className="inline-flex items-center gap-0.5">
@@ -3003,7 +3243,7 @@ function FilesTab({ job, data, reload }: { job: JobDTO; data: OutputsResponse | 
       {data ? (
         <p className="hidden px-1 pb-1 text-[10px] tabular-nums text-muted-foreground print:block">
           {data.files.length} {data.files.length === 1 ? "file" : "files"} on disk · total{" "}
-          {formatBytes(data.files.reduce((s, f) => s + (f.size ?? 0), 0))}
+          {fmtBytes(data.files.reduce((s, f) => s + (f.size ?? 0), 0))}
         </p>
       ) : null}
     </div>
@@ -3400,7 +3640,7 @@ function InspectorHeader({
                       type="button"
                       onClick={() => onEditChange({ id: job.id, draft: job.name })}
                       aria-label={`Rename ${job.name}`}
-                      className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
+                      className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     >
                       <Pencil className="size-3" aria-hidden="true" />
                     </button>
@@ -3436,6 +3676,7 @@ function InspectorHeader({
                   data-canvas-ui="inspector-return-link"
                   onClick={() => void goBackFromInspector()}
                   title={`You came here from "${cameFrom.name}" — click to go back`}
+                  className="focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded"
                 >
                   <ArrowLeft
                     className="size-2.5 shrink-0 transition-transform duration-200 ease-out motion-safe:group-hover:-translate-x-px"
@@ -3531,6 +3772,38 @@ function InspectorHeader({
             </Tooltip>
             {job.status !== "running" ? (
               <>
+                {/* t924 — the SECOND edit door. The card click's dispatch is
+                    status-dependent (idle → the editing panel, anything else
+                    → THIS inspector), so a completed job's parameters were
+                    unreachable without paying the reset toll: "Reset &
+                    edit" clears the run state to idle, destroying the
+                    receipt just to tweak a knob. The t452 contract says
+                    "editable" — not "editable until first run". This door
+                    opens the SAME JobPanel with the run's receipt intact:
+                    edit the params, and the panel's own Re-run confirm
+                    (the ranBefore law) governs the wipe when the edits
+                    demand one. The card's idle face already says "Edit
+                    parameters" — the verb and the glyph ride with it. */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        inspect(null);
+                        select(job.id);
+                      }}
+                      className="h-7 gap-1.5 px-2.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                    >
+                      <SquarePen className="size-3.5" aria-hidden="true" />
+                      <span>Edit parameters</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    Open the editing panel without resetting — the completed
+                    run and its results stay until a Re-run replaces them
+                  </TooltipContent>
+                </Tooltip>
                 {/* t333 — the tooltip answers the file question in place:
                     reset clears STATE only (status/progress/resume
                     checkpoint); the run directory survives until the next
@@ -3567,6 +3840,7 @@ function InspectorHeader({
                 <Button
                   size="sm"
                   disabled={busy}
+                  aria-busy={busy}
                   onClick={() => setConfirmRerun(true)}
                   className={cn(
                     "h-7 gap-1.5 bg-running-600 px-3 text-xs text-white hover:bg-running-700",
@@ -3584,6 +3858,7 @@ function InspectorHeader({
                     variant="ghost"
                     size="sm"
                     disabled={busy}
+                    aria-label={busy ? "Stop (the stop request is in flight)" : "Stop"}
                     onClick={() => {
                       setBusy(true);
                       void stopJob(job.id).finally(() => setBusy(false));
@@ -3819,7 +4094,7 @@ function InspectorHeader({
                   setClusterRunOpen(true);
                 }}
                 title="Re-run this job and every downstream job on the cluster — the door opens with the subtree rider checked"
-                className="ml-auto inline-flex shrink-0 items-center gap-1 rounded border border-warning/30 bg-background/50 px-1.5 py-0.5 text-[10px] font-medium text-warning-700 transition-colors hover:bg-warning/15 dark:text-warning-400"
+                className="ml-auto inline-flex shrink-0 items-center gap-1 rounded border border-warning/30 bg-background/50 px-1.5 py-0.5 text-[10px] font-medium text-warning-700 transition-colors hover:bg-warning/15 dark:text-warning-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 <Play className="size-3 shrink-0" aria-hidden="true" />
                 Re-run subtree ({subtreePlan.order.length})
@@ -3865,7 +4140,7 @@ function InspectorHeader({
                   aria-controls={diffTableId}
                   data-testid="drift-diff-toggle"
                   title={diffOpen ? "Collapse the per-setting receipt" : "Every changed setting, ran-with value → current value"}
-                  className="ml-auto inline-flex shrink-0 items-center gap-1 rounded border border-warning/30 bg-background/50 px-1.5 py-0.5 text-[10px] font-medium text-warning-700 transition-colors hover:bg-warning/15 dark:text-warning-400"
+                  className="ml-auto inline-flex shrink-0 items-center gap-1 rounded border border-warning/30 bg-background/50 px-1.5 py-0.5 text-[10px] font-medium text-warning-700 transition-colors hover:bg-warning/15 dark:text-warning-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
                   <ChevronDown
                     className={cn(
@@ -4042,7 +4317,7 @@ function InspectorHeader({
         <div className="flex items-center gap-3">
           <Progress value={job.progress} className="h-1.5 flex-1 overflow-hidden" />
           <span className="w-10 shrink-0 text-right font-mono text-[11px] font-semibold tabular-nums text-running">
-            {Math.round(job.progress)}%
+            {fmtProgressPct(job.progress)}
           </span>
           {eta != null && (
             <span
@@ -4195,6 +4470,14 @@ export function JobInspector() {
 
   // outputs data (Overview + Files) — polled while the job runs
   const [data, setData] = React.useState<OutputsResponse | null>(null);
+  // t956 — the deep band's state: the rows the deeper ledger pages appended,
+  // the next page's door (from the newest response the UI holds), and the
+  // click's in-flight flag. A wholesale reload (poll / Refresh / job switch)
+  // collapses back to the canonical first page — the listing refreshes, the
+  // band is one click away again.
+  const [extraFiles, setExtraFiles] = React.useState<OutputFile[]>([]);
+  const [remoteNext, setRemoteNext] = React.useState<number | null>(null);
+  const [loadingMore, setLoadingMore] = React.useState(false);
   const jobId = job?.id;
   const running = job?.status === "running";
 
@@ -4202,14 +4485,66 @@ export function JobInspector() {
     if (!jobId) return;
     try {
       const res = await fetch(`/api/jobs/${jobId}/outputs`, { cache: "no-store" });
-      if (res.ok) setData((await res.json()) as OutputsResponse);
+      if (res.ok) {
+        const body = (await res.json()) as OutputsResponse;
+        setData(body);
+        setExtraFiles([]);
+        setRemoteNext(body.remoteNextOffset ?? null);
+      }
     } catch {
       /* transient */
     }
   }, [jobId]);
 
+  // t956 — the deep band's click: fetch the next page at the door's offset
+  // and APPEND the rows the UI doesn't hold yet (the response is the full
+  // joined listing at that offset; the diff by path keeps the merge honest
+  // even if the local walk grew between pages). The door moves to the
+  // response's own remoteNextOffset — null collapses the affordance.
+  const loadMoreRemote = React.useCallback(async () => {
+    if (!jobId || remoteNext == null || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const res = await fetch(`/api/jobs/${jobId}/outputs?remoteOffset=${remoteNext}`, {
+        cache: "no-store",
+      });
+      if (res.ok) {
+        const body = (await res.json()) as OutputsResponse;
+        const known = new Set([...(data?.files ?? []), ...extraFiles].map((f) => f.path));
+        const fresh = (body.files ?? []).filter((f) => f.remote && !known.has(f.path));
+        if (fresh.length > 0) {
+          // t958 — the stale-closure guard went linear: `prev.some` scanned
+          // extraFiles per fresh row (O(fresh×prev) on a 300-card page —
+          // the deep band's own shape). The updater now builds its own Set
+          // against the LATEST prev, so the guard is both O(1) per row and
+          // correct against any extraFiles growth the closure missed.
+          setExtraFiles((prev) => {
+            const prevPaths = new Set(prev.map((x) => x.path));
+            return [...prev, ...fresh.filter((f) => !prevPaths.has(f.path))];
+          });
+        }
+        setRemoteNext(body.remoteNextOffset ?? null);
+      }
+    } catch {
+      /* transient — the door stays where it was */
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [jobId, remoteNext, loadingMore, data, extraFiles]);
+
+  // the merged face the Files tab drinks: the canonical first page + the
+  // deeper pages the user has walked to. The kind counts, the "N of M" line
+  // and the search/filter all read the SAME merged truth.
+  const effData = React.useMemo<OutputsResponse | null>(() => {
+    if (!data) return null;
+    if (extraFiles.length === 0) return data;
+    return { ...data, files: [...data.files, ...extraFiles] };
+  }, [data, extraFiles]);
+
   React.useEffect(() => {
     setData(null);
+    setExtraFiles([]);
+    setRemoteNext(null);
     void loadOutputs();
   }, [loadOutputs]);
 
@@ -4393,9 +4728,29 @@ export function JobInspector() {
            header's Focus button), and Radix tooltips open on focus — so
            every inspector open birthed a ghost "Center this job on the
            canvas" tooltip hovering over the meta line. Decline the
-           auto-focus: the dialog is a VIEWING surface (nothing to type),
-           Escape still closes, and the first Tab lands inside normally. */
-        onOpenAutoFocus={(e) => e.preventDefault()}
+           child focus: the dialog is a VIEWING surface (nothing to type),
+           Escape still closes.
+           t900 — but the bare preventDefault left the KEYBOARD opener
+           outside the dialog they just opened (t846's M10 named the wart,
+           live-captured twice): focus stayed on the card, and Tab from
+           outside a non-modal scope walks the whole page — the dialog
+           reachable only after every canvas port. The middle path keeps
+           both laws: decline the CHILD focus (no focusable trigger is
+           focused, so no tooltip is born — the t391 ghost stays dead),
+           then seat focus on the CONTENT itself (tabindex=-1, Radix's own
+           focusable container — the probe contract's anchor). The opener
+           is inside: Tab walks the dialog's faces, Escape rides the
+           scope, and the return-address layer's pocket already holds the
+           card (captured at the opener's focusin, before this handler
+           ran) — close hands focus back through the door it came from.
+           The t788 order law is untouched: the pocket is cleared before
+           the close's focus moves, and a focusin INSIDE an open surface
+           never disarms the pocket (the t791 stand-down reads outside
+           landings only). */
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          document.querySelector<HTMLElement>("[data-inspector-dialog]")?.focus();
+        }}
         /* t447 — the rename edit's Escape must walk away from the EDIT, not
            close the modal. Radix hears Escape on document CAPTURE (before
            any bubble-phase handler can react), and dismisses unless the
@@ -4426,9 +4781,21 @@ export function JobInspector() {
         }}
       >
         {job ? (
-          <InspectorBody
+          <>
+            {/* t975 — the dialog family's title law reaches its biggest
+                member: the inspector was the ONE DialogContent of 45 whose
+                accessible name never existed (the screen reader announced
+                an unnamed dialog; every sibling — 44 plain dialogs, 13
+                alert dialogs — carried its title). The sr-only title speaks
+                the job's name; the visible header keeps its own face. */}
+            <DialogTitle className="sr-only">Job inspector: {job.name}</DialogTitle>
+            <InspectorBody
             job={job}
             data={data}
+            filesData={effData}
+            remoteNext={remoteNext}
+            loadingMore={loadingMore}
+            onLoadMore={() => void loadMoreRemote()}
             tab={tab}
             onTabSelect={(v) => {
               if (inspectId != null) tabTouchedForRef.current = inspectId;
@@ -4447,6 +4814,7 @@ export function JobInspector() {
             onCleaned={() => void loadOutputs()}
             onReloadOutputs={() => void loadOutputs()}
           />
+          </>
         ) : null}
       </DialogContent>
     </Dialog>
@@ -4477,6 +4845,10 @@ export function JobInspector() {
 function InspectorBody({
   job,
   data,
+  filesData,
+  remoteNext,
+  loadingMore,
+  onLoadMore,
   tab,
   onTabSelect,
   onTabSet,
@@ -4490,6 +4862,15 @@ function InspectorBody({
 }: {
   job: JobDTO;
   data: OutputsResponse | null;
+  /** t956 — the Files tab's merged face: the canonical first page plus the
+   *  deeper ledger pages the user has walked to (Overview keeps the
+   *  canonical `data` — its summary is the server's own word). */
+  filesData: OutputsResponse | null;
+  /** t956 — the deep band's door: the next ledger page's offset (null =
+   *  spent — the affordance stays home). */
+  remoteNext: number | null;
+  loadingMore: boolean;
+  onLoadMore: () => void;
   tab: string;
   onTabSelect: (v: string) => void;
   onTabSet: (v: string) => void;
@@ -4626,7 +5007,14 @@ function InspectorBody({
         </TabsContent>
 
         <TabsContent value="files" {...panelFace("files")} className="mt-0 min-h-0 flex-1 px-5 py-4 sm:px-6">
-          <FilesTab job={job} data={data} reload={onReloadOutputs} />
+          <FilesTab
+            job={job}
+            data={filesData}
+            reload={onReloadOutputs}
+            remoteNext={remoteNext}
+            loadingMore={loadingMore}
+            onLoadMore={onLoadMore}
+          />
         </TabsContent>
       </Tabs>
 
@@ -4641,7 +5029,7 @@ function InspectorBody({
         >
           <FolderOpen className="size-3.5 shrink-0" aria-hidden="true" />
           <span className="shrink-0 font-medium">workdir</span>
-          <span className="truncate font-mono" title={data.workdir}>
+          <span className="min-w-0 truncate font-mono" title={data.workdir}>
             {data.workdir}
           </span>
           <span className="ml-auto shrink-0">

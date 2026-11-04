@@ -9,7 +9,7 @@
 //   C  console errors + close
 // Usage: QA_PHASES=A,B,C node scripts/qa50-e2e.mjs
 import { execSync } from "node:child_process";
-import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, writeFileSync } from "node:fs";
 import { resolveRefineHost } from "./qa-refine-host.mjs";
 
 const AB = "agent-browser";
@@ -38,11 +38,25 @@ const SEED = "python3 /home/z/my-project/scripts/qa50-seed-fsc.py";
 const SEED_CLEAN = "python3 /home/z/my-project/scripts/qa50-seed-fsc.py --clean";
 // t705 — the name is the world's own spelling, never a pin (qa-refine-host.mjs:
 // the JS twin of qa_lib.resolve_refine_host — manifest contract + type fallback)
-const JOB = resolveRefineHost().name;
+// t1130 — the HOST OBJECT stays in scope: the source-honesty disk check derives
+// the canonical workdir from the same job the report came from (the world's
+// own witness), not from the stale t531 manifest (data/ is runtime-only and
+// died with the t1125 epoch rollback; the t703 law: expectations derive from
+// the world, not from history).
+const REFINE_HOST = resolveRefineHost();
+const JOB = REFINE_HOST.name;
+// the canonical workdir law: data/relion/<projectId>/<type>_<id8> (qa_lib.job_workdir)
+const HOST_WORKDIR = `/home/z/my-project/data/relion/${REFINE_HOST.projectId}/refine3d_${REFINE_HOST.id.slice(-8)}`;
 
 const openJobResults = async () => {
   sh(`${AB} open http://localhost:3000`);
   await sleep(6000);
+  // t1130 — close any auto-opened inspector (the t1128 inspect seed restores
+  // it on a persistent-profile landing); a modal dialog would eat the card
+  // click and the Results tab would never open. Radix only hears TRUSTED
+  // Escape (the synthetic KeyboardEvent left it open, live-proven) — real key.
+  sh(`${AB} press Escape`);
+  await sleep(800);
   // cold-compile tolerant: poll for the job card, click it
   let node = "";
   for (let i = 0; i < 15 && !node.includes("clicked@"); i++) {
@@ -261,16 +275,15 @@ const phaseB = async () => {
     : mdRaw;
   // the FSC section must name its source, never claim the removed seed,
   // and the named file must exist in the workdir (canonical workdir law:
-  // data/relion/<project>/<type>_<id8>, the manifest contract)
+  // data/relion/<project>/<type>_<id8> — derived from the resolved host, t1130)
   const srcLine = (md.match(/`Source: ([^`]+)`/) || [])[1];
   if (!srcLine) throw new Error("FSC section names no source file");
   if (srcLine.includes("postprocess.star"))
     throw new Error(`FSC still claims the removed seed: ${srcLine}`);
-  const manifest = JSON.parse(readFileSync("/home/z/my-project/data/old-world.json", "utf8"));
-  const hostId = manifest.chain.refine3d;
-  const wd = `/home/z/my-project/data/relion/${manifest.project.id}/refine3d_${hostId.slice(-8)}`;
-  if (!existsSync(`${wd}/${srcLine}`))
-    throw new Error(`FSC source file missing on disk: ${srcLine}`);
+  // t1130 — the disk check follows the RESOLVED HOST (the job whose report we
+  // downloaded), not the stale manifest: same world, same spelling.
+  if (!existsSync(`${HOST_WORKDIR}/${srcLine}`))
+    throw new Error(`FSC source file missing on disk: ${srcLine} (looked in ${HOST_WORKDIR})`);
   // the postprocess-only section must vanish with its evidence
   if (md.includes("## Guinier"))
     throw new Error("Guinier section should be absent without postprocess data");

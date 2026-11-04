@@ -17,6 +17,7 @@ import { useEffect, useState } from "react";
 import { Scale, TrendingDown, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchJsonRetry } from "@/lib/retry-fetch";
+import { formatCountFull } from "@/lib/result-counts"; // t1157 — the thousands word rides its ONE father (the locale pin lives in result-counts, the parser's own contract)
 
 interface RebalanceReportResponse {
   jobId: string;
@@ -135,7 +136,7 @@ export function RebalanceReport({
           setError(null);
         }
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "failed");
+        if (!cancelled) setError(err instanceof Error ? err.message : "the rebalance report could not be loaded");
       }
     })();
     return () => {
@@ -181,7 +182,7 @@ export function RebalanceReport({
           label="Particles"
           before={s.totalBefore}
           after={s.totalAfter}
-          format={(v) => v.toLocaleString()}
+          format={(v) => formatCountFull(v)}
           better="up"
           hint="kept particles after per-bin percentile trimming"
         />
@@ -189,7 +190,7 @@ export function RebalanceReport({
           label="Removed"
           before={0}
           after={s.removed}
-          format={(v) => (v === 0 ? "—" : `${v.toLocaleString()} (${s.removedPercent.toFixed(1)}%)`)}
+          format={(v) => (v === 0 ? "—" : `${formatCountFull(v)} (${s.removedPercent.toFixed(1)}%)`)}
           better="down"
           hint="particles excluded from over-populated orientation bins"
         />
@@ -268,10 +269,10 @@ export function RebalanceReport({
                     style={{ width: `${afterW}%` }}
                   />
                   <span className="absolute inset-y-0 left-1.5 flex items-center text-[9.5px] font-medium tabular-nums text-foreground/70 group-hover:text-foreground">
-                    {b.countAfter.toLocaleString()} / {b.countBefore.toLocaleString()}
+                    {formatCountFull(b.countAfter)} / {formatCountFull(b.countBefore)}
                     {b.removed > 0 ? (
                       <span className="ml-1 text-danger-600/90 dark:text-danger-400/90">
-                        −{b.removed.toLocaleString()}
+                        −{formatCountFull(b.removed)}
                       </span>
                     ) : null}
                   </span>

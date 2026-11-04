@@ -6,6 +6,7 @@ import { lineageFor } from "@/lib/relion/dispatch";
 import { readRuns } from "@/lib/relion/engine";
 import { buildSbatchForJob, loadProfiles, type EngineJobLike } from "@/lib/hpc/slurm";
 import { isLocalRequest } from "@/lib/http-guard";
+import { countRowsContaining } from "@/lib/fs-text"; // t1168 — the streamed row count, never a whole-file read
 // Task 184: workdir paths resolve through the data-dir contract (paths.ts),
 // not the server cwd — the sbatch script must name the same workdir the
 // engine uses, wherever CRYOFLOW_DATA_DIR points it.
@@ -54,8 +55,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
       if (up.type === "import" && st?.done) {
         const star = st.outputs?.micrographs_star;
         if (star && existsSync(star)) {
-          const txt = (await import("fs").then((m) => m.readFileSync(star, "utf8")));
-          micrographs = Math.max(1, txt.split("\n").filter((l) => l.includes(".mrc")).length);
+          // t1168 — the count is STREAMED (lib/fs-text's one-well counter):
+          // the old probe read the WHOLE movies.star and split it into a
+          // million strings just to count rows naming .mrc — a real import
+          // is tens of megabytes, and the strategy only needs the number.
+          // An unreadable star counts 0 rows → the max() keeps the floor.
+          micrographs = Math.max(1, countRowsContaining(star, ".mrc") ?? 0);
         }
       }
     }

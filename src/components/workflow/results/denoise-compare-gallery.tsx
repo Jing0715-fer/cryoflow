@@ -22,7 +22,7 @@
  * must never masquerade as a wound, and a wound must never read as absence.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Columns2, Sparkles, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { GALLERY_FOCUS_TTL_MS, useWorkflowStore } from "@/lib/store";
@@ -53,19 +53,88 @@ const PAGE = 9;
 const pngUrl = (jobId: string, rel: string) =>
   `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(rel)}&format=png`;
 
+/** the wipe positions' localStorage bucket, per job — the fsc-compare
+ *  contract's key grammar (cryoflow.<feature>:<scope>) */
+const wipeKey = (jobId: string) => `cryoflow.wipe:${jobId}`;
+
+/** the bucket's read: sanitize-or-default — finite numbers only, clamped
+ *  into [0,100] and rounded to the range input's own step — so a corrupted
+ *  bucket starts clean and never wedges the control. The window guard
+ *  keeps the SSR pass honest (the server has no bucket; this gallery
+ *  renders null until the fetch lands anyway, so hydration never sees a
+ *  divider to disagree about). */
+function readWipeBucket(jobId: string): Record<string, number> {
+  if (typeof window === "undefined") return {};
+  let saved: Record<string, number> = {};
+  try {
+    const raw: unknown = JSON.parse(localStorage.getItem(wipeKey(jobId)) ?? "{}");
+    if (raw && typeof raw === "object") {
+      for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+        if (typeof v === "number" && Number.isFinite(v))
+          saved[k] = Math.min(100, Math.max(0, Math.round(v)));
+      }
+    }
+  } catch {
+    /* corrupted state — start clean */
+  }
+  return saved;
+}
+
 /** one micrograph's wipe card — the denoised render with the original
- *  clipped over it, one divider, two fading labels */
+ *  clipped over it, one divider, two fading labels.
+ *  t896 — the divider's POSITION MEMORY: the card is CONTROLLED — the
+ *  position lives in the gallery's per-card map (and through it, in the
+ *  job's localStorage bucket), so the gestures that once revoked the
+ *  user's measurement no longer do: a wipe/side flip, a page flip, a
+ *  poll re-render, even a full inspector reopen all restore the divider
+ *  exactly where the hand left it. A measurement taken at 72% is a
+ *  finding; a component that forgets findings makes the user re-take
+ *  them (the position memory's own law). */
+/** the keyboard nudge's echo window (ms) — the chip's settle time, the
+ *  same duration the CSS animation speaks (globals.css, t897). */
+const NUDGE_SETTLE_MS = 700;
+/** the keys whose press IS a nudge (the range input's scrub vocabulary) */
+const NUDGE_KEYS = new Set([
+  "ArrowLeft",
+  "ArrowRight",
+  "ArrowUp",
+  "ArrowDown",
+  "Home",
+  "End",
+  "PageUp",
+  "PageDown",
+]);
+
 function WipeCard({
   denoisedSrc,
   originalSrc,
   alt,
+  pos,
+  onPos,
 }: {
   denoisedSrc: string;
   originalSrc: string;
   alt: string;
+  /** 0..100 — the percentage of WIDTH that shows the ORIGINAL (left side) */
+  pos: number;
+  onPos: (n: number) => void;
 }) {
-  // 0..100 — the percentage of WIDTH that shows the ORIGINAL (left side)
-  const [pos, setPos] = useState(50);
+  // t897 — the keyboard nudge's echo: arrows scrub ±1%, a motion too small
+  // for the eye to confirm, and the value the drag shows geometrically the
+  // keyboard has no other voice for. Each scrub keystroke bumps the seq;
+  // the chip remounts (the find-tick idiom) and the settle timer clears it.
+  const [nudge, setNudge] = useState<{ seq: number } | null>(null);
+  // t898 — the pointer twin: during a DRAG the same chip tracks the value
+  // continuously (held = visible, no animation — the motion is the drag's
+  // own). The keyboard's one-shot and the drag's held chip share one
+  // render; `nudge` wins while both speak (a remount mid-drag is honest —
+  // the keystroke IS the newer event).
+  const [drag, setDrag] = useState(false);
+  useEffect(() => {
+    if (!nudge) return;
+    const t = setTimeout(() => setNudge(null), NUDGE_SETTLE_MS);
+    return () => clearTimeout(t);
+  }, [nudge]);
   return (
     <div className="group relative aspect-square overflow-hidden rounded-md border border-border bg-zinc-950">
       {/* base: the denoised render fills the square */}
@@ -102,6 +171,22 @@ function WipeCard({
       >
         denoised
       </span>
+      {/* the value echo, two voices: the keyboard's one-shot (remounted per
+          keystroke, the find-tick idiom) and the drag's held chip (tracks
+          continuously, no animation — the drag's own motion is its voice);
+          aria-hidden (the range's aria-valuetext already announces). */}
+      {(nudge || drag) && (
+        <span
+          key={nudge ? `nudge-${nudge.seq}` : "drag"}
+          data-wipe-nudge={nudge ? "" : undefined}
+          data-wipe-drag={drag && !nudge ? "" : undefined}
+          aria-hidden="true"
+          className="absolute -translate-x-1/2 rounded-sm bg-fuchsia-950/85 px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-fuchsia-100 shadow-sm backdrop-blur-sm"
+          style={{ left: `${pos}%`, top: "calc(50% + 16px)" }}
+        >
+          {pos}%
+        </span>
+      )}
       {/* the real control: a transparent range input riding the whole card.
           The drag handle is the div above — this input is what keeps the
           wipe keyboard-accessible (focus ring + arrows scrub). */}
@@ -113,7 +198,13 @@ function WipeCard({
         value={pos}
         aria-label={`Wipe original / denoised for ${alt}`}
         aria-valuetext={`${pos}% original · ${100 - pos}% denoised`}
-        onChange={(e) => setPos(Number(e.target.value))}
+        onChange={(e) => onPos(Number(e.target.value))}
+        onPointerDown={() => setDrag(true)}
+        onPointerUp={() => setDrag(false)}
+        onPointerCancel={() => setDrag(false)}
+        onKeyDown={(e) => {
+          if (NUDGE_KEYS.has(e.key)) setNudge((p) => ({ seq: (p?.seq ?? 0) + 1 }));
+        }}
         className="absolute inset-0 h-full w-full cursor-ew-resize appearance-none bg-transparent opacity-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-fuchsia-400"
       />
     </div>
@@ -135,6 +226,47 @@ export function DenoiseCompareGallery({
   );
   const [mode, setMode] = useState<"wipe" | "side">("wipe");
   const [shown, setShown] = useState(PAGE);
+
+  // t896 — the divider's per-card memory (the gallery is the keeper):
+  //   one map, alt → divider position, feeding every controlled WipeCard.
+  //   The bucket persists per job in localStorage (the fsc-compare
+  //   contract) so the memory survives the inspector itself. The read is
+  //   a RENDER-TIME ADJUST (the params-diff-dialog recipe, React's
+  //   blessed alternative to set-state-in-effect — the lint's own cure):
+  //   a jobId flip re-reads the bucket during the render, BEFORE commit —
+  //   no effect fires, and the one-frame stale-map-under-new-id race an
+  //   effect read would breed (the old map committed under the new key)
+  //   is impossible by construction, not by fence. The trade: a drag on
+  //   job A whose debounced write hasn't landed when the user flips to
+  //   job B loses that final 350ms word (the write effect's cleanup
+  //   cancels its own timer) — a mid-gesture flip dropping the last
+  //   tick's position is the honest bound of best-effort persistence.
+  const [posByAlt, setPosByAlt] = useState<Record<string, number>>(() =>
+    readWipeBucket(jobId)
+  );
+  const [seenJob, setSeenJob] = useState(jobId);
+  if (seenJob !== jobId) {
+    setSeenJob(jobId);
+    setPosByAlt(readWipeBucket(jobId));
+  }
+  useEffect(() => {
+    // the write is debounced: a drag speaks ~60 ticks/s and every one of
+    // them landing in localStorage would be a render-path sin by volume;
+    // 350ms after the hand rests, the bucket takes the final word. The
+    // committed pair (posByAlt, jobId) is always self-consistent — the
+    // render-time adjust guarantees it — so the effect needs no fence.
+    const t = setTimeout(() => {
+      try {
+        localStorage.setItem(wipeKey(jobId), JSON.stringify(posByAlt));
+      } catch {
+        /* private mode / quota — persistence is best-effort */
+      }
+    }, 350);
+    return () => clearTimeout(t);
+  }, [posByAlt, jobId]);
+  const setCardPos = useCallback((alt: string, n: number) => {
+    setPosByAlt((m) => (m[alt] === n ? m : { ...m, [alt]: n }));
+  }, []);
 
   const pairs = useMemo(() => data?.pairs ?? [], [data]);
   const paired = data?.paired ?? 0;
@@ -243,7 +375,7 @@ export function DenoiseCompareGallery({
               onClick={() => setMode(m)}
               aria-pressed={mode === m}
               className={
-                "inline-flex items-center gap-1 px-2.5 py-0.5 text-[10px] font-semibold transition-colors " +
+                "inline-flex items-center gap-1 px-2.5 py-0.5 text-[10px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring " +
                 (mode === m
                   ? "bg-fuchsia-600 text-white"
                   : "bg-transparent text-muted-foreground hover:bg-fuchsia-600/10 hover:text-fuchsia-700 dark:hover:text-fuchsia-300")
@@ -269,6 +401,8 @@ export function DenoiseCompareGallery({
                   denoisedSrc={pngUrl(jobId, p.denoised)}
                   originalSrc={pngUrl(p.originalJobId ?? jobId, p.original)}
                   alt={p.name}
+                  pos={posByAlt[p.name] ?? 50}
+                  onPos={(n) => setCardPos(p.name, n)}
                 />
               ) : (
                 <div className="grid grid-cols-2 gap-1.5">
@@ -314,10 +448,45 @@ export function DenoiseCompareGallery({
               </div>
             )}
             <figcaption
-              className="truncate text-center font-mono text-[10px] text-muted-foreground"
+              className="flex items-center justify-center gap-1.5 font-mono text-[10px] text-muted-foreground"
               title={p.name}
             >
-              {p.name}
+              <span className="truncate">{p.name}</span>
+              {/* t899 — the wipe memory's cross-mode echo: the position
+                  memory survives a mode flip (witnessed in t896's round
+                  trip), but in side-by-side the divider is absent and the
+                  measurement is INVISIBLE — the user would have to flip
+                  back to learn their finding survived. The side caption
+                  whispers the parked divider (the house mono chip, the
+                  fuchsia at whisper level) for every card the user
+                  actually moved (a position at the 50 default is no
+                  finding, and silence is its honest voice). The value is
+                  the message: the chip names it, it is not a control. */}
+              {mode === "side" &&
+                posByAlt[p.name] != null &&
+                posByAlt[p.name] !== 50 && (
+                  <span
+                    data-wipe-memory-chip=""
+                    className="shrink-0 rounded-sm border border-fuchsia-600/25 px-1 py-px font-mono text-[9px] uppercase tracking-wider text-fuchsia-600/75 dark:text-fuchsia-300/70"
+                    title="this card's wipe divider is parked here — flip back to wipe and it is still at this position"
+                  >
+                    wipe {posByAlt[p.name]}%
+                  </span>
+                )}
+              {/* the per-tile pair-status echo — the header chip's grammar
+                  at tile level: every card names its own state (the paired
+                  whisper in the success family, the unpaired in the amber
+                  the badge taught), so a mixed run reads at tile distance
+                  without the trip to the header counter */}
+              {p.denoised && p.original ? (
+                <span className="shrink-0 rounded-sm bg-emerald-950/60 px-1 py-px text-[9px] uppercase tracking-wider text-emerald-300/90">
+                  paired
+                </span>
+              ) : (
+                <span className="shrink-0 rounded-sm bg-amber-950/70 px-1 py-px text-[9px] uppercase tracking-wider text-amber-200">
+                  unpaired
+                </span>
+              )}
             </figcaption>
           </figure>
         ))}
@@ -328,7 +497,7 @@ export function DenoiseCompareGallery({
           <button
             type="button"
             onClick={() => setShown((s) => s + PAGE * 2)}
-            className="rounded-full border border-fuchsia-600/30 bg-fuchsia-600/5 px-3 py-1 text-[11px] font-semibold text-fuchsia-700 transition-colors hover:bg-fuchsia-600/15 dark:text-fuchsia-300"
+            className="rounded-full border border-fuchsia-600/30 bg-fuchsia-600/5 px-3 py-1 text-[11px] font-semibold text-fuchsia-700 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:bg-fuchsia-600/15 dark:text-fuchsia-300"
           >
             show more ({pairs.length - shown} remaining)
           </button>
