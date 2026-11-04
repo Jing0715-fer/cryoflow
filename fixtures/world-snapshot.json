@@ -1,7 +1,7 @@
 {
  "meta": {
-  "exportedAt": "2026-11-04T03:15:33.961Z",
-  "head": "e67247b5",
+  "exportedAt": "2026-11-04T06:06:22.602Z",
+  "head": "b750fc0a",
   "db": "file:…/cryoflow.db",
   "counts": {
    "project": 1,
@@ -52,10 +52,10 @@
     "ranParams": "{\"nodeType\":\"movies\",\"micrographsPath\":\"\",\"pixelSize\":1.77,\"voltage\":300,\"cs\":2.7,\"ampContrast\":0.1,\"totalDose\":25,\"negativeStain\":false,\"fn_mtf\":\"\",\"angpix\":1.4,\"kV\":300,\"Cs\":2.7,\"beamtilt_x\":0,\"beamtilt_y\":0,\"empiarData\":true}",
     "result": "24 micrographs imported · EMPIAR-10017 (pixel 1.77 Å)",
     "note": null,
-    "startedAt": "2026-11-03T19:58:34.206Z",
+    "startedAt": "2026-11-04T05:33:57.320Z",
     "duration": 500,
     "createdAt": "2026-11-03T19:57:48.667Z",
-    "updatedAt": "2026-11-03T19:58:34.219Z"
+    "updatedAt": "2026-11-04T05:33:57.334Z"
    },
    {
     "id": "cmw140u7w0004sinm6arfy64d",
@@ -72,10 +72,10 @@
     "ranParams": "{\"patchX\":5,\"patchY\":5,\"bfactor\":150,\"dosePerFrame\":1.28,\"input_star_mics\":\"\",\"first_frame_sum\":1,\"last_frame_sum\":-1,\"pre_exposure\":0,\"eer_grouping\":32,\"do_float16\":true,\"do_even_odd_split\":false,\"do_dose_weighting\":true,\"do_save_noDW\":false,\"do_save_ps\":true,\"group_for_ps\":4,\"group_frames\":1,\"bin_factor\":1,\"fn_gain_ref\":\"\",\"gain_rot\":\"No rotation (0)\",\"gain_flip\":\"No flipping (0)\",\"fn_defect\":\"\",\"do_own_motioncor\":true,\"fn_motioncor2_exe\":\"\",\"other_motioncor2_args\":\"\"}",
     "result": "REMOTE[cryo@127.0.0.1 · relion/5.0.1]: motion corrected, 24 micrographs — 24 image file(s) stayed on the cluster — motioncorr jobs sync metadata only under the key-files policy (STAR, logs and plots come home; image stacks never do, whatever their size). They are listed in this job's Results — open or download one to fetch it on demand — or switch the connection's sync policy to \"everything\" to bring them home",
     "note": null,
-    "startedAt": "2026-11-03T19:59:57.339Z",
-    "duration": 30530,
+    "startedAt": "2026-11-04T05:40:04.676Z",
+    "duration": 28054,
     "createdAt": "2026-11-03T19:57:48.668Z",
-    "updatedAt": "2026-11-03T20:00:27.870Z"
+    "updatedAt": "2026-11-04T05:40:32.731Z"
    },
    {
     "id": "cmw140u7x0006sinm5wh2kb24",
@@ -92,10 +92,10 @@
     "ranParams": "{\"box\":512,\"resMin\":30,\"resMax\":5,\"dFMin\":5000,\"dFMax\":50000,\"fitAstig\":true,\"phaseShift\":false,\"input_star_mics\":\"\",\"use_noDW\":false,\"phase_min\":\"\",\"phase_max\":\"\",\"phase_step\":\"\",\"dast\":100,\"fn_ctffind_exe\":\"\",\"use_given_ps\":true,\"slow_search\":false,\"ctf_win\":-1,\"dfstep\":500}",
     "result": "REMOTE[cryo@127.0.0.1 · relion/5.0.1]: CTF estimated for 24 micrographs",
     "note": null,
-    "startedAt": "2026-11-03T20:00:27.977Z",
-    "duration": 40800,
+    "startedAt": "2026-11-04T05:40:32.789Z",
+    "duration": 40680,
     "createdAt": "2026-11-03T19:57:48.670Z",
-    "updatedAt": "2026-11-03T20:01:08.779Z"
+    "updatedAt": "2026-11-04T05:41:13.470Z"
    },
    {
     "id": "cmw141rpe000csinmpj0z7t4j",
@@ -112,10 +112,10 @@
     "ranParams": "{\"pickingMethod\":\"Laplacian of Gaussian\",\"logDiamMin\":150,\"logDiamMax\":180,\"logAdjustThreshold\":0,\"logUpperThreshold\":999,\"logInvert\":false,\"particleDiameter\":180,\"lowpass\":20,\"threshold\":0.05,\"minDistance\":100,\"maxStddevNoise\":1.1,\"topazNrParticles\":300,\"topazThreshold\":-6,\"topazDiameter\":180,\"topazDownscale\":-1,\"topazWorkers\":1,\"topazArgs\":\"\",\"fn_input_autopick\":\"\",\"log_maxres\":20,\"fn_topaz_exe\":\"\",\"do_topaz_filaments\":false,\"topaz_filament_threshold\":\"\",\"topaz_hough_length\":\"\",\"highpass\":-1,\"angpix_ref\":-1,\"psi_sampling_autopick\":5,\"do_invert_refs\":true,\"do_ctf_autopick\":true,\"do_ignore_first_ctfpeak_autopick\":false,\"minavgnoise_autopick\":-999,\"do_write_fom_maps\":false,\"do_read_fom_maps\":false,\"shrink\":0,\"do_pick_helical_segments\":false,\"helical_tube_outer_diameter\":200,\"helical_tube_length_min\":-1,\"helical_tube_kappa_max\":0.1,\"helical_nr_asu\":1,\"helical_rise\":-1,\"do_amyloid\":false}",
     "result": "REMOTE[cryo@127.0.0.1 · relion/5.0.1]: 408 particles picked across 24 micrographs",
     "note": null,
-    "startedAt": "2026-11-03T20:01:08.860Z",
-    "duration": 25850,
+    "startedAt": "2026-11-04T05:41:21.431Z",
+    "duration": 23774,
     "createdAt": "2026-11-03T19:58:32.066Z",
-    "updatedAt": "2026-11-03T20:01:34.712Z"
+    "updatedAt": "2026-11-04T05:41:45.206Z"
    },
    {
     "id": "cmw141rpo000esinmgzrrzuat",
@@ -132,10 +132,10 @@
     "ranParams": "{\"boxSize\":128,\"downsampleTo\":64,\"bgDiameter\":-1,\"norm\":true,\"do_float16\":true,\"do_invert\":true,\"white_dust\":-1,\"black_dust\":-1,\"do_fom_threshold\":false,\"minimum_pick_fom\":0,\"do_extract_helix\":false,\"helical_tube_outer_diameter\":200,\"helical_bimodal_angular_priors\":true,\"do_extract_helical_tubes\":true,\"do_cut_into_segments\":true,\"helical_nr_asu\":1,\"helical_rise\":1}",
     "result": "REMOTE[cryo@127.0.0.1 · relion/5.0.1]: 96 particles extracted — 24 image file(s) stayed on the cluster — extract jobs sync metadata only under the key-files policy (STAR, logs and plots come home; image stacks never do, whatever their size). They are listed in this job's Results — open or download one to fetch it on demand — or switch the connection's sync policy to \"everything\" to bring them home",
     "note": null,
-    "startedAt": "2026-11-03T20:01:36.889Z",
-    "duration": 2854,
+    "startedAt": "2026-11-04T05:41:45.323Z",
+    "duration": 5380,
     "createdAt": "2026-11-03T19:58:32.077Z",
-    "updatedAt": "2026-11-03T20:01:39.745Z"
+    "updatedAt": "2026-11-04T05:41:50.704Z"
    },
    {
     "id": "cmw141rpx000gsinm9677qpyf",
@@ -150,12 +150,12 @@
     "progress": 100,
     "params": "{\"numClasses\":50,\"algorithm\":\"vdam\",\"iterations\":25,\"miniBatches\":200,\"particleDiameter\":200,\"doCtf\":true,\"ctfIntactFirstPeak\":false,\"tau2Fudge\":2,\"doZeroMask\":true,\"doCenter\":true,\"skipAlign\":false,\"psiSampling\":\"6\",\"offsetRange\":5,\"offsetStep\":1,\"allowCoarser\":false,\"oversampling\":1,\"highresLimit\":0,\"batchSize\":3,\"scratchDir\":\"\",\"keepFreeScratch\":0,\"parallelDiscIo\":true,\"prereadImages\":false,\"combineThruDisc\":false,\"extraArgs\":\"\",\"threads\":4,\"doHelical2d\":false,\"helicalTubeOuterDiameter2d\":200,\"doBimodalPsi\":true,\"rangePsiHelical\":6,\"doRestrictXoff\":true,\"helicalRise2d\":1,\"fn_img\":\"\",\"fn_cont\":\"\",\"helical_tube_outer_diameter\":200,\"range_psi\":6,\"helical_rise\":4.75}",
     "ranParams": "{\"numClasses\":50,\"algorithm\":\"vdam\",\"iterations\":25,\"miniBatches\":200,\"particleDiameter\":200,\"doCtf\":true,\"ctfIntactFirstPeak\":false,\"tau2Fudge\":2,\"doZeroMask\":true,\"doCenter\":true,\"skipAlign\":false,\"psiSampling\":\"6\",\"offsetRange\":5,\"offsetStep\":1,\"allowCoarser\":false,\"oversampling\":1,\"highresLimit\":0,\"batchSize\":3,\"scratchDir\":\"\",\"keepFreeScratch\":0,\"parallelDiscIo\":true,\"prereadImages\":false,\"combineThruDisc\":false,\"extraArgs\":\"\",\"threads\":4,\"doHelical2d\":false,\"helicalTubeOuterDiameter2d\":200,\"doBimodalPsi\":true,\"rangePsiHelical\":6,\"doRestrictXoff\":true,\"helicalRise2d\":1,\"fn_img\":\"\",\"fn_cont\":\"\",\"helical_tube_outer_diameter\":200,\"range_psi\":6,\"helical_rise\":4.75}",
-    "result": "REMOTE[cryo@127.0.0.1 · relion/5.0.1]: 2D classification finished — 50 of 50 classes populated · 96 particles · top: class 1 2%, class 8 2%, class 15 2% · 50 per-class star(s) — pick classes from the gallery for the next step — 3724 bulky file(s) stayed on the cluster (key-files policy): run_it130_class044.mrc (download failed), run_it130_class045.mrc (download failed), run_it130_class046.mrc (download failed) … — they are listed in this job's Results; preview or download them there on demand",
+    "result": "REMOTE[cryo@127.0.0.1 · relion/5.0.1]: 2D classification finished — 50 of 50 classes populated · 96 particles · top: class 1 2%, class 8 2%, class 15 2% · 50 per-class star(s) — pick classes from the gallery for the next step",
     "note": null,
-    "startedAt": "2026-11-03T20:01:50.939Z",
-    "duration": 1364544,
+    "startedAt": "2026-11-04T05:41:58.647Z",
+    "duration": 475398,
     "createdAt": "2026-11-03T19:58:32.085Z",
-    "updatedAt": "2026-11-03T20:24:35.485Z"
+    "updatedAt": "2026-11-04T05:49:54.046Z"
    },
    {
     "id": "cmw141rq6000isinmcq55ao6i",
@@ -172,10 +172,10 @@
     "ranParams": "{\"selectedClasses\":\"auto\",\"classNotes\":\"{}\",\"occupancyCutoff\":0.5}",
     "result": "96 of 96 particles kept · 50/50 classes (auto — occupancy ≥ 0.5× best)",
     "note": null,
-    "startedAt": "2026-11-03T20:27:30.947Z",
+    "startedAt": "2026-11-04T05:49:56.300Z",
     "duration": 500,
     "createdAt": "2026-11-03T19:58:32.094Z",
-    "updatedAt": "2026-11-03T20:27:30.978Z"
+    "updatedAt": "2026-11-04T05:49:56.306Z"
    },
    {
     "id": "cmw141rqg000ksinmus5yvnfb",
@@ -192,10 +192,10 @@
     "ranParams": "{\"maxParticles\":1000,\"classCutoff\":0.5,\"discardSigma\":4,\"duplicateThreshold\":30,\"fn_model\":\"\",\"fn_mic\":\"\",\"fn_data\":\"\",\"rank_threshold\":0.5,\"select_nr_parts\":-1,\"select_nr_classes\":-1,\"do_recenter\":false,\"nr_groups\":1,\"select_label\":\"rlnCtfMaxResolution\",\"select_minval\":\"-9999.\",\"select_maxval\":\"9999.\",\"discard_label\":\"rlnImageName\",\"discard_sigma\":4,\"do_random\":false,\"split_size\":100,\"nr_split\":-1,\"duplicate_threshold\":30,\"image_angpix\":-1}",
     "result": "96 of 96 particles selected · kept 50/50 classes (occupancy ≥ 0.5× best)",
     "note": null,
-    "startedAt": "2026-11-03T20:27:36.844Z",
+    "startedAt": "2026-11-04T05:49:58.886Z",
     "duration": 500,
     "createdAt": "2026-11-03T19:58:32.105Z",
-    "updatedAt": "2026-11-03T20:27:36.866Z"
+    "updatedAt": "2026-11-04T05:49:58.890Z"
    },
    {
     "id": "cmw141rqo000msinmp8muzogo",
@@ -212,10 +212,10 @@
     "ranParams": "{\"numClasses\":1,\"symmetry\":\"D2\",\"iterations\":200,\"particleDiameter\":200,\"tau2Fudge\":4,\"doCtf\":true,\"ctfIntactFirstPeak\":false,\"batchSize\":3,\"scratchDir\":\"\",\"keepFreeScratch\":0,\"parallelDiscIo\":true,\"prereadImages\":false,\"combineThruDisc\":false,\"extraArgs\":\"\",\"fn_img\":\"\",\"fn_cont\":\"\",\"do_solvent\":true}",
     "result": "REMOTE[cryo@127.0.0.1 · relion/5.0.1]: de-novo 3D initial model generated · 96 particles",
     "note": null,
-    "startedAt": "2026-11-03T20:27:41.439Z",
-    "duration": 480853,
+    "startedAt": "2026-11-04T05:50:06.876Z",
+    "duration": 228335,
     "createdAt": "2026-11-03T19:58:32.113Z",
-    "updatedAt": "2026-11-03T20:35:42.293Z"
+    "updatedAt": "2026-11-04T05:53:55.212Z"
    },
    {
     "id": "cmw141rr9000osinm4poc8cjs",
@@ -232,10 +232,10 @@
     "ranParams": "{\"numClasses\":4,\"symmetry\":\"C1\",\"iterations\":25,\"particleDiameter\":200,\"doCtf\":true,\"ctfIntactFirstPeak\":false,\"tau2Fudge\":4,\"doBlush\":false,\"doZeroMask\":true,\"doFastSubsets\":false,\"sampling\":\"7.5\",\"offsetRange\":5,\"offsetStep\":1,\"allowCoarser\":false,\"localSigmaAng\":0,\"relaxSym\":0,\"padding\":2,\"batchSize\":0,\"scratchDir\":\"\",\"keepFreeScratch\":0,\"parallelDiscIo\":true,\"prereadImages\":false,\"combineThruDisc\":false,\"extraArgs\":\"\",\"doHelical\":false,\"helicalTubeInnerDiameter\":-1,\"helicalTubeOuterDiameter\":-1,\"rangeRotHelical\":-1,\"rangeTiltHelical\":15,\"rangePsiHelical3d\":10,\"helicalRangeDistance\":-1,\"keepTiltPriorFixed\":true,\"doApplyHelicalSymmetry\":true,\"helicalNrAsu\":1,\"helicalTwistInitial\":0,\"helicalRiseInitial\":0,\"helicalZPercentage\":30,\"doLocalSearchHelicalSymmetry\":false,\"helicalTwistMin\":0,\"helicalTwistMax\":0,\"helicalTwistInistep\":0,\"helicalRiseMin\":0,\"helicalRiseMax\":0,\"helicalRiseInistep\":0,\"threads\":4,\"fn_img\":\"\",\"fn_ref\":\"\",\"fn_mask\":\"\",\"fn_cont\":\"\",\"ref_correct_greyscale\":false,\"trust_ref_size\":true,\"ini_high\":60,\"do_local_ang_searches\":false,\"helical_tube_inner_diameter\":\"\",\"helical_tube_outer_diameter\":\"\",\"range_rot\":\"\",\"range_tilt\":\"\",\"range_psi\":\"\",\"helical_twist_initial\":\"\",\"helical_rise_initial\":\"\",\"helical_twist_min\":\"\",\"helical_twist_max\":\"\",\"helical_twist_inistep\":\"\",\"helical_rise_min\":\"\",\"helical_rise_max\":\"\",\"helical_rise_inistep\":\"\"}",
     "result": "REMOTE[cryo@127.0.0.1 · relion/5.0.1]: class3d exited 0 · 96 particles · 4 per-class star(s) — pick classes from the gallery for the next step",
     "note": null,
-    "startedAt": "2026-11-03T20:35:44.521Z",
-    "duration": 38475,
+    "startedAt": "2026-11-04T05:53:56.799Z",
+    "duration": 38676,
     "createdAt": "2026-11-03T19:58:32.134Z",
-    "updatedAt": "2026-11-03T20:36:22.997Z"
+    "updatedAt": "2026-11-04T05:54:35.476Z"
    },
    {
     "id": "cmw141rrj000qsinmye75h3nf",
@@ -290,12 +290,12 @@
     "progress": 100,
     "params": "{\"symmetry\":\"D2\",\"iniHigh\":50,\"doCtf\":true,\"ctfIntactFirstPeak\":false,\"particleDiameter\":200,\"autoRefine\":true,\"iterations\":15,\"tau2Fudge\":1,\"doBlush\":false,\"doZeroMask\":true,\"doSolventFsc\":false,\"samplingStep\":\"7.5\",\"autoLocalSampling\":\"1.8\",\"autoFaster\":false,\"offsetRange\":5,\"offsetStep\":1,\"relaxSym\":0,\"padding\":2,\"batchSize\":0,\"scratchDir\":\"\",\"keepFreeScratch\":0,\"parallelDiscIo\":true,\"prereadImages\":false,\"combineThruDisc\":false,\"extraArgs\":\"\",\"doHelical\":false,\"helicalTubeInnerDiameter\":-1,\"helicalTubeOuterDiameter\":-1,\"rangeRotHelical\":-1,\"rangeTiltHelical\":15,\"rangePsiHelical3d\":10,\"helicalRangeDistance\":-1,\"keepTiltPriorFixed\":true,\"doApplyHelicalSymmetry\":true,\"helicalNrAsu\":1,\"helicalTwistInitial\":0,\"helicalRiseInitial\":0,\"helicalZPercentage\":30,\"doLocalSearchHelicalSymmetry\":false,\"helicalTwistMin\":0,\"helicalTwistMax\":0,\"helicalTwistInistep\":0,\"helicalRiseMin\":0,\"helicalRiseMax\":0,\"helicalRiseInistep\":0,\"threads\":4,\"fn_img\":\"\",\"fn_ref\":\"\",\"fn_mask\":\"\",\"fn_cont\":\"\",\"ref_correct_greyscale\":false,\"trust_ref_size\":true,\"helical_tube_inner_diameter\":\"\",\"helical_tube_outer_diameter\":\"\",\"range_rot\":\"\",\"range_tilt\":\"\",\"range_psi\":\"\",\"helical_twist_initial\":\"\",\"helical_rise_initial\":\"\",\"helical_twist_min\":\"\",\"helical_twist_max\":\"\",\"helical_twist_inistep\":\"\",\"helical_rise_min\":\"\",\"helical_rise_max\":\"\",\"helical_rise_inistep\":\"\"}",
     "ranParams": "{\"symmetry\":\"D2\",\"iniHigh\":50,\"doCtf\":true,\"ctfIntactFirstPeak\":false,\"particleDiameter\":200,\"autoRefine\":true,\"iterations\":15,\"tau2Fudge\":1,\"doBlush\":false,\"doZeroMask\":true,\"doSolventFsc\":false,\"samplingStep\":\"7.5\",\"autoLocalSampling\":\"1.8\",\"autoFaster\":false,\"offsetRange\":5,\"offsetStep\":1,\"relaxSym\":0,\"padding\":2,\"batchSize\":0,\"scratchDir\":\"\",\"keepFreeScratch\":0,\"parallelDiscIo\":true,\"prereadImages\":false,\"combineThruDisc\":false,\"extraArgs\":\"\",\"doHelical\":false,\"helicalTubeInnerDiameter\":-1,\"helicalTubeOuterDiameter\":-1,\"rangeRotHelical\":-1,\"rangeTiltHelical\":15,\"rangePsiHelical3d\":10,\"helicalRangeDistance\":-1,\"keepTiltPriorFixed\":true,\"doApplyHelicalSymmetry\":true,\"helicalNrAsu\":1,\"helicalTwistInitial\":0,\"helicalRiseInitial\":0,\"helicalZPercentage\":30,\"doLocalSearchHelicalSymmetry\":false,\"helicalTwistMin\":0,\"helicalTwistMax\":0,\"helicalTwistInistep\":0,\"helicalRiseMin\":0,\"helicalRiseMax\":0,\"helicalRiseInistep\":0,\"threads\":4,\"fn_img\":\"\",\"fn_ref\":\"\",\"fn_mask\":\"\",\"fn_cont\":\"\",\"ref_correct_greyscale\":false,\"trust_ref_size\":true,\"helical_tube_inner_diameter\":\"\",\"helical_tube_outer_diameter\":\"\",\"range_rot\":\"\",\"range_tilt\":\"\",\"range_psi\":\"\",\"helical_twist_initial\":\"\",\"helical_rise_initial\":\"\",\"helical_twist_min\":\"\",\"helical_twist_max\":\"\",\"helical_twist_inistep\":\"\",\"helical_rise_min\":\"\",\"helical_rise_max\":\"\",\"helical_rise_inistep\":\"\"}",
-    "result": "REMOTE[cryo@127.0.0.1 · relion/5.0.1]: refine3d exited 0 · 96 particles — 2 file(s) downloaded completely but read as right-sized zero-header MRCs through the login node (run_it003_half1_class001.mrc, run_it008_half1_class001.mrc) — t384/t387: that verdict alone no longer convicts the storage. The witness ladder already cross-examined each one against the login node's O_DIRECT view and re-pulled after dropping its stale pages; these are the files that stayed corrupt AFTER that heal, so either the bytes are really zero on the storage or the ladder could not run (no python3 on the login node). The storage is only convicted when a compute node's own read of the SAME file also says zero — the automatic storage diagnostic (t370) now witnesses the suspect file from a compute node and speaks its verdict in the log (t384)",
+    "result": "REMOTE[cryo@127.0.0.1 · relion/5.0.1]: refine3d exited 0 · 96 particles",
     "note": null,
-    "startedAt": "2026-11-03T21:31:54.043Z",
-    "duration": 99601,
+    "startedAt": "2026-11-04T05:55:02.190Z",
+    "duration": 17055,
     "createdAt": "2026-11-03T19:58:32.166Z",
-    "updatedAt": "2026-11-03T21:33:33.648Z"
+    "updatedAt": "2026-11-04T05:55:19.246Z"
    },
    {
     "id": "cmw141rse000wsinmhzv5qdvb",
@@ -312,10 +312,10 @@
     "ranParams": "{\"threshold\":0.02,\"softEdge\":8,\"lowpass\":15,\"extend\":3,\"fn_in\":\"\",\"angpix\":-1,\"do_helix\":false,\"helical_z_percentage\":30}",
     "result": "REMOTE[cryo@127.0.0.1 · relion/5.0.1]: soft-edged mask created",
     "note": null,
-    "startedAt": "2026-11-03T21:33:37.306Z",
-    "duration": 5861,
+    "startedAt": "2026-11-04T05:55:21.645Z",
+    "duration": 5464,
     "createdAt": "2026-11-03T19:58:32.175Z",
-    "updatedAt": "2026-11-03T21:33:43.169Z"
+    "updatedAt": "2026-11-04T05:55:27.110Z"
    },
    {
     "id": "cmw141rsn000ysinmndly1t6m",
@@ -332,10 +332,10 @@
     "ranParams": "{\"autoBfac\":true,\"autobLowres\":10,\"adhocBfac\":-1000,\"randomizeFrom\":10,\"fn_mask\":\"\",\"angpix\":-1,\"do_adhoc_bfac\":false,\"do_skip_fsc_weighting\":false,\"low_pass\":5,\"fn_mtf\":\"\",\"mtf_angpix\":1}",
     "result": "REMOTE[cryo@127.0.0.1 · relion/5.0.1]: sharpened map · FSC(0.143) = 7.79 Å",
     "note": null,
-    "startedAt": "2026-11-03T21:33:45.737Z",
-    "duration": 13102,
+    "startedAt": "2026-11-04T05:55:32.875Z",
+    "duration": 2957,
     "createdAt": "2026-11-03T19:58:32.183Z",
-    "updatedAt": "2026-11-03T21:33:58.840Z"
+    "updatedAt": "2026-11-04T05:55:35.833Z"
    }
   ],
   "edge": [
