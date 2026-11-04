@@ -114,7 +114,18 @@ export function filterMicrographStar(
   for (const block of blocks) {
     outLines.push(block.header);
     const lines = block.lines;
-    const micCol = columnOf(lines, loopHeaderEnd(lines), "_rlnMicrographName");
+    // t1179 — the movies dialect rides the t440 liberal-match law one
+    // door upstream: real name first (_rlnMicrographName), the import's
+    // movies variant as the fallback (_rlnMicrographMovieName). The
+    // exclude verb's whole promise is wiring import → excludemg →
+    // motioncorr — and the import's star speaks the movies dialect; a
+    // parser locked to the corrected dialect read it as ZERO rows (the
+    // filter excluded nothing, "0 of 0 kept · 1 list name matched
+    // nothing" — an honest log of a deaf read) and the subset MotionCorr
+    // downstream ran the FULL list with identical values.
+    const loopStart = loopHeaderEnd(lines);
+    let micCol = columnOf(lines, loopStart, "_rlnMicrographName");
+    if (micCol < 0) micCol = columnOf(lines, loopStart, "_rlnMicrographMovieName");
     if (micCol < 0) {
       for (const l of lines) outLines.push(l);
       outLines.push("");

@@ -1625,7 +1625,14 @@ const INPUTS: Record<string, InputReq[]> = {
     { key: "micrographs_star", accepts: ["micrographs_star"], from: ["import", "motioncorr", "excludemg"], label: "micrographs.star (run Import or Motion Correction first — or wire an Exclude Micrographs filter)" },
   ],
   motioncorr: [
-    { key: "micrographs_star", accepts: ["micrographs_star"], from: ["import"], label: "micrographs.star (run Import first)" },
+    // t1179 — the t923 law carried down one row: the exclude verb's
+    // promise is wiring import → excludemg → motioncorr (the INPUTS table
+    // has always promised it; the movies star's dialect read in
+    // exclude-list.ts is the filter's half, this is the drinking layer's
+    // half). Without the from-list entry the re-run cannot resolve the
+    // filter's star and silently drinks from the pre-filter provider
+    // instead — the t923 D-band ride's exact disease, one door upstream.
+    { key: "micrographs_star", accepts: ["micrographs_star"], from: ["import", "excludemg"], label: "micrographs.star (run Import first — or wire an Exclude Micrographs filter)" },
   ],
   manualpick: [
     // t563 — topazdenoise joins the provider list: the canvas pairing map
