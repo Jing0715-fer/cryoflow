@@ -1,0 +1,68 @@
+{
+  "window": "t1179",
+  "trace": "1a07549302235a99-cron-agent-loop-202611041116",
+  "at": "2026-11-04T03:55:00Z",
+  "the_deep_bands_retired": {
+    "claim": "t1178 re-queued #7/#8/#13 as the audit's remaining energy; the artifacts say all three were cured long ago",
+    "7_chart_full_sync_reads": {
+      "verdict": "CURED (statcache era) — live-proven",
+      "evidence": "double-fetch timings on the restored world: guinier 1430→125ms, angdist 860→74ms, resolution 821→67ms, fsc 886→79ms — the second fetch is a stat-only cache hit (cachedFileCompute, 48-slot size+mtime LRU)",
+      "note": "chart-data.ts imports no bare readFileSync; guinier 5 sites / resolution 1 / angdist 1 / fsc 4 all ride the cache"
+    },
+    "8_particles_bfs_n1": {
+      "verdict": "CURED (t904 + t1101)",
+      "evidence": "route.ts's own header: batched BFS (one edge query per depth + one job query per batch); the real hot path it found (13k-row star parse per request) rides the statcache; the decode split (per-row cached, stack-ownership per-request memoized) is the written policy"
+    },
+    "13_usememo_localstorage_write": {
+      "verdict": "CURED (t153 era) — re-verified",
+      "evidence": "multiline scan (useMemo body ≤3000 chars containing localStorage) over src: ZERO hits; every setItem lives in event handlers/helpers (project-dashboard:2919 is changeSort, a handler)"
+    }
+  },
+  "the_forks_third_wound": {
+    "data_relion_gone": {
+      "fact": "data/relion/ does not exist — the fork's sweep took the workdir tree with the DB",
+      "consequence": "the roster lives (15 jobs) while the deep surfaces are dark: charts answer empty payloads, particles answers 400 'No on-disk outputs'",
+      "snapshot_law": "world-snapshot.mjs's own header: the workdir tree is NOT in the snapshot (by design) — the deep surfaces return only by re-running the chain",
+      "queued": "t1180's first item: the chunked chain re-run (import → … → postprocess), 2-3 legs per call"
+    },
+    "env_split_brain": {
+      "fact": ".env named custom.db (the 3-job template world) while the launcher's explicit pin kept the lane on cryoflow.db — the ONE-world startup law's env-level echo, masked by the pin since t1178",
+      "cure": ".env back to file:../db/cryoflow.db (the example's law); t1130 rides 5/5 again (bare children land on the living world)"
+    }
+  },
+  "the_t1173_vein_closed": {
+    "wire_poll_ingest": {
+      "verdict": "LANDED — 32/32",
+      "shape": "route: edgesVersionOf (two-lane djb2 33/31, length + project tail), body serialized once and traveled verbatim, version rides the x-edges-version header (ETag law — one law stricter than the jobs route's two-string slack); store: ingestEdgesTick (pollInFlight wire edition, ?v= token, unchanged = zero work, tombstones before merge, orphan filter with token self-heal, 5-field edgeEquals reference stability, in-flight re-attach incl. the adopt's optimistic wires), pollTick's first act, refreshEdges rides the ONE ingest, removeEdge tombstones / restore revives, load() turns the token over with the project",
+      "live_proven": "GET /api/edges → 2320 bytes + x-edges-version: rh01ae.-7alh4.2320.2zpujt; ?v=<token> → {\"unchanged\":true,\"version\":\"rh01ae.-7alh4.2320.2zpujt\"} — the ~40-byte heartbeat on the real lane"
+    },
+    "exclude_dialect": {
+      "verdict": "LANDED — 16/16",
+      "shape": "exclude-list.ts: the movies dialect fallback (_rlnMicrographMovieName) rides the t440 liberal-match law one door upstream; engine.ts: the motioncorr from-list carries the t923 law down (import → excludemg wiring promised by the INPUTS table is now resolvable at the drinking layer)"
+    },
+    "orphan_account": "t1179 point 5 closed: both units registered (census seats 112/113), the cures they spec landed, sonner.tsx deleted with a named verdict (t873's unused artifact, zero consumers, zero deps, broke tsc)"
+  },
+  "the_p1_flicker_root": {
+    "verdict": "PREMISE STALE — the surfaces agree",
+    "evidence": "db groupBy: completed 13, idle 2 (symexpand/rebalance); roster: identical 13/2 — a jobs-GET reading not-all-completed was telling the truth; the boot-reconciler and active-project-handoff theories are unnecessary"
+  },
+  "census": {
+    "seats": 113,
+    "t1023_rekey": "expected 24→25 (t1178's F10 bump never re-keyed the array)",
+    "note": "t912's A16 audits the working tree's uncommitted diff for logic — a feature window legitimately carries logic; the seat holds trivially once the tree is clean"
+  },
+  "tsc_eslint": "both clean on the touched files (server down, keeper paused — the memory schedule honored)",
+  "judge_lines": [
+    "「背诵要对工件核实——第三次了」: the same three cures re-queued a third time; the artifacts had answered years ago; the receipt is the answer",
+    "「一份快照带得走真相，带不走血肉」: the snapshot carried the DB and the engine states; the workdirs were never its cargo — the deep surfaces wait for the chain's own legs",
+    "「舱门钉在产地，律法跟着上膛」: the wire ingest carried five laws home from their own wells — token, tombstone, orphan, stability, re-attach"
+  ],
+  "checks": {
+    "ride_script": "scripts/t1179-qa-ride.sh",
+    "charts_double_fetch_statcache_proof": true,
+    "wire_token_unchanged_verdict": true,
+    "exclude_unit": "16/16",
+    "edge_poll_unit": "32/32",
+    "t1130_env_world": "5/5"
+  }
+}
