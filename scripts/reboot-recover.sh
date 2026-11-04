@@ -25,10 +25,14 @@
 #                     resurrection replaced this script with a newer self.
 #                     db/ and data/ are gitignored — the user's data is
 #                     immune to the reset (t285's own promise).
-#   1. ENV PIN        start.sh overwrites .env with `db/custom.db` on EVERY
-#                     boot (both branches — fresh and restore). Prisma reads
-#                     the SHELL's process env before .env, so the pin is
-#                     exported here too, not just written.
+#   1. ENV PIN        THE DB-LANE LAW, three eras: t377 pinned .env to
+#                     db/cryoflow.db; t417 taught that prisma reads the SHELL's
+#                     process env before .env, so the pin must be exported too;
+#                     t872 RULED the platform owns .env — booting custom.db is
+#                     a legal lane (both launchers became passthroughs), so
+#                     this script now RESOLVES the lane from .env instead of
+#                     rewriting it (a recovery that clobbers the platform's
+#                     .env resurrects the DB-lane war it once ended).
 #   2. DEPS           the tar's narrow .gitignore (skills/ + node_modules/)
 #                     means a fresh restore can land without the toolkit.
 #   3. SCHEMA         `prisma db push` — the tar-era schema trails src.
@@ -149,16 +153,24 @@ else
 fi
 
 # ---------------------------------------------------------------- 1. env pin
-DB_URL="file:$ROOT/db/cryoflow.db"
-PIN="DATABASE_URL=$DB_URL"   # the .env LINE (key included — grep/echo food)
-export DATABASE_URL="$DB_URL"   # prisma reads the PROCESS env before .env — t417's wound
-if [ ! -f .env ] || ! grep -qF "$PIN" .env; then
-  [ -f .env ] && cp .env .env.pre-recover
-  { grep -v '^DATABASE_URL=' .env.pre-recover 2>/dev/null || true; echo "$PIN"; } > .env
-  say "1. .env pinned to db/cryoflow.db (boot's custom.db write overwritten; prior copy in .env.pre-recover)"
+# The t872 law, implemented (this block's old self rewrote .env to cryoflow.db
+# unconditionally — the t377 guard outliving its danger into a lie, exactly
+# the disease the t872 ruling cured in the launchers; a recovery run under
+# this script must not re-open that war). Resolution order: .env's
+# DATABASE_URL (the platform's write, the t872-legal lane) → the t377
+# default. The resolved value is EXPORTED so the three readers of this
+# recovery agree on ONE world: `prisma db push` (step 3 — it heals the
+# 0-byte-lane class loudly by pushing the 8/8 schema onto whatever lane the
+# platform named), the healer's route calls (step 9), and the step-5 boot.
+ENV_URL="$(grep -oP '^DATABASE_URL=\K.*' .env 2>/dev/null | tail -1)"
+if [ -n "$ENV_URL" ]; then
+  DB_URL="$ENV_URL"
+  say "1. .env owns the lane (t872): DATABASE_URL=$DB_URL — exported, .env NOT rewritten"
 else
-  say "1. .env already pinned to db/cryoflow.db"
+  DB_URL="file:$ROOT/db/cryoflow.db"
+  say "1. .env carries no DATABASE_URL — t377 default stands: $DB_URL"
 fi
+export DATABASE_URL="$DB_URL"   # prisma reads the PROCESS env before .env — t417's wound
 
 # ------------------------------------------------------------------- 2. deps
 if [ "${REBOOT_NEEDS_DEPS:-0}" = "1" ] || [ ! -f node_modules/next/dist/bin/next ]; then
