@@ -2,174 +2,8 @@
   "task": "t887",
   "window": "cron 2026-11-03/04 (Job 362852), the chunked film (t1172)",
   "purpose": "the compare family's adoption verbs filmed: the plain adopt, the select rider (mint + wire both mouths + adopt), the exclude rider (the subset run's real regressions baked) — each with the receipt toast and the graph truth via the API; the throwaway world spent and deleted; the demo untouched",
-  "chunk": "side",
+  "chunk": "teardown",
   "chunks": [
-    {
-      "chunk": "teardown",
-      "at": "2026-11-03T17:06:04.238Z",
-      "checks": [
-        {
-          "label": "P0 the daemon's tab neutered (no zombie reload can compile the whale)",
-          "pass": true,
-          "detail": ""
-        },
-        {
-          "label": "P3 the sandbox state resolved (adopt-or-mint)",
-          "pass": true,
-          "detail": "existing sandbox cmw0xcq9z0000uc04ftgfqcls"
-        },
-        {
-          "label": "T1 the sandbox deleted (live runs stopped, jobs and edges removed)",
-          "pass": true,
-          "detail": "ok"
-        },
-        {
-          "label": "T2 the tutorial project active again",
-          "pass": true,
-          "detail": "β-Galactosidase Tutorial (demo)"
-        },
-        {
-          "label": "T3 the demo world untouched: 15/15 completed",
-          "pass": true,
-          "detail": "jobs=15"
-        },
-        {
-          "label": "T4 the browser rides the demo world again (15 cards, bare)",
-          "pass": true,
-          "detail": "cards=15"
-        }
-      ],
-      "pass": 6,
-      "fail": 0
-    },
-    {
-      "chunk": "flights",
-      "at": "2026-11-04T07:17:44.950Z",
-      "checks": [
-        {
-          "label": "P0 the daemon's tab neutered (no zombie reload can compile the whale)",
-          "pass": true,
-          "detail": ""
-        },
-        {
-          "label": "P3 the sandbox state resolved (adopt-or-mint)",
-          "pass": true,
-          "detail": "existing sandbox cmw1rgd890008sopn7ixddx8u"
-        },
-        {
-          "label": "V0 the walk's world adopted (ids re-derived from the API truth)",
-          "pass": true,
-          "detail": "jobs=13 A=qfj3hy B=bjbbus"
-        },
-        {
-          "label": "V1 the browser rides the throwaway world",
-          "pass": true,
-          "detail": "cards=13"
-        },
-        {
-          "label": "F1.1 the Class A/B door found (1 sibling)",
-          "pass": true,
-          "detail": "siblings=1"
-        },
-        {
-          "label": "F1.2 the compare dialog opened with the verdict region",
-          "pass": true,
-          "detail": "Run A2D Classification 1 (this run)Run B2D Classification 2 · Main"
-        },
-        {
-          "label": "F1.3 the plain adopt ENABLED with its move count",
-          "pass": true,
-          "detail": "plain ENABLED · Continue downstream from 2D Classification 2 — re-wires 2 of 2D Classification 1's downstream jobs"
-        },
-        {
-          "label": "F1.4 the select rider PRESENT and ENABLED (K=10 twin: every paired class gained)",
-          "pass": true,
-          "detail": "select ENABLED · Continue downstream from 2D Classification 2 with 10 gained classes selected — mints a 2D Class Selection cons"
-        },
-        {
-          "label": "F1.5 the exclude rider ABSENT (the class verdict has no micrographs to exclude)",
-          "pass": true,
-          "detail": ""
-        },
-        {
-          "label": "F1.6 the adoption receipt spoke (the toast names the re-wire)",
-          "pass": true,
-          "detail": "none"
-        },
-        {
-          "label": "F1.7 THE GRAPH TRUTH: both template wires re-parented onto run B",
-          "pass": true,
-          "detail": "B->initialmodel=true B->refine3d=true"
-        },
-        {
-          "label": "F2.1 a fresh select2d child wired on run A (the re-wire target)",
-          "pass": true,
-          "detail": "child=vlartc"
-        },
-        {
-          "label": "F2.2 the select rider ENABLED on the re-opened dialog (the store's poll carried the fresh child; the gate's sentence recorded either way)",
-          "pass": false,
-          "detail": "select UNAVAILABLE · Continue downstream with these classes selected — unavailable: 2D Classification 1 has no downstream jobs to r"
-        },
-        {
-          "label": "F2.3 the adoption receipt spoke (the selection as the new provider)",
-          "pass": false,
-          "detail": "none"
-        },
-        {
-          "label": "F2.4 THE MINT: a 2D Class Selection born with the gained classes baked",
-          "pass": false,
-          "detail": "id=undefined selectedClasses=\"undefined\""
-        },
-        {
-          "label": "F2.5 THE WIRE: run B feeds the mint through BOTH mouths (classes + particles)",
-          "pass": false,
-          "detail": "B->mint edges=0"
-        },
-        {
-          "label": "F2.6 THE ADOPT: run A's child re-parented onto the MINT",
-          "pass": false,
-          "detail": "mint->child=false A->child=true"
-        },
-        {
-          "label": "F3.1 the Motion A/B door found (1 sibling)",
-          "pass": true,
-          "detail": "found=true"
-        },
-        {
-          "label": "F3.2 the exclude rider PRESENT and ENABLED (the paired fetch landed — the rider's own ready signal, not the always-open verdict region)",
-          "pass": true,
-          "detail": "exclude ENABLED · Continue downstream from Motion Correction 2 with 5 regressed micrographs excluded — mints an Exclude Microgra"
-        },
-        {
-          "label": "F3.3 the select rider ABSENT (the motion verdict has no classes to select)",
-          "pass": true,
-          "detail": ""
-        },
-        {
-          "label": "F3.4 the adoption receipt spoke (the filter as the new provider)",
-          "pass": true,
-          "detail": "none"
-        },
-        {
-          "label": "F3.5 THE MINT: an Exclude Micrographs filter born with the regressions baked",
-          "pass": true,
-          "detail": "id=1el3sb excludeNames=\"mic_005.mrc, mic_009.mrc, mic_013.mrc, mic_017.mrc, mic_021.\""
-        },
-        {
-          "label": "F3.6 THE WIRE + THE ADOPT: run B feeds the filter; CTF now consumes the FILTER",
-          "pass": true,
-          "detail": "B->filter=true filter->ctf=true A->ctf=false"
-        },
-        {
-          "label": "F4 the spent run speaks the honest disabled state (no downstream left)",
-          "pass": false,
-          "detail": "spent ENABLED · Continue downstream from 2D Classification 2 — re-wires 1 of 2D Classification 1's downstream jobs"
-        }
-      ],
-      "pass": 18,
-      "fail": 6
-    },
     {
       "chunk": "mint",
       "at": "2026-11-04T07:31:38.686Z",
@@ -265,18 +99,189 @@
       ],
       "pass": 8,
       "fail": 0
+    },
+    {
+      "chunk": "flights",
+      "at": "2026-11-04T07:47:09.369Z",
+      "checks": [
+        {
+          "label": "P0 the daemon's tab neutered (no zombie reload can compile the whale)",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "label": "P3 the sandbox state resolved (adopt-or-mint)",
+          "pass": true,
+          "detail": "existing sandbox cmw1sgia00000sokxmi1318gw"
+        },
+        {
+          "label": "V0 the walk's world adopted (ids re-derived from the API truth)",
+          "pass": true,
+          "detail": "jobs=13 A=aiuy2f B=slvonq"
+        },
+        {
+          "label": "V0b the side world present (the twins, the filter, the CTF) — the flights' workpiece",
+          "pass": true,
+          "detail": "A=true B=true MA=true MB=true ex=true CTF=true"
+        },
+        {
+          "label": "V1 the browser rides the throwaway world",
+          "pass": true,
+          "detail": "cards=13"
+        },
+        {
+          "label": "F1.1 the Class A/B door found (1 sibling)",
+          "pass": true,
+          "detail": "siblings=1"
+        },
+        {
+          "label": "F1.2 the compare dialog opened with the verdict region",
+          "pass": true,
+          "detail": "Run A2D Classification 1 (this run)Run B2D Classification 2 · Main"
+        },
+        {
+          "label": "F1.3 the plain adopt ENABLED with its move count",
+          "pass": true,
+          "detail": "plain ENABLED · Continue downstream from 2D Classification 2 — re-wires 2 of 2D Classification 1's downstream jobs"
+        },
+        {
+          "label": "F1.4 the select rider PRESENT and ENABLED (K=10 twin: every paired class gained)",
+          "pass": true,
+          "detail": "select ENABLED · Continue downstream from 2D Classification 2 with 10 gained classes selected — mints a 2D Class Selection cons"
+        },
+        {
+          "label": "F1.5 the exclude rider ABSENT (the class verdict has no micrographs to exclude)",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "label": "F1.6 the adoption receipt spoke (the toast names the re-wire)",
+          "pass": true,
+          "detail": "none"
+        },
+        {
+          "label": "F1.7 THE GRAPH TRUTH: both template wires re-parented onto run B",
+          "pass": false,
+          "detail": "B->initialmodel=false B->refine3d=false"
+        },
+        {
+          "label": "F2.1 a fresh select2d child wired on run A (the re-wire target)",
+          "pass": true,
+          "detail": "child=asefwq"
+        },
+        {
+          "label": "F2.2 the select rider ENABLED on the re-opened dialog (the store's poll carried the fresh child; the gate's sentence recorded either way)",
+          "pass": true,
+          "detail": "select ENABLED · Continue downstream from 2D Classification 2 with 10 gained classes selected — mints a 2D Class Selection cons"
+        },
+        {
+          "label": "F2.3 the adoption receipt spoke (the selection as the new provider)",
+          "pass": true,
+          "detail": "none"
+        },
+        {
+          "label": "F2.4 THE MINT: a 2D Class Selection born with the gained classes baked",
+          "pass": false,
+          "detail": "id=ggjruf selectedClasses=\"auto\""
+        },
+        {
+          "label": "F2.5 THE WIRE: run B feeds the mint through BOTH mouths (classes + particles)",
+          "pass": false,
+          "detail": "B->mint edges=1"
+        },
+        {
+          "label": "F2.6 THE ADOPT: run A's child re-parented onto the MINT",
+          "pass": false,
+          "detail": "mint->child=false A->child=false"
+        },
+        {
+          "label": "F3.1 the Motion A/B door found (1 sibling)",
+          "pass": true,
+          "detail": "found=true"
+        },
+        {
+          "label": "F3.2 the exclude rider PRESENT and ENABLED (the paired fetch landed — the rider's own ready signal, not the always-open verdict region)",
+          "pass": false,
+          "detail": "exclude UNAVAILABLE · Continue downstream with these micrographs excluded — unavailable: Motion Correction 1 has no downstream jobs "
+        },
+        {
+          "label": "F3.3 the select rider ABSENT (the motion verdict has no classes to select)",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "label": "F3.4 the adoption receipt spoke (the filter as the new provider)",
+          "pass": false,
+          "detail": "none"
+        },
+        {
+          "label": "F3.5 THE MINT: an Exclude Micrographs filter born with the regressions baked",
+          "pass": true,
+          "detail": "id=zmogss excludeNames=\"mic_005.mrc, mic_009.mrc, mic_013.mrc, mic_017.mrc, mic_021.\""
+        },
+        {
+          "label": "F3.6 THE WIRE + THE ADOPT: run B feeds the filter; CTF now consumes the FILTER",
+          "pass": true,
+          "detail": "B->filter=true filter->ctf=true A->ctf=false"
+        },
+        {
+          "label": "F4 the spent run speaks the honest disabled state (no downstream left)",
+          "pass": true,
+          "detail": "spent UNAVAILABLE · Continue downstream from run B — unavailable: 2D Classification 1 has no downstream jobs to re-wire"
+        }
+      ],
+      "pass": 19,
+      "fail": 6
+    },
+    {
+      "chunk": "teardown",
+      "at": "2026-11-04T07:55:22.448Z",
+      "checks": [
+        {
+          "label": "P0 the daemon's tab neutered (no zombie reload can compile the whale)",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "label": "P3 the sandbox state resolved (adopt-or-mint)",
+          "pass": true,
+          "detail": "existing sandbox cmw1sgia00000sokxmi1318gw"
+        },
+        {
+          "label": "T1 the sandbox deleted (live runs stopped, jobs and edges removed)",
+          "pass": true,
+          "detail": "ok"
+        },
+        {
+          "label": "T2 the tutorial project active again",
+          "pass": true,
+          "detail": "β-Galactosidase Tutorial (demo)"
+        },
+        {
+          "label": "T3 the demo world untouched: the standing 13/2 shape holds",
+          "pass": true,
+          "detail": "jobs=15 completed=13"
+        },
+        {
+          "label": "T4 the browser rides the demo world again (15 cards, bare)",
+          "pass": true,
+          "detail": "cards=15"
+        }
+      ],
+      "pass": 6,
+      "fail": 0
     }
   ],
   "totals": {
-    "pass": 40,
+    "pass": 41,
     "fail": 6
   },
   "sandboxId": "cmw1sgia00000sokxmi1318gw",
   "tutorialProjectId": "cmw140u7s0000sinmoi2zpujt",
-  "excludeName": "mic_004.mrc",
+  "excludeName": null,
   "counts": {
     "templateJobs": 0,
-    "sandboxJobs": 13,
-    "excludeName": "mic_004.mrc"
+    "sandboxJobs": 0,
+    "excludeName": null
   }
 }
