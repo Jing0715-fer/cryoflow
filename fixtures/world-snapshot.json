@@ -1,7 +1,7 @@
 {
  "meta": {
-  "exportedAt": "2026-11-03T11:51:42.688Z",
-  "head": "050c5087",
+  "exportedAt": "2026-11-04T02:51:44.584Z",
+  "head": "91bfa2cbb",
   "db": "file:…/cryoflow.db",
   "counts": {
    "project": 1,
@@ -19,28 +19,28 @@
  "data": {
   "project": [
    {
-    "id": "cmw05fpts0000m3jo5akx6223",
+    "id": "cmw140u7s0000sinmoi2zpujt",
     "name": "β-Galactosidase Tutorial (demo)",
-    "createdAt": "2026-11-03T03:49:36.257Z",
-    "updatedAt": "2026-11-03T03:49:36.257Z"
+    "createdAt": "2026-11-03T19:57:48.665Z",
+    "updatedAt": "2026-11-03T19:57:48.665Z"
    }
   ],
   "workspace": [
    {
-    "id": "cmw05fpu20008m3jo296sjsfz",
-    "projectId": "cmw05fpts0000m3jo5akx6223",
+    "id": "cmw140u800008sinmeez4asir",
+    "projectId": "cmw140u7s0000sinmoi2zpujt",
     "name": "Main",
     "order": 0,
-    "createdAt": "2026-11-03T03:49:36.267Z",
-    "updatedAt": "2026-11-03T03:49:36.267Z"
+    "createdAt": "2026-11-03T19:57:48.672Z",
+    "updatedAt": "2026-11-03T19:57:48.672Z"
    }
   ],
   "customTemplate": [],
   "job": [
    {
-    "id": "cmw05fptx0002m3jor7mxpa5z",
-    "projectId": "cmw05fpts0000m3jo5akx6223",
-    "workspaceId": "cmw05fpu20008m3jo296sjsfz",
+    "id": "cmw140u7u0002sinmfgu3ukwj",
+    "projectId": "cmw140u7s0000sinmoi2zpujt",
+    "workspaceId": "cmw140u800008sinmeez4asir",
     "linkedJobId": null,
     "type": "import",
     "name": "Import Movies 1",
@@ -52,15 +52,15 @@
     "ranParams": "{\"nodeType\":\"movies\",\"micrographsPath\":\"\",\"pixelSize\":1.77,\"voltage\":300,\"cs\":2.7,\"ampContrast\":0.1,\"totalDose\":25,\"negativeStain\":false,\"fn_mtf\":\"\",\"angpix\":1.4,\"kV\":300,\"Cs\":2.7,\"beamtilt_x\":0,\"beamtilt_y\":0,\"empiarData\":true}",
     "result": "24 micrographs imported · EMPIAR-10017 (pixel 1.77 Å)",
     "note": null,
-    "startedAt": "2026-11-03T03:51:48.621Z",
+    "startedAt": "2026-11-03T19:58:34.206Z",
     "duration": 500,
-    "createdAt": "2026-11-03T03:49:36.262Z",
-    "updatedAt": "2026-11-03T03:51:48.641Z"
+    "createdAt": "2026-11-03T19:57:48.667Z",
+    "updatedAt": "2026-11-03T19:58:34.219Z"
    },
    {
-    "id": "cmw05fptz0004m3jo8fq0iww8",
-    "projectId": "cmw05fpts0000m3jo5akx6223",
-    "workspaceId": "cmw05fpu20008m3jo296sjsfz",
+    "id": "cmw140u7w0004sinm6arfy64d",
+    "projectId": "cmw140u7s0000sinmoi2zpujt",
+    "workspaceId": "cmw140u800008sinmeez4asir",
     "linkedJobId": null,
     "type": "motioncorr",
     "name": "Motion Correction 1",
@@ -72,15 +72,15 @@
     "ranParams": "{\"patchX\":5,\"patchY\":5,\"bfactor\":150,\"dosePerFrame\":1.28,\"input_star_mics\":\"\",\"first_frame_sum\":1,\"last_frame_sum\":-1,\"pre_exposure\":0,\"eer_grouping\":32,\"do_float16\":true,\"do_even_odd_split\":false,\"do_dose_weighting\":true,\"do_save_noDW\":false,\"do_save_ps\":true,\"group_for_ps\":4,\"group_frames\":1,\"bin_factor\":1,\"fn_gain_ref\":\"\",\"gain_rot\":\"No rotation (0)\",\"gain_flip\":\"No flipping (0)\",\"fn_defect\":\"\",\"do_own_motioncor\":true,\"fn_motioncor2_exe\":\"\",\"other_motioncor2_args\":\"\"}",
     "result": "REMOTE[cryo@127.0.0.1 · relion/5.0.1]: motion corrected, 24 micrographs — 24 image file(s) stayed on the cluster — motioncorr jobs sync metadata only under the key-files policy (STAR, logs and plots come home; image stacks never do, whatever their size). They are listed in this job's Results — open or download one to fetch it on demand — or switch the connection's sync policy to \"everything\" to bring them home",
     "note": null,
-    "startedAt": "2026-11-03T03:54:44.996Z",
-    "duration": 27306,
-    "createdAt": "2026-11-03T03:49:36.264Z",
-    "updatedAt": "2026-11-03T03:55:12.306Z"
+    "startedAt": "2026-11-03T19:59:57.339Z",
+    "duration": 30530,
+    "createdAt": "2026-11-03T19:57:48.668Z",
+    "updatedAt": "2026-11-03T20:00:27.870Z"
    },
    {
-    "id": "cmw05fpu00006m3joqfs2d2zt",
-    "projectId": "cmw05fpts0000m3jo5akx6223",
-    "workspaceId": "cmw05fpu20008m3jo296sjsfz",
+    "id": "cmw140u7x0006sinm5wh2kb24",
+    "projectId": "cmw140u7s0000sinmoi2zpujt",
+    "workspaceId": "cmw140u800008sinmeez4asir",
     "linkedJobId": null,
     "type": "ctffind",
     "name": "CTF Estimation 1",
@@ -92,15 +92,15 @@
     "ranParams": "{\"box\":512,\"resMin\":30,\"resMax\":5,\"dFMin\":5000,\"dFMax\":50000,\"fitAstig\":true,\"phaseShift\":false,\"input_star_mics\":\"\",\"use_noDW\":false,\"phase_min\":\"\",\"phase_max\":\"\",\"phase_step\":\"\",\"dast\":100,\"fn_ctffind_exe\":\"\",\"use_given_ps\":true,\"slow_search\":false,\"ctf_win\":-1,\"dfstep\":500}",
     "result": "REMOTE[cryo@127.0.0.1 · relion/5.0.1]: CTF estimated for 24 micrographs",
     "note": null,
-    "startedAt": "2026-11-03T03:55:13.166Z",
-    "duration": 42649,
-    "createdAt": "2026-11-03T03:49:36.265Z",
-    "updatedAt": "2026-11-03T03:55:55.817Z"
+    "startedAt": "2026-11-03T20:00:27.977Z",
+    "duration": 40800,
+    "createdAt": "2026-11-03T19:57:48.670Z",
+    "updatedAt": "2026-11-03T20:01:08.779Z"
    },
    {
-    "id": "cmw05ihmd000cm3joyvwn66cz",
-    "projectId": "cmw05fpts0000m3jo5akx6223",
-    "workspaceId": "cmw05fpu20008m3jo296sjsfz",
+    "id": "cmw141rpe000csinmpj0z7t4j",
+    "projectId": "cmw140u7s0000sinmoi2zpujt",
+    "workspaceId": "cmw140u800008sinmeez4asir",
     "linkedJobId": null,
     "type": "autopick",
     "name": "Auto-pick (tutorial)",
@@ -112,15 +112,15 @@
     "ranParams": "{\"pickingMethod\":\"Laplacian of Gaussian\",\"logDiamMin\":150,\"logDiamMax\":180,\"logAdjustThreshold\":0,\"logUpperThreshold\":999,\"logInvert\":false,\"particleDiameter\":180,\"lowpass\":20,\"threshold\":0.05,\"minDistance\":100,\"maxStddevNoise\":1.1,\"topazNrParticles\":300,\"topazThreshold\":-6,\"topazDiameter\":180,\"topazDownscale\":-1,\"topazWorkers\":1,\"topazArgs\":\"\",\"fn_input_autopick\":\"\",\"log_maxres\":20,\"fn_topaz_exe\":\"\",\"do_topaz_filaments\":false,\"topaz_filament_threshold\":\"\",\"topaz_hough_length\":\"\",\"highpass\":-1,\"angpix_ref\":-1,\"psi_sampling_autopick\":5,\"do_invert_refs\":true,\"do_ctf_autopick\":true,\"do_ignore_first_ctfpeak_autopick\":false,\"minavgnoise_autopick\":-999,\"do_write_fom_maps\":false,\"do_read_fom_maps\":false,\"shrink\":0,\"do_pick_helical_segments\":false,\"helical_tube_outer_diameter\":200,\"helical_tube_length_min\":-1,\"helical_tube_kappa_max\":0.1,\"helical_nr_asu\":1,\"helical_rise\":-1,\"do_amyloid\":false}",
     "result": "REMOTE[cryo@127.0.0.1 · relion/5.0.1]: 408 particles picked across 24 micrographs",
     "note": null,
-    "startedAt": "2026-11-03T03:55:56.653Z",
-    "duration": 25795,
-    "createdAt": "2026-11-03T03:51:45.589Z",
-    "updatedAt": "2026-11-03T03:56:22.449Z"
+    "startedAt": "2026-11-03T20:01:08.860Z",
+    "duration": 25850,
+    "createdAt": "2026-11-03T19:58:32.066Z",
+    "updatedAt": "2026-11-03T20:01:34.712Z"
    },
    {
-    "id": "cmw05ihmm000em3jornviaqkw",
-    "projectId": "cmw05fpts0000m3jo5akx6223",
-    "workspaceId": "cmw05fpu20008m3jo296sjsfz",
+    "id": "cmw141rpo000esinmgzrrzuat",
+    "projectId": "cmw140u7s0000sinmoi2zpujt",
+    "workspaceId": "cmw140u800008sinmeez4asir",
     "linkedJobId": null,
     "type": "extract",
     "name": "Extract (tutorial)",
@@ -132,15 +132,15 @@
     "ranParams": "{\"boxSize\":128,\"downsampleTo\":64,\"bgDiameter\":-1,\"norm\":true,\"do_float16\":true,\"do_invert\":true,\"white_dust\":-1,\"black_dust\":-1,\"do_fom_threshold\":false,\"minimum_pick_fom\":0,\"do_extract_helix\":false,\"helical_tube_outer_diameter\":200,\"helical_bimodal_angular_priors\":true,\"do_extract_helical_tubes\":true,\"do_cut_into_segments\":true,\"helical_nr_asu\":1,\"helical_rise\":1}",
     "result": "REMOTE[cryo@127.0.0.1 · relion/5.0.1]: 96 particles extracted — 24 image file(s) stayed on the cluster — extract jobs sync metadata only under the key-files policy (STAR, logs and plots come home; image stacks never do, whatever their size). They are listed in this job's Results — open or download one to fetch it on demand — or switch the connection's sync policy to \"everything\" to bring them home",
     "note": null,
-    "startedAt": "2026-11-03T03:56:24.846Z",
-    "duration": 2988,
-    "createdAt": "2026-11-03T03:51:45.599Z",
-    "updatedAt": "2026-11-03T03:56:27.836Z"
+    "startedAt": "2026-11-03T20:01:36.889Z",
+    "duration": 2854,
+    "createdAt": "2026-11-03T19:58:32.077Z",
+    "updatedAt": "2026-11-03T20:01:39.745Z"
    },
    {
-    "id": "cmw05ihmx000gm3jokf40egg6",
-    "projectId": "cmw05fpts0000m3jo5akx6223",
-    "workspaceId": "cmw05fpu20008m3jo296sjsfz",
+    "id": "cmw141rpx000gsinm9677qpyf",
+    "projectId": "cmw140u7s0000sinmoi2zpujt",
+    "workspaceId": "cmw140u800008sinmeez4asir",
     "linkedJobId": null,
     "type": "class2d",
     "name": "2D Classification (tutorial)",
@@ -150,17 +150,17 @@
     "progress": 100,
     "params": "{\"numClasses\":50,\"algorithm\":\"vdam\",\"iterations\":25,\"miniBatches\":200,\"particleDiameter\":200,\"doCtf\":true,\"ctfIntactFirstPeak\":false,\"tau2Fudge\":2,\"doZeroMask\":true,\"doCenter\":true,\"skipAlign\":false,\"psiSampling\":\"6\",\"offsetRange\":5,\"offsetStep\":1,\"allowCoarser\":false,\"oversampling\":1,\"highresLimit\":0,\"batchSize\":3,\"scratchDir\":\"\",\"keepFreeScratch\":0,\"parallelDiscIo\":true,\"prereadImages\":false,\"combineThruDisc\":false,\"extraArgs\":\"\",\"threads\":4,\"doHelical2d\":false,\"helicalTubeOuterDiameter2d\":200,\"doBimodalPsi\":true,\"rangePsiHelical\":6,\"doRestrictXoff\":true,\"helicalRise2d\":1,\"fn_img\":\"\",\"fn_cont\":\"\",\"helical_tube_outer_diameter\":200,\"range_psi\":6,\"helical_rise\":4.75}",
     "ranParams": "{\"numClasses\":50,\"algorithm\":\"vdam\",\"iterations\":25,\"miniBatches\":200,\"particleDiameter\":200,\"doCtf\":true,\"ctfIntactFirstPeak\":false,\"tau2Fudge\":2,\"doZeroMask\":true,\"doCenter\":true,\"skipAlign\":false,\"psiSampling\":\"6\",\"offsetRange\":5,\"offsetStep\":1,\"allowCoarser\":false,\"oversampling\":1,\"highresLimit\":0,\"batchSize\":3,\"scratchDir\":\"\",\"keepFreeScratch\":0,\"parallelDiscIo\":true,\"prereadImages\":false,\"combineThruDisc\":false,\"extraArgs\":\"\",\"threads\":4,\"doHelical2d\":false,\"helicalTubeOuterDiameter2d\":200,\"doBimodalPsi\":true,\"rangePsiHelical\":6,\"doRestrictXoff\":true,\"helicalRise2d\":1,\"fn_img\":\"\",\"fn_cont\":\"\",\"helical_tube_outer_diameter\":200,\"range_psi\":6,\"helical_rise\":4.75}",
-    "result": "REMOTE[cryo@127.0.0.1 · relion/5.0.1]: 2D classification finished — 50 of 50 classes populated · 96 particles · top: class 1 2%, class 8 2%, class 15 2% · 50 per-class star(s) — pick classes from the gallery for the next step",
+    "result": "REMOTE[cryo@127.0.0.1 · relion/5.0.1]: 2D classification finished — 50 of 50 classes populated · 96 particles · top: class 1 2%, class 8 2%, class 15 2% · 50 per-class star(s) — pick classes from the gallery for the next step — 3724 bulky file(s) stayed on the cluster (key-files policy): run_it130_class044.mrc (download failed), run_it130_class045.mrc (download failed), run_it130_class046.mrc (download failed) … — they are listed in this job's Results; preview or download them there on demand",
     "note": null,
-    "startedAt": "2026-11-03T03:56:28.248Z",
-    "duration": 682121,
-    "createdAt": "2026-11-03T03:51:45.609Z",
-    "updatedAt": "2026-11-03T04:07:50.371Z"
+    "startedAt": "2026-11-03T20:01:50.939Z",
+    "duration": 1364544,
+    "createdAt": "2026-11-03T19:58:32.085Z",
+    "updatedAt": "2026-11-03T20:24:35.485Z"
    },
    {
-    "id": "cmw05ihn6000im3jopvvielcy",
-    "projectId": "cmw05fpts0000m3jo5akx6223",
-    "workspaceId": "cmw05fpu20008m3jo296sjsfz",
+    "id": "cmw141rq6000isinmcq55ao6i",
+    "projectId": "cmw140u7s0000sinmoi2zpujt",
+    "workspaceId": "cmw140u800008sinmeez4asir",
     "linkedJobId": null,
     "type": "select2d",
     "name": "Select 2D (tutorial)",
@@ -172,15 +172,15 @@
     "ranParams": "{\"selectedClasses\":\"auto\",\"classNotes\":\"{}\",\"occupancyCutoff\":0.5}",
     "result": "96 of 96 particles kept · 50/50 classes (auto — occupancy ≥ 0.5× best)",
     "note": null,
-    "startedAt": "2026-11-03T04:07:51.378Z",
+    "startedAt": "2026-11-03T20:27:30.947Z",
     "duration": 500,
-    "createdAt": "2026-11-03T03:51:45.619Z",
-    "updatedAt": "2026-11-03T04:07:51.390Z"
+    "createdAt": "2026-11-03T19:58:32.094Z",
+    "updatedAt": "2026-11-03T20:27:30.978Z"
    },
    {
-    "id": "cmw05ihnp000km3jofkvlah43",
-    "projectId": "cmw05fpts0000m3jo5akx6223",
-    "workspaceId": "cmw05fpu20008m3jo296sjsfz",
+    "id": "cmw141rqg000ksinmus5yvnfb",
+    "projectId": "cmw140u7s0000sinmoi2zpujt",
+    "workspaceId": "cmw140u800008sinmeez4asir",
     "linkedJobId": null,
     "type": "select",
     "name": "Select (tutorial)",
@@ -192,15 +192,15 @@
     "ranParams": "{\"maxParticles\":1000,\"classCutoff\":0.5,\"discardSigma\":4,\"duplicateThreshold\":30,\"fn_model\":\"\",\"fn_mic\":\"\",\"fn_data\":\"\",\"rank_threshold\":0.5,\"select_nr_parts\":-1,\"select_nr_classes\":-1,\"do_recenter\":false,\"nr_groups\":1,\"select_label\":\"rlnCtfMaxResolution\",\"select_minval\":\"-9999.\",\"select_maxval\":\"9999.\",\"discard_label\":\"rlnImageName\",\"discard_sigma\":4,\"do_random\":false,\"split_size\":100,\"nr_split\":-1,\"duplicate_threshold\":30,\"image_angpix\":-1}",
     "result": "96 of 96 particles selected · kept 50/50 classes (occupancy ≥ 0.5× best)",
     "note": null,
-    "startedAt": "2026-11-03T04:07:54.081Z",
+    "startedAt": "2026-11-03T20:27:36.844Z",
     "duration": 500,
-    "createdAt": "2026-11-03T03:51:45.637Z",
-    "updatedAt": "2026-11-03T04:07:54.086Z"
+    "createdAt": "2026-11-03T19:58:32.105Z",
+    "updatedAt": "2026-11-03T20:27:36.866Z"
    },
    {
-    "id": "cmw05ihob000mm3jouh7cvwey",
-    "projectId": "cmw05fpts0000m3jo5akx6223",
-    "workspaceId": "cmw05fpu20008m3jo296sjsfz",
+    "id": "cmw141rqo000msinmp8muzogo",
+    "projectId": "cmw140u7s0000sinmoi2zpujt",
+    "workspaceId": "cmw140u800008sinmeez4asir",
     "linkedJobId": null,
     "type": "initialmodel",
     "name": "Initial Model (tutorial)",
@@ -212,15 +212,15 @@
     "ranParams": "{\"numClasses\":1,\"symmetry\":\"D2\",\"iterations\":200,\"particleDiameter\":200,\"tau2Fudge\":4,\"doCtf\":true,\"ctfIntactFirstPeak\":false,\"batchSize\":3,\"scratchDir\":\"\",\"keepFreeScratch\":0,\"parallelDiscIo\":true,\"prereadImages\":false,\"combineThruDisc\":false,\"extraArgs\":\"\",\"fn_img\":\"\",\"fn_cont\":\"\",\"do_solvent\":true}",
     "result": "REMOTE[cryo@127.0.0.1 · relion/5.0.1]: de-novo 3D initial model generated · 96 particles",
     "note": null,
-    "startedAt": "2026-11-03T04:07:57.667Z",
-    "duration": 264803,
-    "createdAt": "2026-11-03T03:51:45.659Z",
-    "updatedAt": "2026-11-03T04:12:22.471Z"
+    "startedAt": "2026-11-03T20:27:41.439Z",
+    "duration": 480853,
+    "createdAt": "2026-11-03T19:58:32.113Z",
+    "updatedAt": "2026-11-03T20:35:42.293Z"
    },
    {
-    "id": "cmw05ihom000om3jodozssgqr",
-    "projectId": "cmw05fpts0000m3jo5akx6223",
-    "workspaceId": "cmw05fpu20008m3jo296sjsfz",
+    "id": "cmw141rr9000osinm4poc8cjs",
+    "projectId": "cmw140u7s0000sinmoi2zpujt",
+    "workspaceId": "cmw140u800008sinmeez4asir",
     "linkedJobId": null,
     "type": "class3d",
     "name": "3D Classification (tutorial)",
@@ -232,55 +232,55 @@
     "ranParams": "{\"numClasses\":4,\"symmetry\":\"C1\",\"iterations\":25,\"particleDiameter\":200,\"doCtf\":true,\"ctfIntactFirstPeak\":false,\"tau2Fudge\":4,\"doBlush\":false,\"doZeroMask\":true,\"doFastSubsets\":false,\"sampling\":\"7.5\",\"offsetRange\":5,\"offsetStep\":1,\"allowCoarser\":false,\"localSigmaAng\":0,\"relaxSym\":0,\"padding\":2,\"batchSize\":0,\"scratchDir\":\"\",\"keepFreeScratch\":0,\"parallelDiscIo\":true,\"prereadImages\":false,\"combineThruDisc\":false,\"extraArgs\":\"\",\"doHelical\":false,\"helicalTubeInnerDiameter\":-1,\"helicalTubeOuterDiameter\":-1,\"rangeRotHelical\":-1,\"rangeTiltHelical\":15,\"rangePsiHelical3d\":10,\"helicalRangeDistance\":-1,\"keepTiltPriorFixed\":true,\"doApplyHelicalSymmetry\":true,\"helicalNrAsu\":1,\"helicalTwistInitial\":0,\"helicalRiseInitial\":0,\"helicalZPercentage\":30,\"doLocalSearchHelicalSymmetry\":false,\"helicalTwistMin\":0,\"helicalTwistMax\":0,\"helicalTwistInistep\":0,\"helicalRiseMin\":0,\"helicalRiseMax\":0,\"helicalRiseInistep\":0,\"threads\":4,\"fn_img\":\"\",\"fn_ref\":\"\",\"fn_mask\":\"\",\"fn_cont\":\"\",\"ref_correct_greyscale\":false,\"trust_ref_size\":true,\"ini_high\":60,\"do_local_ang_searches\":false,\"helical_tube_inner_diameter\":\"\",\"helical_tube_outer_diameter\":\"\",\"range_rot\":\"\",\"range_tilt\":\"\",\"range_psi\":\"\",\"helical_twist_initial\":\"\",\"helical_rise_initial\":\"\",\"helical_twist_min\":\"\",\"helical_twist_max\":\"\",\"helical_twist_inistep\":\"\",\"helical_rise_min\":\"\",\"helical_rise_max\":\"\",\"helical_rise_inistep\":\"\"}",
     "result": "REMOTE[cryo@127.0.0.1 · relion/5.0.1]: class3d exited 0 · 96 particles · 4 per-class star(s) — pick classes from the gallery for the next step",
     "note": null,
-    "startedAt": "2026-11-03T04:12:24.660Z",
-    "duration": 43498,
-    "createdAt": "2026-11-03T03:51:45.670Z",
-    "updatedAt": "2026-11-03T04:13:08.162Z"
+    "startedAt": "2026-11-03T20:35:44.521Z",
+    "duration": 38475,
+    "createdAt": "2026-11-03T19:58:32.134Z",
+    "updatedAt": "2026-11-03T20:36:22.997Z"
    },
    {
-    "id": "cmw05ihpb000qm3jowp6yyorw",
-    "projectId": "cmw05fpts0000m3jo5akx6223",
-    "workspaceId": "cmw05fpu20008m3jo296sjsfz",
+    "id": "cmw141rrj000qsinmye75h3nf",
+    "projectId": "cmw140u7s0000sinmoi2zpujt",
+    "workspaceId": "cmw140u800008sinmeez4asir",
     "linkedJobId": null,
     "type": "symexpand",
     "name": "Symmetry Expansion (tutorial)",
     "x": 3040,
     "y": 336,
-    "status": "completed",
-    "progress": 100,
+    "status": "idle",
+    "progress": 0,
     "params": "{\"symmetryGroup\":\"I\",\"icoSubset\":\"full\",\"deduplicate\":true}",
-    "ranParams": "{\"symmetryGroup\":\"I\",\"icoSubset\":\"full\",\"deduplicate\":true}",
-    "result": "96 × 60 = 5,760 particles (I/full)",
+    "ranParams": null,
+    "result": null,
     "note": null,
-    "startedAt": "2026-11-03T04:13:09.345Z",
-    "duration": 500,
-    "createdAt": "2026-11-03T03:51:45.695Z",
-    "updatedAt": "2026-11-03T04:13:09.549Z"
+    "startedAt": null,
+    "duration": 2500,
+    "createdAt": "2026-11-03T19:58:32.143Z",
+    "updatedAt": "2026-11-03T19:58:32.143Z"
    },
    {
-    "id": "cmw05ihqh000sm3jorvf9f5zp",
-    "projectId": "cmw05fpts0000m3jo5akx6223",
-    "workspaceId": "cmw05fpu20008m3jo296sjsfz",
+    "id": "cmw141rrv000ssinmpyxuq5vq",
+    "projectId": "cmw140u7s0000sinmoi2zpujt",
+    "workspaceId": "cmw140u800008sinmeez4asir",
     "linkedJobId": null,
     "type": "rebalance",
     "name": "Rebalance (tutorial)",
     "x": 3320,
     "y": 336,
-    "status": "completed",
-    "progress": 100,
+    "status": "idle",
+    "progress": 0,
     "params": "{\"numBins\":200,\"percentile\":90,\"exclusionCriterion\":\"loglik\",\"mode\":\"standard\",\"resolutionWeight\":1,\"seed\":1}",
-    "ranParams": "{\"numBins\":200,\"percentile\":90,\"exclusionCriterion\":\"loglik\",\"mode\":\"standard\",\"resolutionWeight\":1,\"seed\":1}",
-    "result": "5,672 of 5,760 particles kept · anisotropy 1.09→1.07 · uniformity 0.77→0.80",
+    "ranParams": null,
+    "result": null,
     "note": null,
-    "startedAt": "2026-11-03T04:13:12.302Z",
-    "duration": 500,
-    "createdAt": "2026-11-03T03:51:45.737Z",
-    "updatedAt": "2026-11-03T04:13:12.451Z"
+    "startedAt": null,
+    "duration": 2000,
+    "createdAt": "2026-11-03T19:58:32.155Z",
+    "updatedAt": "2026-11-03T19:58:32.155Z"
    },
    {
-    "id": "cmw05ihr4000um3joj88ed023",
-    "projectId": "cmw05fpts0000m3jo5akx6223",
-    "workspaceId": "cmw05fpu20008m3jo296sjsfz",
+    "id": "cmw141rs6000usinmqnxuz5se",
+    "projectId": "cmw140u7s0000sinmoi2zpujt",
+    "workspaceId": "cmw140u800008sinmeez4asir",
     "linkedJobId": null,
     "type": "refine3d",
     "name": "3D Refine (tutorial)",
@@ -290,17 +290,17 @@
     "progress": 100,
     "params": "{\"symmetry\":\"D2\",\"iniHigh\":50,\"doCtf\":true,\"ctfIntactFirstPeak\":false,\"particleDiameter\":200,\"autoRefine\":true,\"iterations\":15,\"tau2Fudge\":1,\"doBlush\":false,\"doZeroMask\":true,\"doSolventFsc\":false,\"samplingStep\":\"7.5\",\"autoLocalSampling\":\"1.8\",\"autoFaster\":false,\"offsetRange\":5,\"offsetStep\":1,\"relaxSym\":0,\"padding\":2,\"batchSize\":0,\"scratchDir\":\"\",\"keepFreeScratch\":0,\"parallelDiscIo\":true,\"prereadImages\":false,\"combineThruDisc\":false,\"extraArgs\":\"\",\"doHelical\":false,\"helicalTubeInnerDiameter\":-1,\"helicalTubeOuterDiameter\":-1,\"rangeRotHelical\":-1,\"rangeTiltHelical\":15,\"rangePsiHelical3d\":10,\"helicalRangeDistance\":-1,\"keepTiltPriorFixed\":true,\"doApplyHelicalSymmetry\":true,\"helicalNrAsu\":1,\"helicalTwistInitial\":0,\"helicalRiseInitial\":0,\"helicalZPercentage\":30,\"doLocalSearchHelicalSymmetry\":false,\"helicalTwistMin\":0,\"helicalTwistMax\":0,\"helicalTwistInistep\":0,\"helicalRiseMin\":0,\"helicalRiseMax\":0,\"helicalRiseInistep\":0,\"threads\":4,\"fn_img\":\"\",\"fn_ref\":\"\",\"fn_mask\":\"\",\"fn_cont\":\"\",\"ref_correct_greyscale\":false,\"trust_ref_size\":true,\"helical_tube_inner_diameter\":\"\",\"helical_tube_outer_diameter\":\"\",\"range_rot\":\"\",\"range_tilt\":\"\",\"range_psi\":\"\",\"helical_twist_initial\":\"\",\"helical_rise_initial\":\"\",\"helical_twist_min\":\"\",\"helical_twist_max\":\"\",\"helical_twist_inistep\":\"\",\"helical_rise_min\":\"\",\"helical_rise_max\":\"\",\"helical_rise_inistep\":\"\"}",
     "ranParams": "{\"symmetry\":\"D2\",\"iniHigh\":50,\"doCtf\":true,\"ctfIntactFirstPeak\":false,\"particleDiameter\":200,\"autoRefine\":true,\"iterations\":15,\"tau2Fudge\":1,\"doBlush\":false,\"doZeroMask\":true,\"doSolventFsc\":false,\"samplingStep\":\"7.5\",\"autoLocalSampling\":\"1.8\",\"autoFaster\":false,\"offsetRange\":5,\"offsetStep\":1,\"relaxSym\":0,\"padding\":2,\"batchSize\":0,\"scratchDir\":\"\",\"keepFreeScratch\":0,\"parallelDiscIo\":true,\"prereadImages\":false,\"combineThruDisc\":false,\"extraArgs\":\"\",\"doHelical\":false,\"helicalTubeInnerDiameter\":-1,\"helicalTubeOuterDiameter\":-1,\"rangeRotHelical\":-1,\"rangeTiltHelical\":15,\"rangePsiHelical3d\":10,\"helicalRangeDistance\":-1,\"keepTiltPriorFixed\":true,\"doApplyHelicalSymmetry\":true,\"helicalNrAsu\":1,\"helicalTwistInitial\":0,\"helicalRiseInitial\":0,\"helicalZPercentage\":30,\"doLocalSearchHelicalSymmetry\":false,\"helicalTwistMin\":0,\"helicalTwistMax\":0,\"helicalTwistInistep\":0,\"helicalRiseMin\":0,\"helicalRiseMax\":0,\"helicalRiseInistep\":0,\"threads\":4,\"fn_img\":\"\",\"fn_ref\":\"\",\"fn_mask\":\"\",\"fn_cont\":\"\",\"ref_correct_greyscale\":false,\"trust_ref_size\":true,\"helical_tube_inner_diameter\":\"\",\"helical_tube_outer_diameter\":\"\",\"range_rot\":\"\",\"range_tilt\":\"\",\"range_psi\":\"\",\"helical_twist_initial\":\"\",\"helical_rise_initial\":\"\",\"helical_twist_min\":\"\",\"helical_twist_max\":\"\",\"helical_twist_inistep\":\"\",\"helical_rise_min\":\"\",\"helical_rise_max\":\"\",\"helical_rise_inistep\":\"\"}",
-    "result": "REMOTE[cryo@127.0.0.1 · relion/5.0.1]: refine3d exited 0 · 5,672 particles",
+    "result": "REMOTE[cryo@127.0.0.1 · relion/5.0.1]: refine3d exited 0 · 96 particles — 2 file(s) downloaded completely but read as right-sized zero-header MRCs through the login node (run_it003_half1_class001.mrc, run_it008_half1_class001.mrc) — t384/t387: that verdict alone no longer convicts the storage. The witness ladder already cross-examined each one against the login node's O_DIRECT view and re-pulled after dropping its stale pages; these are the files that stayed corrupt AFTER that heal, so either the bytes are really zero on the storage or the ladder could not run (no python3 on the login node). The storage is only convicted when a compute node's own read of the SAME file also says zero — the automatic storage diagnostic (t370) now witnesses the suspect file from a compute node and speaks its verdict in the log (t384)",
     "note": null,
-    "startedAt": "2026-11-03T04:13:15.571Z",
-    "duration": 61076,
-    "createdAt": "2026-11-03T03:51:45.761Z",
-    "updatedAt": "2026-11-03T04:14:16.649Z"
+    "startedAt": "2026-11-03T21:31:54.043Z",
+    "duration": 99601,
+    "createdAt": "2026-11-03T19:58:32.166Z",
+    "updatedAt": "2026-11-03T21:33:33.648Z"
    },
    {
-    "id": "cmw05ihst000wm3joe9novrwu",
-    "projectId": "cmw05fpts0000m3jo5akx6223",
-    "workspaceId": "cmw05fpu20008m3jo296sjsfz",
+    "id": "cmw141rse000wsinmhzv5qdvb",
+    "projectId": "cmw140u7s0000sinmoi2zpujt",
+    "workspaceId": "cmw140u800008sinmeez4asir",
     "linkedJobId": null,
     "type": "maskcreate",
     "name": "Mask Create (tutorial)",
@@ -312,15 +312,15 @@
     "ranParams": "{\"threshold\":0.02,\"softEdge\":8,\"lowpass\":15,\"extend\":3,\"fn_in\":\"\",\"angpix\":-1,\"do_helix\":false,\"helical_z_percentage\":30}",
     "result": "REMOTE[cryo@127.0.0.1 · relion/5.0.1]: soft-edged mask created",
     "note": null,
-    "startedAt": "2026-11-03T04:14:17.052Z",
-    "duration": 21227,
-    "createdAt": "2026-11-03T03:51:45.821Z",
-    "updatedAt": "2026-11-03T04:14:38.281Z"
+    "startedAt": "2026-11-03T21:33:37.306Z",
+    "duration": 5861,
+    "createdAt": "2026-11-03T19:58:32.175Z",
+    "updatedAt": "2026-11-03T21:33:43.169Z"
    },
    {
-    "id": "cmw05iht8000ym3jodia2qgca",
-    "projectId": "cmw05fpts0000m3jo5akx6223",
-    "workspaceId": "cmw05fpu20008m3jo296sjsfz",
+    "id": "cmw141rsn000ysinmndly1t6m",
+    "projectId": "cmw140u7s0000sinmoi2zpujt",
+    "workspaceId": "cmw140u800008sinmeez4asir",
     "linkedJobId": null,
     "type": "postprocess",
     "name": "Post-process (tutorial)",
@@ -332,110 +332,110 @@
     "ranParams": "{\"autoBfac\":true,\"autobLowres\":10,\"adhocBfac\":-1000,\"randomizeFrom\":10,\"fn_mask\":\"\",\"angpix\":-1,\"do_adhoc_bfac\":false,\"do_skip_fsc_weighting\":false,\"low_pass\":5,\"fn_mtf\":\"\",\"mtf_angpix\":1}",
     "result": "REMOTE[cryo@127.0.0.1 · relion/5.0.1]: sharpened map · FSC(0.143) = 7.79 Å",
     "note": null,
-    "startedAt": "2026-11-03T04:14:38.778Z",
-    "duration": 6118,
-    "createdAt": "2026-11-03T03:51:45.836Z",
-    "updatedAt": "2026-11-03T04:14:44.898Z"
+    "startedAt": "2026-11-03T21:33:45.737Z",
+    "duration": 13102,
+    "createdAt": "2026-11-03T19:58:32.183Z",
+    "updatedAt": "2026-11-03T21:33:58.840Z"
    }
   ],
   "edge": [
    {
-    "id": "03cdd4e8-5265-47cb-853d-f67b1dfe1d1e",
-    "projectId": "cmw05fpts0000m3jo5akx6223",
-    "fromJobId": "cmw05ihmm000em3jornviaqkw",
-    "toJobId": "cmw05ihmx000gm3jokf40egg6",
-    "createdAt": "2026-11-03T03:51:45.878Z"
+    "id": "09688c73-9575-41af-9ead-c5893c7599fb",
+    "projectId": "cmw140u7s0000sinmoi2zpujt",
+    "fromJobId": "cmw141rpx000gsinm9677qpyf",
+    "toJobId": "cmw141rq6000isinmcq55ao6i",
+    "createdAt": "2026-11-03T19:58:32.368Z"
    },
    {
-    "id": "0d16efe3-5cd1-4dd6-b27f-098a0d29897f",
-    "projectId": "cmw05fpts0000m3jo5akx6223",
-    "fromJobId": "cmw05ihmx000gm3jokf40egg6",
-    "toJobId": "cmw05ihn6000im3jopvvielcy",
-    "createdAt": "2026-11-03T03:51:45.887Z"
+    "id": "1c4a3ad9-b609-48b8-9bd2-1dd8f64e6a48",
+    "projectId": "cmw140u7s0000sinmoi2zpujt",
+    "fromJobId": "cmw141rqo000msinmp8muzogo",
+    "toJobId": "cmw141rr9000osinm4poc8cjs",
+    "createdAt": "2026-11-03T19:58:32.399Z"
    },
    {
-    "id": "10cfb2d3-2c62-45c3-ac38-bba9a81ad409",
-    "projectId": "cmw05fpts0000m3jo5akx6223",
-    "fromJobId": "cmw05ihmd000cm3joyvwn66cz",
-    "toJobId": "cmw05ihmm000em3jornviaqkw",
-    "createdAt": "2026-11-03T03:51:45.867Z"
+    "id": "2b36a2e4-cfa6-4f70-8ab0-270aac039def",
+    "projectId": "cmw140u7s0000sinmoi2zpujt",
+    "fromJobId": "cmw141rs6000usinmqnxuz5se",
+    "toJobId": "cmw141rse000wsinmhzv5qdvb",
+    "createdAt": "2026-11-03T19:58:32.447Z"
    },
    {
-    "id": "124303af-bfc1-4579-9871-7cf3d9eee02e",
-    "projectId": "cmw05fpts0000m3jo5akx6223",
-    "fromJobId": "cmw05ihob000mm3jouh7cvwey",
-    "toJobId": "cmw05ihom000om3jodozssgqr",
-    "createdAt": "2026-11-03T03:51:45.925Z"
+    "id": "5337b4fe-4517-47cd-893d-a35a38b07cdb",
+    "projectId": "cmw140u7s0000sinmoi2zpujt",
+    "fromJobId": "cmw141rpo000esinmgzrrzuat",
+    "toJobId": "cmw141rpx000gsinm9677qpyf",
+    "createdAt": "2026-11-03T19:58:32.358Z"
    },
    {
-    "id": "1f00d951-fbc4-45c6-afe0-7bb7cf6b8511",
-    "projectId": "cmw05fpts0000m3jo5akx6223",
-    "fromJobId": "cmw05ihnp000km3jofkvlah43",
-    "toJobId": "cmw05ihob000mm3jouh7cvwey",
-    "createdAt": "2026-11-03T03:51:45.906Z"
+    "id": "54ecc8f8-a7f2-4a1d-9f59-fc7503fbb14a",
+    "projectId": "cmw140u7s0000sinmoi2zpujt",
+    "fromJobId": "cmw140u7x0006sinm5wh2kb24",
+    "toJobId": "cmw141rpe000csinmpj0z7t4j",
+    "createdAt": "2026-11-03T19:58:32.337Z"
    },
    {
-    "id": "231e00b3-c115-45cb-a066-555648c7e605",
-    "projectId": "cmw05fpts0000m3jo5akx6223",
-    "fromJobId": "cmw05fpu00006m3joqfs2d2zt",
-    "toJobId": "cmw05ihmd000cm3joyvwn66cz",
-    "createdAt": "2026-11-03T03:51:45.857Z"
+    "id": "596459f8-8e82-4219-8443-32bd783a31b3",
+    "projectId": "cmw140u7s0000sinmoi2zpujt",
+    "fromJobId": "cmw141rrv000ssinmpyxuq5vq",
+    "toJobId": "cmw141rs6000usinmqnxuz5se",
+    "createdAt": "2026-11-03T19:58:32.434Z"
    },
    {
-    "id": "783af565-e0db-4224-9d0d-c105ed5a059f",
-    "projectId": "cmw05fpts0000m3jo5akx6223",
-    "fromJobId": "cmw05ihom000om3jodozssgqr",
-    "toJobId": "cmw05ihpb000qm3jowp6yyorw",
-    "createdAt": "2026-11-03T03:51:45.934Z"
+    "id": "5d131a92-416b-4277-ac24-5d8d1b39e05f",
+    "projectId": "cmw140u7s0000sinmoi2zpujt",
+    "fromJobId": "cmw141rq6000isinmcq55ao6i",
+    "toJobId": "cmw141rqg000ksinmus5yvnfb",
+    "createdAt": "2026-11-03T19:58:32.381Z"
    },
    {
-    "id": "9d25f258-4910-4208-a3c5-26e3f22cf015",
-    "projectId": "cmw05fpts0000m3jo5akx6223",
-    "fromJobId": "cmw05ihr4000um3joj88ed023",
-    "toJobId": "cmw05ihst000wm3joe9novrwu",
-    "createdAt": "2026-11-03T03:51:45.964Z"
+    "id": "5e4daa67-14d4-4ca8-ab90-aed4d9ad5f1c",
+    "projectId": "cmw140u7s0000sinmoi2zpujt",
+    "fromJobId": "cmw141rqg000ksinmus5yvnfb",
+    "toJobId": "cmw141rqo000msinmp8muzogo",
+    "createdAt": "2026-11-03T19:58:32.390Z"
    },
    {
-    "id": "a1c7fa21-60ef-4fd4-8dc3-cba34c7c7c5a",
-    "projectId": "cmw05fpts0000m3jo5akx6223",
-    "fromJobId": "cmw05ihst000wm3joe9novrwu",
-    "toJobId": "cmw05iht8000ym3jodia2qgca",
-    "createdAt": "2026-11-03T03:51:45.973Z"
+    "id": "5f1eb8e6-c925-40d3-9cac-c3b82183a3dd",
+    "projectId": "cmw140u7s0000sinmoi2zpujt",
+    "fromJobId": "cmw141rrj000qsinmye75h3nf",
+    "toJobId": "cmw141rrv000ssinmpyxuq5vq",
+    "createdAt": "2026-11-03T19:58:32.420Z"
    },
    {
-    "id": "b52dc0f6-a4d0-499a-8344-0ce72d6f73b9",
-    "projectId": "cmw05fpts0000m3jo5akx6223",
-    "fromJobId": "cmw05ihn6000im3jopvvielcy",
-    "toJobId": "cmw05ihnp000km3jofkvlah43",
-    "createdAt": "2026-11-03T03:51:45.897Z"
+    "id": "6a626e30-08ea-4d5c-bbcd-1a72dc0ce105",
+    "projectId": "cmw140u7s0000sinmoi2zpujt",
+    "fromJobId": "cmw141rse000wsinmhzv5qdvb",
+    "toJobId": "cmw141rsn000ysinmndly1t6m",
+    "createdAt": "2026-11-03T19:58:32.457Z"
    },
    {
-    "id": "c57c57bb-fb86-4d5e-b8ae-7b51ecaab068",
-    "projectId": "cmw05fpts0000m3jo5akx6223",
-    "fromJobId": "cmw05ihpb000qm3jowp6yyorw",
-    "toJobId": "cmw05ihqh000sm3jorvf9f5zp",
-    "createdAt": "2026-11-03T03:51:45.944Z"
+    "id": "ae62d195-3d83-48c6-b4eb-94442f20bb8c",
+    "projectId": "cmw140u7s0000sinmoi2zpujt",
+    "fromJobId": "cmw141rr9000osinm4poc8cjs",
+    "toJobId": "cmw141rrj000qsinmye75h3nf",
+    "createdAt": "2026-11-03T19:58:32.408Z"
    },
    {
-    "id": "cmw05fpu90009m3jo56r5o87k",
-    "projectId": "cmw05fpts0000m3jo5akx6223",
-    "fromJobId": "cmw05fptx0002m3jor7mxpa5z",
-    "toJobId": "cmw05fptz0004m3jo8fq0iww8",
-    "createdAt": "2026-11-03T03:49:36.273Z"
+    "id": "cmw140u860009sinmlpoxsirk",
+    "projectId": "cmw140u7s0000sinmoi2zpujt",
+    "fromJobId": "cmw140u7u0002sinmfgu3ukwj",
+    "toJobId": "cmw140u7w0004sinm6arfy64d",
+    "createdAt": "2026-11-03T19:57:48.678Z"
    },
    {
-    "id": "cmw05fpu9000am3josfqmx82r",
-    "projectId": "cmw05fpts0000m3jo5akx6223",
-    "fromJobId": "cmw05fptz0004m3jo8fq0iww8",
-    "toJobId": "cmw05fpu00006m3joqfs2d2zt",
-    "createdAt": "2026-11-03T03:49:36.273Z"
+    "id": "cmw140u86000asinmn0s9k4ts",
+    "projectId": "cmw140u7s0000sinmoi2zpujt",
+    "fromJobId": "cmw140u7w0004sinm6arfy64d",
+    "toJobId": "cmw140u7x0006sinm5wh2kb24",
+    "createdAt": "2026-11-03T19:57:48.678Z"
    },
    {
-    "id": "e5e3d35d-f378-4257-a645-75ce7fd2229f",
-    "projectId": "cmw05fpts0000m3jo5akx6223",
-    "fromJobId": "cmw05ihqh000sm3jorvf9f5zp",
-    "toJobId": "cmw05ihr4000um3joj88ed023",
-    "createdAt": "2026-11-03T03:51:45.953Z"
+    "id": "e9dab9f7-5c1c-4604-a51a-8b92b53ba268",
+    "projectId": "cmw140u7s0000sinmoi2zpujt",
+    "fromJobId": "cmw141rpe000csinmpj0z7t4j",
+    "toJobId": "cmw141rpo000esinmgzrrzuat",
+    "createdAt": "2026-11-03T19:58:32.347Z"
    }
   ],
   "overlaySession": [],
@@ -443,9 +443,9 @@
   "presetShelf": [],
   "worldLedger": [
    {
-    "projectId": "cmw05fpts0000m3jo5akx6223",
-    "envelope": "{\"v\":1,\"rows\":[{\"t\":1793677780248,\"jobs\":3,\"edges\":0,\"running\":0,\"completed\":0,\"failed\":0},{\"t\":1793677908244,\"jobs\":15,\"edges\":0,\"running\":0,\"completed\":0,\"failed\":0},{\"t\":1793677916308,\"jobs\":15,\"edges\":0,\"running\":1,\"completed\":1,\"failed\":0},{\"t\":1793677919135,\"jobs\":15,\"edges\":0,\"running\":0,\"completed\":1,\"failed\":1},{\"t\":1793678068578,\"jobs\":15,\"edges\":14,\"running\":0,\"completed\":1,\"failed\":1},{\"t\":1793678091635,\"jobs\":15,\"edges\":14,\"running\":1,\"completed\":1,\"failed\":0},{\"t\":1793678112570,\"jobs\":15,\"edges\":14,\"running\":0,\"completed\":2,\"failed\":0},{\"t\":1793678120804,\"jobs\":15,\"edges\":14,\"running\":1,\"completed\":2,\"failed\":0},{\"t\":1793678156080,\"jobs\":15,\"edges\":14,\"running\":0,\"completed\":3,\"failed\":0},{\"t\":1793678164326,\"jobs\":15,\"edges\":14,\"running\":1,\"completed\":3,\"failed\":0},{\"t\":1793678182688,\"jobs\":15,\"edges\":14,\"running\":0,\"completed\":4,\"failed\":0},{\"t\":1793678190897,\"jobs\":15,\"edges\":14,\"running\":1,\"completed\":5,\"failed\":0},{\"t\":1793678871788,\"jobs\":15,\"edges\":14,\"running\":0,\"completed\":6,\"failed\":0},{\"t\":1793678880011,\"jobs\":15,\"edges\":14,\"running\":1,\"completed\":8,\"failed\":0},{\"t\":1793679143694,\"jobs\":15,\"edges\":14,\"running\":0,\"completed\":9,\"failed\":0},{\"t\":1793679152333,\"jobs\":15,\"edges\":14,\"running\":1,\"completed\":9,\"failed\":0},{\"t\":1793679188640,\"jobs\":15,\"edges\":14,\"running\":0,\"completed\":10,\"failed\":0},{\"t\":1793679196890,\"jobs\":15,\"edges\":14,\"running\":1,\"completed\":12,\"failed\":0},{\"t\":1793679257770,\"jobs\":15,\"edges\":14,\"running\":1,\"completed\":13,\"failed\":0},{\"t\":1793679278786,\"jobs\":15,\"edges\":14,\"running\":0,\"completed\":14,\"failed\":0},{\"t\":1793679287094,\"jobs\":15,\"edges\":14,\"running\":0,\"completed\":15,\"failed\":0},{\"t\":1793679517923,\"jobs\":16,\"edges\":14,\"running\":0,\"completed\":15,\"failed\":1},{\"t\":1793679525272,\"jobs\":15,\"edges\":14,\"running\":0,\"completed\":15,\"failed\":0},{\"t\":1793679642564,\"jobs\":16,\"edges\":0,\"running\":0,\"completed\":15,\"failed\":1},{\"t\":1793679648220,\"jobs\":15,\"edges\":14,\"running\":0,\"completed\":15,\"failed\":0}]}",
-    "updatedAt": "2026-11-03T04:22:06.446Z"
+    "projectId": "cmw140u7s0000sinmoi2zpujt",
+    "envelope": "{\"v\":1,\"rows\":[{\"t\":1793758101649,\"jobs\":15,\"edges\":14,\"running\":0,\"completed\":13,\"failed\":0}]}",
+    "updatedAt": "2026-11-04T02:08:22.994Z"
    }
   ]
  },
