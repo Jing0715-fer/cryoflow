@@ -36,7 +36,7 @@
  *   adoptions run A's door speaks "no downstream jobs to re-wire".
  *
  * THE TEARDOWN: DELETE /api/projects/<sandbox> (stops live runs, removes
- * the jobs and edges), switch back to the tutorial project, verify 15/15 —
+ * the jobs and edges), switch back to the tutorial project, verify the standing shape —
  * the spent world leaves no residue in the demo.
  *
  *   node scripts/t887-adoption-verbs.mjs
@@ -231,9 +231,19 @@ if (inChunk("mint")) {
     api("POST", "/api/projects/switch", { id: tutorialProj.id });
     await zzz(2);
   }
-  const demoJobs = await settledJobs((js) => js.length === 15 && js.every((j) => j.status === "completed"));
-  ok("P1 the demo world is 15/15 completed (and active)", demoJobs.length === 15 && demoJobs.every((j) => j.status === "completed") && !!tutorialProj?.active, `jobs=${demoJobs.length} active=${tutorialProj?.name || "?"}`);
-  tutorialProjectId = tutorialProj?.id;
+  /* the switch's truth lives in a FRESH read: the pre-switch snapshot's
+   * .active is exactly what the switch was for (t1182's own ride — the
+   * sandbox was active, the switch landed, and the stale flag still said
+   * false; the film's own P1 red was a stale read, not a dead switch) */
+  const tutorialProjNow = (api("GET", "/api/projects").projects || []).find((p) => p.id === (tutorialProj || {}).id) || tutorialProj;
+  /* the demo world's STANDING shape (the t1179 stale-premise closure, now
+   * the film's own premise): 15 jobs, 13 completed, and symexpand/rebalance
+   * idle BY DESIGN — the demo chain never runs them. Wanting 15/15 here
+   * made every earlier mint chunk carry one dishonest red (t1172's 8/9). */
+  const demoJobs = await settledJobs((js) => js.length === 15 && js.filter((j) => j.status === "completed").length === 13 && js.every((j) => j.status === "completed" || j.status === "idle"));
+  const demoIdle = demoJobs.filter((j) => j.status === "idle").map((j) => j.type);
+  ok("P1 the demo world at its standing shape (15 jobs · 13 completed · the 2 idle by design) and active", demoJobs.length === 15 && demoJobs.filter((j) => j.status === "completed").length === 13 && !!tutorialProjNow?.active, `jobs=${demoJobs.length} idle=[${demoIdle.join(",")}] active=${tutorialProjNow?.name || "?"}`);
+  tutorialProjectId = tutorialProjNow?.id;
   ok("P2 the tutorial project captured (by name, not by active-guess)", !!tutorialProjectId, `id=${tutorialProjectId}`);
 } else if (inChunk("side", "flights")) {
   /* the adopt chunks: the tutorial's health was the mint chunk's business;
@@ -415,137 +425,187 @@ if (!sandboxId || !A || !B || !exJob) {
 }
 ok("V0 the walk's world adopted (ids re-derived from the API truth)", !!A && !!B && !!MA && !!MB && !!exJob && !!CTF && !!byType.initialmodel && !!byType.refine3d, `jobs=${sandboxJobs.length} A=${A?.id?.slice(-6)} B=${B?.id?.slice(-6)}`);
 
-const dress = await openAndDress(12);
-evalSoft('(() => { localStorage.removeItem("cryoflow.selectedJob.v1"); return 1; })()');
-ok("V1 the browser rides the throwaway world", dress && dress.dlgs === 0 && dress.cards >= 12, `cards=${dress?.cards}`);
+const flightsReady = !!A && !!B && !!MA && !!MB && !!exJob && !!CTF;
+ok("V0b the side world present (the twins, the filter, the CTF) — the flights' workpiece", flightsReady, `A=${!!A} B=${!!B} MA=${!!MA} MB=${!!MB} ex=${!!exJob} CTF=${!!CTF}`);
+if (!flightsReady) {
+  console.log("    flights skipped — run --chunk=side first (the receipt lands honest)");
+} else {
+  const dress = await openAndDress(12);
+  evalSoft('(() => { localStorage.removeItem("cryoflow.selectedJob.v1"); return 1; })()');
+  ok("V1 the browser rides the throwaway world", dress && dress.dlgs === 0 && dress.cards >= 12, `cards=${dress?.cards}`);
 
-const findCard = (nameRe) => evalJson(`(() => { const b = Array.from(document.querySelectorAll("[data-card-btn]")).find((x) => ${nameRe}.test(x.textContent || "")); if (!b) return JSON.stringify({ found: false }); const r = b.getBoundingClientRect(); const o = { bubbles: true, cancelable: true, button: 0, pointerId: 1, clientX: r.x + r.width / 2, clientY: r.y + r.height / 2 }; b.dispatchEvent(new PointerEvent("pointerdown", o)); b.dispatchEvent(new PointerEvent("pointerup", o)); b.click(); return JSON.stringify({ found: true }); })()`);
+  const findCard = (nameRe) => evalJson(`(() => { const b = Array.from(document.querySelectorAll("[data-card-btn]")).find((x) => ${nameRe}.test(x.textContent || "")); if (!b) return JSON.stringify({ found: false }); const r = b.getBoundingClientRect(); const o = { bubbles: true, cancelable: true, button: 0, pointerId: 1, clientX: r.x + r.width / 2, clientY: r.y + r.height / 2 }; b.dispatchEvent(new PointerEvent("pointerdown", o)); b.dispatchEvent(new PointerEvent("pointerup", o)); b.click(); return JSON.stringify({ found: true }); })()`);
 
-const openInspector = async (nameRe, label) => {
-  findCard(nameRe);
-  let insp = null;
-  for (let i = 0; i < 15; i++) {
-    zzz(1);
-    insp = evalJson('(() => JSON.stringify({ n: document.querySelectorAll("[role=dialog]").length }))()');
-    if (insp.n >= 1) break;
+  const openInspector = async (nameRe, label) => {
+    findCard(nameRe);
+    let insp = null;
+    for (let i = 0; i < 15; i++) {
+      zzz(1);
+      insp = evalJson('(() => JSON.stringify({ n: document.querySelectorAll("[role=dialog]").length }))()');
+      if (insp.n >= 1) break;
+    }
+    /* the A/B door may live on the Results tab — ride it if the door is late */
+    let door = null;
+    for (let i = 0; i < 20; i++) {
+      zzz(1);
+      door = evalJson(`(() => { let d = document.querySelector("[aria-label^=\\"${label} A/B\\"]"); if (!d) { const t = Array.from(document.querySelectorAll("[role=dialog] [role=tab]")).find((x) => (x.textContent || "").trim().startsWith("Results")); if (t) t.click(); } d = document.querySelector("[aria-label^=\\"${label} A/B\\"]"); return JSON.stringify({ found: !!d, siblings: d ? (d.getAttribute("aria-label").match(/\\((\\d+)/) || [])[1] : null }); })()`);
+      if (door.found) break;
+    }
+    return door;
+  };
+
+  const openCompare = async (nameRe, label) => {
+    const door = await openInspector(nameRe, label);
+    if (!door.found) return { door };
+    evalSoft(`(() => { document.querySelector("[aria-label^=\\"${label} A/B\\"]").click(); return 1; })()`);
+    let dlg = null;
+    for (let i = 0; i < 15; i++) {
+      zzz(1);
+      dlg = evalJson('(() => { const r = document.querySelector("[role=dialog] [role=region][aria-label*=verdict]"); return JSON.stringify({ open: !!r, text: r ? (r.textContent || "").slice(0, 260) : null }); })()');
+      if (dlg.open) break;
+    }
+    return { door, dlg };
+  };
+
+  const closeAnyCompare = async () => {
+    evalSoft('(() => { const d = document.querySelector("[role=dialog]"); if (d) { const k = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }); d.dispatchEvent(k); } return 1; })()');
+    await zzz(1.5);
+  };
+
+  /* the riders' ready signal (t1182's cure of the t1172 flights' two reds):
+   * the verdict region renders the MOMENT the dialog opens — waiting on it
+   * proves nothing about the verbs (t1172's flight read the exclude rider
+   * ABSENT while the paired fetch was still in the air, and the select
+   * rider DISABLED while the store's poll — 8 s idle cadence — had not yet
+   * carried the back-door-wired child in; the product's gates were honest
+   * both times). The film now polls the RIDER itself until it speaks an
+   * honest state: enabled, or its aria-label sentence held stable for 10 s —
+   * and RECORDS that sentence either way (the
+   * t1172 hunt item: the gate's truth is one read away). */
+  const riderRead = (testid) => evalSoft(`(() => { const el = document.querySelector("[data-testid=\\"${testid}\\"]"); return JSON.stringify({ present: !!el, disabled: el ? el.disabled : null, label: el ? (el.getAttribute("aria-label") || "") : "" }); })()`);
+  const riderReady = async (testid, opts = {}) => {
+    /* want="enabled" (the default: every flight expects its verb live) waits
+     * out the store's 8 s idle poll for back-door wiring to land; the
+     * stabilized sentence is only believed after it has held stableS — two
+     * reads 1 s apart proved nothing (t1182's own first ride: the
+     * stabilization fired inside the pre-tick window and the gate looked
+     * shut while the poll was still in flight). want="disabled" (the spent
+     * state's F4) returns on the first disabled read. */
+    const { budgetS = 30, want = "enabled", stableS = 10 } = opts;
+    let last = null, stableSince = 0;
+    for (let i = 0; i < budgetS; i++) {
+      await zzz(1);
+      const v = riderRead(testid);
+      if (!v) continue; /* a mid-compile eval refused — the poll absorbs it */
+      if (v.present && v.disabled === false && want === "enabled") return { ...v, ready: true };
+      if (v.present && v.disabled === true && want === "disabled") return { ...v, ready: true };
+      if (v.present && last && v.label === last.label) {
+        if (!stableSince) stableSince = Date.now();
+        if (Date.now() - stableSince >= stableS * 1000) return { ...v, ready: false };
+      } else { stableSince = 0; }
+      last = v;
+    }
+    return { ...(last || { present: false, disabled: null, label: "" }), ready: false };
+  };
+  const riderVerdict = (v, tag) => (v.present ? (v.disabled === false ? `${tag} ENABLED · ` : `${tag} UNAVAILABLE · `) : "ABSENT · ") + (v.label || "rider never rendered").slice(0, 110);
+
+  /* the app's toasts are RADIX (ui/toaster), not sonner — the viewport is an
+   * <ol>, each toast an <li data-state> with Title/Description inside (the
+   * sonner selector never matched anything; the t1172 ride proved the point
+   * by reading "none" while the graph had already re-wired) */
+  const toastOf = async () => {
+    for (let i = 0; i < 16; i++) {
+      await zzz(0.5);
+      const t = evalSoft('(() => { const lis = Array.from(document.querySelectorAll("ol > li[data-state]")); const vs = lis.filter((x) => x.closest("ol")); return JSON.stringify({ n: vs.length, titles: vs.map((x) => ((x.firstElementChild && x.firstElementChild.textContent) || "").slice(0, 90)), texts: vs.map((x) => (x.textContent || "").slice(0, 220)) }); })()');
+      if (t && t.n > 0) return t;
+    }
+    return { n: 0, titles: [], texts: [] };
+  };
+
+  const edgesNow = () => api("GET", "/api/edges").edges || [];
+  const hasEdge = (edges, from, to) => edges.some((e) => e.fromJobId === from && e.toJobId === to);
+
+  /* ---- FLIGHT 1: the plain adopt on (class2d A -> class3d B) ---- */
+  console.log("\n  FLIGHT 1 — the plain adopt (Continue downstream from run B)");
+  const f1 = await openCompare(/^2D Classification/, "Class");
+  ok("F1.1 the Class A/B door found (1 sibling)", f1.door?.found === true && f1.door?.siblings === "1", `siblings=${f1.door?.siblings}`);
+  ok("F1.2 the compare dialog opened with the verdict region", f1.dlg?.open === true, (f1.dlg?.text || "").slice(0, 90));
+  const f1adopt = await riderReady("adopt-downstream");
+  const f1sel = await riderReady("adopt-with-select");
+  const f1exPresent = evalJson('(() => JSON.stringify({ present: !!document.querySelector("[data-testid=\\"adopt-with-exclude\\"]") }))()').present;
+  ok("F1.3 the plain adopt ENABLED with its move count", f1adopt.present && f1adopt.disabled === false, riderVerdict(f1adopt, "plain"));
+  ok("F1.4 the select rider PRESENT and ENABLED (K=10 twin: every paired class gained)", f1sel.present && f1sel.disabled === false, riderVerdict(f1sel, "select"));
+  ok("F1.5 the exclude rider ABSENT (the class verdict has no micrographs to exclude)", f1exPresent === false);
+  evalSoft('(() => { document.querySelector("[data-testid=\\"adopt-downstream\\"]").click(); return 1; })()');
+  const f1toast = await toastOf();
+  ok("F1.6 the adoption receipt spoke (the toast names the re-wire)", f1toast.n > 0 && /re-wired|adopted/i.test(f1toast.texts.join(" | ")), (f1toast.titles[0] || "none").slice(0, 60));
+  let f1edges = [];
+  for (let i = 0; i < 10; i++) {
+    await zzz(1);
+    f1edges = edgesNow();
+    if (hasEdge(f1edges, B.id, byType.initialmodel.id)) break;
   }
-  /* the A/B door may live on the Results tab — ride it if the door is late */
-  let door = null;
-  for (let i = 0; i < 20; i++) {
-    zzz(1);
-    door = evalJson(`(() => { let d = document.querySelector("[aria-label^=\\"${label} A/B\\"]"); if (!d) { const t = Array.from(document.querySelectorAll("[role=dialog] [role=tab]")).find((x) => (x.textContent || "").trim().startsWith("Results")); if (t) t.click(); } d = document.querySelector("[aria-label^=\\"${label} A/B\\"]"); return JSON.stringify({ found: !!d, siblings: d ? (d.getAttribute("aria-label").match(/\\((\\d+)/) || [])[1] : null }); })()`);
-    if (door.found) break;
+  ok("F1.7 THE GRAPH TRUTH: both template wires re-parented onto run B", hasEdge(f1edges, B.id, byType.initialmodel.id) && hasEdge(f1edges, B.id, byType.refine3d.id) && !hasEdge(f1edges, A.id, byType.initialmodel.id) && !hasEdge(f1edges, A.id, byType.refine3d.id), `B->initialmodel=${hasEdge(f1edges, B.id, byType.initialmodel.id)} B->refine3d=${hasEdge(f1edges, B.id, byType.refine3d.id)}`);
+
+  /* ---- FLIGHT 2: the select rider (mint + wire + adopt) ---- */
+  console.log("\n  FLIGHT 2 — the select rider (mint the selection, wire both mouths, adopt)");
+  const c1 = api("POST", "/api/jobs", { type: "select2d", x: A.x + 300, y: A.y + 260, params: {} }).job;
+  const c1edge = api("POST", "/api/edges", { id: newId(), fromJobId: A.id, toJobId: c1.id, fromPort: "particles", toPort: "particles" });
+  ok("F2.1 a fresh select2d child wired on run A (the re-wire target)", !!c1?.id && !c1edge.error, `child=${c1?.id?.slice(-6)}`);
+  await closeAnyCompare();
+  const f2 = await openCompare(/^2D Classification/, "Class");
+  const f2verbs = await riderReady("adopt-with-select");
+  ok("F2.2 the select rider ENABLED on the re-opened dialog (the store's poll carried the fresh child; the gate's sentence recorded either way)", f2verbs.present === true && f2verbs.disabled === false, riderVerdict(f2verbs, "select"));
+  if (f2verbs.disabled === false) {
+    evalSoft('(() => { document.querySelector("[data-testid=\\"adopt-with-select\\"]").click(); return 1; })()');
+  } else { console.log("    the gate held — the fire is skipped, F2.3+ read the honest reds"); }
+  const f2toast = await toastOf();
+  ok("F2.3 the adoption receipt spoke (the selection as the new provider)", f2toast.n > 0 && /re-wired|adopted|select/i.test(f2toast.texts.join(" | ")), (f2toast.titles[0] || "none").slice(0, 60));
+  let mint = null;
+  for (let i = 0; i < 12; i++) {
+    await zzz(1);
+    const js = await jobsOf();
+    mint = js.find((j) => j.type === "select2d" && j.id !== c1.id);
+    if (mint) break;
   }
-  return door;
-};
+  ok("F2.4 THE MINT: a 2D Class Selection born with the gained classes baked", !!mint && /^\d+[\d, ]*$/.test(mint.params?.selectedClasses || ""), `id=${mint?.id?.slice(-6)} selectedClasses="${mint?.params?.selectedClasses}"`);
+  const f2edges = edgesNow();
+  const mintMouths = f2edges.filter((e) => e.fromJobId === B.id && e.toJobId === mint?.id).length;
+  ok("F2.5 THE WIRE: run B feeds the mint through BOTH mouths (classes + particles)", mintMouths >= 2, `B->mint edges=${mintMouths}`);
+  ok("F2.6 THE ADOPT: run A's child re-parented onto the MINT", mint && hasEdge(f2edges, mint.id, c1.id) && !hasEdge(f2edges, A.id, c1.id), `mint->child=${mint ? hasEdge(f2edges, mint.id, c1.id) : false} A->child=${hasEdge(f2edges, A.id, c1.id)}`);
 
-const openCompare = async (nameRe, label) => {
-  const door = await openInspector(nameRe, label);
-  if (!door.found) return { door };
-  evalSoft(`(() => { document.querySelector("[aria-label^=\\"${label} A/B\\"]").click(); return 1; })()`);
-  let dlg = null;
-  for (let i = 0; i < 15; i++) {
-    zzz(1);
-    dlg = evalJson('(() => { const r = document.querySelector("[role=dialog] [role=region][aria-label*=verdict]"); return JSON.stringify({ open: !!r, text: r ? (r.textContent || "").slice(0, 260) : null }); })()');
-    if (dlg.open) break;
+  /* ---- FLIGHT 3: the exclude rider (mint + wire + adopt, micrograph dialect) ---- */
+  console.log("\n  FLIGHT 3 — the exclude rider (mint the filter, wire, adopt)");
+  await closeAnyCompare();
+  const f3 = await openCompare(/^Motion Correction/, "Motion");
+  ok("F3.1 the Motion A/B door found (1 sibling)", f3.door?.found === true, `found=${f3.door?.found}`);
+  const f3ex = await riderReady("adopt-with-exclude");
+  const f3selPresent = evalJson('(() => JSON.stringify({ p: !!document.querySelector("[data-testid=\\"adopt-with-select\\"]") }))()').p;
+  ok("F3.2 the exclude rider PRESENT and ENABLED (the paired fetch landed — the rider's own ready signal, not the always-open verdict region)", f3ex.present === true && f3ex.disabled === false, riderVerdict(f3ex, "exclude"));
+  ok("F3.3 the select rider ABSENT (the motion verdict has no classes to select)", f3selPresent === false);
+  if (f3ex.disabled === false) {
+    evalSoft('(() => { document.querySelector("[data-testid=\\"adopt-with-exclude\\"]").click(); return 1; })()');
+  } else { console.log("    the gate held — the fire is skipped, F3.4+ read the honest reds"); }
+  const f3toast = await toastOf();
+  ok("F3.4 the adoption receipt spoke (the filter as the new provider)", f3toast.n > 0 && /re-wired|adopted|exclud/i.test(f3toast.texts.join(" | ")), (f3toast.titles[0] || "none").slice(0, 60));
+  let filter = null;
+  for (let i = 0; i < 12; i++) {
+    await zzz(1);
+    const js = await jobsOf();
+    filter = js.find((j) => j.type === "excludemg" && j.id !== exJob.id);
+    if (filter) break;
   }
-  return { door, dlg };
-};
+  ok("F3.5 THE MINT: an Exclude Micrographs filter born with the regressions baked", !!filter && /mic_\d+/.test(filter.params?.excludeNames || ""), `id=${filter?.id?.slice(-6)} excludeNames="${(filter?.params?.excludeNames || "").slice(0, 60)}"`);
+  const f3edges = edgesNow();
+  ok("F3.6 THE WIRE + THE ADOPT: run B feeds the filter; CTF now consumes the FILTER", filter && hasEdge(f3edges, MB.id, filter.id) && hasEdge(f3edges, filter.id, CTF.id) && !hasEdge(f3edges, MA.id, CTF.id), `B->filter=${filter ? hasEdge(f3edges, MB.id, filter.id) : false} filter->ctf=${filter ? hasEdge(f3edges, filter.id, CTF.id) : false} A->ctf=${hasEdge(f3edges, MA.id, CTF.id)}`);
 
-const closeAnyCompare = async () => {
-  evalSoft('(() => { const d = document.querySelector("[role=dialog]"); if (d) { const k = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }); d.dispatchEvent(k); } return 1; })()');
-  await zzz(1.5);
-};
-
-/* the app's toasts are RADIX (ui/toaster), not sonner — the viewport is an
- * <ol>, each toast an <li data-state> with Title/Description inside (the
- * sonner selector never matched anything; the t1172 ride proved the point
- * by reading "none" while the graph had already re-wired) */
-const toastOf = async () => {
-  for (let i = 0; i < 16; i++) {
-    await zzz(0.5);
-    const t = evalSoft('(() => { const lis = Array.from(document.querySelectorAll("ol > li[data-state]")); const vs = lis.filter((x) => x.closest("ol")); return JSON.stringify({ n: vs.length, titles: vs.map((x) => ((x.querySelector("[data-title]") || x.firstChild || x).textContent || "").slice(0, 90)), texts: vs.map((x) => (x.textContent || "").slice(0, 220)) }); })()');
-    if (t && t.n > 0) return t;
-  }
-  return { n: 0, titles: [], texts: [] };
-};
-
-const edgesNow = () => api("GET", "/api/edges").edges || [];
-const hasEdge = (edges, from, to) => edges.some((e) => e.fromJobId === from && e.toJobId === to);
-
-/* ---- FLIGHT 1: the plain adopt on (class2d A -> class3d B) ---- */
-console.log("\n  FLIGHT 1 — the plain adopt (Continue downstream from run B)");
-const f1 = await openCompare(/^2D Classification/, "Class");
-ok("F1.1 the Class A/B door found (1 sibling)", f1.door?.found === true && f1.door?.siblings === "1", `siblings=${f1.door?.siblings}`);
-ok("F1.2 the compare dialog opened with the verdict region", f1.dlg?.open === true, (f1.dlg?.text || "").slice(0, 90));
-const f1verbs = evalJson('(() => { const q = (t) => document.querySelector(\'[data-testid="\' + t + \'"]\'); const ad = q("adopt-downstream"); const as = q("adopt-with-select"); const ax = q("adopt-with-exclude"); return JSON.stringify({ adopt: ad ? { disabled: ad.disabled, label: (ad.textContent || "").trim().slice(0, 60) } : null, select: as ? { disabled: as.disabled, label: (as.textContent || "").trim().slice(0, 60) } : null, excludePresent: !!ax }); })()');
-ok("F1.3 the plain adopt ENABLED with its move count", f1verbs.adopt && f1verbs.adopt.disabled === false, f1verbs.adopt?.label);
-ok("F1.4 the select rider PRESENT and ENABLED (K=10 twin: every paired class gained)", f1verbs.select && f1verbs.select.disabled === false, f1verbs.select?.label);
-ok("F1.5 the exclude rider ABSENT (the class verdict has no micrographs to exclude)", f1verbs.excludePresent === false);
-evalSoft('(() => { document.querySelector("[data-testid=\\"adopt-downstream\\"]").click(); return 1; })()');
-const f1toast = await toastOf();
-ok("F1.6 the adoption receipt spoke (the toast names the re-wire)", f1toast.n > 0 && /re-wired|adopted/i.test(f1toast.texts.join(" | ")), (f1toast.titles[0] || "none").slice(0, 60));
-let f1edges = [];
-for (let i = 0; i < 10; i++) {
-  await zzz(1);
-  f1edges = edgesNow();
-  if (hasEdge(f1edges, B.id, byType.initialmodel.id)) break;
+  /* ---- the honest absence: run A spent, the door says so ---- */
+  await closeAnyCompare();
+  const f4d = await openCompare(/^2D Classification/, "Class");
+  const f4 = await riderReady("adopt-downstream", { want: "disabled" });
+  ok("F4 the spent run speaks the honest disabled state (no downstream left)", f4.present === true && f4.disabled === true && /no downstream/i.test(f4.label || ""), riderVerdict(f4, "spent"));
+  await closeAnyCompare();
 }
-ok("F1.7 THE GRAPH TRUTH: both template wires re-parented onto run B", hasEdge(f1edges, B.id, byType.initialmodel.id) && hasEdge(f1edges, B.id, byType.refine3d.id) && !hasEdge(f1edges, A.id, byType.initialmodel.id) && !hasEdge(f1edges, A.id, byType.refine3d.id), `B->initialmodel=${hasEdge(f1edges, B.id, byType.initialmodel.id)} B->refine3d=${hasEdge(f1edges, B.id, byType.refine3d.id)}`);
-
-/* ---- FLIGHT 2: the select rider (mint + wire + adopt) ---- */
-console.log("\n  FLIGHT 2 — the select rider (mint the selection, wire both mouths, adopt)");
-const c1 = api("POST", "/api/jobs", { type: "select2d", x: A.x + 300, y: A.y + 260, params: {} }).job;
-const c1edge = api("POST", "/api/edges", { id: newId(), fromJobId: A.id, toJobId: c1.id, fromPort: "particles", toPort: "particles" });
-ok("F2.1 a fresh select2d child wired on run A (the re-wire target)", !!c1?.id && !c1edge.error, `child=${c1?.id?.slice(-6)}`);
-await closeAnyCompare();
-const f2 = await openCompare(/^2D Classification/, "Class");
-const f2verbs = evalJson('(() => { const as = document.querySelector("[data-testid=\\"adopt-with-select\\"]"); return JSON.stringify({ present: !!as, disabled: as ? as.disabled : null, label: as ? (as.textContent || "").trim().slice(0, 70) : null }); })()');
-ok("F2.2 the select rider ENABLED on the re-opened dialog (the plan re-derived)", f2verbs.present === true && f2verbs.disabled === false, f2verbs.label);
-evalSoft('(() => { document.querySelector("[data-testid=\\"adopt-with-select\\"]").click(); return 1; })()');
-const f2toast = await toastOf();
-ok("F2.3 the adoption receipt spoke (the selection as the new provider)", f2toast.n > 0 && /re-wired|adopted|select/i.test(f2toast.texts.join(" | ")), (f2toast.titles[0] || "none").slice(0, 60));
-let mint = null;
-for (let i = 0; i < 12; i++) {
-  await zzz(1);
-  const js = await jobsOf();
-  mint = js.find((j) => j.type === "select2d" && j.id !== c1.id);
-  if (mint) break;
-}
-ok("F2.4 THE MINT: a 2D Class Selection born with the gained classes baked", !!mint && /^\d+[\d, ]*$/.test(mint.params?.selectedClasses || ""), `id=${mint?.id?.slice(-6)} selectedClasses="${mint?.params?.selectedClasses}"`);
-const f2edges = edgesNow();
-const mintMouths = f2edges.filter((e) => e.fromJobId === B.id && e.toJobId === mint?.id).length;
-ok("F2.5 THE WIRE: run B feeds the mint through BOTH mouths (classes + particles)", mintMouths >= 2, `B->mint edges=${mintMouths}`);
-ok("F2.6 THE ADOPT: run A's child re-parented onto the MINT", mint && hasEdge(f2edges, mint.id, c1.id) && !hasEdge(f2edges, A.id, c1.id), `mint->child=${mint ? hasEdge(f2edges, mint.id, c1.id) : false} A->child=${hasEdge(f2edges, A.id, c1.id)}`);
-
-/* ---- FLIGHT 3: the exclude rider (mint + wire + adopt, micrograph dialect) ---- */
-console.log("\n  FLIGHT 3 — the exclude rider (mint the filter, wire, adopt)");
-await closeAnyCompare();
-const f3 = await openCompare(/^Motion Correction/, "Motion");
-ok("F3.1 the Motion A/B door found (1 sibling)", f3.door?.found === true, `found=${f3.door?.found}`);
-const f3verbs = evalJson('(() => { const ax = document.querySelector("[data-testid=\\"adopt-with-exclude\\"]"); const as = document.querySelector("[data-testid=\\"adopt-with-select\\"]"); const reg = document.querySelectorAll("[data-testid=\\"adopt-with-exclude\\"]") ? (document.body.textContent || "").match(/Biggest regressions?/i) : null; return JSON.stringify({ exclude: ax ? { disabled: ax.disabled, label: (ax.textContent || "").trim().slice(0, 70) } : null, selectPresent: !!as }); })()');
-ok("F3.2 the exclude rider PRESENT and ENABLED (the subset run grew real regressions)", f3verbs.exclude && f3verbs.exclude.disabled === false, f3verbs.exclude?.label);
-ok("F3.3 the select rider ABSENT (the motion verdict has no classes to select)", f3verbs.selectPresent === false);
-evalSoft('(() => { document.querySelector("[data-testid=\\"adopt-with-exclude\\"]").click(); return 1; })()');
-const f3toast = await toastOf();
-ok("F3.4 the adoption receipt spoke (the filter as the new provider)", f3toast.n > 0 && /re-wired|adopted|exclud/i.test(f3toast.texts.join(" | ")), (f3toast.titles[0] || "none").slice(0, 60));
-let filter = null;
-for (let i = 0; i < 12; i++) {
-  await zzz(1);
-  const js = await jobsOf();
-  filter = js.find((j) => j.type === "excludemg" && j.id !== exJob.id);
-  if (filter) break;
-}
-ok("F3.5 THE MINT: an Exclude Micrographs filter born with the regressions baked", !!filter && /mic_\d+/.test(filter.params?.excludeNames || ""), `id=${filter?.id?.slice(-6)} excludeNames="${(filter?.params?.excludeNames || "").slice(0, 60)}"`);
-const f3edges = edgesNow();
-ok("F3.6 THE WIRE + THE ADOPT: run B feeds the filter; CTF now consumes the FILTER", filter && hasEdge(f3edges, MB.id, filter.id) && hasEdge(f3edges, filter.id, CTF.id) && !hasEdge(f3edges, MA.id, CTF.id), `B->filter=${filter ? hasEdge(f3edges, MB.id, filter.id) : false} filter->ctf=${filter ? hasEdge(f3edges, filter.id, CTF.id) : false} A->ctf=${hasEdge(f3edges, MA.id, CTF.id)}`);
-
-/* ---- the honest absence: run A spent, the door says so ---- */
-await closeAnyCompare();
-const f4 = await openCompare(/^2D Classification/, "Class");
-const f4verbs = evalJson('(() => { const ad = document.querySelector("[data-testid=\\"adopt-downstream\\"]"); return JSON.stringify({ disabled: ad ? ad.disabled : null, title: ad ? ad.getAttribute("title") : null }); })()');
-ok("F4 the spent run speaks the honest disabled state (no downstream left)", f4verbs.disabled === true && /no downstream/i.test(f4verbs.title || ""), f4verbs.title?.slice(0, 70));
-await closeAnyCompare();
 } /* the flights chunk's gate */
 
 /* ================= PHASE 3 — the teardown (the teardown chunk) ====== */
@@ -570,8 +630,8 @@ const projsT = api("GET", "/api/projects");
 const tProj = (projsT.projects || []).find((p) => /tutorial/i.test(p.name || "")) || { id: tutorialProjectId };
 const sw = api("POST", "/api/projects/switch", { id: tProj.id });
 ok("T2 the tutorial project active again", !sw.error && !!tProj.id, tProj.name || tProj.id);
-const demoAfter = await settledJobs((js) => js.length === 15 && js.every((j) => j.status === "completed"));
-ok("T3 the demo world untouched: 15/15 completed", demoAfter.length === 15 && demoAfter.every((j) => j.status === "completed"), `jobs=${demoAfter.length}`);
+const demoAfter = await settledJobs((js) => js.length === 15 && js.filter((j) => j.status === "completed").length === 13 && js.every((j) => j.status === "completed" || j.status === "idle"));
+ok("T3 the demo world untouched: the standing 13/2 shape holds", demoAfter.length === 15 && demoAfter.filter((j) => j.status === "completed").length === 13, `jobs=${demoAfter.length} completed=${demoAfter.filter((j) => j.status === "completed").length}`);
 
 /* the browser back on the demo world, the seed cleared */
 const t4 = await openAndDress(14);
