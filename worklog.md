@@ -22418,3 +22418,27 @@ Shape note: the window's best moment was negative space — the canvas was FINE,
 **Ledger**: the straggler adopted origin (reset to `b750fc0a`, 0 local unique); the 1.85GB stale-tree whale killed (available 1864→3523MB); `.env` split-brain cured; world restored (32 rows + 15 engine states, the schema-push hijack named and pinned); mock Slurm listener found (`services/mock-cluster/launch.sh`) and launched; **the chain re-run chunked to completion — official FSC 7.79 Å (40 shells) back on the deep surfaces**; build day fought 4 calibres, honestly lost, ladder recorded; snapshot re-exported (FRESH @ b750fc0a); census 113/113; exit honest. 样式更细，功能更多。
 
 **Shape note**: the window's best moment was the chain's last line — "DEMO CHAIN RESURRECTED" — a healer built in the t313 era walking the full spine through the product's own run door on a world it had never seen, because every law it needed (idempotent resolve, chunked healing, the mock cluster's rhythm) had been written down for exactly this hour. The worst moment was the build's fourth kill — but a lost battle with a recorded ladder is reconnaissance, not defeat.
+
+## Task 1181 (2026-11-04, 14:06 dispatch, Job 362852 — trace `…-cron-agent-loop-202611041410`) — the Escape cure re-proven on the resurrected world, and the ride instrument cured of two drifts (t1181)
+
+Window: cron 14:06:32, HEAD `9fb051be` (the t1180 docs car), tree clean, lane UP, world healthy (15 jobs / 13 completed), mock listener alive. Bed rolls green; t1181's point 4 taken as the window's QA ride: **the t1174 cure-ride on the healed world** (t1180's chain had just rebuilt the flesh the deep dialogs read).
+
+**THE CURE RE-PROVEN**: `scripts/t1174-cure-ride.sh` rode the A/B world the chain rebuilt — canvas ready → the 2D Classification card → inspector up → the Class A/B door → the compare dialog up → **one Escape press peeled ONE layer: dialogs 2 → 1, the inspector behind survives (`"after":"{\"n\":1,\"inspector\":true}"`), console clean** — verdict `THE_CURE_LANDS`, the t874 disease's cure (the onEscapeClose family dialect) verified live on the resurrected world. Receipt: `shots-qa/t1174-escape-cure.json` (+ png).
+
+**The window's real product — two instrument cures.** The ride failed twice before landing, and both failures were the INSTRUMENT, not the product (the fresh-console law's discipline held — verify the world fresh before believing a red):
+1. **The eval-output drift**: `agent-browser eval` now prints its result JSON-STRING-ESCAPED (`{\"cards\":1}` — the quotes carry backslashes), while the ride's greps matched the bare form (`"cards":1`). Deterministic, not flaky: 24 polls of `cards:1` all rejected while the same string printed in the final verdict line. Cure: every eval assignment now strips the escape layer (`| tr -d '\\'`) before the grep — six assignments, one pipe, all greps work on both output dialects. Lesson: **an instrument's output contract is a dependency — when the harness upgrades, the greps that read its stdout upgrade with it** (the t1174-era grep was written against a bare-printing eval; the archaeology that proves it: the same ride passed green at t1174).
+2. **The stale em-dash label**: the compare-up check textContent-matched `'A/B —'` and reported COMPARE NEVER UP while the dialog-count receipt (`n:2`) proved the compare WAS up — the em-dash judging criterion had drifted from the dialog's rendered text (the heading's dialect is `${spec.label} A/B — ${spec.doorTitle}`, run-compare-dialog.tsx:243). Cure: the check now matches `A/B` proper — the dialog's identity, not its punctuation. The verdict line was already honest (before/after counts carried the truth); only the label's stderr lied.
+
+**Judge-lines:**
+- **「仪器的输出契约也是依赖」**: the harness upgraded its printing dialect and the ride's greps went blind — the world was ready the whole time (cards:1, ghost:false), and only the final verdict line's raw print exposed the lie. Fix the pipe, not the world.
+- **「判决行比标签诚实」**: COMPARE NEVER UP said one thing, `before: n:2` said another — the receipt's numbers carried the truth that the label's stderr denied. An instrument that prints both a verdict and the evidence lets the evidence overrule the verdict.
+
+**Next-window entry (t1182):**
+1. **The film's hunt list** (t1172's four: F2.2's honest-refusal sentence, F3.2's rider wait, the radix toast re-reads) — still unblocked by the returned flesh; the t1174 ride's two cures are the template (read the harness's current output contract FIRST; match identities, not punctuation).
+2. **The build-day ladder's next rung** (carried): the 2560-cap trial / `experimental.cpus` throttle / the honest ≥4GB-day wait.
+3. **The wire ingest's next consumer** (carried): the AI panel's server-side tools draw wires — a film leg could pin it live.
+4. Census rotation as usual; the snapshot (FRESH @ b750fc0a) stays the world home.
+
+**Ledger**: the cure-ride green on the resurrected world (THE_CURE_LANDS, 2→1, inspector survives, console clean); two instrument cures landed (the eval-escape strip + the A/B label); the ride script patched in place; census NOT re-run this window (no src changes; the 113/113 from t1180 stands); tsc/eslint silent (no src files touched); exit honest. 样式更细，功能更多。
+
+**Shape note**: the best moment was the discipline doing its job — two reds, two fresh-console verifications, two instrument cures, zero product churn. The worst was the moment of doubt: 24 green readings rejected in a row LOOK exactly like a dying canvas; only the string in the verdict line told the two apart.
