@@ -1,8 +1,8 @@
 {
   "instrument": "scripts/t840-options-rehearsal.mjs",
-  "build": "dev@c4c3735897dd",
-  "worldMode": "dev",
-  "date": "2026-10-10T16:46:52.595Z",
+  "build": "cAjxLhj7NiK6ltk_lB9jm",
+  "worldMode": "build",
+  "date": "2026-11-04T21:31:13.780Z",
   "viewport": {
     "w": 1280,
     "h": 800
@@ -21,13 +21,12 @@
         "CHIP|RELION environment status: RELION not found",
         "CHIP|hidden xl:block",
         "OTHER|no-print flex shrink-0 ite",
-        "TRIGGER|Active project",
         "OTHER|no-print pointer-events-au",
         "OTHER|flex h-dvh flex-col bg-bac",
-        "OTHER|geist_a71539c9-module__T19",
+        "OTHER|__variable_8eaea4 __variab",
         "OTHER|light"
       ],
-      "wrapOverflowX": "visible",
+      "wrapOverflowX": "hidden",
       "innerW": 1280
     },
     {
@@ -42,13 +41,12 @@
         "CHIP|RELION environment status: RELION not found",
         "CHIP|hidden xl:block",
         "OTHER|no-print flex shrink-0 ite",
-        "TRIGGER|Active project",
         "OTHER|no-print pointer-events-au",
         "OTHER|flex h-dvh flex-col bg-bac",
-        "OTHER|geist_a71539c9-module__T19",
+        "OTHER|__variable_8eaea4 __variab",
         "OTHER|light"
       ],
-      "wrapOverflowX": "visible",
+      "wrapOverflowX": "hidden",
       "innerW": 1280
     }
   ],
@@ -72,7 +70,7 @@
           "OTHER|no-print flex shrink-0 ite",
           "OTHER|no-print pointer-events-au",
           "OTHER|flex h-dvh flex-col bg-bac",
-          "OTHER|geist_a71539c9-module__T19",
+          "OTHER|__variable_8eaea4 __variab",
           "OTHER|light"
         ],
         "wrapOverflowX": "hidden",
@@ -92,7 +90,7 @@
           "OTHER|no-print flex shrink-0 ite",
           "OTHER|no-print pointer-events-au",
           "OTHER|flex h-dvh flex-col bg-bac",
-          "OTHER|geist_a71539c9-module__T19",
+          "OTHER|__variable_8eaea4 __variab",
           "OTHER|light"
         ],
         "wrapOverflowX": "hidden",
@@ -121,7 +119,7 @@
           "TRIGGER|Active project",
           "OTHER|no-print pointer-events-au",
           "OTHER|flex h-dvh flex-col bg-bac",
-          "OTHER|geist_a71539c9-module__T19",
+          "OTHER|__variable_8eaea4 __variab",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible",
@@ -142,7 +140,7 @@
           "TRIGGER|Active project",
           "OTHER|no-print pointer-events-au",
           "OTHER|flex h-dvh flex-col bg-bac",
-          "OTHER|geist_a71539c9-module__T19",
+          "OTHER|__variable_8eaea4 __variab",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible",
@@ -169,7 +167,7 @@
           "TRIGGER|Active project",
           "OTHER|no-print pointer-events-au",
           "OTHER|flex h-dvh flex-col bg-bac",
-          "OTHER|geist_a71539c9-module__T19",
+          "OTHER|__variable_8eaea4 __variab",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible",
@@ -187,7 +185,7 @@
           "TRIGGER|Active project",
           "OTHER|no-print pointer-events-au",
           "OTHER|flex h-dvh flex-col bg-bac",
-          "OTHER|geist_a71539c9-module__T19",
+          "OTHER|__variable_8eaea4 __variab",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible",
@@ -206,7 +204,7 @@
         "TRIGGER|Active project",
         "OTHER|no-print pointer-events-au",
         "OTHER|flex h-dvh flex-col bg-bac",
-        "OTHER|geist_a71539c9-module__T19",
+        "OTHER|__variable_8eaea4 __variab",
         "OTHER|light"
       ],
       "wrapOverflowX": "visible",
@@ -224,7 +222,7 @@
         "TRIGGER|Active project",
         "OTHER|no-print pointer-events-au",
         "OTHER|flex h-dvh flex-col bg-bac",
-        "OTHER|geist_a71539c9-module__T19",
+        "OTHER|__variable_8eaea4 __variab",
         "OTHER|light"
       ],
       "wrapOverflowX": "visible",
@@ -253,7 +251,7 @@
           "TRIGGER|Active project",
           "OTHER|no-print pointer-events-au",
           "OTHER|flex h-dvh flex-col bg-bac",
-          "OTHER|geist_a71539c9-module__T19",
+          "OTHER|__variable_8eaea4 __variab",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible",
@@ -274,7 +272,7 @@
           "TRIGGER|Active project",
           "OTHER|no-print pointer-events-au",
           "OTHER|flex h-dvh flex-col bg-bac",
-          "OTHER|geist_a71539c9-module__T19",
+          "OTHER|__variable_8eaea4 __variab",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible",
@@ -540,7 +538,7 @@
           "TRIGGER|Active project",
           "OTHER|no-print pointer-events-au",
           "OTHER|flex h-dvh flex-col bg-bac",
-          "OTHER|geist_a71539c9-module__T19",
+          "OTHER|__variable_8eaea4 __variab",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible",
@@ -561,7 +559,7 @@
           "TRIGGER|Active project",
           "OTHER|no-print pointer-events-au",
           "OTHER|flex h-dvh flex-col bg-bac",
-          "OTHER|geist_a71539c9-module__T19",
+          "OTHER|__variable_8eaea4 __variab",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible",
@@ -583,105 +581,9 @@
               "CHIP|RELION environment status: RELION not found",
               "CHIP|hidden xl:block",
               "OTHER|no-print flex shrink-0 ite",
-              "TRIGGER|Active project",
               "OTHER|no-print pointer-events-au",
               "OTHER|flex h-dvh flex-col bg-bac",
-              "OTHER|geist_a71539c9-module__T19",
-              "OTHER|light"
-            ],
-            "wrapOverflowX": "visible",
-            "innerW": 1283
-          },
-          "band": {
-            "leftW": 610.8,
-            "rightW": 628.3,
-            "seats": 12,
-            "midKids": [
-              {
-                "lbl": "Active workspace",
-                "w": 117.8
-              },
-              {
-                "lbl": "flex min-w-0 items-center gap-",
-                "w": 116.5
-              },
-              {
-                "lbl": "Workflow statistics",
-                "w": 0
-              },
-              {
-                "lbl": "Spotlight noted jobs",
-                "w": 0
-              }
-            ],
-            "innerW": 1283
-          }
-        },
-        "1286": {
-          "zone": {
-            "mid": true,
-            "trigW": 130,
-            "wrapW": 117.7,
-            "overlap": 0.3,
-            "wmW": 103,
-            "wmMax": "none",
-            "paintAt": "CHIP|RELION environment status: RELION not found",
-            "stack": [
-              "CHIP|RELION environment status: RELION not found",
-              "CHIP|hidden xl:block",
-              "OTHER|no-print flex shrink-0 ite",
-              "TRIGGER|Active project",
-              "OTHER|no-print pointer-events-au",
-              "OTHER|flex h-dvh flex-col bg-bac",
-              "OTHER|geist_a71539c9-module__T19",
-              "OTHER|light"
-            ],
-            "wrapOverflowX": "visible",
-            "innerW": 1286
-          },
-          "band": {
-            "leftW": 613.8,
-            "rightW": 628.3,
-            "seats": 12,
-            "midKids": [
-              {
-                "lbl": "Active workspace",
-                "w": 118.8
-              },
-              {
-                "lbl": "flex min-w-0 items-center gap-",
-                "w": 117.7
-              },
-              {
-                "lbl": "Workflow statistics",
-                "w": 0
-              },
-              {
-                "lbl": "Spotlight noted jobs",
-                "w": 0
-              }
-            ],
-            "innerW": 1286
-          }
-        }
-      },
-      "aAcross": {
-        "1283": {
-          "zone": {
-            "mid": true,
-            "trigW": 130,
-            "wrapW": 116.5,
-            "overlap": 1.5,
-            "wmW": 102.2,
-            "wmMax": "none",
-            "paintAt": "CHIP|RELION environment status: RELION not found",
-            "stack": [
-              "CHIP|RELION environment status: RELION not found",
-              "CHIP|hidden xl:block",
-              "OTHER|no-print flex shrink-0 ite",
-              "OTHER|no-print pointer-events-au",
-              "OTHER|flex h-dvh flex-col bg-bac",
-              "OTHER|geist_a71539c9-module__T19",
+              "OTHER|__variable_8eaea4 __variab",
               "OTHER|light"
             ],
             "wrapOverflowX": "hidden",
@@ -727,7 +629,101 @@
               "OTHER|no-print flex shrink-0 ite",
               "OTHER|no-print pointer-events-au",
               "OTHER|flex h-dvh flex-col bg-bac",
-              "OTHER|geist_a71539c9-module__T19",
+              "OTHER|__variable_8eaea4 __variab",
+              "OTHER|light"
+            ],
+            "wrapOverflowX": "hidden",
+            "innerW": 1286
+          },
+          "band": {
+            "leftW": 613.8,
+            "rightW": 628.3,
+            "seats": 12,
+            "midKids": [
+              {
+                "lbl": "Active workspace",
+                "w": 118.8
+              },
+              {
+                "lbl": "flex min-w-0 items-center gap-",
+                "w": 117.7
+              },
+              {
+                "lbl": "Workflow statistics",
+                "w": 0
+              },
+              {
+                "lbl": "Spotlight noted jobs",
+                "w": 0
+              }
+            ],
+            "innerW": 1286
+          }
+        }
+      },
+      "aAcross": {
+        "1283": {
+          "zone": {
+            "mid": true,
+            "trigW": 130,
+            "wrapW": 116.5,
+            "overlap": 1.5,
+            "wmW": 102.2,
+            "wmMax": "none",
+            "paintAt": "CHIP|RELION environment status: RELION not found",
+            "stack": [
+              "CHIP|RELION environment status: RELION not found",
+              "CHIP|hidden xl:block",
+              "OTHER|no-print flex shrink-0 ite",
+              "OTHER|no-print pointer-events-au",
+              "OTHER|flex h-dvh flex-col bg-bac",
+              "OTHER|__variable_8eaea4 __variab",
+              "OTHER|light"
+            ],
+            "wrapOverflowX": "hidden",
+            "innerW": 1283
+          },
+          "band": {
+            "leftW": 610.8,
+            "rightW": 628.3,
+            "seats": 12,
+            "midKids": [
+              {
+                "lbl": "Active workspace",
+                "w": 117.8
+              },
+              {
+                "lbl": "flex min-w-0 items-center gap-",
+                "w": 116.5
+              },
+              {
+                "lbl": "Workflow statistics",
+                "w": 0
+              },
+              {
+                "lbl": "Spotlight noted jobs",
+                "w": 0
+              }
+            ],
+            "innerW": 1283
+          }
+        },
+        "1286": {
+          "zone": {
+            "mid": true,
+            "trigW": 130,
+            "wrapW": 117.7,
+            "overlap": 0.3,
+            "wmW": 103,
+            "wmMax": "none",
+            "paintAt": "CHIP|RELION environment status: RELION not found",
+            "stack": [
+              "CHIP|RELION environment status: RELION not found",
+              "CHIP|hidden xl:block",
+              "OTHER|no-print flex shrink-0 ite",
+              "OTHER|no-print pointer-events-au",
+              "OTHER|flex h-dvh flex-col bg-bac",
+              "OTHER|__variable_8eaea4 __variab",
               "OTHER|light"
             ],
             "wrapOverflowX": "hidden",
@@ -773,13 +769,12 @@
               "CHIP|RELION environment status: RELION not found",
               "CHIP|hidden xl:block",
               "OTHER|no-print flex shrink-0 ite",
-              "TRIGGER|Active project",
               "OTHER|no-print pointer-events-au",
               "OTHER|flex h-dvh flex-col bg-bac",
-              "OTHER|geist_a71539c9-module__T19",
+              "OTHER|__variable_8eaea4 __variab",
               "OTHER|light"
             ],
-            "wrapOverflowX": "visible",
+            "wrapOverflowX": "hidden",
             "innerW": 1283
           },
           "band": {
@@ -820,13 +815,12 @@
               "CHIP|RELION environment status: RELION not found",
               "CHIP|hidden xl:block",
               "OTHER|no-print flex shrink-0 ite",
-              "TRIGGER|Active project",
               "OTHER|no-print pointer-events-au",
               "OTHER|flex h-dvh flex-col bg-bac",
-              "OTHER|geist_a71539c9-module__T19",
+              "OTHER|__variable_8eaea4 __variab",
               "OTHER|light"
             ],
-            "wrapOverflowX": "visible",
+            "wrapOverflowX": "hidden",
             "innerW": 1286
           },
           "band": {
@@ -872,7 +866,7 @@
               "TRIGGER|Active project",
               "OTHER|no-print pointer-events-au",
               "OTHER|flex h-dvh flex-col bg-bac",
-              "OTHER|geist_a71539c9-module__T19",
+              "OTHER|__variable_8eaea4 __variab",
               "OTHER|light"
             ],
             "wrapOverflowX": "visible",
@@ -919,7 +913,7 @@
               "TRIGGER|Active project",
               "OTHER|no-print pointer-events-au",
               "OTHER|flex h-dvh flex-col bg-bac",
-              "OTHER|geist_a71539c9-module__T19",
+              "OTHER|__variable_8eaea4 __variab",
               "OTHER|light"
             ],
             "wrapOverflowX": "visible",
@@ -968,13 +962,12 @@
               "CHIP|RELION environment status: RELION not found",
               "CHIP|hidden xl:block",
               "OTHER|no-print flex shrink-0 ite",
-              "TRIGGER|Active project",
               "OTHER|no-print pointer-events-au",
               "OTHER|flex h-dvh flex-col bg-bac",
-              "OTHER|geist_a71539c9-module__T19",
+              "OTHER|__variable_8eaea4 __variab",
               "OTHER|light"
             ],
-            "wrapOverflowX": "visible",
+            "wrapOverflowX": "hidden",
             "innerW": 1283
           },
           "band": {
@@ -1015,13 +1008,12 @@
               "CHIP|RELION environment status: RELION not found",
               "CHIP|hidden xl:block",
               "OTHER|no-print flex shrink-0 ite",
-              "TRIGGER|Active project",
               "OTHER|no-print pointer-events-au",
               "OTHER|flex h-dvh flex-col bg-bac",
-              "OTHER|geist_a71539c9-module__T19",
+              "OTHER|__variable_8eaea4 __variab",
               "OTHER|light"
             ],
-            "wrapOverflowX": "visible",
+            "wrapOverflowX": "hidden",
             "innerW": 1286
           },
           "band": {
@@ -1094,10 +1086,10 @@
               "OTHER|flex min-w-0 items-center ",
               "OTHER|no-print pointer-events-au",
               "OTHER|flex h-dvh flex-col bg-bac",
-              "OTHER|geist_a71539c9-module__T19",
+              "OTHER|__variable_8eaea4 __variab",
               "OTHER|light"
             ],
-            "wrapOverflowX": "visible",
+            "wrapOverflowX": "hidden",
             "innerW": 1366
           },
           "band": {
@@ -1141,10 +1133,10 @@
               "OTHER|flex min-w-0 items-center ",
               "OTHER|no-print pointer-events-au",
               "OTHER|flex h-dvh flex-col bg-bac",
-              "OTHER|geist_a71539c9-module__T19",
+              "OTHER|__variable_8eaea4 __variab",
               "OTHER|light"
             ],
-            "wrapOverflowX": "visible",
+            "wrapOverflowX": "hidden",
             "innerW": 1920
           },
           "band": {
@@ -1214,10 +1206,10 @@
               "OTHER|flex min-w-0 items-center ",
               "OTHER|no-print pointer-events-au",
               "OTHER|flex h-dvh flex-col bg-bac",
-              "OTHER|geist_a71539c9-module__T19",
+              "OTHER|__variable_8eaea4 __variab",
               "OTHER|light"
             ],
-            "wrapOverflowX": "visible",
+            "wrapOverflowX": "hidden",
             "innerW": 1366
           },
           "band": {
@@ -1261,10 +1253,10 @@
               "OTHER|flex min-w-0 items-center ",
               "OTHER|no-print pointer-events-au",
               "OTHER|flex h-dvh flex-col bg-bac",
-              "OTHER|geist_a71539c9-module__T19",
+              "OTHER|__variable_8eaea4 __variab",
               "OTHER|light"
             ],
-            "wrapOverflowX": "visible",
+            "wrapOverflowX": "hidden",
             "innerW": 1920
           },
           "band": {
@@ -1309,19 +1301,18 @@
       "CHIP|RELION environment status: RELION not found",
       "CHIP|hidden xl:block",
       "OTHER|no-print flex shrink-0 ite",
-      "TRIGGER|Active project",
       "OTHER|no-print pointer-events-au",
       "OTHER|flex h-dvh flex-col bg-bac",
-      "OTHER|geist_a71539c9-module__T19",
+      "OTHER|__variable_8eaea4 __variab",
       "OTHER|light"
     ],
-    "wrapOverflowX": "visible",
+    "wrapOverflowX": "hidden",
     "innerW": 1280
   },
   "driftLedger": {
     "prevFound": true,
-    "prevBuild": "dev@c4c3735897dd",
-    "prevDate": "2026-10-10T14:38:59.849Z",
+    "prevBuild": "cAjxLhj7NiK6ltk_lB9jm",
+    "prevDate": "2026-11-04T21:15:38.895Z",
     "sameBuild": true,
     "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
     "faces": {

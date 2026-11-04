@@ -1,8 +1,8 @@
 {
   "instrument": "t874-run-compare-a11y",
   "worldMode": "build",
-  "build": "r8GOxh-ymcGX-2mJMCj9w",
-  "date": "2026-11-02T05:34:54.303Z",
+  "build": "cAjxLhj7NiK6ltk_lB9jm",
+  "date": "2026-11-04T21:01:59.492Z",
   "faces": {
     "arrival": {
       "nDialogs": 2,
@@ -30,7 +30,7 @@
       "selectGone": true
     },
     "escape": {
-      "after": 0
+      "after": 1
     },
     "world": {
       "btns": 144,
@@ -119,7 +119,7 @@
       }
     }
   },
-  "escapeDisease": "RECORDED (pre-fix build — the fix is in src, the t875 build-day ride turns this face green)",
-  "pass": 33,
-  "fail": 1
+  "escapeDisease": "FIXED on this build",
+  "pass": 35,
+  "fail": 0
 }

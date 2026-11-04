@@ -1,9 +1,9 @@
 {
   "instrument": "scripts/t870-aipanel-a11y.mjs",
   "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder -> title (the t867 growth — the tree's own tooltip voice, the accessible-name spec's own last resort) — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
-  "build": "r8GOxh-ymcGX-2mJMCj9w",
+  "build": "cAjxLhj7NiK6ltk_lB9jm",
   "worldMode": "build",
-  "date": "2026-11-02T04:01:58.421Z",
+  "date": "2026-11-04T21:08:02.509Z",
   "chain": "clean room -> canvas -> AI launcher -> panel (non-modal companion) -> empty face (suggestions + send refusal + drawer's honest empty) -> store seeded (reset-door discovery, pre-walk truth noted) -> rehydrated transcript (copy door, tool cards, filter row, keymap seat) -> 失败 chip -> 全部 -> history drawer (row from data, three doors, delete reveal) -> search filter + no-match -> Esc veto (search layer) -> Esc peel (window) -> store restored (net zero) -> reopened empty -> canvas back",
   "doors": {
     "panel": "click the header launcher (aria-label 'AI assistant')",
@@ -16,7 +16,7 @@
   },
   "seed": {
     "store": "/home/z/my-project/data/ai-assistant.json",
-    "resetSessionId": "ai-mvyqf10c-cyirqx",
+    "resetSessionId": "ai-mw2ly9d9-k6xdb8",
     "preWalkTruth": "absence",
     "restored": true,
     "note": "the seeded conversation AND the discovery reset's empty session were both erased — the store returned to its pre-walk truth"
@@ -219,27 +219,27 @@
     {
       "label": "L canvasFace face ride-drift law",
       "pass": true,
-      "detail": "arm 2 — world key moved (dev@ec37c84ff38b -> r8GOxh-ymcGX-2mJMCj9w), drift +null informational"
+      "detail": "arm 2 — world key moved (r8GOxh-ymcGX-2mJMCj9w -> cAjxLhj7NiK6ltk_lB9jm), drift +null informational"
     },
     {
       "label": "L emptyFace face ride-drift law",
       "pass": true,
-      "detail": "arm 2 — world key moved (dev@ec37c84ff38b -> r8GOxh-ymcGX-2mJMCj9w), drift +null informational"
+      "detail": "arm 2 — world key moved (r8GOxh-ymcGX-2mJMCj9w -> cAjxLhj7NiK6ltk_lB9jm), drift +null informational"
     },
     {
       "label": "L transcriptFace face ride-drift law",
       "pass": true,
-      "detail": "arm 2 — world key moved (dev@ec37c84ff38b -> r8GOxh-ymcGX-2mJMCj9w), drift +null informational"
+      "detail": "arm 2 — world key moved (r8GOxh-ymcGX-2mJMCj9w -> cAjxLhj7NiK6ltk_lB9jm), drift +null informational"
     },
     {
       "label": "L historyFace face ride-drift law",
       "pass": true,
-      "detail": "arm 2 — world key moved (dev@ec37c84ff38b -> r8GOxh-ymcGX-2mJMCj9w), drift +null informational"
+      "detail": "arm 2 — world key moved (r8GOxh-ymcGX-2mJMCj9w -> cAjxLhj7NiK6ltk_lB9jm), drift +null informational"
     },
     {
       "label": "L worldBack face ride-drift law",
       "pass": true,
-      "detail": "arm 2 — world key moved (dev@ec37c84ff38b -> r8GOxh-ymcGX-2mJMCj9w), drift +null informational"
+      "detail": "arm 2 — world key moved (r8GOxh-ymcGX-2mJMCj9w -> cAjxLhj7NiK6ltk_lB9jm), drift +null informational"
     }
   ],
   "passed": 43,
@@ -248,8 +248,8 @@
   "verdict": "the AI conversation face holds: the clean room held, the panel arrived as the honest non-modal companion, the empty face refused to send while empty, the seeded transcript hosted the user's own words with THE COPY DOOR measured live (hidden at rest, focus reveals — named, titled, icon-only), three tool cards spoke their verdicts under a filter row whose pressed states stayed honest, the keymap seat rode every world, the history drawer titled its row from the data with the three row doors named and the delete door obeying the same reveal law, the layered Esc was witnessed live (the search veto, then the window peel), and the store came back to its pre-walk truth with the panel reopening to its own honest empty",
   "driftLedger": {
     "prevFound": true,
-    "prevBuild": "dev@ec37c84ff38b",
-    "prevDate": "2026-11-01T02:47:19.234Z",
+    "prevBuild": "r8GOxh-ymcGX-2mJMCj9w",
+    "prevDate": "2026-11-02T04:01:58.421Z",
     "sameBuild": false,
     "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
     "faces": {

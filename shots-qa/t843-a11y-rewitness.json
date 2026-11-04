@@ -1,12 +1,12 @@
 {
   "instrument": "scripts/t843-a11y-rewitness.mjs",
   "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder -> title (the t867 growth — the tree's own tooltip voice, the accessible-name spec's own last resort) — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
-  "build": "r8GOxh-ymcGX-2mJMCj9w",
+  "build": "cAjxLhj7NiK6ltk_lB9jm",
   "worldMode": "build",
-  "date": "2026-11-02T04:00:24.595Z",
+  "date": "2026-11-04T21:06:22.364Z",
   "viewport": {
     "w": 1280,
-    "h": 800
+    "h": 577
   },
   "faces": {
     "canvas": {
@@ -26,7 +26,7 @@
           "unCtrls": 0,
           "heading": "Main",
           "innerW": 1280,
-          "innerH": 800
+          "innerH": 577
         },
         {
           "url": "/",
@@ -39,7 +39,7 @@
           "unCtrls": 0,
           "heading": "Main",
           "innerW": 1280,
-          "innerH": 800
+          "innerH": 577
         }
       ]
     },
@@ -53,7 +53,7 @@
       "live": [
         {
           "url": "/",
-          "btns": 118,
+          "btns": 114,
           "unBtns": 0,
           "unBtnsWho": [],
           "imgs": 0,
@@ -62,11 +62,11 @@
           "unCtrls": 0,
           "heading": "β-Galactosidase Tutorial (demo)",
           "innerW": 1280,
-          "innerH": 800
+          "innerH": 577
         },
         {
           "url": "/",
-          "btns": 118,
+          "btns": 114,
           "unBtns": 0,
           "unBtnsWho": [],
           "imgs": 0,
@@ -75,7 +75,7 @@
           "unCtrls": 0,
           "heading": "β-Galactosidase Tutorial (demo)",
           "innerW": 1280,
-          "innerH": 800
+          "innerH": 577
         }
       ],
       "arrival": {
@@ -112,12 +112,12 @@
     {
       "label": "A5b the dashboard face arrived",
       "pass": true,
-      "detail": "heading=\"β-Galactosidase Tutorial (demo)\" btns=118"
+      "detail": "heading=\"β-Galactosidase Tutorial (demo)\" btns=114"
     },
     {
       "label": "A6 dashboard rides bit-identical",
       "pass": true,
-      "detail": "btns=118 imgs=0"
+      "detail": "btns=114 imgs=0"
     },
     {
       "label": "A7 dashboard zero unnamed buttons",
@@ -132,7 +132,7 @@
     {
       "label": "A9 dashboard seat floor holds (census 114)",
       "pass": true,
-      "detail": "live=118 (census 114, drift +4)"
+      "detail": "live=114 (census 114, drift +0)"
     },
     {
       "label": "A10 world unharmed (canvas back, switcher aboard)",
@@ -143,5 +143,5 @@
   "passed": 11,
   "failed": 0,
   "total": 11,
-  "verdict": "the census's zero-unnamed invariant holds on the cheap honesty pair: 262 button-views across two faces, none without a name; the seats grew +2/+4 since the census and every newcomer still speaks; the decorative alt=\"\" trap caught the probe once (the t695 law's second bite) and the UI walked clean"
+  "verdict": "the census's zero-unnamed invariant holds on the cheap honesty pair: 258 button-views across two faces, none without a name; the seats grew +2/+0 since the census and every newcomer still speaks; the decorative alt=\"\" trap caught the probe once (the t695 law's second bite) and the UI walked clean"
 }

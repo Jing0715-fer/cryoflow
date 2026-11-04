@@ -2,12 +2,20 @@
 // Post-disaster world accounting: which projects exist, how many jobs,
 // QA rows, edges — the ledger this window reconciles against.
 //
-// ⚠ PIN the DB explicitly: the repo .env points at the IMAGE TEMPLATE
-// (db/custom.db) while the正统 server drinks db/cryoflow.db via the
-// dev-server.sh HARD-override (the t377/t635 poisoning lesson). Any
-// script that trusts .env sees the wrong world — the seeder family
-// pins absolute paths for exactly this reason.
-process.env.DATABASE_URL = 'file:/home/z/my-project/db/cryoflow.db';
+// ⚠ THE LANE LAW (three eras): this pin was the t377/t635 poisoning
+// guard — the era when .env pointed at the IMAGE TEMPLATE and the
+// launcher hard-overrode cryoflow.db. t872 RULED the platform owns .env
+// (custom.db is a legal lane; the launchers became passthroughs), so a
+// hard pin now SEES THE WRONG WORLD — worse, a dead one (t875: the pin
+// read a nonexistent cryoflow.db while the living world sat in
+// custom.db). Resolution order, same as the launchers and
+// reboot-recover.sh: an existing DATABASE_URL in the process env wins,
+// then .env's line, then the t377 default.
+import { readFileSync } from "node:fs";
+const ENV_URL = process.env.DATABASE_URL
+  ?? ((readFileSync("/home/z/my-project/.env", "utf8").match(/^DATABASE_URL=(.*)$/m)?.[1] ?? "")
+    || 'file:/home/z/my-project/db/cryoflow.db');
+process.env.DATABASE_URL = ENV_URL;
 const { PrismaClient } = await import('@prisma/client');
 
 const db = new PrismaClient();

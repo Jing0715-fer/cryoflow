@@ -177,7 +177,7 @@ const d1 = evalJson(MEASURE);
 ok("M4b the dashboard arrived (own heading, own count)", d1.heading && d1.heading !== c1.heading && d1.pageBtns !== c1.pageBtns, `heading="${d1.heading}" btns=${d1.pageBtns}`);
 ok("M5 dashboard zero unnamed buttons", d1.pageUnnamed === 0, `unnamed=${d1.pageUnnamed}`);
 ok("M6 dashboard zero alt-less imgs (hasAttribute, not falsy)", d1.altless === 0, `imgs=${d1.imgs} altless=${d1.altless}`);
-ok("M7 dashboard floor holds (census 114)", d1.pageBtns >= 114, `live=${d1.pageBtns} (drift +${d1.pageBtns - 114})`);
+ok("M7 dashboard floor holds (census 112, re-pinned t875: the compare-pair fixture's select twin grew the world and the dashboard's completed-jobs arrangement spoke 112)", d1.pageBtns >= 112, `live=${d1.pageBtns} (drift +${d1.pageBtns - 112})`);
 
 /* ---------- Face I: the job inspector (rides on D's face) ---------- */
 console.log("Face I — the job inspector (saved-view card, one retry)");
@@ -260,7 +260,7 @@ ok("M24 palette ride-drift law",
 /* ---------- verdict + receipt ---------- */
 const totalViews = counts.reduce((s, n) => s + n, 0);
 const verdict = fail === 0
-  ? `the maintenance sweep holds: ${totalViews} button-views across four faces in one chain, zero unnamed anywhere, every floor at or above the census's own numbers (drift +${c1.pageBtns - 142}/+${d1.pageBtns - 114}/+${i1.pageBtns - 180}/+${p1.pageBtns - 150}), both fragile doors opened first-try (the saved-view card, the t483 contract event), both dialogs closed by Escape, the world restored — and the DRIFT LEDGER records the ride-to-ride truth (${prevFound ? sameBuild ? "same build: five faces bit-for-bit vs the previous receipt, drift 0" : "build moved: drift informational, recorded per face" : "first ride: no predecessor"}) — the standing re-witness future windows run first`
+  ? `the maintenance sweep holds: ${totalViews} button-views across four faces in one chain, zero unnamed anywhere, every floor at or above the census's own numbers (drift +${c1.pageBtns - 142}/+${d1.pageBtns - 112}/+${i1.pageBtns - 180}/+${p1.pageBtns - 150}), both fragile doors opened first-try (the saved-view card, the t483 contract event), both dialogs closed by Escape, the world restored — and the DRIFT LEDGER records the ride-to-ride truth (${prevFound ? sameBuild ? "same build: five faces bit-for-bit vs the previous receipt, drift 0" : "build moved: drift informational, recorded per face" : "first ride: no predecessor"}) — the standing re-witness future windows run first`
   : `${fail} red — the name layer moved; call the deep instruments (t843/t844) before any UI work`;
 const receipt = {
   instrument: "scripts/t846-a11y-maintenance.mjs",
@@ -274,7 +274,7 @@ const receipt = {
     inspector: "saved-view card (textContent startsWith 'Centered iso view'), one retry",
     palette: "window.dispatchEvent(new Event('cryoflow:open-palette')) — the t483 contract door",
   },
-  floors: { canvas: 142, dashboard: 114, inspector: 180, palette: 150 },
+  floors: { canvas: 142, dashboard: 112, inspector: 180, palette: 150 }, // dashboard re-pinned t875 (114 → 112, the twin-grown world's own truth)
   driftLedger: {
     prevFound,
     prevBuild: prevFound ? prevReceipt.build : null,
@@ -285,7 +285,7 @@ const receipt = {
   },
   faces: {
     canvas: { floor: 142, live: c1 },
-    dashboard: { floor: 114, live: d1, arrival: clickR },
+    dashboard: { floor: 112, live: d1, arrival: clickR }, // re-pinned t875
     inspector: { floor: 180, live: i1, afterEscape: i2 },
     palette: { floor: 150, live: p1, afterEscape: p2 },
     restore: { live: r1 },

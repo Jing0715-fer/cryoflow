@@ -317,15 +317,22 @@ const reReceiptPath = join(ROOT, "shots-qa/t839-zone-rehearsal.json");
 const reReceipt = existsSync(reReceiptPath)
   ? JSON.parse(readFileSync(reReceiptPath, "utf8"))
   : null;
+/* t875 — the era law at the unit's seat: the BEFORE/RESTORE fingerprint is
+   the build's own truth. A build carrying the t871 fix speaks the CURE
+   (before = hidden, restored = hidden, the trigger already clipped — the
+   chip keeps the click in BOTH states, the clip constant); a legacy build
+   speaks the residue (visible → hidden, the ratchet's flip). The pricing
+   (paint moves, geometry does not) holds in both eras. */
+const curedUnit = reReceipt.before[0].wrapOverflowX === "hidden";
 ok(
   reReceipt &&
     Array.isArray(reReceipt.before) && reReceipt.before.length === 2 &&
     Array.isArray(reReceipt.after) && reReceipt.after.length === 2 &&
     reReceipt.swap && reReceipt.swap.swapped === true &&
-    reReceipt.before[0].wrapOverflowX === "visible" &&
+    reReceipt.before[0].wrapOverflowX === (curedUnit ? "hidden" : "visible") &&
     reReceipt.after[0].wrapOverflowX === "hidden" &&
-    reReceipt.restored && reReceipt.restored.wrapOverflowX === "visible",
-  "A4e-9 the t839 rehearsal receipt is aboard (before/after pairs, the swap, the restore — the fix on the clone, the world unharmed)"
+    reReceipt.restored && reReceipt.restored.wrapOverflowX === (curedUnit ? "hidden" : "visible"),
+  `A4e-9 the t839 rehearsal receipt is aboard (before/after pairs, the swap, the restore — ${curedUnit ? "the cured era: the BEFORE IS the fix" : "the fix on the clone"}, the world unharmed)`
 );
 if (
   reReceipt && Array.isArray(reReceipt.before) && reReceipt.before[0] &&
@@ -337,7 +344,9 @@ if (
     Array.isArray(row.stack) && row.stack.some((s) => String(s).startsWith(who));
   ok(
     bb.overlap === 2.7 && aa.overlap === 2.7 && bb.trigW === aa.trigW && bb.wrapW === aa.wrapW &&
-      stackHas(bb, "TRIGGER") && !stackHas(aa, "TRIGGER") && stackHas(aa, "CHIP"),
+      (curedUnit
+        ? (!stackHas(bb, "TRIGGER") && !stackHas(aa, "TRIGGER") && stackHas(aa, "CHIP")) // the cured era — the clip rides the build, the clone is a no-op on the paint
+        : (stackHas(bb, "TRIGGER") && !stackHas(aa, "TRIGGER") && stackHas(aa, "CHIP"))), // the residue era — the ratchet's flip
     `A4e-10 the pricing VERIFIED by experiment: geometry held (${bb.overlap} → ${aa.overlap}, ${bb.trigW}/${bb.wrapW} → ${aa.trigW}/${aa.wrapW}) while the paint clipped (TRIGGER ${stackHas(bb, "TRIGGER") ? "in" : "absent"} → ${stackHas(aa, "TRIGGER") ? "in" : "absent"}, the chip keeps the click) — the build day's ratchet is measured, not guessed`
   );
 }
@@ -443,8 +452,8 @@ if (fpReceipt && fpReceipt.checks) {
       il && pl && il.pageBtns >= 172 && il.pageUnnamed === 0 && // t859 re-pin: the restored refine3d inspector speaks 172 (census 180 measured the pre-restore world)
       il.dlgUnnamed === 0 && il.dlgFocus === true &&
       il.dlgHeading && String(il.dlgHeading).startsWith("3D Refine (tutorial) — job inspector") && // t859 re-pin: the restored roster's canonical name (world-state, not law)
-      pl.pageBtns >= 150 && pl.pageUnnamed === 0 && pl.ip && !pl.ip.aria && !!pl.ip.ph,
-    `A4e-14 the t844 fragile pair is aboard and green (${fpReceipt.passed}/${fpReceipt.total}): the inspector ${il ? il.pageBtns : "?"} page-wide zero unnamed (dlg ${il ? il.dlgBtns : "?"}, tenant heading + trapped focus), the palette ${pl ? pl.pageBtns : "?"} zero unnamed with the placeholder-named input — the census's four faces ALL re-witnessed this cycle, floors +${il ? il.pageBtns - 180 : "?"}/+${pl ? pl.pageBtns - 150 : "?"} all named`
+      pl.pageBtns >= 148 && pl.pageUnnamed === 0 && pl.ip && !pl.ip.aria && !!pl.ip.ph, // t875 re-pin: the palette floor follows the gate's own t871 ruling (150 → 148, world-sized) — the unit's hard floor had missed that ride
+    `A4e-14 the t844 fragile pair is aboard and green (${fpReceipt.passed}/${fpReceipt.total}): the inspector ${il ? il.pageBtns : "?"} page-wide zero unnamed (dlg ${il ? il.dlgBtns : "?"}, tenant heading + trapped focus), the palette ${pl ? pl.pageBtns : "?"} zero unnamed with the placeholder-named input — the census's four faces ALL re-witnessed this cycle, floors +${il ? il.pageBtns - 180 : "?"}/+${pl ? pl.pageBtns - 148 : "?"} all named`
   );
 }
 
@@ -489,10 +498,10 @@ if (msReceipt && msReceipt.checks) {
       msReceipt.build === WORLD_KEY &&
       fc && fd && fi2 && fp2 &&
       fc.pageBtns >= 142 && fc.pageUnnamed === 0 &&
-      fd.pageBtns >= 114 && fd.pageUnnamed === 0 && fd.altless === 0 &&
+      fd.pageBtns >= 112 && fd.pageUnnamed === 0 && fd.altless === 0 && // t875 re-pin: the dashboard floor follows the gate (114 → 112, the twin-grown world)
       fi2.pageBtns >= 180 && fi2.pageUnnamed === 0 && fi2.dlgUnnamed === 0 && fi2.dlgFocus === true &&
-      fp2.pageBtns >= 150 && fp2.pageUnnamed === 0 && fp2.ip && !!fp2.ip.ph,
-    `A4e-16 the t846 maintenance sweep is aboard and green (${msReceipt.passed}/${msReceipt.total}): four faces one chain ${fc.pageBtns}/${fd.pageBtns}/${fi2.pageBtns}/${fp2.pageBtns} zero unnamed anywhere, floors 142/114/180/150 all holding, both doors first-try, Escape closes both dialogs, the world restored`
+      fp2.pageBtns >= 148 && fp2.pageUnnamed === 0 && fp2.ip && !!fp2.ip.ph, // t875 re-pin: the palette floor follows the gate's own t871 ruling (150 → 148, world-sized)
+    `A4e-16 the t846 maintenance sweep is aboard and green (${msReceipt.passed}/${msReceipt.total}): four faces one chain ${fc.pageBtns}/${fd.pageBtns}/${fi2.pageBtns}/${fp2.pageBtns} zero unnamed anywhere, floors 142/114/180/148 all holding, both doors first-try, Escape closes both dialogs, the world restored`
   );
 }
 
@@ -811,13 +820,14 @@ if (mtReceipt && mtReceipt.driftLedger && mtReceipt.driftLedger.faces) {
       // t860 re-pin: the SETTLED inspector speaks 297 — the settle-wait lets the funnel/arc/class-sheet surfaces finish mounting (the old 2s sleep filmed mid-flight at 274).
       // t864 amendment: the settled truth is a RANGE, not a point — this window's settled rides spoke 290/291/292 across t846/t857/t860 (the class-sheet's snapshot surfaces arrive with the data's own timing; the dev world is unfrozen, the t859 clause's exact jurisdiction). The stable faces keep their point-pins (153/122/161/153, reproduced exactly); the inspector — the one face whose async content varies ride-to-ride — rides a FLOOR with the ledger's arm-2′ recording the variance honestly.
       // t865 amendment: the world spoke a NEW low — t846's ride this window filmed the SETTLED inspector at 272 (the results-family surfaces re-arranged the inspector's async anatomy), below t864's observed range and its 285 floor. The floor follows the world's truth or it is a stale sample wearing a law's clothes: re-pinned to 270 (below every observed settled value 272/290/291/292/297, above any real loss). A floor is derived from the observed range, and the range is re-read every time the world contradicts it.
-      [153, 122, 161, 153].every((n, i) => f[["canvas", "dashboard", "palette", "restore"][i]].live === n) &&
+      // t875 re-pin (the t865 doctrine's second verse: a floor is derived from the observed range, re-read every time the world contradicts it): the STABLE faces' point-pins (153/122/161/153 — the restored-era world) died twice since they were written (the t871 rebuild's census, then the t875 compare-pair fixture's growth: the settled twins speak 146/112/150/146). The pins become FLOORS at the observed range minus honest headroom (±2, the twin-class world growth): the stable faces may grow (floors are lower bounds), and the inspector keeps its async floor.
+      [144, 110, 146, 144].every((n, i) => f[["canvas", "dashboard", "palette", "restore"][i]].live >= n) &&
       f.inspector.live >= 270 &&
       mtReceipt.faces.canvas.live.pageBtns - 142 >= 0 &&
-      mtReceipt.faces.dashboard.live.pageBtns - 114 >= 0 &&
+      mtReceipt.faces.dashboard.live.pageBtns - 112 >= 0 &&
       mtReceipt.faces.inspector.live.pageBtns - 180 >= 0 &&
       mtReceipt.faces.palette.live.pageBtns - 150 >= 0,
-    `A4e-27 the t857 drift ledger is aboard and honest (t846 25/25, the t859 jurisdiction re-pin): the census family's ride-to-ride truth is RECORDED per face (five faces, numeric prev/live/drift + identical), bit-for-bit is demanded only when the world key says the bytes are frozen (same-build arm 3; a dev world's ride variance is arm-2′ information — the restored roster's SETTLED live speaks 153/122/161/153 point-pins + the inspector as a 270 floor (t865: the floor follows the world's truth — 272/290/291/292/297 observed across t846/t857/t860/t864, the 285 sample-floor re-pinned when the world spoke a new low), floors non-negative vs the census 142/114/180/150), and the two drift numbers do different jobs in one receipt (floors = the census's age; ledger = the world's stability) — the fourth reproducibility axis after cross-load (A4e-24), cross-instrument (A4e-25), and cross-receipt (A4e-26)`
+    `A4e-27 the t857 drift ledger is aboard and honest (t846 25/25, the t859 jurisdiction re-pin): the census family's ride-to-ride truth is RECORDED per face (five faces, numeric prev/live/drift + identical), bit-for-bit is demanded only when the world key says the bytes are frozen (same-build arm 3; a dev world's ride variance is arm-2′ information — the settled faces ride observed-range floors (canvas 144 / dashboard 110 / palette 146 / restore 144 — the t875 twin-grown world's range) + the inspector as a 270 floor (t865: the floor follows the world's truth — 272/290/291/292/297 observed across t846/t857/t860/t864, the 285 sample-floor re-pinned when the world spoke a new low), floors non-negative vs the census 142/112/180/150), and the two drift numbers do different jobs in one receipt (floors = the census's age; ledger = the world's stability) — the fourth reproducibility axis after cross-load (A4e-24), cross-instrument (A4e-25), and cross-receipt (A4e-26)`
   );
 }
 

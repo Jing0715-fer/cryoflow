@@ -236,6 +236,22 @@ if (after.n === 1) {
 
 /* ---------- P13 the reopen (NO PERSISTENCE) ---------- */
 console.log("\nP13 — the reopen (the walk re-enters; the host leads again)");
+/* THE FIX CHANGED THIS FACE'S WORLD (the t875 build-day ride's lesson):
+   on the PRE-FIX build P12's disease left a BARE canvas, so this face
+   clicked the host card directly. On a build CARRYING the fix the
+   inspector SURVIVES P12 (the whole point), and its Results tabpanel
+   (#radix-*-content-results) covers the card's click point — the raw
+   click lands on the tabpanel and agent-browser honestly refuses. The
+   law the face is filming is unchanged (the collateral is undoable,
+   reopening starts from the host), so the walk peels the SURVIVING
+   inspector with its OWN Escape seat first (the layered law's other
+   side: one press, one layer, the canvas returns), THEN walks the
+   card path — the same door, now with a witness that the peel was
+   exactly one layer deep. */
+ab(`eval "(() => { const d = document.querySelector('[role=dialog]'); if (!d) return 'x'; const k = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }); (document.activeElement || d).dispatchEvent(k); d.dispatchEvent(k); return 'x'; })()"`);
+sleepNode(2);
+const peeled = evalJson(`(() => JSON.stringify({ dialogs: document.querySelectorAll('[role=dialog]').length }))()`);
+ok(peeled.dialogs === 0, `P13 the surviving inspector peels in ONE press (dialogs after: ${peeled.dialogs} — the layered law from the inspector's own seat)`);
 ab("eval \"(() => { document.body.focus(); return 'x'; })()\"");
 ab(`click "div[role=button][aria-label^='${HOST}']"`);
 sleepNode(3);

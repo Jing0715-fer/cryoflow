@@ -171,12 +171,19 @@ const BAND_MEASURE =
  * each runs on a FRESH load so the clone is the unmutated world) ---------- */
 const SWAP_A =
   "(() => { const hdr = document.querySelector('header'); const mid = hdr.children[0].children[3]; const cw = mid.children[1]; if (!cw) return JSON.stringify({ error: 'no psWrap' }); const orig = document.documentElement; const clone = orig.cloneNode(true); const cmid = clone.querySelector('header').children[0].children[3]; const tw = cmid.children[1]; if (!tw) return JSON.stringify({ error: 'clone walk failed' }); tw.style.overflowX = 'hidden'; try { document.replaceChild(clone, orig); } catch (e) { document.removeChild(orig); document.appendChild(clone); } return JSON.stringify({ swapped: true, fix: tw.style.overflowX }); })()";
+/* t875 era law: the residue-era options (B/C) film the PRE-fix behaviors, so
+   on a build carrying the t871 fix the clone must FIRST strip it (the fix
+   rides src as the overflow-hidden class on the PS wrapper — the clone
+   inherits it). The strip is the clone's own un-teaching: remove the class
+   AND the computed value, the residue era restored inside the clone. */
+const STRIP_FIX =
+  "const cw2 = clone.querySelector('header').children[0].children[3].children[1]; if (cw2) { cw2.classList.remove('overflow-hidden'); cw2.style.overflowX = 'visible'; }";
 const SWAP_B = (px) =>
   "(() => { const hdr = document.querySelector('header'); const cwm0 = hdr.querySelector('div.min-w-0.leading-tight'); if (!cwm0) return JSON.stringify({ error: 'no wm' }); const orig = document.documentElement; const clone = orig.cloneNode(true); const cwm = clone.querySelector('div.min-w-0.leading-tight'); if (!cwm) return JSON.stringify({ error: 'clone walk failed' }); cwm.style.maxWidth = '" +
   px +
-  "px'; try { document.replaceChild(clone, orig); } catch (e) { document.removeChild(orig); document.appendChild(clone); } return JSON.stringify({ swapped: true, fix: cwm.style.maxWidth }); })()";
+  "px'; " + STRIP_FIX + " try { document.replaceChild(clone, orig); } catch (e) { document.removeChild(orig); document.appendChild(clone); } return JSON.stringify({ swapped: true, fix: cwm.style.maxWidth }); })()";
 const SWAP_C =
-  "(() => { const hdr = document.querySelector('header'); const mid = hdr.children[0].children[3]; const cw = mid.children[1]; const ctrig0 = cw && cw.querySelector('button, [role=combobox]'); if (!ctrig0) return JSON.stringify({ error: 'no trig' }); const orig = document.documentElement; const clone = orig.cloneNode(true); const cmid = clone.querySelector('header').children[0].children[3]; const ctw = cmid.children[1].querySelector('button, [role=combobox]'); if (!ctw) return JSON.stringify({ error: 'clone walk failed' }); ctw.style.width = '150px'; try { document.replaceChild(clone, orig); } catch (e) { document.removeChild(orig); document.appendChild(clone); } return JSON.stringify({ swapped: true, fix: ctw.style.width }); })()";
+  "(() => { const hdr = document.querySelector('header'); const mid = hdr.children[0].children[3]; const cw = mid.children[1]; const ctrig0 = cw && cw.querySelector('button, [role=combobox]'); if (!ctrig0) return JSON.stringify({ error: 'no trig' }); const orig = document.documentElement; const clone = orig.cloneNode(true); const cmid = clone.querySelector('header').children[0].children[3]; const ctw = cmid.children[1].querySelector('button, [role=combobox]'); if (!ctw) return JSON.stringify({ error: 'clone walk failed' }); ctw.style.width = '150px'; " + STRIP_FIX + " try { document.replaceChild(clone, orig); } catch (e) { document.removeChild(orig); document.appendChild(clone); } return JSON.stringify({ swapped: true, fix: ctw.style.width }); })()";
 
 const fontsWait = () => {
   for (let i = 0; i < 6; i++) {
@@ -361,8 +368,12 @@ ok(
   `T4 (c) the BACKFIRE: the floor binds anyway (trigW ${c1.trigW}), the wrapper yields deeper (115.3 → ${c1.wrapW}), the paint WORSENS to ${c1.overlap} (+8.7) — the tier law eats the freed demand upstream, the arithmetic pricing refuted`
 );
 ok(
-  fontsR && r1.overlap === 2.7 && r1.wrapOverflowX === "visible" && r1.wmW === 101.3,
-  `T5 the restore: fresh load back to the BEFORE truth (${r1.overlap} / ${r1.wrapOverflowX} / wmW ${r1.wmW}) — the world unharmed`
+  /* t875 era law (the t839 rehearsal's teach, carried here): the restore's
+     BEFORE truth depends on the build — a build carrying the t871 fix
+     speaks overflow hidden (the BEFORE IS the cure); a legacy build speaks
+     the residue (visible). The geometry and the wordmark pin are era-free. */
+  fontsR && r1.overlap === 2.7 && (r1.wrapOverflowX === "hidden" || r1.wrapOverflowX === "visible") && r1.wmW === 101.3,
+  `T5 the restore: fresh load back to the BEFORE truth (${r1.overlap} / ${r1.wrapOverflowX} / wmW ${r1.wmW}) — the world unharmed${r1.wrapOverflowX === "hidden" ? " (the cured era: the fix rides this build)" : ""}`
 );
 
 /* ---------- the fifth seat (t848): the band layer on every option's clone ---------- */

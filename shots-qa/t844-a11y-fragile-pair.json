@@ -1,9 +1,9 @@
 {
   "instrument": "scripts/t844-a11y-fragile-pair.mjs",
   "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder -> title (the t867 growth — the tree's own tooltip voice, the accessible-name spec's own last resort) — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
-  "build": "r8GOxh-ymcGX-2mJMCj9w",
+  "build": "cAjxLhj7NiK6ltk_lB9jm",
   "worldMode": "build",
-  "date": "2026-11-02T04:02:42.694Z",
+  "date": "2026-11-04T21:06:41.564Z",
   "doors": {
     "inspector": "dashboard → saved-view card (textContent startsWith 'Centered iso view')",
     "palette": "window.dispatchEvent(new Event('cryoflow:open-palette')) — the t483 contract door"

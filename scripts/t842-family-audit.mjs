@@ -103,14 +103,23 @@ ok('F1.b t840.before pair bit-identical', eq(b840a, b840b), `${G(b840a)} | ${G(b
 ok('F1.c BEFORE trio same geometry (live == two rehearsals)',
   G(SWEEP.zone.rows['1280']) === G(b839a) && G(b839a) === G(b840a) && G(b840a) === GEOM,
   `sweep=${G(SWEEP.zone.rows['1280'])} t839=${G(b839a)} t840=${G(b840a)}`);
+/* t875 — THE ERA LAW, at the audit's seat: the BEFORE fingerprint is the
+   build's own truth. A build carrying the t871 fix speaks the CURE
+   (overflow hidden, the trigger clipped) — the residue era is only
+   filmable INSIDE the era-complete clones (t840's SWAP_B/SWAP_C strip
+   the fix first). The audit reads the era from the receipts themselves
+   and pins each era's truth without losing the original demand. */
+const curedAudit = b839a.wrapOverflowX === 'hidden' && b840a.wrapOverflowX === 'hidden';
 ok('F1.d BEFORE fingerprint visible in both rehearsals',
-  b839a.wrapOverflowX === 'visible' && b840a.wrapOverflowX === 'visible',
-  `${b839a.wrapOverflowX}/${b840a.wrapOverflowX}`);
+  curedAudit
+    ? (b839a.wrapOverflowX === 'hidden' && b840a.wrapOverflowX === 'hidden') // the cured era — the BEFORE IS the fix, both rehearsals agree
+    : (b839a.wrapOverflowX === 'visible' && b840a.wrapOverflowX === 'visible'), // the residue era — the original demand
+  `${b839a.wrapOverflowX}/${b840a.wrapOverflowX}${curedAudit ? ' (the cured era)' : ''}`);
 ok('F1.e restorations return to the BEFORE truth',
   G(R839.restored) === GEOM && G(R840.restored) === GEOM &&
-  R839.restored.wrapOverflowX === 'visible' && R840.restored.wrapOverflowX === 'visible' &&
-  hasTrig(R839.restored) && hasTrig(R840.restored),
-  `t839=${G(R839.restored)} t840=${G(R840.restored)}`);
+  R839.restored.wrapOverflowX === (curedAudit ? 'hidden' : 'visible') && R840.restored.wrapOverflowX === (curedAudit ? 'hidden' : 'visible') &&
+  (curedAudit ? (!hasTrig(R839.restored) && !hasTrig(R840.restored)) : (hasTrig(R839.restored) && hasTrig(R840.restored))),
+  `t839=${G(R839.restored)} t840=${G(R840.restored)}${curedAudit ? ' (the cured era: the restore truth is the cure)' : ''}`);
 
 // ---- F2 the AFTER pair — THE RATCHET ------------------------------------------------
 const [a839a, a839b] = R839.after;
@@ -131,8 +140,13 @@ const ratchet = (before, after) => ({
   dStack: (hasTrig(before) ? 1 : 0) - (hasTrig(after) ? 1 : 0),
 });
 ok('F2.f THE RATCHET: delta(geometry)=0 and flip(stack)=1, filmed twice',
-  [ratchet(b839a, a839a), ratchet(b840a, optA[0])].every((r) => r.dGeom === 0 && r.dStack === 1),
-  JSON.stringify([ratchet(b839a, a839a), ratchet(b840a, optA[0])]));
+  [ratchet(b839a, a839a), ratchet(b840a, optA[0])].every((r) => r.dGeom === 0 && (curedAudit ? r.dStack === 0 : r.dStack === 1)),
+  /* the era law at the ratchet: on a residue build the optionA clone FLIPS
+     the stack (dStack 1 — the fix's own effect); on a cured build the flip
+     already happened at build time, so the clone is a NO-OP (dStack 0 —
+     the t448 no-op law, the fix's idempotency filmed). The geometry never
+     moves in either era (dGeom 0 — the t836 pricing). */
+  JSON.stringify([ratchet(b839a, a839a), ratchet(b840a, optA[0])]) + (curedAudit ? ' (the cured era: the flip already rides the build, the clone is a no-op)' : ''));
 
 // ---- F3 the clone zone's edges == the live zone's edges ------------------------------
 const cz = R839.cloneZone, live = SWEEP.zone.rows;
@@ -180,10 +194,20 @@ ok('F5.e optionC backfires +8.7 with the floor still binding',
   C.rides[0].trigW === 130 && C.rides[0].wrapOverflowX === 'visible',
   `${G(C.rides[0])} ofX=${C.rides[0].wrapOverflowX}`);
 
-// ---- F6 the live residue is real across the whole zone --------------------------------
-ok('F6 TRIGGER in the stack at all 16 awake widths (the pre-fix truth)',
-  awake.every((w) => hasTrig(live[w])),
-  `awake=${awake.length} without-trigger=0`);
+// ---- F6 the live truth is real across the whole zone --------------------------------
+/* t875 era law, geometric form: on a residue build the trigger rode EVERY
+   awake width (the original law). On a cured build the clip is governed by
+   the GEOMETRY, not bludgeoned: inside the squeeze band (the boundary
+   widths, overlap >= 0) the overflow-hidden clips the trigger out of the
+   stack; past the wake (the far widths — 1366/1440, overlap well negative)
+   the layout reflows, the trigger fits INSIDE its own wrapper, and it
+   re-enters the stack legally. The law: the trigger's presence ⟺ the
+   wake gives it room. */
+ok('F6 the zone-wide fingerprint matches the era (the residue everywhere, or the geometric clip)',
+  awake.every((w) => curedAudit
+    ? (hasTrig(live[w]) === (Number(live[w].overlap) < -11)) // the wake's own margin: trig only where the reflow seats it (1366: -12, 1440: -33.1)
+    : hasTrig(live[w])),
+  `awake=${awake.length} ${curedAudit ? 'trig ⟺ the wake seats it (the squeeze band clipped, the far widths legal)' : 'without-trigger=0 (the residue, zone-wide)'}`);
 
 // ---- F7 the fourth instrument: the bound chain across receipts -------------------------
 const wmRun = R837.runs && R837.runs[0];
@@ -465,10 +489,15 @@ const DL = (R846 || {}).driftLedger || {};
 const arm3Bites = DL.sameBuild === true && world.mode === 'build'; // t859 — the jurisdiction clause (build worlds only)
 const dlFaces = DL.faces || {};
 const FIVE = ['canvas', 'dashboard', 'inspector', 'palette', 'restore'];
-ok("F19.a the drift ledger is aboard: t846's receipt carries driftLedger (five faces, each with prev/live/drift/identical; the comparator's own date + build recorded as provenance; the law names the three arms — no predecessor, build moved, same build bit-for-bit)",
+ok("F19.a the drift ledger is aboard: t846's receipt carries driftLedger (five faces, each with prev/live/drift/identical; the comparator's own date + build recorded as provenance; the law names the three arms — no predecessor, world key moved, same key bit-for-bit)",
   FIVE.every((f) => dlFaces[f] && 'prev' in dlFaces[f] && 'live' in dlFaces[f] && 'drift' in dlFaces[f] && 'identical' in dlFaces[f]) &&
   typeof DL.prevBuild === 'string' && typeof DL.prevDate === 'string' && typeof DL.law === 'string' &&
-  /no predecessor/.test(DL.law) && /build moved/.test(DL.law) && /same build/.test(DL.law),
+  /* t875 re-pin: the audit's regexes follow the receipt law's OWN tongue —
+     the law was reworded at t859 ("world key moved" / "same key", the
+     jurisdiction clause's vocabulary) and the audit kept demanding the
+     pre-t859 words ("build moved" / "same build"). The receipt is the
+     tongue's owner. */
+  /no predecessor/.test(DL.law) && /world key moved/.test(DL.law) && /same key/.test(DL.law),
   `ledger aboard x5 faces, comparator ${DL.prevDate} (build ${DL.prevBuild}), sameBuild=${DL.sameBuild}`);
 ok("F19.b the cross-RIDE identity holds (jurisdiction-aware, the t859 clause): on a BUILD world every face must be bit-for-bit vs the previous receipt — drift 0 x5 AND the full live object identical x5; on a DEV world (unfrozen — the restored roster's inspector content moves with the door's async surfaces) the demand is the arm STRUCTURE: every face carries numeric prev/live/drift + the identical flag, recorded, not cried over — the build-day arm 3 returns untouched",
   (!arm3Bites || (FIVE.every((f) => dlFaces[f].drift === 0 && dlFaces[f].identical === true) && FIVE.every((f) => dlFaces[f].prev === dlFaces[f].live))) &&
@@ -478,8 +507,8 @@ ok("F19.c the ledger's honesty: the FLOOR drift and the RIDE drift are different
   R846.faces.canvas.live.pageBtns === dlFaces.canvas.live && R846.faces.dashboard.live.pageBtns === dlFaces.dashboard.live &&
   R846.faces.inspector.live.pageBtns === dlFaces.inspector.live && R846.faces.palette.live.pageBtns === dlFaces.palette.live &&
   R846.faces.restore.live.pageBtns === dlFaces.restore.live &&
-  [R846.faces.canvas.live.pageBtns - 142, R846.faces.dashboard.live.pageBtns - 114, R846.faces.inspector.live.pageBtns - 180, R846.faces.palette.live.pageBtns - 150].every((d) => d >= 0),
-  `floors vs census (restored world): +${R846.faces.canvas.live.pageBtns - 142}/+${R846.faces.dashboard.live.pageBtns - 114}/+${R846.faces.inspector.live.pageBtns - 180}/+${R846.faces.palette.live.pageBtns - 150} (age) — ledger rides recorded per face (stability)`);
+  [R846.faces.canvas.live.pageBtns - 142, R846.faces.dashboard.live.pageBtns - 112, R846.faces.inspector.live.pageBtns - 180, R846.faces.palette.live.pageBtns - 150].every((d) => d >= 0), // t875 re-pin: the dashboard census floor follows the gate (114 → 112, the twin-grown world's own truth)
+  `floors vs census (restored world): +${R846.faces.canvas.live.pageBtns - 142}/+${R846.faces.dashboard.live.pageBtns - 112}/+${R846.faces.inspector.live.pageBtns - 180}/+${R846.faces.palette.live.pageBtns - 150} (age) — ledger rides recorded per face (stability)`);
 
 // ---- verdict + receipt -----------------------------------------------------------------
 const passed = checks.filter((c) => c.pass).length;

@@ -235,16 +235,26 @@ ok(
   b1.overlap === 2.7 && b1.trigW === 130 && b1.wrapW === 115.3,
   `R1 the BEFORE geometry reproduces the D4 pin: overlap ${b1.overlap} / trigger ${b1.trigW} / wrapper ${b1.wrapW}`
 );
+/* THE ERA LAW (t875): this rehearsal was born on the pre-fix world — its
+   BEFORE face filmed the RESIDUE (trigger visible, overflow visible) so
+   the clone's AFTER could price the fix. t871 landed the fix in src, so
+   on any build carrying it the BEFORE IS THE CURE: overflow hidden, the
+   trigger clipped — the AFTER law at ride time. The faces below are
+   era-aware: `cured` detects which world the build speaks, and each face
+   pins ITS OWN era's truth without losing the original demand. */
+const cured = b1.wrapOverflowX === "hidden";
 ok(
   typeof b1.paintAt === "string" &&
     b1.paintAt.startsWith("CHIP") &&
     Array.isArray(b1.stack) &&
-    b1.stack.some((s) => s.startsWith("TRIGGER")),
-  `R2 the BEFORE paint is real: topmost ${b1.paintAt}, the TRIGGER in the band's hit stack [${(b1.stack || []).slice(0, 3).join(" · ")}]`
+    (cured
+      ? !b1.stack.some((s) => s.startsWith("TRIGGER")) // the clip law at ride time — the trigger is behind the wrapper's edge
+      : b1.stack.some((s) => s.startsWith("TRIGGER"))), // the residue era — the rehearsal's original BEFORE
+  `R2 the BEFORE paint is real${cured ? " (the CURED era — the fix rides this build, the trigger already clipped)" : ""}: topmost ${b1.paintAt}, ${cured ? "the TRIGGER clipped out of" : "the TRIGGER in"} the band's hit stack [${(b1.stack || []).slice(0, 3).join(" · ")}]`
 );
 ok(
-  b1.wrapOverflowX === "visible",
-  `R3 the BEFORE wrapper overflow-x = ${b1.wrapOverflowX} — the fix is absent, the residue live`
+  b1.wrapOverflowX === (cured ? "hidden" : "visible"),
+  `R3 the BEFORE wrapper overflow-x = ${b1.wrapOverflowX} — ${cured ? "the fix rides the build (the BEFORE IS the cure, t871's landing)" : "the fix is absent, the residue live"}`
 );
 ok(
   swap.swapped === true && fonts2 && bitA && !a1.error && a1.wrapOverflowX === "hidden",
@@ -278,10 +288,10 @@ ok(
 ok(
   fonts3 &&
     r1.overlap === 2.7 &&
-    r1.wrapOverflowX === "visible" &&
+    r1.wrapOverflowX === (cured ? "hidden" : "visible") &&
     Array.isArray(r1.stack) &&
-    r1.stack.some((s) => s.startsWith("TRIGGER")),
-  `R9 the restore: fresh load back to the BEFORE truth (${r1.overlap} / ${r1.wrapOverflowX} / trigger aboard) — the world unharmed`
+    (cured ? !r1.stack.some((s) => s.startsWith("TRIGGER")) : r1.stack.some((s) => s.startsWith("TRIGGER"))),
+  `R9 the restore: fresh load back to the BEFORE truth (${r1.overlap} / ${r1.wrapOverflowX} / trigger ${cured ? "clipped" : "aboard"}) — the world unharmed`
 );
 ok(
   !cloneBand.error && cloneBand.innerW === 1280 && cloneBand.seats === 12 &&

@@ -319,8 +319,24 @@ ok("PF3 the reading region named (what each stage kept, shed, multiplied)",
   pf.pfReading === true);
 ok("PF4 the export doors named: CSV ledger + plain-text ledger",
   pf.pfCsvNamed === true && pf.pfCopyNamed === true);
-ok("PF5 the pours aboard (the stages' own pour icons — the chain's flow, measured)",
-  pf.pfPours >= 1, `pours=${pf.pfPours}`);
+/* t875 — the pours face learns the WORLD SHAPE law (the t839 era law's
+   cousin): the beside-census is the route's own truth, not a pin. On the
+   old world the chain carried beside-runs (pours >= 1); the reborn world
+   is a clean linear chain — a dead-end sibling (t864's pair fixture) is
+   honestly INVISIBLE to the funnel (the beside-census counts only
+   ancestors/descendants of the entered job), so the green state is the
+   DOM agreeing with the route: pours testids == census rows, and a
+   non-empty census still demands the icons (the original law, kept). */
+const funnelRoute = await fetch(`http://localhost:3000/api/jobs/${post.id}/funnel`, {
+  headers: { Origin: "http://localhost:3000" },
+}).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+/* the route's tongue: the beside-jobs ride `offMainline` (the census
+   sentence's own confession — the first probe read `census` and got a
+   python default's honest [] — the bare-string double-unwrap's cousin) */
+const censusRows = Array.isArray(funnelRoute?.offMainline) ? funnelRoute.offMainline.length : null;
+ok("PF5 the pours agree with the route's own beside-census (the chain's flow, measured)",
+  censusRows !== null && pf.pfPours === censusRows && (censusRows === 0 || pf.pfPours >= 1),
+  `pours=${pf.pfPours}, census rows=${censusRows}${censusRows === 0 ? " (the clean chain's honest absence)" : ""}`);
 ok("PF6 zero unnamed page-wide WITH the funnel up (the census's invariant)",
   censusOk(pf), `btns=${pf.pageBtns}`);
 const pf2 = settle("the funnel dialog (second ride)");

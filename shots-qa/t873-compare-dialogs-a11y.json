@@ -1,8 +1,8 @@
 {
   "instrument": "t873-compare-dialogs-a11y",
   "worldMode": "build",
-  "build": "r8GOxh-ymcGX-2mJMCj9w",
-  "date": "2026-11-02T04:49:48.312Z",
+  "build": "cAjxLhj7NiK6ltk_lB9jm",
+  "date": "2026-11-04T21:09:13.730Z",
   "faces": {
     "arrival": {
       "nDialogs": 2,
@@ -58,7 +58,7 @@
   },
   "ledger": {
     "arrival": {
-      "arm": "arm 3",
+      "arm": "arm 2",
       "ok": true,
       "drift": 0,
       "identical": true,
@@ -68,7 +68,7 @@
       }
     },
     "chart": {
-      "arm": "arm 3",
+      "arm": "arm 2",
       "ok": true,
       "drift": 0,
       "identical": true,
@@ -78,7 +78,7 @@
       }
     },
     "escape": {
-      "arm": "arm 3",
+      "arm": "arm 2",
       "ok": true,
       "drift": 0,
       "identical": true,
@@ -88,7 +88,7 @@
       }
     },
     "params": {
-      "arm": "arm 3",
+      "arm": "arm 2",
       "ok": true,
       "drift": 0,
       "identical": true,
@@ -98,7 +98,7 @@
       }
     },
     "pick": {
-      "arm": "arm 3",
+      "arm": "arm 2",
       "ok": true,
       "drift": 0,
       "identical": true,
@@ -108,7 +108,7 @@
       }
     },
     "restore": {
-      "arm": "arm 3",
+      "arm": "arm 2",
       "ok": true,
       "drift": 0,
       "identical": true,
@@ -118,7 +118,7 @@
       }
     },
     "rows": {
-      "arm": "arm 3",
+      "arm": "arm 2",
       "ok": true,
       "drift": 0,
       "identical": true,
@@ -128,7 +128,7 @@
       }
     },
     "world": {
-      "arm": "arm 3",
+      "arm": "arm 2",
       "ok": true,
       "drift": 0,
       "identical": true,

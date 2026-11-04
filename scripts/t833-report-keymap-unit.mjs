@@ -155,7 +155,13 @@ console.log("B — the census verdict");
   );
 
   const allKeymaps = hosts.map((p) => (src(p).match(/data-canvas-ui="[a-z-]*keymap"/g) ?? []).length).reduce((a, b) => a + b, 0);
-  ok(allKeymaps === 6, `B4 the family's seat count — ${allKeymaps} keymap rows tree-wide (results' five + the report's first outside seat)`);
+  /* t875 re-pin: 6 → 9 — the family grew three seats after this unit was
+     written and the census never re-pinned: the job-inspector's Files tab
+     carries the results family's own structured law aboard (text-keymap +
+     star-keymap, t779's peek doors) and the AI panel speaks ai-keymap
+     (t870's keyboard-reachable region). results' five + the report's one
+     + the inspector's two + the AI panel's one. */
+  ok(allKeymaps === 9, `B4 the family's seat count — ${allKeymaps} keymap rows tree-wide (results' five + the report's one + the inspector's Files-tab two + the AI panel's one)`);
 }
 
 console.log("C — regression guards");
