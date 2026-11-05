@@ -24,9 +24,19 @@ echo "[t878] 1. parking the tab"
 agent-browser open about:blank > /dev/null 2>&1 || true
 
 echo "[t878] 2. single boot"
-pkill -f "next dev" 2>/dev/null || true
-pkill -f next-server 2>/dev/null || true
+# The discipline is SINGLE-BOOT and SINGLE-KEEPER: the watchdog (scripts/
+# dev-server-watchdog.sh) is a keeper with its own boot lane and its own
+# SILENT_ZOMBIE patience — a manual canvas compile outlasts that patience,
+# so a surviving watchdog KILLS the film leg's server mid-compile and boots
+# its own (the t877 double-boot disease, two next-servers on ONE .next).
+# The film leg runs keeper-less: the window itself is the keeper.
+pkill -f dev-server-watchdog 2>/dev/null
+pkill -9 -f "next dev" 2>/dev/null
+pkill -9 -f "next-server" 2>/dev/null
 sleep 3
+if pgrep -f "next dev" > /dev/null 2>&1 || pgrep -f "next-server" > /dev/null 2>&1; then
+  echo "[t878] FATAL — a next mouth survived the kill:"; pgrep -fa "next dev|next-server"; exit 1
+fi
 rm -rf .next
 setsid nohup bash dev-server.sh > /tmp/t878-lane.log 2>&1 < /dev/null &
 for _ in $(seq 1 40); do

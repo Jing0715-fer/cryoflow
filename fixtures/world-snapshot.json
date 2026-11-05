@@ -1,7 +1,7 @@
 {
  "meta": {
-  "exportedAt": "2026-11-04T23:30:16.048Z",
-  "head": "9ac35c11",
+  "exportedAt": "2026-11-05T01:08:09.622Z",
+  "head": "5fd5f587",
   "db": "file:…/cryoflow.db",
   "counts": {
    "project": 1,
@@ -12,7 +12,7 @@
    "overlaySession": 0,
    "bookmarkSession": 1,
    "presetShelf": 0,
-   "worldLedger": 0
+   "worldLedger": 1
   },
   "engineStateJobs": 15
  },
@@ -475,7 +475,13 @@
    }
   ],
   "presetShelf": [],
-  "worldLedger": []
+  "worldLedger": [
+   {
+    "projectId": "cmw2kvuyn0000nk9itbp8mx28",
+    "envelope": "{\"v\":1,\"rows\":[{\"t\":1793837622562,\"jobs\":16,\"edges\":15,\"running\":0,\"completed\":16,\"failed\":0}]}",
+    "updatedAt": "2026-11-05T00:25:17.843Z"
+   }
+  ]
  },
  "engineState": {
   "cmw05fptx0002m3jor7mxpa5z": {
