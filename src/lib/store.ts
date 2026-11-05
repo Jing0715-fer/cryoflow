@@ -2110,6 +2110,11 @@ function clamp(v: number, min: number, max: number) {
 /** One pollTick at a time (see the guard inside pollTick). */
 let pollInFlight = false;
 
+/** t879 — the empty-registry nudge's throttle clock (see pollTick). One
+ *  cheap GET pair per ~15s while the store has nowhere to stand; the
+ *  backfill (t622) keeps its own longer window, this rides the beat. */
+let registryNudgeAt = 0;
+
 /**
  * t370 — client-side TOMBSTONES for freshly deleted jobs. The field
  * report: delete a job while a same-type job is being created and the
@@ -5213,6 +5218,53 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       // carried home (see ingestEdgesTick). A wire drawn in another tab,
       // by the AI's tools, or by a script lands here without a reload.
       await ingestEdgesTick(get, set);
+      // t879 — the empty-registry nudge rides the poll. t622's backfill is
+      // a 12-round window whose apiSteady rounds can each outlast a dev
+      // compile (~70s a round → the "restart-sized window" is really ~14
+      // minutes), and a boot that raced a long compile window outlived it
+      // once already (the t879 witness: the footer read 0 jobs · 0 edges
+      // for six minutes with the living world behind it). The poll is the
+      // standing metronome: when the store has nowhere to stand (no
+      // workspace at all), one cheap GET pair rides the tick — throttled
+      // to one attempt per ~15s — and lands with the same trust gate the
+      // boot seed and the backfill share (null or a stale id → the first
+      // workspace). The projects list rides too: the palette's Projects
+      // group starves the same way, and this beat never expires. The
+      // reference-identity rule is the backfill's own, inverted: only an
+      // EMPTY array may be healed (a non-empty list owns the truth and the
+      // nudge stands down) — a fetch that answered honestly empty lands
+      // nothing and the next tick tries again, so a genuinely zero-registry
+      // world pays one 40-byte round trip per 15s and no more.
+      const s0 = get();
+      if ((s0.workspaces.length === 0 || s0.projects.length === 0) &&
+          Date.now() - registryNudgeAt > 15000) {
+        registryNudgeAt = Date.now();
+        try {
+          const [freshProjects, freshWs] = await Promise.all([
+            s0.projects.length === 0
+              ? apiSteady<{ projects: ProjectSummaryDTO[] }>("/api/projects", 1).catch(() => null)
+              : Promise.resolve(null),
+            s0.workspaces.length === 0
+              ? apiSteady<{ workspaces: WorkspaceDTO[] }>("/api/workspaces", 1).catch(() => null)
+              : Promise.resolve(null),
+          ]);
+          const s1 = get();
+          const patch: Partial<WorkflowState> = {};
+          if (freshProjects?.projects.length && s1.projects.length === 0) {
+            patch.projects = freshProjects.projects;
+          }
+          if (freshWs?.workspaces.length && s1.workspaces.length === 0) {
+            patch.workspaces = freshWs.workspaces;
+            const cur = s1.activeWorkspaceId;
+            if (cur === null || !freshWs.workspaces.some((w) => w.id === cur)) {
+              patch.activeWorkspaceId = freshWs.workspaces[0]?.id ?? null;
+            }
+          }
+          if (Object.keys(patch).length) set(patch);
+        } catch {
+          // the nudge never raises — the next tick rides again
+        }
+      }
       // t393 — the version token rides the poll: an unmoved canvas answers
       // ~40 bytes and this tick is over before the merge chain ever runs
       // (no parse of a full array, no tombstone/held-position passes, no
