@@ -30,6 +30,7 @@ import {
   readMemoryPressure,
   presentSystemDiagnostics,
 } from "@/lib/diagnostics";
+import { oomTempoWord } from "@/lib/pressure-words";
 
 let pass = 0;
 let fail = 0;
@@ -99,7 +100,7 @@ const FIXTURE = [
     provenance: { commit: "4150a1b9", standalone: false },
     world: { projects: 1, jobs: 16, runningJobs: 0 },
     durability: null,
-    pressure: { oomKills: 2, lastVictim: { comm: "next-server (v1)", rssMb: 2726 }, lastInvoker: "chrome", selfRssMb: 412 },
+    pressure: { oomKills: 2, lastVictim: { comm: "next-server (v1)", rssMb: 2726 }, lastInvoker: "chrome", selfRssMb: 412, uptimeHours: 2.5 },
     generatedAt: "2026-11-05T00:00:00.000Z",
   };
   const res = presentSystemDiagnostics(payload);
@@ -170,6 +171,28 @@ ok("C9 the client mirror grew the same shape", clientSrc.includes("MemoryPressur
     live = `threw: ${e.message}`;
   }
   ok("D1 the live read answers without throwing", !live.startsWith("threw"), live);
+}
+
+
+// ── E — the tempo word (t880): the war's tempo needs its clock ─
+{
+  ok("E1 nine in ninety minutes is violence", oomTempoWord(9, 1.5) === "≈144/day over 1.5h up", oomTempoWord(9, 1.5));
+  ok("E2 the fresh boot that already killed", oomTempoWord(1, 0.4) === "a kill within the first hour up", oomTempoWord(1, 0.4));
+  ok("E3 the plural fresh-boot face", oomTempoWord(3, 0.5) === "3 kills within the first hour up", oomTempoWord(3, 0.5));
+  ok("E4 weather speaks its decimal", oomTempoWord(2, 48) === "≈1.0/day over 48h up", oomTempoWord(2, 48));
+  ok("E5 the integer precision above ten", oomTempoWord(5, 3) === "≈40/day over 3.0h up", oomTempoWord(5, 3));
+  ok("E6 the honest nulls", oomTempoWord(null, 5) === null && oomTempoWord(0, 5) === null && oomTempoWord(5, null) === null, "no count, no clock, no word");
+}
+
+// ── F — the tempo face's source laws ─
+{
+  const words = read("src/lib/pressure-words.ts");
+  ok("F1 the father lives client-safe (zero node imports)", !words.includes("node:fs") && !words.includes("node:child_process") && !words.includes("spawnSync"), "the dialog can ride it");
+  ok("F2 the lib re-exports the ONE birthplace", libSrc.includes("export { oomTempoWord }"), "the seat's surface stays put");
+  ok("F3 the client mirror grew the clock", clientSrc.includes("uptimeHours: number | null;"), "MemoryPressureClient carries the denominator");
+  ok("F4 the dialog speaks the tempo with its tone", dialogSrc.includes("oomTempoWord") && dialogSrc.includes("border-danger-500/40"), "the row's war face");
+  const bench = read("scripts/t530-diagnostics-bench.ts");
+  ok("F5 the bench pins the tempo on the locator line", bench.includes("≈19"), "2 kills / 2.5h ≈ 19/day");
 }
 
 console.log(`\nt879 pressure-words unit: ${pass}/${pass + fail} green`);

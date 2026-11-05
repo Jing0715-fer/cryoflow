@@ -208,6 +208,7 @@ const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8"
       lastVictim: { comm: "next-server", rssMb: 2793 },
       lastInvoker: "chrome",
       selfRssMb: 412,
+      uptimeHours: 2.5,
     },
     generatedAt: new Date().toISOString(),
   });
@@ -223,6 +224,7 @@ const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8"
   must(/2 OOM kills/.test(summary) && /next-server at 2793MB/.test(summary), "presenter — summary carries the OOM ledger and the last victim");
   must(/invoked by chrome/.test(summary), "presenter — summary names the allocator that held the rope");
   must(/this server parks at 412MB/.test(summary), "presenter — summary carries the server's own footprint");
+  must(/≈19\/day over 2\.5h up/.test(summary), "presenter — the tempo word rides the kills clause (2 kills / 2.5h ≈ 19/day)");
   const detail = res.detail as { memory?: unknown; world?: unknown };
   must(Boolean(detail?.memory) && Boolean(detail?.world), "presenter — annex carries the payload");
 

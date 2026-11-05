@@ -453,6 +453,7 @@ export interface MemoryPressureClient {
   lastVictim: { comm: string; rssMb: number } | null;
   lastInvoker: string | null;
   selfRssMb: number | null;
+  uptimeHours: number | null;
 }
 
 /** GET /api/diagnostics payload — the box's vitals in one read. */

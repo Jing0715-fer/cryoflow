@@ -34,6 +34,9 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { relativeAgeWord } from "@/lib/world-durability-words";
+import { oomTempoWord } from "@/lib/pressure-words";
+
+export { oomTempoWord }; // t880 — the words live in ONE client-safe birthplace (pressure-words.ts); the lib re-exports so the seat's import surface and the presenter stay put
 
 /* ------------------------------------------------------------------ */
 /* Canonical lines — the campaign's numbers, now product constants     */
@@ -181,7 +184,10 @@ export interface MemoryPressure {
   lastInvoker: string | null;
   /** THIS server's own resident set (VmRSS, MB) — the lane's footprint */
   selfRssMb: number | null;
+  /** this boot's uptime in hours (/proc/uptime); null = unreadable — the tempo word's denominator */
+  uptimeHours: number | null;
 }
+
 
 const OOM_KILL_RE = /Out of memory:\s+Killed process\s+\d+\s+\((.*)\) total-vm:[^\n]*?anon-rss:(\d+)kB/i;
 const OOM_INVOKER_RE = /^(?:\[?\s*[\d:.]+\]?\s+)?(\S+)\s+invoked oom-killer/;
@@ -236,6 +242,7 @@ export function readMemoryPressure(): MemoryPressure | null {
     return null;
   }
   let selfRssMb: number | null = null;
+  let uptimeHours: number | null = null;
   try {
     const status = readFileSync("/proc/self/status", "utf8");
     const m = status.match(/^VmRSS:\s+(\d+)\s+kB/m);
@@ -243,7 +250,14 @@ export function readMemoryPressure(): MemoryPressure | null {
   } catch {
     /* the honest absence — /proc/self always exists on linux, but say it */
   }
-  return { ...ledger, selfRssMb };
+  try {
+    const up = readFileSync("/proc/uptime", "utf8").trim().split(/\s+/)[0];
+    const secs = Number(up);
+    if (Number.isFinite(secs) && secs > 0) uptimeHours = secs / 3600;
+  } catch {
+    /* the honest absence — /proc/uptime exists on linux, but say it */
+  }
+  return { ...ledger, selfRssMb, uptimeHours };
 }
 
 
@@ -577,9 +591,11 @@ export function presentSystemDiagnostics(payload: DiagnosticsPayload | null): Di
     ? `running build ${payload.provenance.commit}${payload.provenance.standalone ? " (standalone lane)" : ""}`
     : "running build carries no provenance stamp (dev or legacy lane)";
   const p = payload.pressure;
+  const tempo = p ? oomTempoWord(p.oomKills ?? null, p.uptimeHours ?? null) : null;
+  const tempoClause = tempo ? ` (${tempo})` : "";
   const pressureLine = p
     ? (p.oomKills ?? 0) > 0
-      ? `the kernel ring carries ${p.oomKills} OOM kill${p.oomKills === 1 ? "" : "s"} this boot — the last victim ${p.lastVictim ? `${p.lastVictim.comm} at ${p.lastVictim.rssMb}MB` : "unnamed"}${p.lastInvoker ? ` (invoked by ${p.lastInvoker})` : ""}${p.selfRssMb != null ? `; this server parks at ${p.selfRssMb}MB` : ""}`
+      ? `the kernel ring carries ${p.oomKills} OOM kill${p.oomKills === 1 ? "" : "s"} this boot — the last victim ${p.lastVictim ? `${p.lastVictim.comm} at ${p.lastVictim.rssMb}MB` : "unnamed"}${p.lastInvoker ? ` (invoked by ${p.lastInvoker})` : ""}${tempoClause}${p.selfRssMb != null ? `; this server parks at ${p.selfRssMb}MB` : ""}`
       : `no OOM kill in the kernel ring this boot${p.selfRssMb != null ? `; this server parks at ${p.selfRssMb}MB` : ""}`
     : "the kernel ring was not ours to read (pressure unknown)";
   return {

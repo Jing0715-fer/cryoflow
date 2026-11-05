@@ -23,6 +23,7 @@
  */
 
 import * as React from "react";
+import { oomTempoWord } from "@/lib/pressure-words";
 import { Activity, Boxes, Cpu, HardDrive, MemoryStick, RefreshCw, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -211,6 +212,7 @@ export default function SystemDiagnosticsDialog({
   const memory = diag?.memory ?? null;
   // t879 — the OOM war's ledger (kernel ring + self VmRSS); null = the ring was not ours to read
   const pressure = diag?.pressure ?? null;
+  const tempo = pressure ? oomTempoWord(pressure.oomKills ?? null, pressure.uptimeHours ?? null) : null;
   const durability: WorldDurabilityClient | null = diag?.durability ?? null;
   const durOk = durability?.ok === true ? durability : null;
   const durTone = durOk ? durabilityTone(durOk.verdict, durOk.red) : null;
@@ -304,7 +306,14 @@ export default function SystemDiagnosticsDialog({
                 </p>
 
                 {/* ---- t879: the OOM war's ledger (kernel ring) ------ */}
-                <div className="rounded-md border border-border/60 px-2.5 py-2 text-[11px] leading-relaxed" data-testid="diag-pressure">
+                <div
+                  className={cn(
+                    "rounded-md border px-2.5 py-2 text-[11px] leading-relaxed [font-variant-numeric:tabular-nums]",
+                    pressure && pressure.oomKills != null && pressure.oomKills > 0
+                      ? "border-danger-500/40 bg-danger-500/5"
+                      : "border-border/60",
+                  )}
+                  data-testid="diag-pressure">
                   {pressure && pressure.oomKills != null && pressure.oomKills > 0 ? (
                     <p className="text-foreground/80">
                       <span className="font-semibold text-danger">{pressure.oomKills} OOM kill{pressure.oomKills === 1 ? "" : "s"}</span> this boot — the last victim{" "}
@@ -318,6 +327,7 @@ export default function SystemDiagnosticsDialog({
                           , invoked by <span className="font-mono">{pressure.lastInvoker}</span>
                         </>
                       ) : null}
+                      {tempo ? (<> — <span className="font-semibold text-danger">{tempo}</span></>) : null}
                       .{pressure.selfRssMb != null ? (
                         <>
                           {" "}This server parks at <span className="font-mono">{fmtMb(pressure.selfRssMb)}</span>.
