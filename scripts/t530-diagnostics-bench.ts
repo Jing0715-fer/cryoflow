@@ -214,6 +214,11 @@ const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8"
         { comm: "next-server (v1", kills: 1, rssMb: 2793 },
         { comm: "python3", kills: 1, rssMb: 1048 },
       ],
+      // t882 — the rope's holders + the leak signature join the ledger; the
+      // quiet face here (chrome held the rope twice, no rising curve) — the
+      // war's loud face rides the dedicated block below
+      invokers: [{ comm: "chrome", invocations: 2 }],
+      trend: null,
       selfRssMb: 412,
       uptimeHours: 2.5,
     },
@@ -231,10 +236,44 @@ const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8"
   must(/2 OOM kills/.test(summary) && /next-server \(v1 at 2793MB/.test(summary), "presenter — summary carries the OOM ledger and the last victim (the kernel's 15-char comm, verbatim)");
   must(/invoked by chrome/.test(summary), "presenter — summary names the allocator that held the rope");
   must(/the war's combatants: next-server \(v1 ×1 · python3 ×1/.test(summary), "presenter — the combatants clause rides the histogram (t881)");
+  must(/the rope's holders: chrome ×2/.test(summary), "presenter — the invokers clause rides the rope histogram (t882) — chrome ×2 clears the information rule");
   must(/this server parks at 412MB/.test(summary), "presenter — summary carries the server's own footprint");
   must(/≈19\/day over 2\.5h up/.test(summary), "presenter — the tempo word rides the kills clause (2 kills / 2.5h ≈ 19/day)");
   const detail = res.detail as { memory?: unknown; world?: unknown };
   must(Boolean(detail?.memory) && Boolean(detail?.world), "presenter — annex carries the payload");
+
+  // t882 — the war's DEEPER rows ride the t881 window's own witnessed numbers
+  // (76 kills, ×72/×4, the whale's curve 2770→2845→2951MB): the invokers
+  // histogram, the leak signature and the thread-dialect marking, all on the
+  // locator line from the ONE father
+  const war = presentSystemDiagnostics({
+    memory: lanes,
+    disk: { totalMb: 10138, freeMb: 2048, usedPct: 79 },
+    provenance: { commit: "93bd005", standalone: true },
+    world: { projects: 3, jobs: 32, runningJobs: 1 },
+    durability: null,
+    pressure: {
+      oomKills: 76,
+      lastVictim: { comm: "next-server (v1", rssMb: 2951 },
+      lastInvoker: "next-server (v1",
+      victims: [
+        { comm: "next-server (v1", kills: 72, rssMb: 2951 },
+        { comm: "MainThread", kills: 4, rssMb: 3446 },
+      ],
+      invokers: [
+        { comm: "chrome", invocations: 51 },
+        { comm: "next-server (v1", invocations: 25 },
+      ],
+      trend: { comm: "next-server (v1", sizes: [2770, 2845, 2951] },
+      selfRssMb: 892,
+      uptimeHours: 7.5,
+    },
+    generatedAt: new Date().toISOString(),
+  });
+  const warSummary = war.summary ?? "";
+  must(/the war's combatants: next-server \(v1 ×72 · MainThread ×4 \(thread\)/.test(warSummary), `presenter — the thread dialect rides the combatants word: ${warSummary.match(/the war's combatants[^;]*/)?.[0]}`);
+  must(/the rope's holders: chrome ×51 · next-server \(v1 ×25/.test(warSummary), "presenter — the rope's holders speak the whale invoking its own execution (t881's tail, tallied)");
+  must(/next-server \(v1 grows at every death — 2770→2845→2951MB: a leak signature/.test(warSummary), "presenter — the leak signature quotes the whale's own curve, verbatim");
 
   // honest nulls: unreadable lanes are SAID, not guessed
   const partial = presentSystemDiagnostics({

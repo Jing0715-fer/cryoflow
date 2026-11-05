@@ -30,7 +30,13 @@ import {
   readMemoryPressure,
   presentSystemDiagnostics,
 } from "@/lib/diagnostics";
-import { oomCombatantsWord, oomTempoWord } from "@/lib/pressure-words";
+import {
+  isThreadComm,
+  oomCombatantsWord,
+  oomInvokersWord,
+  oomLeakWord,
+  oomTempoWord,
+} from "@/lib/pressure-words";
 
 let pass = 0;
 let fail = 0;
@@ -77,7 +83,7 @@ const FIXTURE = [
 
 {
   const r = parseOomRing("nothing happened here — a quiet ring");
-  ok("A4 a quiet ring answers zero and honest nulls", r.oomKills === 0 && r.lastVictim === null && r.lastInvoker === null, JSON.stringify(r));
+  ok("A4 a quiet ring answers zero and honest nulls", r.oomKills === 0 && r.lastVictim === null && r.lastInvoker === null && r.victims.length === 0 && r.invokers.length === 0 && r.trend === null, JSON.stringify(r));
 }
 
 {
@@ -94,7 +100,7 @@ const FIXTURE = [
 
 {
   const r = parseOomRing("");
-  ok("A7 an empty ring is zero kills, no victim, no invoker, no combatants", r.oomKills === 0 && r.lastVictim === null && r.lastInvoker === null && r.victims.length === 0, "the honest empty");
+  ok("A7 an empty ring is zero kills, no victim, no invoker, no combatants", r.oomKills === 0 && r.lastVictim === null && r.lastInvoker === null && r.victims.length === 0 && r.invokers.length === 0 && r.trend === null, "the honest empty");
 }
 
 {
@@ -111,9 +117,25 @@ const FIXTURE = [
   ].join("\n");
   const r = parseOomRing(MULTIKILL);
   ok("A9 the regular's tally: three deaths aggregate to one combatant", r.oomKills === 4 && r.victims.length === 2 && r.victims[0]?.comm === "next-server (v1" && r.victims[0]?.kills === 3 && r.victims[0]?.rssMb === 4096 && r.victims[1]?.comm === "python3" && r.victims[1]?.kills === 1, `kills-desc order, rssMb = the LAST death's size (4194304kB → 4096MB), last victim ${r.lastVictim?.comm} at ${r.lastVictim?.rssMb}MB`);
+  ok("A10 the rope's holders tally every invocation", r.invokers.length === 1 && r.invokers[0]?.comm === "chrome" && r.invokers[0]?.invocations === 4, `chrome held the rope ${r.invokers[0]?.invocations}× — the histogram behind "who holds it most"`);
+  ok("A11 the whale's rising curve becomes the leak signature", r.trend?.comm === "next-server (v1" && JSON.stringify(r.trend?.sizes) === "[2048,3072,4096]", `the last three deaths strictly rise: ${JSON.stringify(r.trend?.sizes)}MB (the t881 witness's shape)`);
 }
 
-// ── B — the presenter's three wordings ──────────────────────────────────
+{
+  // t882 — the main fixture's rope tally: chrome held the rope at BOTH kills;
+  // the trend stays null (two single deaths, no rising curve)
+  const r = parseOomRing(FIXTURE);
+  ok("A12 the main fixture's rope tally", r.invokers.length === 1 && r.invokers[0]?.comm === "chrome" && r.invokers[0]?.invocations === 2, JSON.stringify(r.invokers));
+  ok("A13 no rising curve where there is none", r.trend === null, "two single deaths are weather, never a guessed curve");
+}
+
+{
+  // t882 — the rope histogram's filter face: the kernel's own stewards never
+  // tally (the same filter the last-invoker clause already speaks)
+  const stewards = "[1.0] kthreadd invoked oom-killer\n[1.1] Out of memory: Killed process 5 (node) total-vm:1kB, anon-rss:2048000kB\n[1.2] oom-reaper invoked oom-killer\n";
+  const r = parseOomRing(stewards);
+  ok("A14 kernel stewards never join the rope histogram", r.invokers.length === 0 && r.lastInvoker === null && r.trend === null, "kthreadd and oom-reaper are the killer's own house");
+}
 
 {
   const lanes = composeMemoryLanes({ memTotalMb: 4041, memAvailableMb: 3277, buffCacheMb: 297, swapTotalMb: 0 });
@@ -123,7 +145,7 @@ const FIXTURE = [
     provenance: { commit: "4150a1b9", standalone: false },
     world: { projects: 1, jobs: 16, runningJobs: 0 },
     durability: null,
-    pressure: { oomKills: 3, lastVictim: { comm: "next-server (v1", rssMb: 2726 }, lastInvoker: "chrome", victims: [{ comm: "next-server (v1", kills: 2, rssMb: 2726 }, { comm: "python3", kills: 1, rssMb: 1024 }], selfRssMb: 412, uptimeHours: 2.5 },
+    pressure: { oomKills: 3, lastVictim: { comm: "next-server (v1", rssMb: 2726 }, lastInvoker: "chrome", victims: [{ comm: "next-server (v1", kills: 2, rssMb: 2726 }, { comm: "python3", kills: 1, rssMb: 1024 }], invokers: [{ comm: "chrome", invocations: 3 }], trend: null, selfRssMb: 412, uptimeHours: 2.5 },
     generatedAt: "2026-11-05T00:00:00.000Z",
   };
   const res = presentSystemDiagnostics(payload);
@@ -133,6 +155,7 @@ const FIXTURE = [
   ok("B3 the allocator's rope is named", /invoked by chrome/.test(s), "chrome held the rope");
   ok("B4 the server's own footprint rides it", /this server parks at 412MB/.test(s), "self VmRSS");
   ok("B7 the combatants clause rides the histogram", /the war's combatants: next-server \(v1 ×2 · python3 ×1/.test(s), s.match(/the war's combatants[^.]*/)?.[0]);
+  ok("B12 a single rope-holder who fired repeatedly still speaks", /the rope's holders: chrome ×3/.test(s), s.match(/the rope's holders[^.]*/)?.[0] + " — the count is the news beyond invoked-by");
 }
 
 {
@@ -144,11 +167,12 @@ const FIXTURE = [
     provenance: { commit: null, standalone: false },
     world: null,
     durability: null,
-    pressure: { oomKills: 1, lastVictim: { comm: "next-server (v1", rssMb: 2726 }, lastInvoker: "chrome", victims: [{ comm: "next-server (v1", kills: 1, rssMb: 2726 }], selfRssMb: 412, uptimeHours: 2.5 },
+    pressure: { oomKills: 1, lastVictim: { comm: "next-server (v1", rssMb: 2726 }, lastInvoker: "chrome", victims: [{ comm: "next-server (v1", kills: 1, rssMb: 2726 }], invokers: [{ comm: "chrome", invocations: 1 }], trend: null, selfRssMb: 412, uptimeHours: 2.5 },
     generatedAt: "2026-11-05T00:00:00.000Z",
   };
   const s = presentSystemDiagnostics(single).summary ?? "";
   ok("B8 the combatants clause stays silent when the histogram echoes the last victim", !s.includes("combatants"), "one kill, one comm — news is zero");
+  ok("B13 the holders clause stays silent when the rope echoes the invoker", !s.includes("holders"), "one invocation, one comm — the invoked-by clause already named it");
 }
 
 {
@@ -158,7 +182,7 @@ const FIXTURE = [
     provenance: { commit: null, standalone: false },
     world: null,
     durability: null,
-    pressure: { oomKills: 0, lastVictim: null, lastInvoker: null, selfRssMb: null },
+    pressure: { oomKills: 0, lastVictim: null, lastInvoker: null, victims: [], invokers: [], trend: null, selfRssMb: null },
     generatedAt: "2026-11-05T00:00:00.000Z",
   };
   const s = presentSystemDiagnostics(quiet).summary ?? "";
@@ -177,6 +201,40 @@ const FIXTURE = [
   };
   const s = presentSystemDiagnostics(muted).summary ?? "";
   ok("B6 an unreadable ring is SAID, never guessed", /not ours to read/.test(s), "the EPERM face");
+}
+
+{
+  // t882 — the war's DEEPER rows ride the t881 window's own witnessed numbers:
+  // 76 kills, ×72/×4, the whale's curve 2770→2845→2951MB — the seat's fixture
+  // wears the machine's dialect, not the prose's
+  const war = {
+    memory: null,
+    disk: null,
+    provenance: { commit: null, standalone: false },
+    world: null,
+    durability: null,
+    pressure: {
+      oomKills: 76,
+      lastVictim: { comm: "next-server (v1", rssMb: 2951 },
+      lastInvoker: "next-server (v1",
+      victims: [
+        { comm: "next-server (v1", kills: 72, rssMb: 2951 },
+        { comm: "MainThread", kills: 4, rssMb: 3446 },
+      ],
+      invokers: [
+        { comm: "chrome", invocations: 51 },
+        { comm: "next-server (v1", invocations: 25 },
+      ],
+      trend: { comm: "next-server (v1", sizes: [2770, 2845, 2951] },
+      selfRssMb: 892,
+      uptimeHours: 7.5,
+    },
+    generatedAt: "2026-11-05T00:00:00.000Z",
+  };
+  const ws = presentSystemDiagnostics(war).summary ?? "";
+  ok("B9 the rope's holders clause speaks the whale invoking its own execution", /the rope's holders: chrome ×51 · next-server \(v1 ×25/.test(ws), ws.match(/the rope's holders[^.]*/)?.[0]);
+  ok("B10 the leak signature quotes the whale's own curve", /next-server \(v1 grows at every death — 2770→2845→2951MB: a leak signature/.test(ws), "the machine's numbers, verbatim");
+  ok("B11 the thread dialect rides the combatants clause", /MainThread ×4 \(thread\)/.test(ws), ws.match(/the war's combatants[^;]*/)?.[0]);
 }
 
 // ── C — the source laws ─────────────────────────────────────────────────
@@ -206,7 +264,7 @@ ok("C9 the client mirror grew the same shape", clientSrc.includes("MemoryPressur
   let live = "unavailable";
   try {
     const p = readMemoryPressure();
-    live = p === null ? "null (the ring was not ours to read)" : `${p.oomKills} kills, last victim ${p.lastVictim ? `${p.lastVictim.comm} at ${p.lastVictim.rssMb}MB` : "none"}, self ${p.selfRssMb ?? "?"}MB`;
+    live = p === null ? "null (the ring was not ours to read)" : `${p.oomKills} kills, last victim ${p.lastVictim ? `${p.lastVictim.comm} at ${p.lastVictim.rssMb}MB` : "none"}, rope ${p.invokers?.map((i) => `${i.comm}×${i.invocations}`).join(", ") || "untallied"}, trend ${p.trend ? `${p.trend.comm} ${p.trend.sizes.join("→")}MB` : "none"}, self ${p.selfRssMb ?? "?"}MB`;
   } catch (e) {
     live = `threw: ${e.message}`;
   }
@@ -228,7 +286,7 @@ ok("C9 the client mirror grew the same shape", clientSrc.includes("MemoryPressur
 {
   const words = read("src/lib/pressure-words.ts");
   ok("F1 the father lives client-safe (zero node imports)", !words.includes("node:fs") && !words.includes("node:child_process") && !words.includes("spawnSync"), "the dialog can ride it");
-  ok("F2 the lib re-exports the ONE birthplace", libSrc.includes("export { oomCombatantsWord, oomTempoWord }"), "the seat's surface stays put (the family grew, the birthplace did not)");
+  ok("F2 the lib re-exports the ONE birthplace", libSrc.includes("export { oomCombatantsWord, oomInvokersWord, oomLeakWord, oomTempoWord, isThreadComm }"), "the seat's surface stays put (the family grew, the birthplace did not)");
   ok("F3 the client mirror grew the clock", clientSrc.includes("uptimeHours: number | null;"), "MemoryPressureClient carries the denominator");
   ok("F4 the dialog speaks the tempo with its tone", dialogSrc.includes("oomTempoWord") && dialogSrc.includes("border-danger-500/40"), "the row's war face");
   const bench = read("scripts/t530-diagnostics-bench.ts");
@@ -253,6 +311,39 @@ ok("C9 the client mirror grew the same shape", clientSrc.includes("MemoryPressur
   const bench = read("scripts/t530-diagnostics-bench.ts");
   ok("H4 the bench pins the combatants clause", bench.includes("the war's combatants"), "the t530 cup grew with the histogram");
   ok("H5 the module header's evidence law names the combatants", libSrc.includes("the combatants histogram"), "the war has regulars");
+  ok("H6 the client mirror grew the rope and the curve", clientSrc.includes("invokers: { comm: string; invocations: number }[]") && clientSrc.includes("trend: { comm: string; sizes: number[] } | null"), "MemoryPressureClient carries the t882 rows");
+  ok("H7 the dialog carries the three new rows via the ONE father", dialogSrc.includes('data-testid="diag-invokers"') && dialogSrc.includes('data-testid="diag-trend"') && dialogSrc.includes('data-testid="diag-thread-note"') && dialogSrc.includes("oomInvokersWord") && dialogSrc.includes("oomLeakWord"), "the war face grows lines, not forks");
+  ok("H8 the module header's evidence law names the deeper rows", libSrc.includes("who HOLDS the rope most") && libSrc.includes("leak"), "the invokers histogram and the leak signature are said at the source");
+  ok("H9 the bench pins the war's deeper clauses", bench.includes("the rope's holders") && bench.includes("a leak signature") && bench.includes("\\(thread\\)"), "the t530 cup grew with the family (the bench's marker rides a regex, escaped)");
+  ok("H10 the thread law lives in ONE client-safe birthplace", words.includes("const THREAD_TITLES") && words.includes("export function isThreadComm") && !libSrc.includes("THREAD_TITLES"), "the parser borrows the word's law, never a fork");
+}
+
+// ── I — the invokers word's faces (t882) ─
+{
+  ok("I1 the rope body, capped at three with the honest tail", oomInvokersWord([{ comm: "chrome", invocations: 51 }, { comm: "next-server (v1", invocations: 25 }, { comm: "python3", invocations: 2 }, { comm: "bash", invocations: 1 }]) === "chrome ×51 · next-server (v1 ×25 · python3 ×2 +1 more", oomInvokersWord([{ comm: "chrome", invocations: 51 }, { comm: "next-server (v1", invocations: 25 }, { comm: "python3", invocations: 2 }, { comm: "bash", invocations: 1 }]));
+  ok("I2 the exact-three face wears no tail", oomInvokersWord([{ comm: "a", invocations: 3 }, { comm: "b", invocations: 2 }, { comm: "c", invocations: 1 }]) === "a ×3 · b ×2 · c ×1", "the cap is exactly three");
+  ok("I3 the honest nulls", oomInvokersWord(null) === null && oomInvokersWord(undefined) === null && oomInvokersWord([]) === null, "no rope, no word");
+  ok("I4 the single rope-holder", oomInvokersWord([{ comm: "chrome", invocations: 1 }]) === "chrome ×1", oomInvokersWord([{ comm: "chrome", invocations: 1 }]));
+  ok("I5 the kernel never writes a zero-invocation or empty-comm rope — garbage is filtered", oomInvokersWord([{ comm: "", invocations: 5 }, { comm: "python3", invocations: 0 }, { comm: "chrome", invocations: -2 }, { comm: "bash", invocations: 2 }]) === "bash ×2", "the A6 tolerance precedent, rope-side");
+}
+
+// ── L — the leak word's faces (t882) ─
+{
+  ok("L1 the rising curve speaks its sequence", oomLeakWord({ comm: "next-server (v1", sizes: [2770, 2845, 2951] }) === "next-server (v1 grows at every death — 2770→2845→2951MB: a leak signature", oomLeakWord({ comm: "next-server (v1", sizes: [2770, 2845, 2951] }));
+  ok("L2 the last three of a longer history", oomLeakWord({ comm: "w", sizes: [100, 2770, 2845, 2951] }) === "w grows at every death — 2770→2845→2951MB: a leak signature", "the window is the last three, not the whole life");
+  ok("L3 a dip is weather, never a guessed curve", oomLeakWord({ comm: "next-server (v1", sizes: [2951, 2700, 2845] }) === null, "one dip and the word stays home");
+  ok("L4 equal sizes are not growth", oomLeakWord({ comm: "x", sizes: [2800, 2800, 2800] }) === null, "flat is not rising");
+  ok("L5 a short history cannot prove a curve", oomLeakWord({ comm: "y", sizes: [1000, 2000] }) === null && oomLeakWord({ comm: "z", sizes: [] }) === null, "two deaths are an anecdote, not a trend");
+  ok("L6 the honest nulls", oomLeakWord(null) === null && oomLeakWord(undefined) === null, "no trend, no word");
+}
+
+// ── T — the thread-dialect law's faces (t882) ─
+{
+  ok("T1 MainThread wears the thread title", isThreadComm("MainThread") === true, "chromium's main-thread dialect — the t881 ring's #2 combatant");
+  ok("T2 the pipeline's own names never do", isThreadComm("next-server (v1") === false && isThreadComm("chrome") === false && isThreadComm("python3") === false, "process names are process names");
+  ok("T3 the honest nulls", isThreadComm(null) === false && isThreadComm(undefined) === false && isThreadComm("") === false, "no comm, no dialect");
+  ok("T4 the combatants word marks the thread", oomCombatantsWord([{ comm: "next-server (v1", kills: 72 }, { comm: "MainThread", kills: 4 }]) === "next-server (v1 ×72 · MainThread ×4 (thread)", oomCombatantsWord([{ comm: "next-server (v1", kills: 72 }, { comm: "MainThread", kills: 4 }]));
+  ok("T5 a thread-marked combatant rides the cap and tail too", oomCombatantsWord([{ comm: "MainThread", kills: 2 }, { comm: "a", kills: 1 }, { comm: "b", kills: 1 }, { comm: "c", kills: 1 }]) === "MainThread ×2 (thread) · a ×1 · b ×1 +1 more", "the marker rides the word, wherever the thread sits");
 }
 
 console.log(`\nt879 pressure-words unit: ${pass}/${pass + fail} green`);

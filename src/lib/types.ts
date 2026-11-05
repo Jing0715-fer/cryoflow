@@ -454,6 +454,11 @@ export interface MemoryPressureClient {
   lastInvoker: string | null;
   /** t881 — the combatants histogram (who dies most): kills-desc, recency tiebreak. */
   victims: { comm: string; kills: number; rssMb: number }[];
+  /** t882 — the invokers histogram (who HOLDS the rope most): invocations-desc, recency tiebreak. */
+  invokers: { comm: string; invocations: number }[];
+  /** t882 — the war's top combatant's last three deaths, chronological, MB —
+   *  carried ONLY when strictly rising (a leak signature); null = weather. */
+  trend: { comm: string; sizes: number[] } | null;
   selfRssMb: number | null;
   uptimeHours: number | null;
 }

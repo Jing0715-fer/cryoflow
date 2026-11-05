@@ -23,7 +23,7 @@
  */
 
 import * as React from "react";
-import { oomCombatantsWord, oomTempoWord } from "@/lib/pressure-words";
+import { isThreadComm, oomCombatantsWord, oomInvokersWord, oomLeakWord, oomTempoWord } from "@/lib/pressure-words";
 import { Activity, Boxes, Cpu, HardDrive, MemoryStick, RefreshCw, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -216,6 +216,15 @@ export default function SystemDiagnosticsDialog({
   // t881 — the combatants word rides the ONE birthplace; the row renders it
   // verbatim (mono) only when the histogram has someone to name
   const combatants = pressure?.victims?.length ? oomCombatantsWord(pressure.victims) : null;
+  // t882 — the rope's holders + the leak signature + the thread-dialect note;
+  // all three words ride the ONE client-safe birthplace, the row renders them
+  // verbatim (the same clause the AI presenter's locator line composes)
+  const invokers = pressure?.invokers?.length ? oomInvokersWord(pressure.invokers) : null;
+  const leak = pressure?.trend ? oomLeakWord(pressure.trend) : null;
+  const threadDialect =
+    pressure?.lastVictim && isThreadComm(pressure.lastVictim.comm)
+      ? pressure.lastVictim.comm
+      : (pressure?.victims?.find((v) => isThreadComm(v.comm))?.comm ?? null);
   const durability: WorldDurabilityClient | null = diag?.durability ?? null;
   const durOk = durability?.ok === true ? durability : null;
   const durTone = durOk ? durabilityTone(durOk.verdict, durOk.red) : null;
@@ -344,6 +353,32 @@ export default function SystemDiagnosticsDialog({
                           data-testid="diag-combatants">
                           <span className="font-sans text-muted-foreground">The war's combatants: </span>
                           {combatants}
+                        </p>
+                      ) : null}
+                      {invokers ? (
+                        <p
+                          className="font-mono text-[10px] text-foreground/70"
+                          data-testid="diag-invokers">
+                          <span className="font-sans text-muted-foreground">The rope's holders: </span>
+                          {invokers}
+                        </p>
+                      ) : null}
+                      {leak ? (
+                        <p
+                          className="font-mono text-[10px] font-medium text-danger"
+                          data-testid="diag-trend">
+                          <span className="font-sans font-normal text-muted-foreground">The whale's curve: </span>
+                          {leak}
+                        </p>
+                      ) : null}
+                      {threadDialect ? (
+                        <p
+                          className="text-[10px] leading-snug text-muted-foreground"
+                          data-testid="diag-thread-note">
+                          <span className="font-mono">{threadDialect}</span> wears a thread's title, not a
+                          process name — the kernel kills a task-group and names the task it chose. Our own
+                          lane's main thread wears <span className="font-mono">next-server (v1</span>, so this
+                          death belongs to the browser, not the pipeline.
                         </p>
                       ) : null}
                     </>

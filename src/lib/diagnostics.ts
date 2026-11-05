@@ -34,9 +34,9 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { relativeAgeWord } from "@/lib/world-durability-words";
-import { oomCombatantsWord, oomTempoWord } from "@/lib/pressure-words";
+import { isThreadComm, oomCombatantsWord, oomInvokersWord, oomLeakWord, oomTempoWord } from "@/lib/pressure-words";
 
-export { oomCombatantsWord, oomTempoWord }; // t880/t881 — the words live in ONE client-safe birthplace (pressure-words.ts); the lib re-exports so the seat's import surface and the presenter stay put
+export { oomCombatantsWord, oomInvokersWord, oomLeakWord, oomTempoWord, isThreadComm }; // t880/t881/t882 — the words live in ONE client-safe birthplace (pressure-words.ts); the lib re-exports so the seat's import surface and the presenter stay put
 
 /* ------------------------------------------------------------------ */
 /* Canonical lines — the campaign's numbers, now product constants     */
@@ -165,7 +165,12 @@ export function readMemoryLanes(): MemoryLanes | null {
  * memory-lane bar could name. The face answers: how many kills this
  * boot, who died last (and how big), who held the allocator's rope, who
  * dies MOST (t881 — the combatants histogram: the war has regulars),
- * and what THIS server itself parks in RSS. Every field degrades to
+ * and what THIS server itself parks in RSS — plus the war's deeper
+ * rows (t882): who HOLDS the rope most (the invokers histogram — the
+ * t881 window's own tail showed the whale invoking its own execution),
+ * and whether the whale's recent deaths form a rising curve (a leak
+ * signature, the machine's own numbers, never a guessed curve). Every
+ * field degrades to
  * null — an unreadable ring (EPERM, no dmesg) is SAID, not guessed.
  */
 
@@ -187,6 +192,26 @@ export interface OomCombatant {
   rssMb: number;
 }
 
+/** t882 — the rope's holders: each distinct invoker comm with the count of
+ *  "X invoked oom-killer" lines it wrote (the histogram behind "who HOLDS
+ *  the rope most"). Sorted invocations-desc, ties broken by recency. The
+ *  kernel's own stewards (kthreadd, oom-reaper) never tally — the same
+ *  filter the last-invoker clause already speaks. */
+export interface OomInvoker {
+  comm: string;
+  invocations: number;
+}
+
+/** t882 — the leak signature: the war's top combatant's LAST THREE deaths,
+ *  chronological (ring order), carried only when each is strictly greater
+ *  than its predecessor — the machine wrote a rising curve (the t881
+ *  witness: 2770→2845→2951MB across the whale's 70 deaths); anything else
+ *  is weather and stays null, never a guessed curve. */
+export interface OomTrend {
+  comm: string;
+  sizes: number[];
+}
+
 export interface MemoryPressure {
   /** kernel-ring OOM kills since boot; null = the ring was unreadable */
   oomKills: number | null;
@@ -196,6 +221,11 @@ export interface MemoryPressure {
   lastInvoker: string | null;
   /** t881 — the combatants histogram (who dies most), kills-desc order */
   victims: OomCombatant[];
+  /** t882 — the invokers histogram (who HOLDS the rope most), invocations-desc order */
+  invokers: OomInvoker[];
+  /** t882 — the top combatant's rising death curve, when the last three
+   *  deaths strictly rise; null = no leak signature in the ring (weather) */
+  trend: OomTrend | null;
   /** THIS server's own resident set (VmRSS, MB) — the lane's footprint */
   selfRssMb: number | null;
   /** this boot's uptime in hours (/proc/uptime); null = unreadable — the tempo word's denominator */
@@ -215,23 +245,54 @@ export function parseOomRing(text: string): {
   lastVictim: OomVictim | null;
   lastInvoker: string | null;
   victims: OomCombatant[];
+  invokers: OomInvoker[];
+  trend: OomTrend | null;
 } {
   const lines = text.split("\n");
   const killIdxs: number[] = [];
   for (let i = 0; i < lines.length; i++) {
     if (/Out of memory:\s+Killed process/i.test(lines[i])) killIdxs.push(i);
   }
-  // t881 — the combatants histogram: every kill line joins its comm's tally
-  const tally = new Map<string, { kills: number; rssMb: number; lastIdx: number }>();
+  // t881 — the combatants histogram: every kill line joins its comm's tally;
+  // t882 — the tally also keeps the chronological size history (ring order)
+  // so the leak word can quote the whale's own growth curve.
+  const tally = new Map<string, { kills: number; rssMb: number; lastIdx: number; sizes: number[] }>();
   for (const idx of killIdxs) {
     const m = lines[idx].match(OOM_KILL_RE);
     if (!m) continue;
     const prev = tally.get(m[1]);
-    tally.set(m[1], { kills: (prev?.kills ?? 0) + 1, rssMb: Math.round(Number(m[2]) / 1024), lastIdx: idx });
+    tally.set(m[1], {
+      kills: (prev?.kills ?? 0) + 1,
+      rssMb: Math.round(Number(m[2]) / 1024),
+      lastIdx: idx,
+      sizes: [...(prev?.sizes ?? []), Math.round(Number(m[2]) / 1024)],
+    });
   }
   const victims: OomCombatant[] = [...tally.entries()]
     .map(([comm, t]) => ({ comm, kills: t.kills, rssMb: t.rssMb }))
     .sort((a, b) => b.kills - a.kills || tally.get(b.comm)!.lastIdx - tally.get(a.comm)!.lastIdx);
+  // t882 — the invokers histogram: EVERY "X invoked oom-killer" line tallies
+  // (the rope's regulars), the kernel's own stewards filtered like the
+  // last-invoker clause does.
+  const rope = new Map<string, { invocations: number; lastIdx: number }>();
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(OOM_INVOKER_RE);
+    if (m && !/^(kthreadd|oom-reaper)$/.test(m[1])) {
+      const prev = rope.get(m[1]);
+      rope.set(m[1], { invocations: (prev?.invocations ?? 0) + 1, lastIdx: i });
+    }
+  }
+  const invokers: OomInvoker[] = [...rope.entries()]
+    .map(([comm, r]) => ({ comm, invocations: r.invocations }))
+    .sort((a, b) => b.invocations - a.invocations || rope.get(b.comm)!.lastIdx - rope.get(a.comm)!.lastIdx);
+  // t882 — the leak signature: the war's TOP combatant (the whale), when its
+  // last three deaths strictly rise — the curve the machine itself wrote.
+  const whale = tally.get(victims[0]?.comm ?? "");
+  let trend: OomTrend | null = null;
+  if (whale && whale.sizes.length >= 3) {
+    const tail = whale.sizes.slice(-3);
+    if (tail[0] < tail[1] && tail[1] < tail[2]) trend = { comm: victims[0]!.comm, sizes: tail };
+  }
   let lastVictim: OomVictim | null = null;
   if (killIdxs.length > 0) {
     const m = lines[killIdxs[killIdxs.length - 1]].match(OOM_KILL_RE);
@@ -251,7 +312,7 @@ export function parseOomRing(text: string): {
       break;
     }
   }
-  return { oomKills: killIdxs.length, lastVictim, lastInvoker, victims };
+  return { oomKills: killIdxs.length, lastVictim, lastInvoker, victims, invokers, trend };
 }
 
 /** Read this host's pressure ledger: the kernel ring (best-effort, 3s cap)
@@ -630,9 +691,21 @@ export function presentSystemDiagnostics(payload: DiagnosticsPayload | null): Di
     combatants && victims && (victims.length > 1 || (victims[0]?.kills ?? 0) > 1)
       ? `; the war's combatants: ${combatants}`
       : "";
+  // t882 — the rope's holders: same information rule as the combatants (one
+  // distinct invoker who fired once is already named by the invoked-by clause)
+  const ropeHolders = p?.invokers;
+  const invokersWord = ropeHolders?.length ? oomInvokersWord(ropeHolders) : null;
+  const invokersClause =
+    invokersWord && ropeHolders && (ropeHolders.length > 1 || (ropeHolders[0]?.invocations ?? 0) > 1)
+      ? `; the rope's holders: ${invokersWord}`
+      : "";
+  // t882 — the leak signature: rare and loud, it always speaks when the
+  // parser saw a rising curve (weather stays silent, never a guessed clause)
+  const leakWord = p?.trend ? oomLeakWord(p.trend) : null;
+  const leakClause = leakWord ? `; ${leakWord}` : "";
   const pressureLine = p
     ? (p.oomKills ?? 0) > 0
-      ? `the kernel ring carries ${p.oomKills} OOM kill${p.oomKills === 1 ? "" : "s"} this boot — the last victim ${p.lastVictim ? `${p.lastVictim.comm} at ${p.lastVictim.rssMb}MB` : "unnamed"}${p.lastInvoker ? ` (invoked by ${p.lastInvoker})` : ""}${tempoClause}${combatantsClause}${p.selfRssMb != null ? `; this server parks at ${p.selfRssMb}MB` : ""}`
+      ? `the kernel ring carries ${p.oomKills} OOM kill${p.oomKills === 1 ? "" : "s"} this boot — the last victim ${p.lastVictim ? `${p.lastVictim.comm} at ${p.lastVictim.rssMb}MB` : "unnamed"}${p.lastInvoker ? ` (invoked by ${p.lastInvoker})` : ""}${tempoClause}${combatantsClause}${invokersClause}${leakClause}${p.selfRssMb != null ? `; this server parks at ${p.selfRssMb}MB` : ""}`
       : `no OOM kill in the kernel ring this boot${p.selfRssMb != null ? `; this server parks at ${p.selfRssMb}MB` : ""}`
     : "the kernel ring was not ours to read (pressure unknown)";
   return {
