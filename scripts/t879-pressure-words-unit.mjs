@@ -36,6 +36,8 @@ import {
   isThreadComm,
   oomBootLedgerRising,
   oomBootLedgerWord,
+  oomCadencePersistent,
+  oomCadenceWord,
   oomCombatantsWord,
   oomInvokersWord,
   oomLeakWord,
@@ -288,7 +290,7 @@ ok("C9 the client mirror grew the same shape", clientSrc.includes("MemoryPressur
 // ── C10-C18 — the boot ledger's source laws (t884) ─
 {
   ok("C10 the pressure type carries the boot ledger", libSrc.includes("bootLedger: BootLedgerFact | null;"), "MemoryPressure grew the cross-boot face");
-  ok("C11 the client mirror grew the boot ledger", clientSrc.includes("bootLedger: { boots: number; whaleComm: string | null; whaleSizesMb: number[] } | null;"), "MemoryPressureClient carries the fact");
+  ok("C11 the client mirror grew the boot ledger", clientSrc.includes("bootLedger:") && clientSrc.includes("topInvoker: string | null;") && clientSrc.includes("bootsWithLeader: number;"), "MemoryPressureClient carries the fact — and its t885 cadence fields");
   ok("C12 the dialog carries the boot row via the ONE father", dialogSrc.includes('data-testid="diag-boot-ledger"') && dialogSrc.includes("oomBootLedgerWord") && dialogSrc.includes("oomBootLedgerRising"), "the word and its tone read the same predicate");
   ok("C13 the bench pins the boot clause", benchSrc.includes("the whale's boots"), "the t530 cup grew with the cross-boot face");
   ok("C14 the module header names the ledger law", libSrc.includes("THE LEDGER REMEMBERS WHAT THE RING FORGETS"), "the per-boot growth is the real leak");
@@ -326,7 +328,7 @@ ok("C9 the client mirror grew the same shape", clientSrc.includes("MemoryPressur
 {
   const words = read("src/lib/pressure-words.ts");
   ok("F1 the father lives client-safe (zero node imports)", !words.includes("node:fs") && !words.includes("node:child_process") && !words.includes("spawnSync"), "the dialog can ride it");
-  ok("F2 the lib re-exports the ONE birthplace", libSrc.includes("export { oomBootLedgerRising, oomBootLedgerWord, oomCombatantsWord, oomInvokersWord, oomLeakWord, oomPairingsWord, oomTempoWord, isThreadComm }"), "the seat's surface stays put (the family grew, the birthplace did not)");
+  ok("F2 the lib re-exports the ONE birthplace", libSrc.includes("export { oomBootLedgerRising, oomBootLedgerWord, oomCadencePersistent, oomCadenceWord, oomCombatantsWord, oomInvokersWord, oomLeakWord, oomPairingsWord, oomTempoWord, isThreadComm }"), "the seat's surface stays put (the family grew, the birthplace did not)");
   ok("F3 the client mirror grew the clock", clientSrc.includes("uptimeHours: number | null;"), "MemoryPressureClient carries the denominator");
   ok("F4 the dialog speaks the tempo with its tone", dialogSrc.includes("oomTempoWord") && dialogSrc.includes("border-danger-500/40"), "the row's war face");
   const bench = read("scripts/t530-diagnostics-bench.ts");
@@ -429,6 +431,18 @@ ok("C9 the client mirror grew the same shape", clientSrc.includes("MemoryPressur
   ok("W6 weather stays silent — the verdict needs the strict rise", oomBootLedgerRising({ boots: 3, whaleComm: "w", whaleSizesMb: [2770, 3204, 3077] }) === false && oomBootLedgerRising({ boots: 3, whaleComm: "w", whaleSizesMb: [2800, 2800, 2800] }) === false && oomBootLedgerRising({ boots: 2, whaleComm: "w", whaleSizesMb: [1, 2] }) === false, "dip and flat and short are not a leak");
 }
 
+// ── CD — the cadence word's faces (t885): who DROVE the war, boot over boot ─
+{
+  ok("CD1 the honest nulls", oomCadenceWord(null, 88) === null && oomCadenceWord(undefined, 88) === null && oomCadenceWord({ topInvoker: null, topInvokerCount: null, ledBoots: null, bootsWithLeader: 0 }, 88) === null, "no named rope, no word");
+  ok("CD2 a lone invocation rests — it is the invoked-by clause's news", oomCadenceWord({ topInvoker: "chrome", topInvokerCount: 1, ledBoots: 1, bootsWithLeader: 1 }, 88) === null, "×1 is what the ring already says");
+  ok("CD3 the quiet share speaks the ring's denominator", oomCadenceWord({ topInvoker: "tokio-runtime-w", topInvokerCount: 19, ledBoots: 1, bootsWithLeader: 1 }, 88) === "19 of this boot's 88 kills rode tokio-runtime-w's rope", "the holders row lists ×19; the word adds the of-88");
+  ok("CD4 the share needs the ring's own count — never a guessed total", oomCadenceWord({ topInvoker: "tokio-runtime-w", topInvokerCount: 19, ledBoots: 1, bootsWithLeader: 1 }, null) === null && oomCadenceWord({ topInvoker: "tokio-runtime-w", topInvokerCount: 19, ledBoots: 1, bootsWithLeader: 1 }, 0) === null, "no denominator, no share");
+  ok("CD5 the weather face — a changed hand is history, not a verdict", oomCadenceWord({ topInvoker: "chrome", topInvokerCount: 51, ledBoots: 1, bootsWithLeader: 2 }, 76) === "chrome led 1 of the last 2 boots — the rope changes hands", "the ledger's own arithmetic, no engine claim");
+  ok("CD6 the loud verdict — the same hand across every boot is an engine", oomCadenceWord({ topInvoker: "tokio-runtime-w", topInvokerCount: 12, ledBoots: 3, bootsWithLeader: 3 }, 12) === "tokio-runtime-w led every boot on record (3) — the same hand drives the war", "a repeated dominance is the pool, not an afternoon");
+  ok("CD7 the partial dominance carries its fraction", oomCadenceWord({ topInvoker: "tokio-runtime-w", topInvokerCount: 8, ledBoots: 2, bootsWithLeader: 4 }, 20) === "tokio-runtime-w led 2 of the last 4 boots — the rope changes hands", "2 of 4 is not every boot — the loud face stays home");
+  ok("CD8 the predicate is the two-mouths law — word and tone read ONE birthplace", oomCadencePersistent({ topInvoker: "w", topInvokerCount: 5, ledBoots: 2, bootsWithLeader: 2 }) === true && oomCadencePersistent({ topInvoker: "w", topInvokerCount: 5, ledBoots: 1, bootsWithLeader: 2 }) === false && oomCadencePersistent(null) === false, "ledBoots ≥ 2 is the persistence law");
+}
+
 // ── BL — the boot ledger's composers (t884): the seat rides fixtures ─
 {
   const now = "2026-11-05T12:00:00.000Z";
@@ -443,6 +457,37 @@ ok("C9 the client mirror grew the same shape", clientSrc.includes("MemoryPressur
     { bootId: "b3", firstSeenAt: "t3", lastSeenAt: "t3", oomKills: 7, whaleComm: "next-server (v1", whaleLastRssMb: 2700 },
   ]).whaleSizesMb.join(",") === "2400,2700", "the sizes face never mixes comms — a mixed curve is a rumour");
   ok("BL6 the honest nulls — no whale observed, the fact says so", composeBootLedgerFact([{ bootId: "b1", firstSeenAt: "t1", lastSeenAt: "t1", oomKills: null, whaleComm: null, whaleLastRssMb: null }]).whaleComm === null && composeBootLedgerFact([{ bootId: "b1", firstSeenAt: "t1", lastSeenAt: "t1", oomKills: null, whaleComm: null, whaleLastRssMb: null }]).whaleSizesMb.length === 0, "the boots count still speaks");
+}
+
+// ── BLR — the ledger's rope fields (t885): the cadence's raw material ─
+{
+  const now = "2026-11-05T13:00:00.000Z";
+  const obsR = (bootId, oomKills, rss, topInvoker, topInvokerCount) => ({ bootId, oomKills, whaleComm: "next-server (v1", whaleLastRssMb: rss, topInvoker, topInvokerCount });
+  ok("BLR1 the rope moves in place like the other observations — the birth holds", (() => {
+    const rows = composeBootLedgerUpdate([{ bootId: "b1", firstSeenAt: "earlier", lastSeenAt: "older", oomKills: 80, whaleComm: "next-server (v1", whaleLastRssMb: 2900 }], obsR("b1", 88, 3229, "tokio-runtime-w", 19), now);
+    return rows[0]?.firstSeenAt === "earlier" && rows[0]?.topInvoker === "tokio-runtime-w" && rows[0]?.topInvokerCount === 19;
+  })(), "the rope updates, the birth never rewrites");
+  ok("BLR2 a ropeless observation keeps the old name — history is the cadence's evidence", (() => {
+    const rows = composeBootLedgerUpdate([{ bootId: "b1", firstSeenAt: "t1", lastSeenAt: "t1", oomKills: 80, whaleComm: "w", whaleLastRssMb: 1000, topInvoker: "chrome", topInvokerCount: 30 }], obsR("b1", 88, 3229, null, null), now);
+    return rows[0]?.topInvoker === "chrome" && rows[0]?.topInvokerCount === 30;
+  })(), "a null rope never wipes a named one");
+  ok("BLR3 the fact's cadence face: ledBoots counts the leader's boots (non-consecutive included), the whale-run guard does NOT bind the rope", composeBootLedgerFact([
+    { bootId: "b1", firstSeenAt: "t1", lastSeenAt: "t1", oomKills: 5, whaleComm: "old-whale", whaleLastRssMb: 999, topInvoker: "tokio-runtime-w", topInvokerCount: 9 },
+    { bootId: "b2", firstSeenAt: "t2", lastSeenAt: "t2", oomKills: 6, whaleComm: "next-server (v1", whaleLastRssMb: 2400, topInvoker: "chrome", topInvokerCount: 12 },
+    { bootId: "b3", firstSeenAt: "t3", lastSeenAt: "t3", oomKills: 7, whaleComm: "next-server (v1", whaleLastRssMb: 2700, topInvoker: "tokio-runtime-w", topInvokerCount: 51 },
+  ]).ledBoots === 2 && composeBootLedgerFact([
+    { bootId: "b1", firstSeenAt: "t1", lastSeenAt: "t1", oomKills: 5, whaleComm: "old-whale", whaleLastRssMb: 999, topInvoker: "tokio-runtime-w", topInvokerCount: 9 },
+    { bootId: "b2", firstSeenAt: "t2", lastSeenAt: "t2", oomKills: 6, whaleComm: "next-server (v1", whaleLastRssMb: 2400, topInvoker: "chrome", topInvokerCount: 12 },
+    { bootId: "b3", firstSeenAt: "t3", lastSeenAt: "t3", oomKills: 7, whaleComm: "next-server (v1", whaleLastRssMb: 2700, topInvoker: "tokio-runtime-w", topInvokerCount: 51 },
+  ]).topInvoker === "tokio-runtime-w" && composeBootLedgerFact([
+    { bootId: "b1", firstSeenAt: "t1", lastSeenAt: "t1", oomKills: 5, whaleComm: "old-whale", whaleLastRssMb: 999, topInvoker: "tokio-runtime-w", topInvokerCount: 9 },
+    { bootId: "b2", firstSeenAt: "t2", lastSeenAt: "t2", oomKills: 6, whaleComm: "next-server (v1", whaleLastRssMb: 2400, topInvoker: "chrome", topInvokerCount: 12 },
+    { bootId: "b3", firstSeenAt: "t3", lastSeenAt: "t3", oomKills: 7, whaleComm: "next-server (v1", whaleLastRssMb: 2700, topInvoker: "tokio-runtime-w", topInvokerCount: 51 },
+  ]).bootsWithLeader === 3, "who DROVE is not who DIED — the rope's history spans whales and counts gaps");
+  ok("BLR4 pre-t885 rows carry no rope — the honest zeros", (() => {
+    const f = composeBootLedgerFact([{ bootId: "b1", firstSeenAt: "t1", lastSeenAt: "t1", oomKills: 5, whaleComm: "w", whaleLastRssMb: 999 }]);
+    return f.topInvoker === null && f.topInvokerCount === null && f.ledBoots === null && f.bootsWithLeader === 0;
+  })(), "an old ledger reads as an unnamed rope, never a guessed one");
 }
 
 console.log(`\nt879 pressure-words unit: ${pass}/${pass + fail} green`);

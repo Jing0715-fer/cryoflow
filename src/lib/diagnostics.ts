@@ -41,9 +41,9 @@ import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { relativeAgeWord } from "@/lib/world-durability-words";
-import { isThreadComm, oomBootLedgerRising, oomBootLedgerWord, oomCombatantsWord, oomInvokersWord, oomLeakWord, oomPairingsWord, oomTempoWord } from "@/lib/pressure-words";
+import { isThreadComm, oomBootLedgerRising, oomBootLedgerWord, oomCadencePersistent, oomCadenceWord, oomCombatantsWord, oomInvokersWord, oomLeakWord, oomPairingsWord, oomTempoWord } from "@/lib/pressure-words";
 
-export { oomBootLedgerRising, oomBootLedgerWord, oomCombatantsWord, oomInvokersWord, oomLeakWord, oomPairingsWord, oomTempoWord, isThreadComm }; // t880/t881/t882/t883/t884 — the words live in ONE client-safe birthplace (pressure-words.ts); the lib re-exports so the seat's import surface and the presenter stay put
+export { oomBootLedgerRising, oomBootLedgerWord, oomCadencePersistent, oomCadenceWord, oomCombatantsWord, oomInvokersWord, oomLeakWord, oomPairingsWord, oomTempoWord, isThreadComm }; // t880/t881/t882/t883/t884/t885 — the words live in ONE client-safe birthplace (pressure-words.ts); the lib re-exports so the seat's import surface and the presenter stay put
 
 /* ------------------------------------------------------------------ */
 /* Canonical lines — the campaign's numbers, now product constants     */
@@ -281,6 +281,11 @@ export interface BootLedgerRow {
   oomKills: number | null;
   whaleComm: string | null;
   whaleLastRssMb: number | null;
+  /** t885 — the boot's rope leader at the last observation (the top
+   *  invoker the ring named): the cadence word's per-boot fact. Pre-t885
+   *  rows simply lack it — the composer reads absence as an unnamed rope. */
+  topInvoker?: string | null;
+  topInvokerCount?: number | null;
 }
 
 /** t884 — the fact face the payload carries: the boots on record plus the
@@ -291,6 +296,15 @@ export interface BootLedgerFact {
   boots: number;
   whaleComm: string | null;
   whaleSizesMb: number[];
+  /** t885 — the rope's cadence across boots: the CURRENT boot's leader
+   *  (the ring's top invoker at the last observation), its invocation
+   *  count, how many of the ledger's leader-named boots this same comm
+   *  led, and how many boots named a leader at all. A rope the ledger
+   *  never saw stays all-null/0 — the word rests (the information rule). */
+  topInvoker: string | null;
+  topInvokerCount: number | null;
+  ledBoots: number | null;
+  bootsWithLeader: number;
 }
 
 export interface BootObservation {
@@ -298,6 +312,10 @@ export interface BootObservation {
   oomKills: number | null;
   whaleComm: string | null;
   whaleLastRssMb: number | null;
+  /** t885 — the current boot's rope leader, moved in place like the
+   *  other observations (the birth is the boot id, never the rope). */
+  topInvoker: string | null;
+  topInvokerCount: number | null;
 }
 
 export const BOOT_LEDGER_CAP = 8; // bounded file — the last 8 boots are the curve, older boots are archaeology
@@ -316,6 +334,11 @@ export function composeBootLedgerUpdate(rows: BootLedgerRow[], obs: BootObservat
         oomKills: obs.oomKills ?? existing.oomKills,
         whaleComm: obs.whaleComm ?? existing.whaleComm,
         whaleLastRssMb: obs.whaleLastRssMb ?? existing.whaleLastRssMb,
+        // t885 — the rope moves in place like the other observations; a
+        // null rope (the ring named nobody) keeps the old name, not a
+        // wipe — the leader's history is the cadence's evidence
+        topInvoker: obs.topInvoker ?? existing.topInvoker ?? null,
+        topInvokerCount: obs.topInvokerCount ?? existing.topInvokerCount ?? null,
       }
     : {
         bootId: obs.bootId,
@@ -324,6 +347,8 @@ export function composeBootLedgerUpdate(rows: BootLedgerRow[], obs: BootObservat
         oomKills: obs.oomKills,
         whaleComm: obs.whaleComm,
         whaleLastRssMb: obs.whaleLastRssMb,
+        topInvoker: obs.topInvoker,
+        topInvokerCount: obs.topInvokerCount,
       };
   const next = existing ? clean.map((r) => (r.bootId === obs.bootId ? row : r)) : [...clean, row];
   return next.length > cap ? next.slice(next.length - cap) : next;
@@ -335,11 +360,28 @@ export function composeBootLedgerUpdate(rows: BootLedgerRow[], obs: BootObservat
 export function composeBootLedgerFact(rows: BootLedgerRow[]): BootLedgerFact {
   const clean = rows.filter((r) => r && typeof r.bootId === "string" && r.bootId.length > 0);
   const chrono = [...clean].sort((a, b) => (a.firstSeenAt || "").localeCompare(b.firstSeenAt || ""));
+  // t885 — the rope's cadence face: leader-named rows in birth order, the
+  // current leader the LAST named row's comm, ledBoots the boots this same
+  // comm led. The whale-run guard does NOT apply here — the rope-holder is
+  // not the victim, and a rope's cadence is about who DROVE, not who DIED.
+  const leaderRows = chrono.filter(
+    (r) => typeof r.topInvoker === "string" && r.topInvoker.length > 0 && typeof r.topInvokerCount === "number" && Number.isFinite(r.topInvokerCount) && (r.topInvokerCount as number) > 0,
+  );
+  const cadenceNull = { topInvoker: null, topInvokerCount: null, ledBoots: null, bootsWithLeader: leaderRows.length };
   const whaleRows = chrono.filter((r) => r.whaleLastRssMb != null && Number.isFinite(r.whaleLastRssMb) && r.whaleLastRssMb > 0);
-  if (whaleRows.length === 0) return { boots: chrono.length, whaleComm: null, whaleSizesMb: [] };
+  if (whaleRows.length === 0) return { boots: chrono.length, whaleComm: null, whaleSizesMb: [], ...cadenceNull };
   const current = whaleRows[whaleRows.length - 1]!.whaleComm;
   const sizes = whaleRows.filter((r) => r.whaleComm && r.whaleComm === current).map((r) => r.whaleLastRssMb!);
-  return { boots: chrono.length, whaleComm: current, whaleSizesMb: sizes };
+  const leader = leaderRows[leaderRows.length - 1] ?? null;
+  const cadence = leader
+    ? {
+        topInvoker: leader.topInvoker ?? null,
+        topInvokerCount: leader.topInvokerCount ?? null,
+        ledBoots: leaderRows.filter((r) => r.topInvoker === leader.topInvoker).length,
+        bootsWithLeader: leaderRows.length,
+      }
+    : cadenceNull;
+  return { boots: chrono.length, whaleComm: current, whaleSizesMb: sizes, ...cadence };
 }
 
 /** Parse a kernel ring dump (dmesg) into the OOM ledger. Pure — the seat
@@ -500,6 +542,11 @@ export function readMemoryPressure(): MemoryPressure | null {
         oomKills: ledger.oomKills,
         whaleComm: ledger.victims[0]?.comm ?? null,
         whaleLastRssMb: ledger.victims[0]?.rssMb ?? null,
+        // t885 — the rope's leader rides the same observation: the ring's
+        // top invoker (invocations-desc, recency tiebreak — the parser's
+        // own order), so the ledger remembers WHO drove each boot
+        topInvoker: ledger.invokers[0]?.comm ?? null,
+        topInvokerCount: ledger.invokers[0]?.invocations ?? null,
       };
       rows = composeBootLedgerUpdate(rows, obs, new Date().toISOString());
       try {
@@ -903,10 +950,20 @@ export function presentSystemDiagnostics(payload: DiagnosticsPayload | null): Di
   const bootLedgerFact = p?.bootLedger;
   const bootWord = bootLedgerFact ? oomBootLedgerWord(bootLedgerFact) : null;
   const bootClause = bootWord ? `; the whale's boots: ${bootWord}` : "";
+  // t885 — the rope's cadence clause: the CROSS-BOOT faces only. The
+  // single-boot share is the dialog row's face (the holders clause already
+  // names the leader and its ×count on this line — the denominator would be
+  // the same news twice); the line speaks when the ledger's history answers
+  // the persistence question (who drove, boot over boot).
+  const cadenceWord =
+    bootLedgerFact && (bootLedgerFact.bootsWithLeader ?? 0) >= 2
+      ? oomCadenceWord(bootLedgerFact, p?.oomKills ?? null)
+      : null;
+  const cadenceClause = cadenceWord ? `; the rope's cadence: ${cadenceWord}` : "";
   const pressureLine = p
     ? (p.oomKills ?? 0) > 0
-      ? `the kernel ring carries ${p.oomKills} OOM kill${p.oomKills === 1 ? "" : "s"} this boot — the last victim ${p.lastVictim ? `${p.lastVictim.comm} at ${p.lastVictim.rssMb}MB` : "unnamed"}${p.lastInvoker ? ` (invoked by ${p.lastInvoker})` : ""}${tempoClause}${combatantsClause}${invokersClause}${pairingsClause}${leakClause}${bootClause}${p.selfRssMb != null ? `; this server parks at ${p.selfRssMb}MB` : ""}`
-      : `no OOM kill in the kernel ring this boot${bootClause}${p.selfRssMb != null ? `; this server parks at ${p.selfRssMb}MB` : ""}`
+      ? `the kernel ring carries ${p.oomKills} OOM kill${p.oomKills === 1 ? "" : "s"} this boot — the last victim ${p.lastVictim ? `${p.lastVictim.comm} at ${p.lastVictim.rssMb}MB` : "unnamed"}${p.lastInvoker ? ` (invoked by ${p.lastInvoker})` : ""}${tempoClause}${combatantsClause}${invokersClause}${pairingsClause}${leakClause}${bootClause}${cadenceClause}${p.selfRssMb != null ? `; this server parks at ${p.selfRssMb}MB` : ""}`
+      : `no OOM kill in the kernel ring this boot${bootClause}${cadenceClause}${p.selfRssMb != null ? `; this server parks at ${p.selfRssMb}MB` : ""}`
     : "the kernel ring was not ours to read (pressure unknown)";
   return {
     ok: true,

@@ -23,7 +23,7 @@
  */
 
 import * as React from "react";
-import { isThreadComm, oomBootLedgerRising, oomBootLedgerWord, oomCombatantsWord, oomInvokersWord, oomLeakWord, oomPairingsWord, oomTempoWord } from "@/lib/pressure-words";
+import { isThreadComm, oomBootLedgerRising, oomBootLedgerWord, oomCadencePersistent, oomCadenceWord, oomCombatantsWord, oomInvokersWord, oomLeakWord, oomPairingsWord, oomTempoWord } from "@/lib/pressure-words";
 import { Activity, Boxes, Cpu, HardDrive, MemoryStick, RefreshCw, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -227,6 +227,12 @@ export default function SystemDiagnosticsDialog({
   // SAME predicate the word does — ONE birthplace for the verdict and its color)
   const bootWord = pressure?.bootLedger ? oomBootLedgerWord(pressure.bootLedger) : null;
   const bootRising = pressure?.bootLedger ? oomBootLedgerRising(pressure.bootLedger) : false;
+  // t885 — the rope's cadence word: the ledger's cross-boot question (who
+  // DROVE the war, boot over boot). The row's tone reads the SAME
+  // persistence predicate the word does — ONE birthplace for the verdict
+  // and its color (the t884 two-mouths shape).
+  const cadenceWord = pressure?.bootLedger ? oomCadenceWord(pressure.bootLedger, pressure.oomKills ?? null) : null;
+  const cadencePersistent = pressure?.bootLedger ? oomCadencePersistent(pressure.bootLedger) : false;
   const threadDialect =
     pressure?.lastVictim && isThreadComm(pressure.lastVictim.comm)
       ? pressure.lastVictim.comm
@@ -394,6 +400,17 @@ export default function SystemDiagnosticsDialog({
                           data-testid="diag-boot-ledger">
                           <span className="font-sans text-muted-foreground">The whale's boots: </span>
                           {bootWord}
+                        </p>
+                      ) : null}
+                      {cadenceWord ? (
+                        <p
+                          className={cn(
+                            "font-mono text-[10px] [font-variant-numeric:tabular-nums]",
+                            cadencePersistent ? "font-medium text-danger" : "text-foreground/70",
+                          )}
+                          data-testid="diag-cadence">
+                          <span className="font-sans text-muted-foreground">The rope's cadence: </span>
+                          {cadenceWord}
                         </p>
                       ) : null}
                       {threadDialect ? (

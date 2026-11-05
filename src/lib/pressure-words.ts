@@ -172,6 +172,70 @@ export function oomPairingsWord(pairings: OomPairingInput[] | null | undefined):
   return more > 0 ? `${top.join(" · ")} +${more} more` : top.join(" · ");
 }
 
+export interface OomCadenceInput {
+  /** the current boot's rope leader (the ring's top invoker at the last observation) */
+  topInvoker: string | null;
+  /** its invocation count this boot */
+  topInvokerCount: number | null;
+  /** how many of the ledger's leader-named boots this same comm led (incl. current) */
+  ledBoots: number | null;
+  /** boots on record with a named leader at all */
+  bootsWithLeader: number;
+}
+
+/**
+ * t885 — the persistence predicate BEHIND the cadence word: the SAME hand
+ * led two or more of the ledger's boots. Exported because the verdict has
+ * TWO mouths — the word's text and the dialog row's tone — and both must
+ * read the SAME law from ONE birthplace (the t1165 one-father law, applied
+ * to a color — the t884 predicate's own precedent).
+ */
+export function oomCadencePersistent(input: OomCadenceInput | null | undefined): boolean {
+  if (!input) return false;
+  return Number.isFinite(input.ledBoots) && (input.ledBoots ?? 0) >= 2;
+}
+
+/**
+ * t885 — the cadence word: who DROVE the war, boot over boot. The holders
+ * word (t882) tallies one boot's ropes; the pairings (t883) name whose hand
+ * tripped which death; this word asks the LEDGER's question — is one invoker
+ * the boot's engine, and does that dominance persist across boots (tokio ×19
+ * in one boot: is the whale's own worker pool the war's engine, or one bad
+ * afternoon?). Three faces, each speaking only what the ledger holds:
+ *  - the QUIET share (one leader-named boot): "N of this boot's K kills rode
+ *    X's rope" — the holders row lists ×N; the word adds the denominator;
+ *  - the WEATHER face (≥2 leader-named boots, the leader changed): "X led a
+ *    of the last b boots — the rope changes hands" — no verdict over history;
+ *  - the LOUD verdict (every leader-named boot led by the same hand,
+ *    oomCadencePersistent): "the same hand drives the war" — a repeated
+ *    dominance is an engine, not an afternoon.
+ * A boot with no named rope (or a lone invocation — lastInvoker's own news)
+ * rests; one boot with a leader speaks only the share. The denominator is
+ * the caller's oomKills (the ring's own count — never a guessed total).
+ */
+export function oomCadenceWord(
+  input: OomCadenceInput | null | undefined,
+  oomKills: number | null | undefined,
+): string | null {
+  if (!input || typeof input.topInvoker !== "string" || input.topInvoker.length === 0) return null;
+  const count = input.topInvokerCount;
+  if (!Number.isFinite(count) || (count ?? 0) < 2) return null; // a lone invocation is the invoked-by clause's news
+  const boots = input.bootsWithLeader;
+  if (!Number.isFinite(boots) || (boots ?? 0) < 1) return null;
+  if (oomCadencePersistent(input)) {
+    if (input.ledBoots === boots) {
+      return `${input.topInvoker} led every boot on record (${boots}) — the same hand drives the war`;
+    }
+    return `${input.topInvoker} led ${input.ledBoots ?? 1} of the last ${boots} boots — the rope changes hands`;
+  }
+  if (boots > 1) {
+    return `${input.topInvoker} led 1 of the last ${boots} boots — the rope changes hands`;
+  }
+  // the quiet share: one leader-named boot, the denominator the ring owns
+  if (!Number.isFinite(oomKills) || (oomKills ?? 0) <= 0) return null;
+  return `${count} of this boot's ${oomKills} kills rode ${input.topInvoker}'s rope`;
+}
+
 export interface OomBootLedgerInput {
   /** the distinct boots on record (rows in the ledger, whatever their ring access) */
   boots: number;

@@ -289,8 +289,19 @@ const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8"
       ],
       // t884 — the boot ledger carries the machine's OWN witnessed cross-boot
       // curve (2770→3204→3077MB, the worklog's three windows): NOT strictly
-      // rising — weather — so the clause speaks the quiet fact, never a verdict
-      bootLedger: { boots: 3, whaleComm: "next-server (v1", whaleSizesMb: [2770, 3204, 3077] },
+      // rising — weather — so the clause speaks the quiet fact, never a verdict;
+      // t885 — the ledger grew the rope's cadence: the witnessed leader is
+      // chrome (×51, this boot's own histogram), and the pre-t885 boots carry
+      // no rope — one led boot of two named is the WEATHER face (hands change)
+      bootLedger: {
+        boots: 3,
+        whaleComm: "next-server (v1",
+        whaleSizesMb: [2770, 3204, 3077],
+        topInvoker: "chrome",
+        topInvokerCount: 51,
+        ledBoots: 1,
+        bootsWithLeader: 2,
+      },
       selfRssMb: 892,
       uptimeHours: 7.5,
     },
@@ -305,6 +316,7 @@ const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8"
   // boot ledger's witnessed curve speaks its quiet fact (never a verdict)
   must(/libuv-worker→MainThread ×4 \(thread\)/.test(warSummary), "presenter — the crossfire pairing wears the thread marker (t884): the whale's own workers held the rope when the browser's main thread died");
   must(/the whale's boots: 3 boots on record — 2770→3204→3077MB across boots/.test(warSummary), "presenter — the boot clause speaks the witnessed curve verbatim, and a dipped curve earns NO leak verdict (t884: weather stays silent)");
+  must(/the rope's cadence: chrome led 1 of the last 2 boots — the rope changes hands/.test(warSummary), "presenter — the cadence clause speaks the cross-boot faces only, and a changed hand is weather, not a verdict (t885)");
 
   // t884 — the boot clause's LOUD face: the day the box reboots three times
   // with the whale growing, the leak crosses boots (synthetic curve — the
@@ -318,18 +330,31 @@ const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8"
     pressure: {
       oomKills: 12,
       lastVictim: { comm: "next-server (v1", rssMb: 3000 },
-      lastInvoker: "chrome",
+      lastInvoker: "tokio-runtime-w",
       victims: [{ comm: "next-server (v1", kills: 12, rssMb: 3000 }],
-      invokers: [{ comm: "chrome", invocations: 12 }],
+      invokers: [{ comm: "tokio-runtime-w", invocations: 12 }],
       trend: null,
-      pairings: [{ invoker: "chrome", victim: "next-server (v1", count: 12 }],
-      bootLedger: { boots: 3, whaleComm: "next-server (v1", whaleSizesMb: [2400, 2700, 3000] },
+      pairings: [{ invoker: "tokio-runtime-w", victim: "next-server (v1", count: 12 }],
+      // t885 — the LOUD cadence face: the whale's own worker pool led every
+      // boot on record — the same hand driving three boots is an engine, not
+      // an afternoon (synthetic — the box has not written this history yet;
+      // the word waits for the ledger to earn it)
+      bootLedger: {
+        boots: 3,
+        whaleComm: "next-server (v1",
+        whaleSizesMb: [2400, 2700, 3000],
+        topInvoker: "tokio-runtime-w",
+        topInvokerCount: 12,
+        ledBoots: 3,
+        bootsWithLeader: 3,
+      },
       selfRssMb: 500,
       uptimeHours: 2.0,
     },
     generatedAt: new Date().toISOString(),
   });
   must(/the whale's boots: next-server \(v1 grows across boots — 2400→2700→3000MB over 3 boots: the leak crosses boots/.test(bootLeak.summary ?? ""), "presenter — the leak crossing boots is rare and loud (t884)");
+  must(/the rope's cadence: tokio-runtime-w led every boot on record \(3\) — the same hand drives the war/.test(bootLeak.summary ?? ""), "presenter — the same hand across every boot is the engine verdict, rare and loud (t885)");
 
   // honest nulls: unreadable lanes are SAID, not guessed
   const partial = presentSystemDiagnostics({

@@ -464,8 +464,18 @@ export interface MemoryPressureClient {
   pairings: { invoker: string; victim: string; count: number }[];
   /** t884 — the boot ledger's fact face: the whale's growth ACROSS boots
    *  (the ring forgets on reboot — the ledger remembers); null = the boot
-   *  id was not ours to read. */
-  bootLedger: { boots: number; whaleComm: string | null; whaleSizesMb: number[] } | null;
+   *  id was not ours to read. t885 — the face grew the rope's cadence:
+   *  the current boot's leader, its count, the boots that leader led and
+   *  the boots that named any leader (the cadence word's arithmetic). */
+  bootLedger: {
+    boots: number;
+    whaleComm: string | null;
+    whaleSizesMb: number[];
+    topInvoker: string | null;
+    topInvokerCount: number | null;
+    ledBoots: number | null;
+    bootsWithLeader: number;
+  } | null;
   selfRssMb: number | null;
   uptimeHours: number | null;
 }
