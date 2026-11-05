@@ -32,3 +32,27 @@ export function oomTempoWord(oomKills: number | null, uptimeHours: number | null
   const word = perDay >= 10 ? Math.round(perDay).toString() : perDay.toFixed(1);
   return `≈${word}/day over ${uptimeHours < 10 ? uptimeHours.toFixed(1) : Math.round(uptimeHours)}h up`;
 }
+
+export interface OomCombatantInput {
+  comm: string;
+  kills: number;
+}
+
+/**
+ * t881 — the combatants word: the war's histogram, not just its last
+ * victim. The tempo says how fast the war runs; this says who fights in
+ * it — the kernel's dead, tallied by comm, in the parser's own order
+ * (kills-desc, recency tiebreak — the word renders what it is given, no
+ * re-sort). Caps at the top three with an honest "+N more" tail: a
+ * locator line is a locator, not the full ledger. Null when there is
+ * nothing to tally — no victims, or a tally of nobody (non-positive
+ * counts are garbage the kernel never writes; filtered, the A6
+ * tolerance precedent).
+ */
+export function oomCombatantsWord(victims: OomCombatantInput[] | null | undefined): string | null {
+  const alive = (victims ?? []).filter((v) => v && typeof v.comm === "string" && v.comm.length > 0 && Number.isFinite(v.kills) && v.kills > 0);
+  if (alive.length === 0) return null;
+  const top = alive.slice(0, 3).map((v) => `${v.comm} ×${v.kills}`);
+  const more = alive.length - top.length;
+  return more > 0 ? `${top.join(" · ")} +${more} more` : top.join(" · ");
+}

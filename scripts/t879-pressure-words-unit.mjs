@@ -30,7 +30,7 @@ import {
   readMemoryPressure,
   presentSystemDiagnostics,
 } from "@/lib/diagnostics";
-import { oomTempoWord } from "@/lib/pressure-words";
+import { oomCombatantsWord, oomTempoWord } from "@/lib/pressure-words";
 
 let pass = 0;
 let fail = 0;
@@ -55,17 +55,24 @@ const FIXTURE = [
   "Tasks state (memory values in kB):",
   "[ 100.2] Out of memory: Killed process 900 (python3) total-vm:1000000kB, anon-rss:1048576kB, file-rss:1000kB, shmem-rss:0kB, UID:1001",
   "[100.3] chrome invoked oom-killer: gfp_mask=0x100dca(GFP_HIGHUSER_MOVABLE|__GFP_ZERO), order=0, oom_score_adj=300",
-  "[ 100.4] Out of memory: Killed process 901 (next-server (v1)) total-vm:65000000kB, anon-rss:2793236kB, file-rss:22000kB, shmem-rss:0kB, UID:1001 pgtables:40000kB",
-  "[100.5] oom_reaper reaped process 901 (next-server (v1)), now anon-rss:0kB",
+  "[ 100.4] Out of memory: Killed process 901 (next-server (v1) total-vm:65000000kB, anon-rss:2793236kB, file-rss:22000kB, shmem-rss:0kB, UID:1001 pgtables:40000kB",
+  "[100.5] oom_reaper reaped process 901 (next-server (v1), now anon-rss:0kB",
 ].join("\n");
+// t881 — the fixture-truth cure: the victim comm is the kernel's OWN 15-char
+// dialect ("next-server (v1" — the wrapper paren swallows the comm's eaten
+// closing paren, so the line carries ONE unclosed paren). The t880 live ride
+// witnessed exactly this shape ("comm":"next-server (v1"); the t879 fixture's
+// balanced "next-server (v1)" was the prose's idealization, a shape the kernel
+// never writes.
 
 // ── A — the parser's faces ──────────────────────────────────────────────
 
 {
   const r = parseOomRing(FIXTURE);
   ok("A1 the ring's kill count is the ledger's count", r.oomKills === 2, `${r.oomKills} kills (the reaper's own line never counts)`);
-  ok("A2 the last victim is named with the anon-rss math", r.lastVictim?.comm === "next-server (v1)" && r.lastVictim?.rssMb === 2728, `${r.lastVictim?.comm} at ${r.lastVictim?.rssMb}MB (2793236kB → /1024)`);
+  ok("A2 the last victim is named in the kernel's 15-char dialect with the anon-rss math", r.lastVictim?.comm === "next-server (v1" && r.lastVictim?.rssMb === 2728, `${JSON.stringify(r.lastVictim?.comm)} at ${r.lastVictim?.rssMb}MB (2793236kB → /1024; the eaten paren rides VERBATIM)`);
   ok("A3 the invoker is the one NEAREST the last kill", r.lastInvoker === "chrome", `${r.lastInvoker} (not a stale earlier allocator)`);
+  ok("A8 the fixture's own combatants histogram", r.victims.length === 2 && r.victims[0]?.comm === "next-server (v1" && r.victims[0]?.kills === 1 && r.victims[1]?.comm === "python3", r.victims.map((v) => `${v.comm} ×${v.kills}`).join(", ") + " — ties break by recency (the later kill first)");
 }
 
 {
@@ -87,7 +94,23 @@ const FIXTURE = [
 
 {
   const r = parseOomRing("");
-  ok("A7 an empty ring is zero kills, no victim, no invoker", r.oomKills === 0 && r.lastVictim === null && r.lastInvoker === null, "the honest empty");
+  ok("A7 an empty ring is zero kills, no victim, no invoker, no combatants", r.oomKills === 0 && r.lastVictim === null && r.lastInvoker === null && r.victims.length === 0, "the honest empty");
+}
+
+{
+  // t881 — the histogram's aggregation face: one comm dying three times
+  const MULTIKILL = [
+    "[1.0] chrome invoked oom-killer: gfp_mask=0x100cca",
+    "[ 1.1] Out of memory: Killed process 10 (python3) total-vm:2000000kB, anon-rss:1048576kB",
+    "[2.0] chrome invoked oom-killer: gfp_mask=0x100cca",
+    "[ 2.1] Out of memory: Killed process 11 (next-server (v1) total-vm:40000000kB, anon-rss:2097152kB",
+    "[3.0] chrome invoked oom-killer: gfp_mask=0x100cca",
+    "[ 3.1] Out of memory: Killed process 12 (next-server (v1) total-vm:41000000kB, anon-rss:3145728kB",
+    "[4.0] chrome invoked oom-killer: gfp_mask=0x100cca",
+    "[ 4.1] Out of memory: Killed process 13 (next-server (v1) total-vm:42000000kB, anon-rss:4194304kB",
+  ].join("\n");
+  const r = parseOomRing(MULTIKILL);
+  ok("A9 the regular's tally: three deaths aggregate to one combatant", r.oomKills === 4 && r.victims.length === 2 && r.victims[0]?.comm === "next-server (v1" && r.victims[0]?.kills === 3 && r.victims[0]?.rssMb === 4096 && r.victims[1]?.comm === "python3" && r.victims[1]?.kills === 1, `kills-desc order, rssMb = the LAST death's size (4194304kB → 4096MB), last victim ${r.lastVictim?.comm} at ${r.lastVictim?.rssMb}MB`);
 }
 
 // ── B — the presenter's three wordings ──────────────────────────────────
@@ -100,15 +123,32 @@ const FIXTURE = [
     provenance: { commit: "4150a1b9", standalone: false },
     world: { projects: 1, jobs: 16, runningJobs: 0 },
     durability: null,
-    pressure: { oomKills: 2, lastVictim: { comm: "next-server (v1)", rssMb: 2726 }, lastInvoker: "chrome", selfRssMb: 412, uptimeHours: 2.5 },
+    pressure: { oomKills: 3, lastVictim: { comm: "next-server (v1", rssMb: 2726 }, lastInvoker: "chrome", victims: [{ comm: "next-server (v1", kills: 2, rssMb: 2726 }, { comm: "python3", kills: 1, rssMb: 1024 }], selfRssMb: 412, uptimeHours: 2.5 },
     generatedAt: "2026-11-05T00:00:00.000Z",
   };
   const res = presentSystemDiagnostics(payload);
   const s = res.summary ?? "";
-  ok("B1 the kill ledger rides the locator line", /2 OOM kills this boot/.test(s), s.match(/the kernel ring carries 2 OOM kills[^.]*/)?.[0]?.slice(0, 60));
-  ok("B2 the victim's name and size ride it too", /next-server \(v1\) at 2726MB/.test(s), "the whale named");
+  ok("B1 the kill ledger rides the locator line", /3 OOM kills this boot/.test(s), s.match(/the kernel ring carries 3 OOM kills[^.]*/)?.[0]?.slice(0, 60));
+  ok("B2 the victim's name rides it in the kernel's dialect, with the size", /next-server \(v1 at 2726MB/.test(s), "the whale named — the eaten paren verbatim");
   ok("B3 the allocator's rope is named", /invoked by chrome/.test(s), "chrome held the rope");
   ok("B4 the server's own footprint rides it", /this server parks at 412MB/.test(s), "self VmRSS");
+  ok("B7 the combatants clause rides the histogram", /the war's combatants: next-server \(v1 ×2 · python3 ×1/.test(s), s.match(/the war's combatants[^.]*/)?.[0]);
+}
+
+{
+  // t881 — the information rule: a single ×1 victim is ALREADY named by the
+  // last-victim clause — the histogram must not echo it
+  const single = {
+    memory: null,
+    disk: null,
+    provenance: { commit: null, standalone: false },
+    world: null,
+    durability: null,
+    pressure: { oomKills: 1, lastVictim: { comm: "next-server (v1", rssMb: 2726 }, lastInvoker: "chrome", victims: [{ comm: "next-server (v1", kills: 1, rssMb: 2726 }], selfRssMb: 412, uptimeHours: 2.5 },
+    generatedAt: "2026-11-05T00:00:00.000Z",
+  };
+  const s = presentSystemDiagnostics(single).summary ?? "";
+  ok("B8 the combatants clause stays silent when the histogram echoes the last victim", !s.includes("combatants"), "one kill, one comm — news is zero");
 }
 
 {
@@ -188,11 +228,31 @@ ok("C9 the client mirror grew the same shape", clientSrc.includes("MemoryPressur
 {
   const words = read("src/lib/pressure-words.ts");
   ok("F1 the father lives client-safe (zero node imports)", !words.includes("node:fs") && !words.includes("node:child_process") && !words.includes("spawnSync"), "the dialog can ride it");
-  ok("F2 the lib re-exports the ONE birthplace", libSrc.includes("export { oomTempoWord }"), "the seat's surface stays put");
+  ok("F2 the lib re-exports the ONE birthplace", libSrc.includes("export { oomCombatantsWord, oomTempoWord }"), "the seat's surface stays put (the family grew, the birthplace did not)");
   ok("F3 the client mirror grew the clock", clientSrc.includes("uptimeHours: number | null;"), "MemoryPressureClient carries the denominator");
   ok("F4 the dialog speaks the tempo with its tone", dialogSrc.includes("oomTempoWord") && dialogSrc.includes("border-danger-500/40"), "the row's war face");
   const bench = read("scripts/t530-diagnostics-bench.ts");
   ok("F5 the bench pins the tempo on the locator line", bench.includes("≈19"), "2 kills / 2.5h ≈ 19/day");
+}
+
+// ── G — the combatants word's faces (t881) ─
+{
+  ok("G1 the histogram body, capped at three with the honest tail", oomCombatantsWord([{ comm: "next-server (v1", kills: 71 }, { comm: "python3", kills: 2 }, { comm: "chrome", kills: 1 }, { comm: "bash", kills: 1 }]) === "next-server (v1 ×71 · python3 ×2 · chrome ×1 +1 more", oomCombatantsWord([{ comm: "next-server (v1", kills: 71 }, { comm: "python3", kills: 2 }, { comm: "chrome", kills: 1 }, { comm: "bash", kills: 1 }]));
+  ok("G2 the exact-three face wears no tail", oomCombatantsWord([{ comm: "a", kills: 3 }, { comm: "b", kills: 2 }, { comm: "c", kills: 1 }]) === "a ×3 · b ×2 · c ×1", "the cap is exactly three");
+  ok("G3 the honest nulls", oomCombatantsWord(null) === null && oomCombatantsWord(undefined) === null && oomCombatantsWord([]) === null, "no victims, no word");
+  ok("G4 the single combatant", oomCombatantsWord([{ comm: "next-server (v1", kills: 1 }]) === "next-server (v1 ×1", oomCombatantsWord([{ comm: "next-server (v1", kills: 1 }]));
+  ok("G5 the kernel never writes a zero-kill or empty-comm victim — garbage is filtered", oomCombatantsWord([{ comm: "", kills: 5 }, { comm: "python3", kills: 0 }, { comm: "chrome", kills: -2 }, { comm: "bash", kills: 2 }]) === "bash ×2", "the A6 tolerance precedent, word-side");
+}
+
+// ── H — the combatants face's source laws (t881) ─
+{
+  const words = read("src/lib/pressure-words.ts");
+  ok("H1 the father stays client-safe with BOTH words", !words.includes("node:fs") && !words.includes("node:child_process") && !words.includes("spawnSync"), "the dialog can ride the histogram too");
+  ok("H2 the client mirror grew the histogram", clientSrc.includes("victims: { comm: string; kills: number; rssMb: number }[]"), "MemoryPressureClient carries the combatants");
+  ok("H3 the dialog carries the combatants row via the ONE father", dialogSrc.includes('data-testid="diag-combatants"') && dialogSrc.includes("oomCombatantsWord"), "the war face grows a line, not a fork");
+  const bench = read("scripts/t530-diagnostics-bench.ts");
+  ok("H4 the bench pins the combatants clause", bench.includes("the war's combatants"), "the t530 cup grew with the histogram");
+  ok("H5 the module header's evidence law names the combatants", libSrc.includes("the combatants histogram"), "the war has regulars");
 }
 
 console.log(`\nt879 pressure-words unit: ${pass}/${pass + fail} green`);

@@ -23,7 +23,7 @@
  */
 
 import * as React from "react";
-import { oomTempoWord } from "@/lib/pressure-words";
+import { oomCombatantsWord, oomTempoWord } from "@/lib/pressure-words";
 import { Activity, Boxes, Cpu, HardDrive, MemoryStick, RefreshCw, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -213,6 +213,9 @@ export default function SystemDiagnosticsDialog({
   // t879 — the OOM war's ledger (kernel ring + self VmRSS); null = the ring was not ours to read
   const pressure = diag?.pressure ?? null;
   const tempo = pressure ? oomTempoWord(pressure.oomKills ?? null, pressure.uptimeHours ?? null) : null;
+  // t881 — the combatants word rides the ONE birthplace; the row renders it
+  // verbatim (mono) only when the histogram has someone to name
+  const combatants = pressure?.victims?.length ? oomCombatantsWord(pressure.victims) : null;
   const durability: WorldDurabilityClient | null = diag?.durability ?? null;
   const durOk = durability?.ok === true ? durability : null;
   const durTone = durOk ? durabilityTone(durOk.verdict, durOk.red) : null;
@@ -315,25 +318,35 @@ export default function SystemDiagnosticsDialog({
                   )}
                   data-testid="diag-pressure">
                   {pressure && pressure.oomKills != null && pressure.oomKills > 0 ? (
-                    <p className="text-foreground/80">
-                      <span className="font-semibold text-danger">{pressure.oomKills} OOM kill{pressure.oomKills === 1 ? "" : "s"}</span> this boot — the last victim{" "}
-                      <span className="font-mono">
-                        {pressure.lastVictim
-                          ? `${pressure.lastVictim.comm} at ${fmtMb(pressure.lastVictim.rssMb)}`
-                          : "unnamed"}
-                      </span>
-                      {pressure.lastInvoker ? (
-                        <>
-                          , invoked by <span className="font-mono">{pressure.lastInvoker}</span>
-                        </>
+                    <>
+                      <p className="text-foreground/80">
+                        <span className="font-semibold text-danger">{pressure.oomKills} OOM kill{pressure.oomKills === 1 ? "" : "s"}</span> this boot — the last victim{" "}
+                        <span className="font-mono">
+                          {pressure.lastVictim
+                            ? `${pressure.lastVictim.comm} at ${fmtMb(pressure.lastVictim.rssMb)}`
+                            : "unnamed"}
+                        </span>
+                        {pressure.lastInvoker ? (
+                          <>
+                            , invoked by <span className="font-mono">{pressure.lastInvoker}</span>
+                          </>
+                        ) : null}
+                        {tempo ? (<> — <span className="font-semibold text-danger">{tempo}</span></>) : null}
+                        .{pressure.selfRssMb != null ? (
+                          <>
+                            {" "}This server parks at <span className="font-mono">{fmtMb(pressure.selfRssMb)}</span>.
+                          </>
+                        ) : null}
+                      </p>
+                      {combatants ? (
+                        <p
+                          className="font-mono text-[10px] text-foreground/70"
+                          data-testid="diag-combatants">
+                          <span className="font-sans text-muted-foreground">The war's combatants: </span>
+                          {combatants}
+                        </p>
                       ) : null}
-                      {tempo ? (<> — <span className="font-semibold text-danger">{tempo}</span></>) : null}
-                      .{pressure.selfRssMb != null ? (
-                        <>
-                          {" "}This server parks at <span className="font-mono">{fmtMb(pressure.selfRssMb)}</span>.
-                        </>
-                      ) : null}
-                    </p>
+                    </>
                   ) : pressure && pressure.oomKills != null ? (
                     <p className="text-muted-foreground">
                       No OOM kill in the kernel ring this boot.

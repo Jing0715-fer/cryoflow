@@ -34,9 +34,9 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { relativeAgeWord } from "@/lib/world-durability-words";
-import { oomTempoWord } from "@/lib/pressure-words";
+import { oomCombatantsWord, oomTempoWord } from "@/lib/pressure-words";
 
-export { oomTempoWord }; // t880 — the words live in ONE client-safe birthplace (pressure-words.ts); the lib re-exports so the seat's import surface and the presenter stay put
+export { oomCombatantsWord, oomTempoWord }; // t880/t881 — the words live in ONE client-safe birthplace (pressure-words.ts); the lib re-exports so the seat's import surface and the presenter stay put
 
 /* ------------------------------------------------------------------ */
 /* Canonical lines — the campaign's numbers, now product constants     */
@@ -163,15 +163,27 @@ export function readMemoryLanes(): MemoryLanes | null {
  * RAM and the kernel kills the biggest resident (the whale law, t1170);
  * today's witness campaign watched it nine times — a diagnosis no
  * memory-lane bar could name. The face answers: how many kills this
- * boot, who died last (and how big), who held the allocator's rope, and
- * what THIS server itself parks in RSS. Every field degrades to null —
- * an unreadable ring (EPERM, no dmesg) is SAID, not guessed.
+ * boot, who died last (and how big), who held the allocator's rope, who
+ * dies MOST (t881 — the combatants histogram: the war has regulars),
+ * and what THIS server itself parks in RSS. Every field degrades to
+ * null — an unreadable ring (EPERM, no dmesg) is SAID, not guessed.
  */
 
 export interface OomVictim {
-  /** the killed process's comm name ("next-server", "chrome", ...) */
+  /** the killed process's comm name ("next-server", "chrome", ...) — VERBATIM:
+   *  the kernel caps comm at 15 visible chars, so "next-server (v1" (the eaten
+   *  closing paren) is the machine's dialect, not a parser bug (t881). */
   comm: string;
   /** the victim's anon-rss at kill time, in MB */
+  rssMb: number;
+}
+
+/** t881 — the war's COMBATANTS: each distinct victim comm with its kill count
+ *  (the histogram behind "who dies most"), rssMb = that comm's most recent
+ *  death size. Sorted kills-desc, ties broken by recency (most recent first). */
+export interface OomCombatant {
+  comm: string;
+  kills: number;
   rssMb: number;
 }
 
@@ -182,6 +194,8 @@ export interface MemoryPressure {
   lastVictim: OomVictim | null;
   /** the process that held the allocator's rope at the last kill */
   lastInvoker: string | null;
+  /** t881 — the combatants histogram (who dies most), kills-desc order */
+  victims: OomCombatant[];
   /** THIS server's own resident set (VmRSS, MB) — the lane's footprint */
   selfRssMb: number | null;
   /** this boot's uptime in hours (/proc/uptime); null = unreadable — the tempo word's denominator */
@@ -193,17 +207,31 @@ const OOM_KILL_RE = /Out of memory:\s+Killed process\s+\d+\s+\((.*)\) total-vm:[
 const OOM_INVOKER_RE = /^(?:\[?\s*[\d:.]+\]?\s+)?(\S+)\s+invoked oom-killer/;
 
 /** Parse a kernel ring dump (dmesg) into the OOM ledger. Pure — the seat
- *  rides fixtures, the reader rides the real ring. */
+ *  rides fixtures, the reader rides the real ring. The kill regex anchors on
+ *  `) total-vm:` so the kernel's 15-char truncated comm ("next-server (v1",
+ *  the eaten paren) is quoted VERBATIM — the t881 fixture-truth law. */
 export function parseOomRing(text: string): {
   oomKills: number;
   lastVictim: OomVictim | null;
   lastInvoker: string | null;
+  victims: OomCombatant[];
 } {
   const lines = text.split("\n");
   const killIdxs: number[] = [];
   for (let i = 0; i < lines.length; i++) {
     if (/Out of memory:\s+Killed process/i.test(lines[i])) killIdxs.push(i);
   }
+  // t881 — the combatants histogram: every kill line joins its comm's tally
+  const tally = new Map<string, { kills: number; rssMb: number; lastIdx: number }>();
+  for (const idx of killIdxs) {
+    const m = lines[idx].match(OOM_KILL_RE);
+    if (!m) continue;
+    const prev = tally.get(m[1]);
+    tally.set(m[1], { kills: (prev?.kills ?? 0) + 1, rssMb: Math.round(Number(m[2]) / 1024), lastIdx: idx });
+  }
+  const victims: OomCombatant[] = [...tally.entries()]
+    .map(([comm, t]) => ({ comm, kills: t.kills, rssMb: t.rssMb }))
+    .sort((a, b) => b.kills - a.kills || tally.get(b.comm)!.lastIdx - tally.get(a.comm)!.lastIdx);
   let lastVictim: OomVictim | null = null;
   if (killIdxs.length > 0) {
     const m = lines[killIdxs[killIdxs.length - 1]].match(OOM_KILL_RE);
@@ -223,7 +251,7 @@ export function parseOomRing(text: string): {
       break;
     }
   }
-  return { oomKills: killIdxs.length, lastVictim, lastInvoker };
+  return { oomKills: killIdxs.length, lastVictim, lastInvoker, victims };
 }
 
 /** Read this host's pressure ledger: the kernel ring (best-effort, 3s cap)
@@ -593,9 +621,18 @@ export function presentSystemDiagnostics(payload: DiagnosticsPayload | null): Di
   const p = payload.pressure;
   const tempo = p ? oomTempoWord(p.oomKills ?? null, p.uptimeHours ?? null) : null;
   const tempoClause = tempo ? ` (${tempo})` : "";
+  // t881 — the combatants clause: only when the histogram says something the
+  // last-victim clause doesn't already say (more than one distinct comm, or
+  // the top comm died more than once — a single ×1 victim is already named)
+  const victims = p?.victims;
+  const combatants = victims?.length ? oomCombatantsWord(victims) : null;
+  const combatantsClause =
+    combatants && victims && (victims.length > 1 || (victims[0]?.kills ?? 0) > 1)
+      ? `; the war's combatants: ${combatants}`
+      : "";
   const pressureLine = p
     ? (p.oomKills ?? 0) > 0
-      ? `the kernel ring carries ${p.oomKills} OOM kill${p.oomKills === 1 ? "" : "s"} this boot — the last victim ${p.lastVictim ? `${p.lastVictim.comm} at ${p.lastVictim.rssMb}MB` : "unnamed"}${p.lastInvoker ? ` (invoked by ${p.lastInvoker})` : ""}${tempoClause}${p.selfRssMb != null ? `; this server parks at ${p.selfRssMb}MB` : ""}`
+      ? `the kernel ring carries ${p.oomKills} OOM kill${p.oomKills === 1 ? "" : "s"} this boot — the last victim ${p.lastVictim ? `${p.lastVictim.comm} at ${p.lastVictim.rssMb}MB` : "unnamed"}${p.lastInvoker ? ` (invoked by ${p.lastInvoker})` : ""}${tempoClause}${combatantsClause}${p.selfRssMb != null ? `; this server parks at ${p.selfRssMb}MB` : ""}`
       : `no OOM kill in the kernel ring this boot${p.selfRssMb != null ? `; this server parks at ${p.selfRssMb}MB` : ""}`
     : "the kernel ring was not ours to read (pressure unknown)";
   return {

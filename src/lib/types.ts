@@ -452,6 +452,8 @@ export interface MemoryPressureClient {
   oomKills: number | null;
   lastVictim: { comm: string; rssMb: number } | null;
   lastInvoker: string | null;
+  /** t881 — the combatants histogram (who dies most): kills-desc, recency tiebreak. */
+  victims: { comm: string; kills: number; rssMb: number }[];
   selfRssMb: number | null;
   uptimeHours: number | null;
 }

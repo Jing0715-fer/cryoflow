@@ -202,11 +202,18 @@ const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8"
       exportedAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
       probedAt: new Date().toISOString(),
     },
-    // t879 — the pressure face rides the payload and its locator line
+    // t879 — the pressure face rides the payload and its locator line;
+    // t881 — the fixture-truth cure: the comm is the kernel's 15-char
+    // dialect ("next-server (v1", the eaten paren), and the combatants
+    // histogram joins the ledger
     pressure: {
       oomKills: 2,
-      lastVictim: { comm: "next-server", rssMb: 2793 },
+      lastVictim: { comm: "next-server (v1", rssMb: 2793 },
       lastInvoker: "chrome",
+      victims: [
+        { comm: "next-server (v1", kills: 1, rssMb: 2793 },
+        { comm: "python3", kills: 1, rssMb: 1048 },
+      ],
       selfRssMb: 412,
       uptimeHours: 2.5,
     },
@@ -221,8 +228,9 @@ const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8"
   must(/world durability STALE \(not red\)/.test(summary), "presenter — summary carries the durability verdict and its red word");
   must(/snapshot 15 · live 15/.test(summary), "presenter — summary carries the durability counts");
   must(/exported 1h ago/.test(summary), "presenter — the exported age word rides the ONE father");
-  must(/2 OOM kills/.test(summary) && /next-server at 2793MB/.test(summary), "presenter — summary carries the OOM ledger and the last victim");
+  must(/2 OOM kills/.test(summary) && /next-server \(v1 at 2793MB/.test(summary), "presenter — summary carries the OOM ledger and the last victim (the kernel's 15-char comm, verbatim)");
   must(/invoked by chrome/.test(summary), "presenter — summary names the allocator that held the rope");
+  must(/the war's combatants: next-server \(v1 ×1 · python3 ×1/.test(summary), "presenter — the combatants clause rides the histogram (t881)");
   must(/this server parks at 412MB/.test(summary), "presenter — summary carries the server's own footprint");
   must(/≈19\/day over 2\.5h up/.test(summary), "presenter — the tempo word rides the kills clause (2 kills / 2.5h ≈ 19/day)");
   const detail = res.detail as { memory?: unknown; world?: unknown };
