@@ -459,6 +459,9 @@ export interface MemoryPressureClient {
   /** t882 — the war's top combatant's last three deaths, chronological, MB —
    *  carried ONLY when strictly rising (a leak signature); null = weather. */
   trend: { comm: string; sizes: number[] } | null;
+  /** t883 — the war's pairings (whose hand tripped whose death):
+   *  count-desc, recency tiebreak. */
+  pairings: { invoker: string; victim: string; count: number }[];
   selfRssMb: number | null;
   uptimeHours: number | null;
 }

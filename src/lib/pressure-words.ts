@@ -132,3 +132,36 @@ export function oomLeakWord(trend: OomTrendInput | null | undefined): string | n
   const seq = sizes.slice(-3).join("→");
   return `${trend.comm} grows at every death — ${seq}MB: a leak signature`;
 }
+
+export interface OomPairingInput {
+  invoker: string;
+  victim: string;
+  count: number;
+}
+
+/**
+ * t883 — the pairings word: whose hand tripped WHICH death. The holders
+ * word says who holds the rope; this says whose deaths the rope tripped —
+ * `chrome→next-server (v1 ×17` reads "chrome's hand, next-server's death,
+ * seventeen times". Same shape as its siblings: the parser's order verbatim
+ * (count-desc, recency tiebreak — no re-sort), top three, the honest
+ * "+N more" tail, the A6 garbage filter (non-positive counts, empty comms).
+ * Null when nothing paired — a quiet ring, or a ring whose only ropes are
+ * the kernel stewards' (their kills are nobody's war crime).
+ */
+export function oomPairingsWord(pairings: OomPairingInput[] | null | undefined): string | null {
+  const alive = (pairings ?? []).filter(
+    (p) =>
+      p &&
+      typeof p.invoker === "string" &&
+      p.invoker.length > 0 &&
+      typeof p.victim === "string" &&
+      p.victim.length > 0 &&
+      Number.isFinite(p.count) &&
+      p.count > 0,
+  );
+  if (alive.length === 0) return null;
+  const top = alive.slice(0, 3).map((p) => `${p.invoker}→${p.victim} ×${p.count}`);
+  const more = alive.length - top.length;
+  return more > 0 ? `${top.join(" · ")} +${more} more` : top.join(" · ");
+}

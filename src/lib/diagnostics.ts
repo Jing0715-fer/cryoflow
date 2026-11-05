@@ -34,9 +34,9 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { relativeAgeWord } from "@/lib/world-durability-words";
-import { isThreadComm, oomCombatantsWord, oomInvokersWord, oomLeakWord, oomTempoWord } from "@/lib/pressure-words";
+import { isThreadComm, oomCombatantsWord, oomInvokersWord, oomLeakWord, oomPairingsWord, oomTempoWord } from "@/lib/pressure-words";
 
-export { oomCombatantsWord, oomInvokersWord, oomLeakWord, oomTempoWord, isThreadComm }; // t880/t881/t882 — the words live in ONE client-safe birthplace (pressure-words.ts); the lib re-exports so the seat's import surface and the presenter stay put
+export { oomCombatantsWord, oomInvokersWord, oomLeakWord, oomPairingsWord, oomTempoWord, isThreadComm }; // t880/t881/t882/t883 — the words live in ONE client-safe birthplace (pressure-words.ts); the lib re-exports so the seat's import surface and the presenter stay put
 
 /* ------------------------------------------------------------------ */
 /* Canonical lines — the campaign's numbers, now product constants     */
@@ -169,7 +169,9 @@ export function readMemoryLanes(): MemoryLanes | null {
  * rows (t882): who HOLDS the rope most (the invokers histogram — the
  * t881 window's own tail showed the whale invoking its own execution),
  * and whether the whale's recent deaths form a rising curve (a leak
- * signature, the machine's own numbers, never a guessed curve). Every
+ * signature, the machine's own numbers, never a guessed curve) — plus
+ * the pairings row (t883): whose hand tripped WHOSE death (the
+ * (invoker → victim) histogram — the rope's crimes, tallied). Every
  * field degrades to
  * null — an unreadable ring (EPERM, no dmesg) is SAID, not guessed.
  */
@@ -212,6 +214,20 @@ export interface OomTrend {
   sizes: number[];
 }
 
+/** t883 — the war's PAIRINGS: each (invoker → victim) with the count of
+ *  kills whose NEAREST rope-holder (the invoker line at or above the kill)
+ *  was that invoker — whose hand tripped WHOSE death. Sorted count-desc,
+ *  ties broken by recency. The pairing sum ≤ the kill count: a kill whose
+ *  nearest rope is a kernel steward (kthreadd, oom-reaper) never pairs —
+ *  the steward's rope TERMINATES the search (that kill is the kernel's own
+ *  housekeeping, not an older rope's crime, and never a steward-skip-past
+ *  attribution to some unrelated earlier hand). */
+export interface OomPairing {
+  invoker: string;
+  victim: string;
+  count: number;
+}
+
 export interface MemoryPressure {
   /** kernel-ring OOM kills since boot; null = the ring was unreadable */
   oomKills: number | null;
@@ -226,6 +242,9 @@ export interface MemoryPressure {
   /** t882 — the top combatant's rising death curve, when the last three
    *  deaths strictly rise; null = no leak signature in the ring (weather) */
   trend: OomTrend | null;
+  /** t883 — the (invoker → victim) pairings (whose hand tripped whose death),
+   *  count-desc order */
+  pairings: OomPairing[];
   /** THIS server's own resident set (VmRSS, MB) — the lane's footprint */
   selfRssMb: number | null;
   /** this boot's uptime in hours (/proc/uptime); null = unreadable — the tempo word's denominator */
@@ -247,6 +266,7 @@ export function parseOomRing(text: string): {
   victims: OomCombatant[];
   invokers: OomInvoker[];
   trend: OomTrend | null;
+  pairings: OomPairing[];
 } {
   const lines = text.split("\n");
   const killIdxs: number[] = [];
@@ -285,6 +305,31 @@ export function parseOomRing(text: string): {
   const invokers: OomInvoker[] = [...rope.entries()]
     .map(([comm, r]) => ({ comm, invocations: r.invocations }))
     .sort((a, b) => b.invocations - a.invocations || rope.get(b.comm)!.lastIdx - rope.get(a.comm)!.lastIdx);
+  // t883 — the pairings: each kill walks UP to its NEAREST invoker line (the
+  // kill belongs to the invocation that tripped it — full stop); a steward's
+  // rope terminates the walk (that kill is the kernel's own housekeeping,
+  // never an older rope's crime — the P4 pin's law). The last-invoker clause
+  // keeps ITS t879 skip-past law (A5: "housekeeping invokers are skipped").
+  const pairTally = new Map<string, { invoker: string; victim: string; count: number; lastIdx: number }>();
+  for (const idx of killIdxs) {
+    const km = lines[idx].match(OOM_KILL_RE);
+    if (!km) continue;
+    let invoker: string | null = null;
+    for (let i = idx; i >= 0; i--) {
+      const im = lines[i].match(OOM_INVOKER_RE);
+      if (im) {
+        if (!/^(kthreadd|oom-reaper)$/.test(im[1])) invoker = im[1];
+        break;
+      }
+    }
+    if (!invoker) continue;
+    const key = `${invoker}\u0000${km[1]}`;
+    const prev = pairTally.get(key);
+    pairTally.set(key, { invoker, victim: km[1], count: (prev?.count ?? 0) + 1, lastIdx: idx });
+  }
+  const pairings: OomPairing[] = [...pairTally.entries()]
+    .map(([, t]) => ({ invoker: t.invoker, victim: t.victim, count: t.count }))
+    .sort((a, b) => b.count - a.count || pairTally.get(`${b.invoker}\u0000${b.victim}`)!.lastIdx - pairTally.get(`${a.invoker}\u0000${a.victim}`)!.lastIdx);
   // t882 — the leak signature: the war's TOP combatant (the whale), when its
   // last three deaths strictly rise — the curve the machine itself wrote.
   const whale = tally.get(victims[0]?.comm ?? "");
@@ -312,7 +357,7 @@ export function parseOomRing(text: string): {
       break;
     }
   }
-  return { oomKills: killIdxs.length, lastVictim, lastInvoker, victims, invokers, trend };
+  return { oomKills: killIdxs.length, lastVictim, lastInvoker, victims, invokers, trend, pairings };
 }
 
 /** Read this host's pressure ledger: the kernel ring (best-effort, 3s cap)
@@ -703,9 +748,17 @@ export function presentSystemDiagnostics(payload: DiagnosticsPayload | null): Di
   // parser saw a rising curve (weather stays silent, never a guessed clause)
   const leakWord = p?.trend ? oomLeakWord(p.trend) : null;
   const leakClause = leakWord ? `; ${leakWord}` : "";
+  // t883 — the pairings clause: same information rule as its siblings (one
+  // distinct pairing ×1 is already told by the invoked-by + last-victim pair)
+  const pairings = p?.pairings;
+  const pairingsWord = pairings?.length ? oomPairingsWord(pairings) : null;
+  const pairingsClause =
+    pairingsWord && pairings && (pairings.length > 1 || (pairings[0]?.count ?? 0) > 1)
+      ? `; the rope's pairings: ${pairingsWord}`
+      : "";
   const pressureLine = p
     ? (p.oomKills ?? 0) > 0
-      ? `the kernel ring carries ${p.oomKills} OOM kill${p.oomKills === 1 ? "" : "s"} this boot — the last victim ${p.lastVictim ? `${p.lastVictim.comm} at ${p.lastVictim.rssMb}MB` : "unnamed"}${p.lastInvoker ? ` (invoked by ${p.lastInvoker})` : ""}${tempoClause}${combatantsClause}${invokersClause}${leakClause}${p.selfRssMb != null ? `; this server parks at ${p.selfRssMb}MB` : ""}`
+      ? `the kernel ring carries ${p.oomKills} OOM kill${p.oomKills === 1 ? "" : "s"} this boot — the last victim ${p.lastVictim ? `${p.lastVictim.comm} at ${p.lastVictim.rssMb}MB` : "unnamed"}${p.lastInvoker ? ` (invoked by ${p.lastInvoker})` : ""}${tempoClause}${combatantsClause}${invokersClause}${pairingsClause}${leakClause}${p.selfRssMb != null ? `; this server parks at ${p.selfRssMb}MB` : ""}`
       : `no OOM kill in the kernel ring this boot${p.selfRssMb != null ? `; this server parks at ${p.selfRssMb}MB` : ""}`
     : "the kernel ring was not ours to read (pressure unknown)";
   return {

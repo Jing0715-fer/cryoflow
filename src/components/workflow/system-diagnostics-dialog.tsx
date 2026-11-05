@@ -23,7 +23,7 @@
  */
 
 import * as React from "react";
-import { isThreadComm, oomCombatantsWord, oomInvokersWord, oomLeakWord, oomTempoWord } from "@/lib/pressure-words";
+import { isThreadComm, oomCombatantsWord, oomInvokersWord, oomLeakWord, oomPairingsWord, oomTempoWord } from "@/lib/pressure-words";
 import { Activity, Boxes, Cpu, HardDrive, MemoryStick, RefreshCw, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -221,6 +221,8 @@ export default function SystemDiagnosticsDialog({
   // verbatim (the same clause the AI presenter's locator line composes)
   const invokers = pressure?.invokers?.length ? oomInvokersWord(pressure.invokers) : null;
   const leak = pressure?.trend ? oomLeakWord(pressure.trend) : null;
+  // t883 — the pairings word rides the ONE birthplace like its siblings
+  const pairings = pressure?.pairings?.length ? oomPairingsWord(pressure.pairings) : null;
   const threadDialect =
     pressure?.lastVictim && isThreadComm(pressure.lastVictim.comm)
       ? pressure.lastVictim.comm
@@ -361,6 +363,14 @@ export default function SystemDiagnosticsDialog({
                           data-testid="diag-invokers">
                           <span className="font-sans text-muted-foreground">The rope's holders: </span>
                           {invokers}
+                        </p>
+                      ) : null}
+                      {pairings ? (
+                        <p
+                          className="font-mono text-[10px] text-foreground/70"
+                          data-testid="diag-pairings">
+                          <span className="font-sans text-muted-foreground">The rope's pairings: </span>
+                          {pairings}
                         </p>
                       ) : null}
                       {leak ? (

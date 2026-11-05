@@ -35,6 +35,7 @@ import {
   oomCombatantsWord,
   oomInvokersWord,
   oomLeakWord,
+  oomPairingsWord,
   oomTempoWord,
 } from "@/lib/pressure-words";
 
@@ -127,6 +128,7 @@ const FIXTURE = [
   const r = parseOomRing(FIXTURE);
   ok("A12 the main fixture's rope tally", r.invokers.length === 1 && r.invokers[0]?.comm === "chrome" && r.invokers[0]?.invocations === 2, JSON.stringify(r.invokers));
   ok("A13 no rising curve where there is none", r.trend === null, "two single deaths are weather, never a guessed curve");
+  ok("P2 the main fixture's pairings — recency puts the whale first", r.pairings.length === 2 && `${r.pairings[0]?.invoker}→${r.pairings[0]?.victim}` === "chrome→next-server (v1" && `${r.pairings[1]?.invoker}→${r.pairings[1]?.victim}` === "chrome→python3", r.pairings.map((p) => `${p.invoker}→${p.victim} ×${p.count}`).join(", ") + " — count ties break by recency (the later death first)");
 }
 
 {
@@ -135,6 +137,21 @@ const FIXTURE = [
   const stewards = "[1.0] kthreadd invoked oom-killer\n[1.1] Out of memory: Killed process 5 (node) total-vm:1kB, anon-rss:2048000kB\n[1.2] oom-reaper invoked oom-killer\n";
   const r = parseOomRing(stewards);
   ok("A14 kernel stewards never join the rope histogram", r.invokers.length === 0 && r.lastInvoker === null && r.trend === null, "kthreadd and oom-reaper are the killer's own house");
+  ok("P3 the stewards' kills never pair — nobody's war crime", r.pairings.length === 0, JSON.stringify(r.pairings));
+}
+
+{
+  // t883 — the pairing sum ≤ the kill count: one kill rides a real rope,
+  // the next rides only the stewards' — the orphaned kill pairs with nobody
+  const MIXED = [
+    "[1.0] chrome invoked oom-killer: gfp_mask=0x100cca",
+    "[ 1.1] Out of memory: Killed process 10 (python3) total-vm:1kB, anon-rss:1024kB",
+    "[2.0] kthreadd invoked oom-killer: gfp_mask=0x100cca",
+    "[ 2.1] Out of memory: Killed process 11 (bash) total-vm:1kB, anon-rss:512kB",
+  ].join("\n");
+  const r = parseOomRing(MIXED);
+  const pairSum = r.pairings.reduce((a, p) => a + p.count, 0);
+  ok("P4 the pairing sum never exceeds the kill count", r.oomKills === 2 && pairSum === 1 && r.pairings.length === 1 && r.pairings[0]?.victim === "python3", `${r.oomKills} kills, pairs sum ${pairSum} — the steward-rope kill pairs with nobody`);
 }
 
 {
@@ -145,7 +162,7 @@ const FIXTURE = [
     provenance: { commit: "4150a1b9", standalone: false },
     world: { projects: 1, jobs: 16, runningJobs: 0 },
     durability: null,
-    pressure: { oomKills: 3, lastVictim: { comm: "next-server (v1", rssMb: 2726 }, lastInvoker: "chrome", victims: [{ comm: "next-server (v1", kills: 2, rssMb: 2726 }, { comm: "python3", kills: 1, rssMb: 1024 }], invokers: [{ comm: "chrome", invocations: 3 }], trend: null, selfRssMb: 412, uptimeHours: 2.5 },
+    pressure: { oomKills: 3, lastVictim: { comm: "next-server (v1", rssMb: 2726 }, lastInvoker: "chrome", victims: [{ comm: "next-server (v1", kills: 2, rssMb: 2726 }, { comm: "python3", kills: 1, rssMb: 1024 }], invokers: [{ comm: "chrome", invocations: 3 }], trend: null, pairings: [{ invoker: "chrome", victim: "next-server (v1", count: 2 }, { invoker: "chrome", victim: "python3", count: 1 }], selfRssMb: 412, uptimeHours: 2.5 },
     generatedAt: "2026-11-05T00:00:00.000Z",
   };
   const res = presentSystemDiagnostics(payload);
@@ -167,12 +184,13 @@ const FIXTURE = [
     provenance: { commit: null, standalone: false },
     world: null,
     durability: null,
-    pressure: { oomKills: 1, lastVictim: { comm: "next-server (v1", rssMb: 2726 }, lastInvoker: "chrome", victims: [{ comm: "next-server (v1", kills: 1, rssMb: 2726 }], invokers: [{ comm: "chrome", invocations: 1 }], trend: null, selfRssMb: 412, uptimeHours: 2.5 },
+    pressure: { oomKills: 1, lastVictim: { comm: "next-server (v1", rssMb: 2726 }, lastInvoker: "chrome", victims: [{ comm: "next-server (v1", kills: 1, rssMb: 2726 }], invokers: [{ comm: "chrome", invocations: 1 }], trend: null, pairings: [{ invoker: "chrome", victim: "next-server (v1", count: 1 }], selfRssMb: 412, uptimeHours: 2.5 },
     generatedAt: "2026-11-05T00:00:00.000Z",
   };
   const s = presentSystemDiagnostics(single).summary ?? "";
   ok("B8 the combatants clause stays silent when the histogram echoes the last victim", !s.includes("combatants"), "one kill, one comm — news is zero");
   ok("B13 the holders clause stays silent when the rope echoes the invoker", !s.includes("holders"), "one invocation, one comm — the invoked-by clause already named it");
+  ok("P10 the pairings clause stays silent when the pair echoes the told story", !s.includes("pairings"), "one pair ×1 — invoked-by + last-victim already said it");
 }
 
 {
@@ -182,7 +200,7 @@ const FIXTURE = [
     provenance: { commit: null, standalone: false },
     world: null,
     durability: null,
-    pressure: { oomKills: 0, lastVictim: null, lastInvoker: null, victims: [], invokers: [], trend: null, selfRssMb: null },
+    pressure: { oomKills: 0, lastVictim: null, lastInvoker: null, victims: [], invokers: [], trend: null, pairings: [], selfRssMb: null },
     generatedAt: "2026-11-05T00:00:00.000Z",
   };
   const s = presentSystemDiagnostics(quiet).summary ?? "";
@@ -226,6 +244,10 @@ const FIXTURE = [
         { comm: "next-server (v1", invocations: 25 },
       ],
       trend: { comm: "next-server (v1", sizes: [2770, 2845, 2951] },
+      pairings: [
+        { invoker: "chrome", victim: "next-server (v1", count: 51 },
+        { invoker: "next-server (v1", victim: "next-server (v1", count: 21 },
+      ],
       selfRssMb: 892,
       uptimeHours: 7.5,
     },
@@ -235,6 +257,7 @@ const FIXTURE = [
   ok("B9 the rope's holders clause speaks the whale invoking its own execution", /the rope's holders: chrome ×51 · next-server \(v1 ×25/.test(ws), ws.match(/the rope's holders[^.]*/)?.[0]);
   ok("B10 the leak signature quotes the whale's own curve", /next-server \(v1 grows at every death — 2770→2845→2951MB: a leak signature/.test(ws), "the machine's numbers, verbatim");
   ok("B11 the thread dialect rides the combatants clause", /MainThread ×4 \(thread\)/.test(ws), ws.match(/the war's combatants[^;]*/)?.[0]);
+  ok("P9 the pairings clause speaks the rope's crimes", /the rope's pairings: chrome→next-server \(v1 ×51 · next-server \(v1→next-server \(v1 ×21/.test(ws), ws.match(/the rope's pairings[^.]*/)?.[0]);
 }
 
 // ── C — the source laws ─────────────────────────────────────────────────
@@ -286,7 +309,7 @@ ok("C9 the client mirror grew the same shape", clientSrc.includes("MemoryPressur
 {
   const words = read("src/lib/pressure-words.ts");
   ok("F1 the father lives client-safe (zero node imports)", !words.includes("node:fs") && !words.includes("node:child_process") && !words.includes("spawnSync"), "the dialog can ride it");
-  ok("F2 the lib re-exports the ONE birthplace", libSrc.includes("export { oomCombatantsWord, oomInvokersWord, oomLeakWord, oomTempoWord, isThreadComm }"), "the seat's surface stays put (the family grew, the birthplace did not)");
+  ok("F2 the lib re-exports the ONE birthplace", libSrc.includes("export { oomCombatantsWord, oomInvokersWord, oomLeakWord, oomPairingsWord, oomTempoWord, isThreadComm }"), "the seat's surface stays put (the family grew, the birthplace did not)");
   ok("F3 the client mirror grew the clock", clientSrc.includes("uptimeHours: number | null;"), "MemoryPressureClient carries the denominator");
   ok("F4 the dialog speaks the tempo with its tone", dialogSrc.includes("oomTempoWord") && dialogSrc.includes("border-danger-500/40"), "the row's war face");
   const bench = read("scripts/t530-diagnostics-bench.ts");
@@ -316,6 +339,9 @@ ok("C9 the client mirror grew the same shape", clientSrc.includes("MemoryPressur
   ok("H8 the module header's evidence law names the deeper rows", libSrc.includes("who HOLDS the rope most") && libSrc.includes("leak"), "the invokers histogram and the leak signature are said at the source");
   ok("H9 the bench pins the war's deeper clauses", bench.includes("the rope's holders") && bench.includes("a leak signature") && bench.includes("\\(thread\\)"), "the t530 cup grew with the family (the bench's marker rides a regex, escaped)");
   ok("H10 the thread law lives in ONE client-safe birthplace", words.includes("const THREAD_TITLES") && words.includes("export function isThreadComm") && !libSrc.includes("THREAD_TITLES"), "the parser borrows the word's law, never a fork");
+  ok("P11 the client mirror grew the pairings", clientSrc.includes("pairings: { invoker: string; victim: string; count: number }[]"), "MemoryPressureClient carries the t883 row");
+  ok("P12 the dialog carries the pairings row via the ONE father", dialogSrc.includes('data-testid="diag-pairings"') && dialogSrc.includes("oomPairingsWord"), "the war face grows a line, not a fork");
+  ok("P13 the module header's evidence law names the pairings", libSrc.includes("whose hand tripped WHOSE death"), "the rope's crimes are said at the source");
 }
 
 // ── I — the invokers word's faces (t882) ─
@@ -344,6 +370,30 @@ ok("C9 the client mirror grew the same shape", clientSrc.includes("MemoryPressur
   ok("T3 the honest nulls", isThreadComm(null) === false && isThreadComm(undefined) === false && isThreadComm("") === false, "no comm, no dialect");
   ok("T4 the combatants word marks the thread", oomCombatantsWord([{ comm: "next-server (v1", kills: 72 }, { comm: "MainThread", kills: 4 }]) === "next-server (v1 ×72 · MainThread ×4 (thread)", oomCombatantsWord([{ comm: "next-server (v1", kills: 72 }, { comm: "MainThread", kills: 4 }]));
   ok("T5 a thread-marked combatant rides the cap and tail too", oomCombatantsWord([{ comm: "MainThread", kills: 2 }, { comm: "a", kills: 1 }, { comm: "b", kills: 1 }, { comm: "c", kills: 1 }]) === "MainThread ×2 (thread) · a ×1 · b ×1 +1 more", "the marker rides the word, wherever the thread sits");
+}
+
+// ── P — the pairings word's faces (t883) ─
+{
+  ok("P5 the rope's crimes, capped at three with the honest tail", oomPairingsWord([{ invoker: "chrome", victim: "next-server (v1", count: 51 }, { invoker: "next-server (v1", victim: "next-server (v1", count: 21 }, { invoker: "python3", victim: "bash", count: 2 }, { invoker: "bash", victim: "python3", count: 1 }]) === "chrome→next-server (v1 ×51 · next-server (v1→next-server (v1 ×21 · python3→bash ×2 +1 more", "the parser's order rendered verbatim");
+  ok("P6 the exact-three face wears no tail", oomPairingsWord([{ invoker: "a", victim: "b", count: 3 }, { invoker: "b", victim: "c", count: 2 }, { invoker: "c", victim: "d", count: 1 }]) === "a→b ×3 · b→c ×2 · c→d ×1", "the cap is exactly three");
+  ok("P7 the honest nulls", oomPairingsWord(null) === null && oomPairingsWord(undefined) === null && oomPairingsWord([]) === null, "no crimes, no word");
+  ok("P8 the kernel never writes a zero-count or empty-comm crime — garbage is filtered", oomPairingsWord([{ invoker: "", victim: "x", count: 5 }, { invoker: "y", victim: "", count: 3 }, { invoker: "z", victim: "w", count: 0 }, { invoker: "q", victim: "r", count: -1 }, { invoker: "chrome", victim: "next-server (v1", count: 2 }]) === "chrome→next-server (v1 ×2", "the A6 tolerance precedent, crime-side");
+}
+
+// ── P1 — the parser's pairing tally on MULTIKILL (the aggregation face) ─
+{
+  const MULTIKILL = [
+    "[1.0] chrome invoked oom-killer: gfp_mask=0x100cca",
+    "[ 1.1] Out of memory: Killed process 10 (python3) total-vm:2000000kB, anon-rss:1048576kB",
+    "[2.0] chrome invoked oom-killer: gfp_mask=0x100cca",
+    "[ 2.1] Out of memory: Killed process 11 (next-server (v1) total-vm:40000000kB, anon-rss:2097152kB",
+    "[3.0] chrome invoked oom-killer: gfp_mask=0x100cca",
+    "[ 3.1] Out of memory: Killed process 12 (next-server (v1) total-vm:41000000kB, anon-rss:3145728kB",
+    "[4.0] chrome invoked oom-killer: gfp_mask=0x100cca",
+    "[ 4.1] Out of memory: Killed process 13 (next-server (v1) total-vm:42000000kB, anon-rss:4194304kB",
+  ].join("\n");
+  const r = parseOomRing(MULTIKILL);
+  ok("P1 the pairing tally: chrome's hand → the whale ×3, python3 ×1", r.pairings.length === 2 && `${r.pairings[0]?.invoker}→${r.pairings[0]?.victim}` === "chrome→next-server (v1" && r.pairings[0]?.count === 3 && `${r.pairings[1]?.invoker}→${r.pairings[1]?.victim}` === "chrome→python3" && r.pairings[1]?.count === 1, `pairs sum ${r.pairings.reduce((a, p) => a + p.count, 0)} = kills ${r.oomKills} (every kill rode a real rope)`);
 }
 
 console.log(`\nt879 pressure-words unit: ${pass}/${pass + fail} green`);

@@ -219,6 +219,12 @@ const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8"
       // war's loud face rides the dedicated block below
       invokers: [{ comm: "chrome", invocations: 2 }],
       trend: null,
+      // t883 — the pairings: chrome's hand at BOTH kills (recency order —
+      // the whale's death came later, so it rides first)
+      pairings: [
+        { invoker: "chrome", victim: "next-server (v1", count: 1 },
+        { invoker: "chrome", victim: "python3", count: 1 },
+      ],
       selfRssMb: 412,
       uptimeHours: 2.5,
     },
@@ -237,6 +243,7 @@ const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8"
   must(/invoked by chrome/.test(summary), "presenter — summary names the allocator that held the rope");
   must(/the war's combatants: next-server \(v1 ×1 · python3 ×1/.test(summary), "presenter — the combatants clause rides the histogram (t881)");
   must(/the rope's holders: chrome ×2/.test(summary), "presenter — the invokers clause rides the rope histogram (t882) — chrome ×2 clears the information rule");
+  must(/the rope's pairings: chrome→next-server \(v1 ×1 · chrome→python3 ×1/.test(summary), "presenter — the pairings clause rides the (invoker → victim) histogram (t883): two distinct pairs clear the rule, recency puts the whale first");
   must(/this server parks at 412MB/.test(summary), "presenter — summary carries the server's own footprint");
   must(/≈19\/day over 2\.5h up/.test(summary), "presenter — the tempo word rides the kills clause (2 kills / 2.5h ≈ 19/day)");
   const detail = res.detail as { memory?: unknown; world?: unknown };
@@ -265,6 +272,14 @@ const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8"
         { comm: "next-server (v1", invocations: 25 },
       ],
       trend: { comm: "next-server (v1", sizes: [2770, 2845, 2951] },
+      // t883 — the rope's crimes, tallied: the whale invoking its own
+      // execution rides the t882 live read's shape (chrome's hand ×51, the
+      // whale's own hand ×21 — the pair sum 72 < the kill count 76: the
+      // stewards' kills never pair)
+      pairings: [
+        { invoker: "chrome", victim: "next-server (v1", count: 51 },
+        { invoker: "next-server (v1", victim: "next-server (v1", count: 21 },
+      ],
       selfRssMb: 892,
       uptimeHours: 7.5,
     },
@@ -274,6 +289,7 @@ const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8"
   must(/the war's combatants: next-server \(v1 ×72 · MainThread ×4 \(thread\)/.test(warSummary), `presenter — the thread dialect rides the combatants word: ${warSummary.match(/the war's combatants[^;]*/)?.[0]}`);
   must(/the rope's holders: chrome ×51 · next-server \(v1 ×25/.test(warSummary), "presenter — the rope's holders speak the whale invoking its own execution (t881's tail, tallied)");
   must(/next-server \(v1 grows at every death — 2770→2845→2951MB: a leak signature/.test(warSummary), "presenter — the leak signature quotes the whale's own curve, verbatim");
+  must(/the rope's pairings: chrome→next-server \(v1 ×51 · next-server \(v1→next-server \(v1 ×21/.test(warSummary), "presenter — the rope's crimes speak on the war face: the whale's own hand tallied ×21 (t882's tail, now a counted fact)");
 
   // honest nulls: unreadable lanes are SAID, not guessed
   const partial = presentSystemDiagnostics({
