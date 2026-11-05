@@ -26,12 +26,16 @@
 import { readFileSync } from "node:fs";
 import {
   composeMemoryLanes,
+  composeBootLedgerFact,
+  composeBootLedgerUpdate,
   parseOomRing,
   readMemoryPressure,
   presentSystemDiagnostics,
 } from "@/lib/diagnostics";
 import {
   isThreadComm,
+  oomBootLedgerRising,
+  oomBootLedgerWord,
   oomCombatantsWord,
   oomInvokersWord,
   oomLeakWord,
@@ -281,6 +285,19 @@ ok("C8 the bench pins the ledger", benchSrc.includes("2 OOM kills") && benchSrc.
 const clientSrc = read("src/lib/types.ts");
 ok("C9 the client mirror grew the same shape", clientSrc.includes("MemoryPressureClient") && clientSrc.includes("pressure: MemoryPressureClient | null;"), "one shape, two lanes");
 
+// ── C10-C18 — the boot ledger's source laws (t884) ─
+{
+  ok("C10 the pressure type carries the boot ledger", libSrc.includes("bootLedger: BootLedgerFact | null;"), "MemoryPressure grew the cross-boot face");
+  ok("C11 the client mirror grew the boot ledger", clientSrc.includes("bootLedger: { boots: number; whaleComm: string | null; whaleSizesMb: number[] } | null;"), "MemoryPressureClient carries the fact");
+  ok("C12 the dialog carries the boot row via the ONE father", dialogSrc.includes('data-testid="diag-boot-ledger"') && dialogSrc.includes("oomBootLedgerWord") && dialogSrc.includes("oomBootLedgerRising"), "the word and its tone read the same predicate");
+  ok("C13 the bench pins the boot clause", benchSrc.includes("the whale's boots"), "the t530 cup grew with the cross-boot face");
+  ok("C14 the module header names the ledger law", libSrc.includes("THE LEDGER REMEMBERS WHAT THE RING FORGETS"), "the per-boot growth is the real leak");
+  ok("C15 the reader reads the kernel's own boot id", libSrc.includes("/proc/sys/kernel/random/boot_id"), "the evidence-from-bytes law — the key is the kernel's, never a guess");
+  ok("C16 the ledger lives OUTSIDE .next — the film leg's wipe cannot reach it", libSrc.includes('join(dir, "db", "boot-ledger.json")'), "cross-boot history survives the wipe");
+  ok("C17 the ledger is untracked by git (the t884 line)", read(".gitignore").includes("/db/boot-ledger.json"), "runtime observations, not source");
+  ok("C18 the write is atomic (tmp + rename)", libSrc.includes("renameSync(tmp, path)"), "a concurrent reader never sees a half-written ledger");
+}
+
 // ── D — the live face (read-only, best-effort) ──────────────────────────
 
 {
@@ -309,7 +326,7 @@ ok("C9 the client mirror grew the same shape", clientSrc.includes("MemoryPressur
 {
   const words = read("src/lib/pressure-words.ts");
   ok("F1 the father lives client-safe (zero node imports)", !words.includes("node:fs") && !words.includes("node:child_process") && !words.includes("spawnSync"), "the dialog can ride it");
-  ok("F2 the lib re-exports the ONE birthplace", libSrc.includes("export { oomCombatantsWord, oomInvokersWord, oomLeakWord, oomPairingsWord, oomTempoWord, isThreadComm }"), "the seat's surface stays put (the family grew, the birthplace did not)");
+  ok("F2 the lib re-exports the ONE birthplace", libSrc.includes("export { oomBootLedgerRising, oomBootLedgerWord, oomCombatantsWord, oomInvokersWord, oomLeakWord, oomPairingsWord, oomTempoWord, isThreadComm }"), "the seat's surface stays put (the family grew, the birthplace did not)");
   ok("F3 the client mirror grew the clock", clientSrc.includes("uptimeHours: number | null;"), "MemoryPressureClient carries the denominator");
   ok("F4 the dialog speaks the tempo with its tone", dialogSrc.includes("oomTempoWord") && dialogSrc.includes("border-danger-500/40"), "the row's war face");
   const bench = read("scripts/t530-diagnostics-bench.ts");
@@ -394,6 +411,38 @@ ok("C9 the client mirror grew the same shape", clientSrc.includes("MemoryPressur
   ].join("\n");
   const r = parseOomRing(MULTIKILL);
   ok("P1 the pairing tally: chrome's hand → the whale ×3, python3 ×1", r.pairings.length === 2 && `${r.pairings[0]?.invoker}→${r.pairings[0]?.victim}` === "chrome→next-server (v1" && r.pairings[0]?.count === 3 && `${r.pairings[1]?.invoker}→${r.pairings[1]?.victim}` === "chrome→python3" && r.pairings[1]?.count === 1, `pairs sum ${r.pairings.reduce((a, p) => a + p.count, 0)} = kills ${r.oomKills} (every kill rode a real rope)`);
+}
+
+// ── PT — the thread-dialect law rides the pairing's VICTIM side (t884) ─
+{
+  ok("PT1 the crossfire pairing wears the thread marker", oomPairingsWord([{ invoker: "libuv-worker", victim: "MainThread", count: 4 }, { invoker: "chrome", victim: "next-server (v1", count: 2 }]) === "libuv-worker→MainThread ×4 (thread) · chrome→next-server (v1 ×2", "the combatants word named the dead; the pairing names the crossfire");
+  ok("PT2 a thread-marked pairing rides the cap and tail too", oomPairingsWord([{ invoker: "a", victim: "MainThread", count: 2 }, { invoker: "b", victim: "c", count: 1 }, { invoker: "d", victim: "e", count: 1 }, { invoker: "f", victim: "g", count: 1 }]) === "a→MainThread ×2 (thread) · b→c ×1 · d→e ×1 +1 more", "the marker rides the word, wherever the thread sits");
+}
+
+// ── W — the boot word's faces (t884): the whale's growth ACROSS boots ─
+{
+  ok("W1 the honest nulls", oomBootLedgerWord(null) === null && oomBootLedgerWord(undefined) === null, "no ledger, no word");
+  ok("W2 one boot is what the ring already says — the word rests", oomBootLedgerWord({ boots: 1, whaleComm: "next-server (v1", whaleSizesMb: [3077] }) === null, "a single boot tells no cross-boot story");
+  ok("W3 the quiet fact speaks the ledger's own numbers", oomBootLedgerWord({ boots: 3, whaleComm: "next-server (v1", whaleSizesMb: [2770, 3204, 3077] }) === "3 boots on record — 2770→3204→3077MB across boots", "the witnessed curve, verbatim, no verdict");
+  ok("W4 the loud verdict when the boots rise strictly", oomBootLedgerWord({ boots: 3, whaleComm: "next-server (v1", whaleSizesMb: [2400, 2700, 3000] }) === "next-server (v1 grows across boots — 2400→2700→3000MB over 3 boots: the leak crosses boots", "the day the box reboots with the whale growing");
+  ok("W5 the last three of a longer run are the window", oomBootLedgerRising({ boots: 5, whaleComm: "w", whaleSizesMb: [100, 900, 2400, 2700, 3000] }) === true && oomBootLedgerRising({ boots: 5, whaleComm: "w", whaleSizesMb: [3000, 900, 2400, 2700, 3000] }) === true, "the law reads the tail, not the whole life");
+  ok("W6 weather stays silent — the verdict needs the strict rise", oomBootLedgerRising({ boots: 3, whaleComm: "w", whaleSizesMb: [2770, 3204, 3077] }) === false && oomBootLedgerRising({ boots: 3, whaleComm: "w", whaleSizesMb: [2800, 2800, 2800] }) === false && oomBootLedgerRising({ boots: 2, whaleComm: "w", whaleSizesMb: [1, 2] }) === false, "dip and flat and short are not a leak");
+}
+
+// ── BL — the boot ledger's composers (t884): the seat rides fixtures ─
+{
+  const now = "2026-11-05T12:00:00.000Z";
+  const obs = (bootId, oomKills, whaleLastRssMb) => ({ bootId, oomKills, whaleComm: "next-server (v1", whaleLastRssMb });
+  ok("BL1 the first observation births the row", composeBootLedgerUpdate([], obs("b1", 84, 3077), now).length === 1 && composeBootLedgerUpdate([], obs("b1", 84, 3077), now)[0]?.firstSeenAt === now, "an empty ledger grows its first boot");
+  ok("BL2 the same boot updates in place — the birth is never rewritten", composeBootLedgerUpdate([{ bootId: "b1", firstSeenAt: "earlier", lastSeenAt: "older", oomKills: 80, whaleComm: "next-server (v1", whaleLastRssMb: 2900 }], obs("b1", 84, 3077), now)[0]?.firstSeenAt === "earlier" && composeBootLedgerUpdate([{ bootId: "b1", firstSeenAt: "earlier", lastSeenAt: "older", oomKills: 80, whaleComm: "next-server (v1", whaleLastRssMb: 2900 }], obs("b1", 84, 3077), now)[0]?.oomKills === 84, "firstSeenAt is the boot's birth; the observations move");
+  ok("BL3 a new boot appends, the old row keeps its place", composeBootLedgerUpdate([{ bootId: "b1", firstSeenAt: "t1", lastSeenAt: "t1", oomKills: 10, whaleComm: "w", whaleLastRssMb: 1000 }], obs("b2", 3, 500), now).map((r) => r.bootId).join(",") === "b1,b2", "chronology is the file's own order");
+  ok("BL4 the cap keeps the LAST boots — the curve, not the archaeology", composeBootLedgerUpdate([1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({ bootId: `b${n}`, firstSeenAt: `t${n}`, lastSeenAt: `t${n}`, oomKills: 1, whaleComm: "w", whaleLastRssMb: n * 100 })), obs("b9", 1, 900), now, 8).map((r) => r.bootId).join(",") === "b2,b3,b4,b5,b6,b7,b8,b9", "the 8-boot bound (b1, the oldest, falls off)");
+  ok("BL5 the fact filters the whale's RUN — a different whale is not the same curve", composeBootLedgerFact([
+    { bootId: "b1", firstSeenAt: "t1", lastSeenAt: "t1", oomKills: 5, whaleComm: "old-whale", whaleLastRssMb: 999 },
+    { bootId: "b2", firstSeenAt: "t2", lastSeenAt: "t2", oomKills: 6, whaleComm: "next-server (v1", whaleLastRssMb: 2400 },
+    { bootId: "b3", firstSeenAt: "t3", lastSeenAt: "t3", oomKills: 7, whaleComm: "next-server (v1", whaleLastRssMb: 2700 },
+  ]).whaleSizesMb.join(",") === "2400,2700", "the sizes face never mixes comms — a mixed curve is a rumour");
+  ok("BL6 the honest nulls — no whale observed, the fact says so", composeBootLedgerFact([{ bootId: "b1", firstSeenAt: "t1", lastSeenAt: "t1", oomKills: null, whaleComm: null, whaleLastRssMb: null }]).whaleComm === null && composeBootLedgerFact([{ bootId: "b1", firstSeenAt: "t1", lastSeenAt: "t1", oomKills: null, whaleComm: null, whaleLastRssMb: null }]).whaleSizesMb.length === 0, "the boots count still speaks");
 }
 
 console.log(`\nt879 pressure-words unit: ${pass}/${pass + fail} green`);

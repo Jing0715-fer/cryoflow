@@ -161,7 +161,63 @@ export function oomPairingsWord(pairings: OomPairingInput[] | null | undefined):
       p.count > 0,
   );
   if (alive.length === 0) return null;
-  const top = alive.slice(0, 3).map((p) => `${p.invoker}→${p.victim} ×${p.count}`);
+  // t884 — the thread-dialect law rides the pairing's VICTIM side too: a rope
+  // killing a THREAD is the war's crossfire (`libuv-worker→MainThread ×4
+  // (thread)` — the combatants word named the dead, the pairing names the
+  // crossfire, both faces mark the thread dialect from the ONE law).
+  const top = alive
+    .slice(0, 3)
+    .map((p) => (isThreadComm(p.victim) ? `${p.invoker}→${p.victim} ×${p.count} (thread)` : `${p.invoker}→${p.victim} ×${p.count}`));
   const more = alive.length - top.length;
   return more > 0 ? `${top.join(" · ")} +${more} more` : top.join(" · ");
+}
+
+export interface OomBootLedgerInput {
+  /** the distinct boots on record (rows in the ledger, whatever their ring access) */
+  boots: number;
+  /** the most recent whale's comm (the current boot's top combatant) */
+  whaleComm: string | null;
+  /** the whale's per-boot last-death sizes, chronological, MB — only boots
+   *  whose top combatant matches the current whale (the whale-run guard) */
+  whaleSizesMb: number[];
+}
+
+/**
+ * t884 — the rising predicate BEHIND the boot word: the whale's per-boot
+ * last-death sizes, strictly rising across the last three DISTINCT boots.
+ * The predicate is exported because the verdict has TWO mouths — the word's
+ * text and the dialog row's tone — and both must read the SAME law from ONE
+ * birthplace (the t1165 one-father law, applied to a color).
+ */
+export function oomBootLedgerRising(input: OomBootLedgerInput | null | undefined): boolean {
+  const sizes = input?.whaleSizesMb ?? [];
+  if (sizes.length < 3) return false;
+  const tail = sizes.slice(-3);
+  return tail[0] < tail[1] && tail[1] < tail[2];
+}
+
+/**
+ * t884 — the boot word: the whale's growth ACROSS boots, not just within one.
+ * The kernel ring is a per-boot buffer — it rotates on reboot and the leak
+ * word (t882) sees only the current boot's curve, while the REAL leak is the
+ * per-boot growth the worklog watched across windows (2770→3204→3077MB). The
+ * boot ledger (db/boot-ledger.json, one row per boot_id) remembers what the
+ * ring forgets; this word is its mouth. Two faces:
+ *  - the QUIET fact (boots ≥ 2, no rising claim): "N boots on record — a→b→cMB
+ *    across boots" — the ledger's own numbers, verbatim, no verdict;
+ *  - the LOUD verdict (≥3 boots, strictly rising — oomBootLedgerRising): the
+ *    leak crosses boots.
+ * One boot is what the ring already says — the word rests. Non-rising is
+ * weather — the verdict stays home (the t882 law: never a guessed curve).
+ */
+export function oomBootLedgerWord(input: OomBootLedgerInput | null | undefined): string | null {
+  if (!input || !Number.isFinite(input.boots) || input.boots <= 1) return null;
+  const comm = input.whaleComm;
+  const sizes = (input.whaleSizesMb ?? []).filter((n) => Number.isFinite(n) && n > 0);
+  if (!comm || sizes.length === 0) return null;
+  const seq = sizes.join("→");
+  if (oomBootLedgerRising(input)) {
+    return `${comm} grows across boots — ${seq}MB over ${input.boots} boots: the leak crosses boots`;
+  }
+  return `${input.boots} boots on record — ${seq}MB across boots`;
 }

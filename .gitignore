@@ -131,3 +131,9 @@ services/mock-cluster/fs/home/cryo/.slurm/
 __pycache__/
 *.pyc
 .nm-store/
+
+# t884 — the boot ledger: the whale's per-boot death curve (one row per
+# /proc boot id, written by the diagnostics reader) — runtime observations
+# that remember what the kernel ring forgets on reboot; not source.
+/db/boot-ledger.json
+/db/boot-ledger.json.tmp

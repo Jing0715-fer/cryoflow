@@ -28,15 +28,22 @@
  *    cron family rides — the doorbell law's jurisdictions hold because
  *    there is exactly ONE probe. A mute instrument is an honest face
  *    ({ ok: false, why }), never a guessed verdict.
+ *  - THE LEDGER REMEMBERS WHAT THE RING FORGETS (t884) — the kernel ring is
+ *    a per-boot buffer: it rotates on reboot and the leak word (t882) sees
+ *    only the current boot's curve, while the whale's REAL growth is
+ *    per-boot (2770→3204→3077MB across windows). The boot ledger
+ *    (db/boot-ledger.json, one row per /proc boot id, bounded to the last
+ *    8 boots) rides every pressure read — an observation file, not source;
+ *    its verdict (the leak crosses boots) is the WORD's, never the reader's.
  */
 
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { relativeAgeWord } from "@/lib/world-durability-words";
-import { isThreadComm, oomCombatantsWord, oomInvokersWord, oomLeakWord, oomPairingsWord, oomTempoWord } from "@/lib/pressure-words";
+import { isThreadComm, oomBootLedgerRising, oomBootLedgerWord, oomCombatantsWord, oomInvokersWord, oomLeakWord, oomPairingsWord, oomTempoWord } from "@/lib/pressure-words";
 
-export { oomCombatantsWord, oomInvokersWord, oomLeakWord, oomPairingsWord, oomTempoWord, isThreadComm }; // t880/t881/t882/t883 — the words live in ONE client-safe birthplace (pressure-words.ts); the lib re-exports so the seat's import surface and the presenter stay put
+export { oomBootLedgerRising, oomBootLedgerWord, oomCombatantsWord, oomInvokersWord, oomLeakWord, oomPairingsWord, oomTempoWord, isThreadComm }; // t880/t881/t882/t883/t884 — the words live in ONE client-safe birthplace (pressure-words.ts); the lib re-exports so the seat's import surface and the presenter stay put
 
 /* ------------------------------------------------------------------ */
 /* Canonical lines — the campaign's numbers, now product constants     */
@@ -245,6 +252,10 @@ export interface MemoryPressure {
   /** t883 — the (invoker → victim) pairings (whose hand tripped whose death),
    *  count-desc order */
   pairings: OomPairing[];
+  /** t884 — the boot ledger's face: the whale's growth ACROSS boots (the
+   *  ring is a per-boot buffer and forgets on reboot — the ledger remembers);
+   *  null = the boot id was not ours to read */
+  bootLedger: BootLedgerFact | null;
   /** THIS server's own resident set (VmRSS, MB) — the lane's footprint */
   selfRssMb: number | null;
   /** this boot's uptime in hours (/proc/uptime); null = unreadable — the tempo word's denominator */
@@ -254,6 +265,82 @@ export interface MemoryPressure {
 
 const OOM_KILL_RE = /Out of memory:\s+Killed process\s+\d+\s+\((.*)\) total-vm:[^\n]*?anon-rss:(\d+)kB/i;
 const OOM_INVOKER_RE = /^(?:\[?\s*[\d:.]+\]?\s+)?(\S+)\s+invoked oom-killer/;
+
+/* ------------------------------------------------------------------ */
+/* The boot ledger (t884)                                             */
+/* ------------------------------------------------------------------ */
+
+/** t884 — one row per DISTINCT boot (keyed by the kernel's own boot id):
+ *  what the ring knew about the war when this lane last looked. The ring is
+ *  a per-boot buffer — it forgets on reboot — so the whale's REAL growth is
+ *  per-boot, and the ledger remembers what the ring cannot. */
+export interface BootLedgerRow {
+  bootId: string;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  oomKills: number | null;
+  whaleComm: string | null;
+  whaleLastRssMb: number | null;
+}
+
+/** t884 — the fact face the payload carries: the boots on record plus the
+ *  whale-run's per-boot last-death sizes (only boots whose top combatant
+ *  matches the CURRENT whale — a different whale's death is not the same
+ *  curve, and a sizes face that mixes comms is a rumour, not a curve). */
+export interface BootLedgerFact {
+  boots: number;
+  whaleComm: string | null;
+  whaleSizesMb: number[];
+}
+
+export interface BootObservation {
+  bootId: string;
+  oomKills: number | null;
+  whaleComm: string | null;
+  whaleLastRssMb: number | null;
+}
+
+export const BOOT_LEDGER_CAP = 8; // bounded file — the last 8 boots are the curve, older boots are archaeology
+
+/** PURE — the upsert the seat rides fixtures against. An existing boot id
+ *  updates in place (its firstSeenAt is its birth, never rewritten); a new
+ *  boot appends; the cap keeps the LAST N boots. A corrupt row is garbage
+ *  the ledger never writes — filtered, the A6 tolerance precedent. */
+export function composeBootLedgerUpdate(rows: BootLedgerRow[], obs: BootObservation, nowIso: string, cap = BOOT_LEDGER_CAP): BootLedgerRow[] {
+  const clean = rows.filter((r) => r && typeof r.bootId === "string" && r.bootId.length > 0);
+  const existing = clean.find((r) => r.bootId === obs.bootId);
+  const row: BootLedgerRow = existing
+    ? {
+        ...existing,
+        lastSeenAt: nowIso,
+        oomKills: obs.oomKills ?? existing.oomKills,
+        whaleComm: obs.whaleComm ?? existing.whaleComm,
+        whaleLastRssMb: obs.whaleLastRssMb ?? existing.whaleLastRssMb,
+      }
+    : {
+        bootId: obs.bootId,
+        firstSeenAt: nowIso,
+        lastSeenAt: nowIso,
+        oomKills: obs.oomKills,
+        whaleComm: obs.whaleComm,
+        whaleLastRssMb: obs.whaleLastRssMb,
+      };
+  const next = existing ? clean.map((r) => (r.bootId === obs.bootId ? row : r)) : [...clean, row];
+  return next.length > cap ? next.slice(next.length - cap) : next;
+}
+
+/** PURE — the fact face over the raw rows: chronological by first birth,
+ *  the whale-run filter (sizes only from the CURRENT whale's rows), the
+ *  honest nulls (no whale observed → null comm, empty sizes). */
+export function composeBootLedgerFact(rows: BootLedgerRow[]): BootLedgerFact {
+  const clean = rows.filter((r) => r && typeof r.bootId === "string" && r.bootId.length > 0);
+  const chrono = [...clean].sort((a, b) => (a.firstSeenAt || "").localeCompare(b.firstSeenAt || ""));
+  const whaleRows = chrono.filter((r) => r.whaleLastRssMb != null && Number.isFinite(r.whaleLastRssMb) && r.whaleLastRssMb > 0);
+  if (whaleRows.length === 0) return { boots: chrono.length, whaleComm: null, whaleSizesMb: [] };
+  const current = whaleRows[whaleRows.length - 1]!.whaleComm;
+  const sizes = whaleRows.filter((r) => r.whaleComm && r.whaleComm === current).map((r) => r.whaleLastRssMb!);
+  return { boots: chrono.length, whaleComm: current, whaleSizesMb: sizes };
+}
 
 /** Parse a kernel ring dump (dmesg) into the OOM ledger. Pure — the seat
  *  rides fixtures, the reader rides the real ring. The kill regex anchors on
@@ -360,8 +447,29 @@ export function parseOomRing(text: string): {
   return { oomKills: killIdxs.length, lastVictim, lastInvoker, victims, invokers, trend, pairings };
 }
 
+/** The ledger's home: db/boot-ledger.json at the PROJECT root — never
+ *  .next (the film leg wipes it, and the ledger is cross-boot history that
+ *  must survive the wipe). The standalone lane chdir's into
+ *  .next/standalone at boot (the provenance walk's own wound), so the path
+ *  walks UP for the .next anchor like readBuildProvenance does; no anchor
+ *  → the cwd's own db/. Untracked by git (the .gitignore's t884 line) —
+ *  runtime observations, not source. */
+function bootLedgerPath(root = process.cwd()): string {
+  let dir = root;
+  for (let hop = 0; hop < 4; hop++) {
+    if (existsSync(join(dir, ".next"))) return join(dir, "db", "boot-ledger.json");
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return join(root, "db", "boot-ledger.json");
+}
+
 /** Read this host's pressure ledger: the kernel ring (best-effort, 3s cap)
- *  plus THIS process's own VmRSS. Null when the ring is not ours to read. */
+ *  plus THIS process's own VmRSS. Null when the ring is not ours to read.
+ *  t884 — the read ALSO feeds the boot ledger (the upsert + the fact): one
+ *  row per boot id, atomic write, best-effort — a ledger that cannot be
+ *  written leaves the fact null and the word rests (the honest absence). */
 export function readMemoryPressure(): MemoryPressure | null {
   let ledger: ReturnType<typeof parseOomRing>;
   try {
@@ -374,6 +482,37 @@ export function readMemoryPressure(): MemoryPressure | null {
     ledger = parseOomRing(ring.stdout);
   } catch {
     return null;
+  }
+  let bootLedger: BootLedgerFact | null = null;
+  try {
+    const bootId = readFileSync("/proc/sys/kernel/random/boot_id", "utf8").trim();
+    if (bootId) {
+      const path = bootLedgerPath();
+      let rows: BootLedgerRow[] = [];
+      try {
+        const parsed = JSON.parse(readFileSync(path, "utf8")) as BootLedgerRow[];
+        if (Array.isArray(parsed)) rows = parsed;
+      } catch {
+        rows = []; // a corrupt ledger self-heals — its rows are regenerable observations, not sacred history
+      }
+      const obs: BootObservation = {
+        bootId,
+        oomKills: ledger.oomKills,
+        whaleComm: ledger.victims[0]?.comm ?? null,
+        whaleLastRssMb: ledger.victims[0]?.rssMb ?? null,
+      };
+      rows = composeBootLedgerUpdate(rows, obs, new Date().toISOString());
+      try {
+        const tmp = `${path}.tmp`;
+        writeFileSync(tmp, JSON.stringify(rows, null, 2));
+        renameSync(tmp, path); // atomic — a concurrent reader never sees a half-written ledger
+      } catch {
+        /* the write is best-effort — the fact below still speaks THIS boot's row */
+      }
+      bootLedger = composeBootLedgerFact(rows);
+    }
+  } catch {
+    bootLedger = null; // the boot id was not ours to read — the word rests
   }
   let selfRssMb: number | null = null;
   let uptimeHours: number | null = null;
@@ -391,7 +530,7 @@ export function readMemoryPressure(): MemoryPressure | null {
   } catch {
     /* the honest absence — /proc/uptime exists on linux, but say it */
   }
-  return { ...ledger, selfRssMb, uptimeHours };
+  return { ...ledger, bootLedger, selfRssMb, uptimeHours };
 }
 
 
@@ -756,10 +895,18 @@ export function presentSystemDiagnostics(payload: DiagnosticsPayload | null): Di
     pairingsWord && pairings && (pairings.length > 1 || (pairings[0]?.count ?? 0) > 1)
       ? `; the rope's pairings: ${pairingsWord}`
       : "";
+  // t884 — the boot ledger's clause: the whale's growth ACROSS boots (the
+  // ring forgets on reboot — the ledger remembers). Same information rule
+  // as its siblings: one boot is what the ring already says, so the word
+  // rests; two boots speak the quiet fact; the rising verdict is rare and
+  // loud (the word carries both faces from the ONE birthplace)
+  const bootLedgerFact = p?.bootLedger;
+  const bootWord = bootLedgerFact ? oomBootLedgerWord(bootLedgerFact) : null;
+  const bootClause = bootWord ? `; the whale's boots: ${bootWord}` : "";
   const pressureLine = p
     ? (p.oomKills ?? 0) > 0
-      ? `the kernel ring carries ${p.oomKills} OOM kill${p.oomKills === 1 ? "" : "s"} this boot — the last victim ${p.lastVictim ? `${p.lastVictim.comm} at ${p.lastVictim.rssMb}MB` : "unnamed"}${p.lastInvoker ? ` (invoked by ${p.lastInvoker})` : ""}${tempoClause}${combatantsClause}${invokersClause}${pairingsClause}${leakClause}${p.selfRssMb != null ? `; this server parks at ${p.selfRssMb}MB` : ""}`
-      : `no OOM kill in the kernel ring this boot${p.selfRssMb != null ? `; this server parks at ${p.selfRssMb}MB` : ""}`
+      ? `the kernel ring carries ${p.oomKills} OOM kill${p.oomKills === 1 ? "" : "s"} this boot — the last victim ${p.lastVictim ? `${p.lastVictim.comm} at ${p.lastVictim.rssMb}MB` : "unnamed"}${p.lastInvoker ? ` (invoked by ${p.lastInvoker})` : ""}${tempoClause}${combatantsClause}${invokersClause}${pairingsClause}${leakClause}${bootClause}${p.selfRssMb != null ? `; this server parks at ${p.selfRssMb}MB` : ""}`
+      : `no OOM kill in the kernel ring this boot${bootClause}${p.selfRssMb != null ? `; this server parks at ${p.selfRssMb}MB` : ""}`
     : "the kernel ring was not ours to read (pressure unknown)";
   return {
     ok: true,

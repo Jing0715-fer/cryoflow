@@ -225,6 +225,9 @@ const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8"
         { invoker: "chrome", victim: "next-server (v1", count: 1 },
         { invoker: "chrome", victim: "python3", count: 1 },
       ],
+      // t884 — the boot ledger rides every payload; null here (the boot id
+      // was not ours to read) leaves the boot clause silent — the honest absence
+      bootLedger: null,
       selfRssMb: 412,
       uptimeHours: 2.5,
     },
@@ -246,6 +249,8 @@ const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8"
   must(/the rope's pairings: chrome→next-server \(v1 ×1 · chrome→python3 ×1/.test(summary), "presenter — the pairings clause rides the (invoker → victim) histogram (t883): two distinct pairs clear the rule, recency puts the whale first");
   must(/this server parks at 412MB/.test(summary), "presenter — summary carries the server's own footprint");
   must(/≈19\/day over 2\.5h up/.test(summary), "presenter — the tempo word rides the kills clause (2 kills / 2.5h ≈ 19/day)");
+  // t884 — the boot clause's honest absence: an unreadable ledger says nothing
+  must(!/the whale's boots/.test(summary), "presenter — an unreadable boot ledger leaves the boot clause silent (the honest absence, t884)");
   const detail = res.detail as { memory?: unknown; world?: unknown };
   must(Boolean(detail?.memory) && Boolean(detail?.world), "presenter — annex carries the payload");
 
@@ -275,11 +280,17 @@ const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8"
       // t883 — the rope's crimes, tallied: the whale invoking its own
       // execution rides the t882 live read's shape (chrome's hand ×51, the
       // whale's own hand ×21 — the pair sum 72 < the kill count 76: the
-      // stewards' kills never pair)
+      // stewards' kills never pair); t884 — the crossfire joins: the whale's
+      // own libuv workers held the rope when the BROWSER's main thread died
       pairings: [
         { invoker: "chrome", victim: "next-server (v1", count: 51 },
         { invoker: "next-server (v1", victim: "next-server (v1", count: 21 },
+        { invoker: "libuv-worker", victim: "MainThread", count: 4 },
       ],
+      // t884 — the boot ledger carries the machine's OWN witnessed cross-boot
+      // curve (2770→3204→3077MB, the worklog's three windows): NOT strictly
+      // rising — weather — so the clause speaks the quiet fact, never a verdict
+      bootLedger: { boots: 3, whaleComm: "next-server (v1", whaleSizesMb: [2770, 3204, 3077] },
       selfRssMb: 892,
       uptimeHours: 7.5,
     },
@@ -290,6 +301,35 @@ const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8"
   must(/the rope's holders: chrome ×51 · next-server \(v1 ×25/.test(warSummary), "presenter — the rope's holders speak the whale invoking its own execution (t881's tail, tallied)");
   must(/next-server \(v1 grows at every death — 2770→2845→2951MB: a leak signature/.test(warSummary), "presenter — the leak signature quotes the whale's own curve, verbatim");
   must(/the rope's pairings: chrome→next-server \(v1 ×51 · next-server \(v1→next-server \(v1 ×21/.test(warSummary), "presenter — the rope's crimes speak on the war face: the whale's own hand tallied ×21 (t882's tail, now a counted fact)");
+  // t884 — the crossfire wears the thread marker on the war face, and the
+  // boot ledger's witnessed curve speaks its quiet fact (never a verdict)
+  must(/libuv-worker→MainThread ×4 \(thread\)/.test(warSummary), "presenter — the crossfire pairing wears the thread marker (t884): the whale's own workers held the rope when the browser's main thread died");
+  must(/the whale's boots: 3 boots on record — 2770→3204→3077MB across boots/.test(warSummary), "presenter — the boot clause speaks the witnessed curve verbatim, and a dipped curve earns NO leak verdict (t884: weather stays silent)");
+
+  // t884 — the boot clause's LOUD face: the day the box reboots three times
+  // with the whale growing, the leak crosses boots (synthetic curve — the
+  // machine has not yet written a rising boot run; the word waits for it)
+  const bootLeak = presentSystemDiagnostics({
+    memory: lanes,
+    disk: { totalMb: 10138, freeMb: 2048, usedPct: 79 },
+    provenance: { commit: "93bd005", standalone: true },
+    world: { projects: 3, jobs: 32, runningJobs: 1 },
+    durability: null,
+    pressure: {
+      oomKills: 12,
+      lastVictim: { comm: "next-server (v1", rssMb: 3000 },
+      lastInvoker: "chrome",
+      victims: [{ comm: "next-server (v1", kills: 12, rssMb: 3000 }],
+      invokers: [{ comm: "chrome", invocations: 12 }],
+      trend: null,
+      pairings: [{ invoker: "chrome", victim: "next-server (v1", count: 12 }],
+      bootLedger: { boots: 3, whaleComm: "next-server (v1", whaleSizesMb: [2400, 2700, 3000] },
+      selfRssMb: 500,
+      uptimeHours: 2.0,
+    },
+    generatedAt: new Date().toISOString(),
+  });
+  must(/the whale's boots: next-server \(v1 grows across boots — 2400→2700→3000MB over 3 boots: the leak crosses boots/.test(bootLeak.summary ?? ""), "presenter — the leak crossing boots is rare and loud (t884)");
 
   // honest nulls: unreadable lanes are SAID, not guessed
   const partial = presentSystemDiagnostics({

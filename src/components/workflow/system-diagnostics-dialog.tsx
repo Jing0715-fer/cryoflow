@@ -23,7 +23,7 @@
  */
 
 import * as React from "react";
-import { isThreadComm, oomCombatantsWord, oomInvokersWord, oomLeakWord, oomPairingsWord, oomTempoWord } from "@/lib/pressure-words";
+import { isThreadComm, oomBootLedgerRising, oomBootLedgerWord, oomCombatantsWord, oomInvokersWord, oomLeakWord, oomPairingsWord, oomTempoWord } from "@/lib/pressure-words";
 import { Activity, Boxes, Cpu, HardDrive, MemoryStick, RefreshCw, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -223,6 +223,10 @@ export default function SystemDiagnosticsDialog({
   const leak = pressure?.trend ? oomLeakWord(pressure.trend) : null;
   // t883 — the pairings word rides the ONE birthplace like its siblings
   const pairings = pressure?.pairings?.length ? oomPairingsWord(pressure.pairings) : null;
+  // t884 — the boot ledger's word + its rising verdict (the tone reads the
+  // SAME predicate the word does — ONE birthplace for the verdict and its color)
+  const bootWord = pressure?.bootLedger ? oomBootLedgerWord(pressure.bootLedger) : null;
+  const bootRising = pressure?.bootLedger ? oomBootLedgerRising(pressure.bootLedger) : false;
   const threadDialect =
     pressure?.lastVictim && isThreadComm(pressure.lastVictim.comm)
       ? pressure.lastVictim.comm
@@ -379,6 +383,17 @@ export default function SystemDiagnosticsDialog({
                           data-testid="diag-trend">
                           <span className="font-sans font-normal text-muted-foreground">The whale's curve: </span>
                           {leak}
+                        </p>
+                      ) : null}
+                      {bootWord ? (
+                        <p
+                          className={cn(
+                            "font-mono text-[10px]",
+                            bootRising ? "font-medium text-danger" : "text-foreground/70",
+                          )}
+                          data-testid="diag-boot-ledger">
+                          <span className="font-sans text-muted-foreground">The whale's boots: </span>
+                          {bootWord}
                         </p>
                       ) : null}
                       {threadDialect ? (

@@ -462,6 +462,10 @@ export interface MemoryPressureClient {
   /** t883 — the war's pairings (whose hand tripped whose death):
    *  count-desc, recency tiebreak. */
   pairings: { invoker: string; victim: string; count: number }[];
+  /** t884 — the boot ledger's fact face: the whale's growth ACROSS boots
+   *  (the ring forgets on reboot — the ledger remembers); null = the boot
+   *  id was not ours to read. */
+  bootLedger: { boots: number; whaleComm: string | null; whaleSizesMb: number[] } | null;
   selfRssMb: number | null;
   uptimeHours: number | null;
 }
