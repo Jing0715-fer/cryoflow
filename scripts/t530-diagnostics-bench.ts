@@ -202,6 +202,13 @@ const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8"
       exportedAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
       probedAt: new Date().toISOString(),
     },
+    // t879 — the pressure face rides the payload and its locator line
+    pressure: {
+      oomKills: 2,
+      lastVictim: { comm: "next-server", rssMb: 2793 },
+      lastInvoker: "chrome",
+      selfRssMb: 412,
+    },
     generatedAt: new Date().toISOString(),
   });
   must(res.ok, "presenter — a full payload is ok:true");
@@ -213,6 +220,9 @@ const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8"
   must(/world durability STALE \(not red\)/.test(summary), "presenter — summary carries the durability verdict and its red word");
   must(/snapshot 15 · live 15/.test(summary), "presenter — summary carries the durability counts");
   must(/exported 1h ago/.test(summary), "presenter — the exported age word rides the ONE father");
+  must(/2 OOM kills/.test(summary) && /next-server at 2793MB/.test(summary), "presenter — summary carries the OOM ledger and the last victim");
+  must(/invoked by chrome/.test(summary), "presenter — summary names the allocator that held the rope");
+  must(/this server parks at 412MB/.test(summary), "presenter — summary carries the server's own footprint");
   const detail = res.detail as { memory?: unknown; world?: unknown };
   must(Boolean(detail?.memory) && Boolean(detail?.world), "presenter — annex carries the payload");
 
@@ -223,6 +233,7 @@ const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8"
     provenance: { commit: null, standalone: false },
     world: null,
     durability: null,
+    pressure: null,
     generatedAt: new Date().toISOString(),
   });
   must(partial.ok, "presenter — a null-lane payload still answers (the read worked, the lanes didn't)");
@@ -236,6 +247,7 @@ const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8"
     provenance: { commit: null, standalone: false },
     world: null,
     durability: { ok: false, why: "the probe instrument (scripts/world-snapshot.mjs) was not found on this lane" },
+    pressure: null,
     generatedAt: new Date().toISOString(),
   });
   must(/world durability unreadable \(the probe instrument/.test(muted.summary ?? ""), "presenter — a muted probe speaks its why, worded");

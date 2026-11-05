@@ -94,6 +94,17 @@ export async function GET(request: NextRequest) {
         // completion flag; params/results blobs stay unread (same contract
         // as the sparkline endpoint's findMany)
         select: { createdAt: true, updatedAt: true, status: true },
+        // t879 — the read is window-scoped: a job whose createdAt AND
+        // updatedAt both predate the grid contributes nothing (updatedAt
+        // never precedes createdAt, so createdAt in-window already implies
+        // the touched arm), and the count stays bit-identical while the
+        // scan stops reading a world's whole history for a 26-week window
+        where: {
+          OR: [
+            { updatedAt: { gte: new Date(gridStart) } },
+            { createdAt: { gte: new Date(gridStart) } },
+          ],
+        },
       }),
       db.job.count(),
     ]);

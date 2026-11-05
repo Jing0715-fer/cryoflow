@@ -447,6 +447,14 @@ export type WorldDurabilityClient =
     }
   | { ok: false; why: string };
 
+/** t879 — the OOM war's ledger: the kernel ring's testimony about past kills plus this server's own footprint. */
+export interface MemoryPressureClient {
+  oomKills: number | null;
+  lastVictim: { comm: string; rssMb: number } | null;
+  lastInvoker: string | null;
+  selfRssMb: number | null;
+}
+
 /** GET /api/diagnostics payload — the box's vitals in one read. */
 export interface DiagnosticsClient {
   memory: MemoryLanesClient | null;
@@ -454,6 +462,8 @@ export interface DiagnosticsClient {
   provenance: BuildProvenanceClient;
   world: WorldCensusClient | null;
   durability: WorldDurabilityClient | null;
+  /** t879 — null = the kernel ring was not ours to read (the honest unknown). */
+  pressure: MemoryPressureClient | null;
   generatedAt: string;
 }
 

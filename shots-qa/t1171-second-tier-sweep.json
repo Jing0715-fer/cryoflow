@@ -5,11 +5,25 @@
   "window": "2026-11-03 cron Job 362852, trace …-cron-202611032357",
   "the_method": "t1168's, continued: the route tree sorted by last-touch git date (68 doors total: 12 @2026-10-10 audited in t1168 · 20 @2026-10-13 this window · the rest younger), the tier walked line by line (2202 lines), the known bug classes grepped across every door",
   "the_tier": [
-    "activity/heatmap", "ai/chat", "ai/judge-worker", "ai/models", "ai/providers/health",
-    "ai/sessions/[id]", "ai/sessions", "ai/settings", "diagnostics",
-    "jobs/[id]/cleanup", "jobs/[id]/continue-sources", "jobs/[id]/denoise-pairs", "jobs/[id]/funnel",
-    "jobs/[id]/iterations/image", "jobs/[id]/iterations", "jobs/[id]/iterations/sheet",
-    "jobs/[id]/outputs/remote-remaining", "jobs/[id]/outputs/sync", "jobs/[id]/resolution-arc",
+    "activity/heatmap",
+    "ai/chat",
+    "ai/judge-worker",
+    "ai/models",
+    "ai/providers/health",
+    "ai/sessions/[id]",
+    "ai/sessions",
+    "ai/settings",
+    "diagnostics",
+    "jobs/[id]/cleanup",
+    "jobs/[id]/continue-sources",
+    "jobs/[id]/denoise-pairs",
+    "jobs/[id]/funnel",
+    "jobs/[id]/iterations/image",
+    "jobs/[id]/iterations",
+    "jobs/[id]/iterations/sheet",
+    "jobs/[id]/outputs/remote-remaining",
+    "jobs/[id]/outputs/sync",
+    "jobs/[id]/resolution-arc",
     "remote/connections/[id]/browse"
   ],
   "the_verdict": {
@@ -41,5 +55,14 @@
     "「干净收据不是栅栏」: a clean audit that changes nothing is a receipt, not a fence — the tier's truth became pins so the next drift flaps at a census seat instead of living quietly",
     "「台账要亲手闭」: a legacy item marked 'known issue' for windows is a debt compounding in silence — #13 was one source-read away from closure; the ledger is now fully closed and every closure has its pin",
     "「名单即契约」: the seat pins the tier by name — a file that moves, renames, or joins the tier unguarded makes the seat speak"
-  ]
+  ],
+  "t879_addendum": {
+    "at": "2026-11-05T02:40:00Z",
+    "window": "2026-11-05 cron Job 362852, trace …-cron-202611050936",
+    "the_catch": "the sweep walked CLEAN twice (t1171, t1168) and still one drift lived in the tier: resolution-arc probed findEffectiveJob BEFORE its isLocalRequest door — a drive-by got a 404 for a missing job and a 403 for a live one (an existence oracle); every pin before this window checked guard PRESENCE, never ORDER",
+    "the_cure": "the route moved the door first (guard → 404 → work, the sibling grammar); the law is pinned at BOTH faces: E1/E2 here (12/12) and the tree-wide LATE-GUARD phase in scripts/t1165-route-guard-census.mjs (94 doors, zero late-guards)",
+    "the_second_cure": "activity/heatmap window-scoped its findMany (updatedAt OR createdAt >= gridStart — updatedAt never precedes createdAt, so the OR is complete; bit-identical counts, no whole-history read for a 26-week window)",
+    "seat_111": "scripts/t1171-second-tier-sweep-unit.mjs — 12/12 green (A0 ×20 tier · A1 guards ×20 · B1 zero whole-file reads · B2 json doors · C1/C2 the #13 cure · D1/D2/D3 browse · E1 the ordering law ×20 · E2 resolution-arc stays cured)",
+    "census": "census re-keyed: seat 111 EXPECTED 10→12, seat 114 born (t879-pressure-words-unit, 23 pins, lane 1) — scripts/t879-census-rekey.mjs, idempotent ×2, bash -n green"
+  }
 }

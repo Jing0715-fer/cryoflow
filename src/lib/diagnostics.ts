@@ -147,6 +147,107 @@ export function readMemoryLanes(): MemoryLanes | null {
 }
 
 /* ------------------------------------------------------------------ */
+/* Memory pressure (t879) — the OOM war's ledger                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * t879 — the box's own testimony about its memory wars, read from the
+ * kernel ring (dmesg) and /proc/self/status. The evidence-from-bytes law
+ * (the module header's) gains one clause: the KERNEL's ring is bytes —
+ * past kills, not a live process walk (the "no process sniffing" law
+ * stays intact; nothing here enumerates running processes). On the 4GB
+ * box the dev lane, the browser and the platform fight for the same
+ * RAM and the kernel kills the biggest resident (the whale law, t1170);
+ * today's witness campaign watched it nine times — a diagnosis no
+ * memory-lane bar could name. The face answers: how many kills this
+ * boot, who died last (and how big), who held the allocator's rope, and
+ * what THIS server itself parks in RSS. Every field degrades to null —
+ * an unreadable ring (EPERM, no dmesg) is SAID, not guessed.
+ */
+
+export interface OomVictim {
+  /** the killed process's comm name ("next-server", "chrome", ...) */
+  comm: string;
+  /** the victim's anon-rss at kill time, in MB */
+  rssMb: number;
+}
+
+export interface MemoryPressure {
+  /** kernel-ring OOM kills since boot; null = the ring was unreadable */
+  oomKills: number | null;
+  /** the most recent victim the kernel named */
+  lastVictim: OomVictim | null;
+  /** the process that held the allocator's rope at the last kill */
+  lastInvoker: string | null;
+  /** THIS server's own resident set (VmRSS, MB) — the lane's footprint */
+  selfRssMb: number | null;
+}
+
+const OOM_KILL_RE = /Out of memory:\s+Killed process\s+\d+\s+\((.*)\) total-vm:[^\n]*?anon-rss:(\d+)kB/i;
+const OOM_INVOKER_RE = /^(?:\[?\s*[\d:.]+\]?\s+)?(\S+)\s+invoked oom-killer/;
+
+/** Parse a kernel ring dump (dmesg) into the OOM ledger. Pure — the seat
+ *  rides fixtures, the reader rides the real ring. */
+export function parseOomRing(text: string): {
+  oomKills: number;
+  lastVictim: OomVictim | null;
+  lastInvoker: string | null;
+} {
+  const lines = text.split("\n");
+  const killIdxs: number[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (/Out of memory:\s+Killed process/i.test(lines[i])) killIdxs.push(i);
+  }
+  let lastVictim: OomVictim | null = null;
+  if (killIdxs.length > 0) {
+    const m = lines[killIdxs[killIdxs.length - 1]].match(OOM_KILL_RE);
+    if (m) {
+      lastVictim = { comm: m[1], rssMb: Math.round(Number(m[2]) / 1024) };
+    }
+  }
+  // the invoker: the closest "X invoked oom-killer" line AT OR ABOVE the
+  // last kill (the allocator that tripped the killer) — fall back to the
+  // ring's tail when no kill line exists (an invocation can race the dump)
+  const from = killIdxs.length > 0 ? killIdxs[killIdxs.length - 1] : lines.length - 1;
+  let lastInvoker: string | null = null;
+  for (let i = from; i >= 0; i--) {
+    const m = lines[i].match(OOM_INVOKER_RE);
+    if (m && !/^(kthreadd|oom-reaper)$/.test(m[1])) {
+      lastInvoker = m[1];
+      break;
+    }
+  }
+  return { oomKills: killIdxs.length, lastVictim, lastInvoker };
+}
+
+/** Read this host's pressure ledger: the kernel ring (best-effort, 3s cap)
+ *  plus THIS process's own VmRSS. Null when the ring is not ours to read. */
+export function readMemoryPressure(): MemoryPressure | null {
+  let ledger: ReturnType<typeof parseOomRing>;
+  try {
+    const ring = spawnSync("dmesg", [], {
+      timeout: 3000,
+      encoding: "utf8",
+      maxBuffer: 8 * 1024 * 1024,
+    });
+    if (ring.status !== 0 || !ring.stdout) return null;
+    ledger = parseOomRing(ring.stdout);
+  } catch {
+    return null;
+  }
+  let selfRssMb: number | null = null;
+  try {
+    const status = readFileSync("/proc/self/status", "utf8");
+    const m = status.match(/^VmRSS:\s+(\d+)\s+kB/m);
+    if (m) selfRssMb = Math.round(Number(m[1]) / 1024);
+  } catch {
+    /* the honest absence — /proc/self always exists on linux, but say it */
+  }
+  return { ...ledger, selfRssMb };
+}
+
+
+/* ------------------------------------------------------------------ */
 /* Disk                                                               */
 /* ------------------------------------------------------------------ */
 
@@ -396,14 +497,17 @@ export interface DiagnosticsPayload {
   world: WorldCensus | null;
   /** t1165 — the probe's verdict, quoted from the ONE instrument. */
   durability: WorldDurability | null;
+  /** t879 — the OOM war's ledger (kernel ring + self VmRSS); null = the ring was not ours to read. */
+  pressure: MemoryPressure | null;
   generatedAt: string;
 }
 
 export async function readDiagnostics(): Promise<DiagnosticsPayload> {
-  const [memory, disk, world] = await Promise.all([
+  const [memory, disk, world, pressure] = await Promise.all([
     Promise.resolve(readMemoryLanes()),
     readDiskVitals(),
     readWorldCensus().catch(() => null),
+    Promise.resolve(readMemoryPressure()),
   ]);
   let durability: WorldDurability | null = null;
   try {
@@ -417,6 +521,7 @@ export async function readDiagnostics(): Promise<DiagnosticsPayload> {
     provenance: readBuildProvenance(),
     world,
     durability,
+    pressure,
     generatedAt: new Date().toISOString(),
   };
 }
@@ -471,9 +576,15 @@ export function presentSystemDiagnostics(payload: DiagnosticsPayload | null): Di
   const buildLine = payload.provenance.commit
     ? `running build ${payload.provenance.commit}${payload.provenance.standalone ? " (standalone lane)" : ""}`
     : "running build carries no provenance stamp (dev or legacy lane)";
+  const p = payload.pressure;
+  const pressureLine = p
+    ? (p.oomKills ?? 0) > 0
+      ? `the kernel ring carries ${p.oomKills} OOM kill${p.oomKills === 1 ? "" : "s"} this boot — the last victim ${p.lastVictim ? `${p.lastVictim.comm} at ${p.lastVictim.rssMb}MB` : "unnamed"}${p.lastInvoker ? ` (invoked by ${p.lastInvoker})` : ""}${p.selfRssMb != null ? `; this server parks at ${p.selfRssMb}MB` : ""}`
+      : `no OOM kill in the kernel ring this boot${p.selfRssMb != null ? `; this server parks at ${p.selfRssMb}MB` : ""}`
+    : "the kernel ring was not ours to read (pressure unknown)";
   return {
     ok: true,
-    summary: `The box: ${memoryLine}. ${diskLine}. ${worldLine}. ${durLine}. ${buildLine}.`,
+    summary: `The box: ${memoryLine}. ${diskLine}. ${worldLine}. ${durLine}. ${buildLine}. ${pressureLine}.`,
     detail: payload,
   };
 }

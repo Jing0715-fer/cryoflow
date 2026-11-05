@@ -173,5 +173,44 @@ ok("D1 browse refuses control characters (the line-protocol law)", browseCode.in
 ok("D2 browse serves listings, never file bytes", !browseCode.includes("readFile") && !browseCode.includes("createReadStream") && !browseCode.includes("cat "), "names/sizes/types only — contents move through the staging legs");
 ok("D3 browse keeps the browser ceiling", browseCode.includes("REMOTE_MAX_ENTRIES") || browseCode.includes("MAX_ENTRIES"), "the 20k virtualized bound");
 
+// ── E — the guard-ORDERING law (t879): the door answers before the db ────
+//
+// t879's audit found the tier's one live drift: resolution-arc probed
+// findEffectiveJob BEFORE its isLocalRequest door — a drive-by read a
+// 404 for a missing job and a 403 for a live one, an existence oracle
+// every presence-only pin (A1, the t1165 census) walked past. The cure
+// moved the door first; the law is now pinned here for the tier (the
+// tree-wide face rides the t1165 route-guard census's LATE-GUARD phase).
+
+/** first index of a data-touch after the verb's declaration, with
+ *  comments stripped (codeOf) so prose mentions never count */
+function firstTouchAfter(code, verbIdx) {
+  const touch = code.slice(verbIdx).search(/findEffectiveJob\(|db\.(job|edge|workspace|project|user)\.|getRun\(|readdirSync\(|readFileSync\(|statSync\(|existsSync\(/);
+  return touch === -1 ? -1 : verbIdx + touch;
+}
+function firstGuardAfter(code, verbIdx) {
+  const g = code.slice(verbIdx).indexOf("isLocalRequest(");
+  return g === -1 ? -1 : verbIdx + g;
+}
+const VERB_RE = /export\s+async\s+function\s+(GET|POST|PUT|PATCH|DELETE)\b/g;
+const lateDoors = [];
+for (const rel of TIER) {
+  const code = tierCode.get(rel);
+  if (!code.includes("isLocalRequest")) continue; // A1 already speaks it
+  VERB_RE.lastIndex = 0;
+  let m;
+  while ((m = VERB_RE.exec(code)) !== null) {
+    const touch = firstTouchAfter(code, m.index);
+    const guard = firstGuardAfter(code, m.index);
+    if (touch !== -1 && guard !== -1 && touch < guard) {
+      lateDoors.push(`${rel} [${m[1]}]`);
+    }
+  }
+}
+ok("E1 every tier door's guard answers before its first data-touch", lateDoors.length === 0, lateDoors[0] ?? "the ordering law holds ×20");
+
+const arcCode = tierCode.get("src/app/api/jobs/[id]/resolution-arc/route.ts");
+ok("E2 resolution-arc's door leads the db probe (the t879 cure stays put)", arcCode.indexOf("isLocalRequest(request)") < arcCode.indexOf("findEffectiveJob("), "guard → 404 → work, the sibling grammar");
+
 console.log(`\nt1171 second-tier sweep unit: ${pass}/${pass + fail} green`);
 process.exit(fail === 0 ? 0 : 1);

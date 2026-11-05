@@ -33,6 +33,20 @@ type RouteContext = { params: Promise<{ id: string }> };
  * run's mirror. No record, no mirror → an honest empty arc.
  */
 export async function GET(request: NextRequest, context: RouteContext) {
+  // Hardening (t251 sibling): workdir-derived data — same drive-by door
+  // as the fsc route (see http-guard for the threat model). The bytes
+  // come from the job workdir — the door rides along. t879 — the guard
+  // moved FIRST: the route used to probe findEffectiveJob before the
+  // door, so a drive-by got a 404 for a missing job and a 403 for a
+  // live one — an existence oracle that the house grammar (guard → 404
+  // → work, every sibling route) never speaks. The door now answers
+  // 403 to every cross-site face before the db is asked anything.
+  if (!isLocalRequest(request)) {
+    return NextResponse.json(
+      { error: "Cross-site access to job data is not allowed" },
+      { status: 403 }
+    );
+  }
   try {
     const { id } = await context.params;
     const job = await findEffectiveJob(id);
@@ -44,16 +58,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
       rounds: [] as ResolutionPoint[],
       reported: null as number | null,
     };
-
-    // Hardening (t251 sibling): workdir-derived data — same drive-by door
-    // as the fsc route (see http-guard for the threat model). The bytes
-    // come from the job workdir — the door rides along.
-    if (!isLocalRequest(request)) {
-      return NextResponse.json(
-        { error: "Cross-site access to job data is not allowed" },
-        { status: 403 }
-      );
-    }
 
     const run = getRun(job.id);
     if (!run?.workdir || !existsSync(run.workdir)) {

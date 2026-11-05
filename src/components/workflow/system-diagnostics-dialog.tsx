@@ -209,6 +209,8 @@ export default function SystemDiagnosticsDialog({
   }, [open, diag, loading, fetchDiag]);
 
   const memory = diag?.memory ?? null;
+  // t879 — the OOM war's ledger (kernel ring + self VmRSS); null = the ring was not ours to read
+  const pressure = diag?.pressure ?? null;
   const durability: WorldDurabilityClient | null = diag?.durability ?? null;
   const durOk = durability?.ok === true ? durability : null;
   const durTone = durOk ? durabilityTone(durOk.verdict, durOk.red) : null;
@@ -300,6 +302,43 @@ export default function SystemDiagnosticsDialog({
                   Legend: the dev watchdog recycles next-server at 2600MB RSS — that line polices one
                   process, not the box (t524), which is why it is not drawn on these bars.
                 </p>
+
+                {/* ---- t879: the OOM war's ledger (kernel ring) ------ */}
+                <div className="rounded-md border border-border/60 px-2.5 py-2 text-[11px] leading-relaxed" data-testid="diag-pressure">
+                  {pressure && pressure.oomKills != null && pressure.oomKills > 0 ? (
+                    <p className="text-foreground/80">
+                      <span className="font-semibold text-danger">{pressure.oomKills} OOM kill{pressure.oomKills === 1 ? "" : "s"}</span> this boot — the last victim{" "}
+                      <span className="font-mono">
+                        {pressure.lastVictim
+                          ? `${pressure.lastVictim.comm} at ${fmtMb(pressure.lastVictim.rssMb)}`
+                          : "unnamed"}
+                      </span>
+                      {pressure.lastInvoker ? (
+                        <>
+                          , invoked by <span className="font-mono">{pressure.lastInvoker}</span>
+                        </>
+                      ) : null}
+                      .{pressure.selfRssMb != null ? (
+                        <>
+                          {" "}This server parks at <span className="font-mono">{fmtMb(pressure.selfRssMb)}</span>.
+                        </>
+                      ) : null}
+                    </p>
+                  ) : pressure && pressure.oomKills != null ? (
+                    <p className="text-muted-foreground">
+                      No OOM kill in the kernel ring this boot.
+                      {pressure.selfRssMb != null ? (
+                        <>
+                          {" "}This server parks at <span className="font-mono">{fmtMb(pressure.selfRssMb)}</span>.
+                        </>
+                      ) : null}
+                    </p>
+                  ) : (
+                    <p className="text-muted-foreground">
+                      The kernel ring was not ours to read — the OOM ledger is unknown.
+                    </p>
+                  )}
+                </div>
               </div>
             ) : (
               <HonestEmpty what="Memory vitals" />
