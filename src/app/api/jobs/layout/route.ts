@@ -30,6 +30,12 @@ function sanitize(raw: unknown): LayoutUpdate[] {
  * POST /api/jobs/layout — batch position update (one-click auto-arrange).
  * Body: { updates: [{ id, x, y }] }. Only jobs of the active project move.
  *
+ * t888 — the array itself is bounded (the t886 audit's observation #3:
+ * the route used to accept an UNCAPPED updates array into an unbounded
+ * Promise.all — the sibling restore door's 1–500 bound is the family
+ * law, and the client's tidy writer chunks under it). The raw array is
+ * priced before the sanitize loop spends a pass on it.
+ *
  * t708 — the write door: coordinates are the t705 click-geometry lesson's
  * raw material — a blind layout write could stack cards into click-hijack
  * piles invisibly (the canvas hit-tests topmost). Doctrine http-guard.ts +
@@ -41,6 +47,12 @@ export async function POST(request: NextRequest) {
   }
   try {
     const body = (await request.json().catch(() => ({}))) as { updates?: unknown };
+    if (Array.isArray(body.updates) && body.updates.length > 500) {
+      return NextResponse.json(
+        { error: "Body must be { updates: [...] } with 1–500 entries" },
+        { status: 400 }
+      );
+    }
     const updates = sanitize(body.updates);
     if (updates.length === 0) {
       return NextResponse.json({ error: "No valid updates" }, { status: 400 });

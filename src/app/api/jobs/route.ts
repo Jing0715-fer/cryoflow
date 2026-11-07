@@ -438,6 +438,17 @@ export async function POST(request: NextRequest) {
       if (classes.length === 0) {
         return NextResponse.json({ error: "classStarSelection.classes must be a non-empty list of class numbers" }, { status: 400 });
       }
+      // t888 — the LIST itself is bounded (the t886 audit's observation #1:
+      // each value was bounded 1..10000 but the array's length was not —
+      // the sibling restore door's 500-entry bound is the family law; a
+      // classification's class count never approaches it, so the bound
+      // prices the stored params JSON without touching a real gesture).
+      if (classes.length > 500) {
+        return NextResponse.json(
+          { error: "classStarSelection.classes must carry at most 500 class numbers" },
+          { status: 400 }
+        );
+      }
       const source = sourceId
         ? await db.job.findFirst({ where: { id: sourceId, projectId: active.project.id } })
         : null;
@@ -465,33 +476,40 @@ export async function POST(request: NextRequest) {
       : { ...defaultParams(type) };
     if (classSelection) storedParams.classStarSelection = classSelection;
 
-    const job = await db.job.create({
-      data: {
-        projectId: active.project.id,
-        workspaceId,
-        type,
-        name: customName ?? `${spec.label} ${count + 1}`,
-        x,
-        y,
-        params: JSON.stringify(storedParams),
-        duration: spec.duration,
-      },
-    });
+    // t888 — the gallery birth is ONE transaction (the t886 audit's
+    // observation #2: the job.create and the edge.create used to be two
+    // separate writes — a crash window between them left an edge-less
+    // consumer, a select job whose resolveInputs could never find its
+    // source). The duplicate route's $transaction is the band's exemplar;
+    // a two-write birth needs the atomic pair, no unwind.
+    const { job, edge } = await db.$transaction(async (tx) => {
+      const created = await tx.job.create({
+        data: {
+          projectId: active.project.id,
+          workspaceId,
+          type,
+          name: customName ?? `${spec.label} ${count + 1}`,
+          x,
+          y,
+          params: JSON.stringify(storedParams),
+          duration: spec.duration,
+        },
+      });
 
-    // the gallery flow wires the source classification to the new consumer
-    // automatically — the canvas shows the lineage the dispatch will use
-    // (resolveInputs scans the upstream chain through this edge)
-    let createdEdge: EdgeDTO | null = null;
-    if (classSelection) {
-      const edge = await db.edge.create({
+      // the gallery flow wires the source classification to the new consumer
+      // automatically — the canvas shows the lineage the dispatch will use
+      // (resolveInputs scans the upstream chain through this edge)
+      if (!classSelection) return { job: created, edge: null };
+      const row = await tx.edge.create({
         data: {
           projectId: active.project.id,
           fromJobId: classSelection.jobId,
-          toJobId: job.id,
+          toJobId: created.id,
         },
       });
-      createdEdge = toEdgeDTO(edge);
-    }
+      return { job: created, edge: row };
+    });
+    const createdEdge: EdgeDTO | null = edge ? toEdgeDTO(edge) : null;
 
     const dto = toJobDTO(job);
     dto.engine = "relion";

@@ -1778,6 +1778,25 @@ function confirmPositions(ids: string[]): void {
   for (const id of ids) posWriteGen.set(id, (posWriteGen.get(id) ?? 0) + 1);
 }
 
+/**
+ * t888 — the layout write rides the server's 1–500 bound (the t886 audit's
+ * observation #3, cured at BOTH faces): the tidy of a large world splits
+ * into chunks of 400 (headroom under the cap) and posts them in order.
+ * Sequential, not parallel — chunk N+1's rows must never race chunk N's —
+ * and the first failure throws so the caller's catch speaks once (the
+ * holds release, the un-written tail can re-snap from the next poll).
+ */
+const LAYOUT_CHUNK = 400;
+async function postLayoutUpdates(updates: { id: string; x: number; y: number }[]): Promise<void> {
+  for (let i = 0; i < updates.length; i += LAYOUT_CHUNK) {
+    await api("/api/jobs/layout", {
+      method: "POST",
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ updates: updates.slice(i, i + LAYOUT_CHUNK) }),
+    });
+  }
+}
+
 /** Snapshot the generation BEFORE a fetch — the response's freshness seal. */
 function snapshotPosGen(): Map<string, number> {
   return new Map(posWriteGen);
@@ -3687,11 +3706,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     // the generation on success for polls that started before it
     const releaseTidy = holdPositions(updates.map((u) => u.id));
     try {
-      await api("/api/jobs/layout", {
-        method: "POST",
-        headers: JSON_HEADERS,
-        body: JSON.stringify({ updates }),
-      });
+      // t888 — the chunked writer: a >400-job tidy rides the server's
+      // 1–500 bound in ordered chunks instead of one uncapped POST
+      await postLayoutUpdates(updates);
       confirmPositions(updates.map((u) => u.id));
       toast({ title: "Workflow tidied", description: `${updates.length} jobs auto-arranged` });
     } catch (err) {
@@ -5716,11 +5733,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     // success bumps the generation for every id in the batch
     const releaseMoves = holdPositions(moves.map((m) => m.id));
     try {
-      await api("/api/jobs/layout", {
-        method: "POST",
-        headers: JSON_HEADERS,
-        body: JSON.stringify({ updates: moves }),
-      });
+      // t888 — the chunked writer (a drag batch is small, but ONE writer
+      // for both call sites keeps the bound's obedience in one place)
+      await postLayoutUpdates(moves);
       confirmPositions(moves.map((m) => m.id));
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to save positions");
