@@ -67,10 +67,10 @@ try {
 }
 try { unlinkSync(TMP); } catch {}
 
-ok("R8a the disabled census's population stands at 178 (the busy gate added no disabled row; +1 the t1096 filmstrip walk name, +1 the t1098 ortho walk name, +1 the t1105 print-plate busy door, +1 the t1115 direction walk export name, +1 the t1129 sheet face gate — the cut's density face rides behind its own disabled until the cut is on; +2 the t1156 audit's untracked faces counted in — the fleet trend card's gated rows join the roster)",
-  receipt?.population === 179, `got ${receipt?.population}`);
-ok("R8b stateful 156 · silent-static 0 · silences 22 — the t1005 second arm's re-key (the static bucket EMPTIED) + the t1008 third arm's re-key (three dynamic names moved their honest-name stories) + the t1096 filmstrip arm (+1 the walk's a11y voice) + the t1098 ortho walk arm (+1 the axis walk's a11y voice) + the t1105 print-plate arm (+1 the busy door's flip voice) + the t1115 direction walk arm (+1 the export button's busy voice) + the t1129 sheet face arm (+1 the face's gated state) + the t1156 audit's untracked faces (+2 the fleet trend card's own stateful pair), this unit's own no-disabled-prop law stands untouched",
-  receipt?.tally?.stateful === 157 &&
+ok("R8a the disabled census's population stands at 181 (the busy gate added no disabled row; +1 the t1096 filmstrip walk name, +1 the t1098 ortho walk name, +1 the t1105 print-plate busy door, +1 the t1115 direction walk export name, +1 the t1129 sheet face gate — the cut's density face rides behind its own disabled until the cut is on; +2 the t1156 audit's untracked faces counted in — the fleet trend card's gated rows join the roster; +2 the t892 crop shelf's row verbs — the anchor + download pair joins the roster)",
+  receipt?.population === 181, `got ${receipt?.population}`);
+ok("R8b stateful 159 · silent-static 0 · silences 22 — the t1005 second arm's re-key (the static bucket EMPTIED) + the t1008 third arm's re-key (three dynamic names moved their honest-name stories) + the t1096 filmstrip arm (+1 the walk's a11y voice) + the t1098 ortho walk arm (+1 the axis walk's a11y voice) + the t1105 print-plate arm (+1 the busy door's flip voice) + the t1115 direction walk arm (+1 the export button's busy voice) + the t1129 sheet face arm (+1 the face's gated state) + the t1156 audit's untracked faces (+2 the fleet trend card's own stateful pair) + the t892 crop shelf's row verbs (+2 the anchor/download pair's state-gated faces), this unit's own no-disabled-prop law stands untouched",
+  receipt?.tally?.stateful === 159 &&
   receipt?.tally?.["silent-static"] === 0 &&
   receipt?.silences === 22,
   `stateful=${receipt?.tally?.stateful} static=${receipt?.tally?.["silent-static"]} silences=${receipt?.silences}`);

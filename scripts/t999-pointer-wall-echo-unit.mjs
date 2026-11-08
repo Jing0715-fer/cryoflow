@@ -82,10 +82,10 @@ try { unlinkSync(TMP); } catch {}
 
 ok("C1 the census's population gate stands (the disabled-refusal law)",
   (() => { try { return readFileSync(path.join(ROOT, "scripts/t982-aria-refusal-census.mjs"), "utf8").includes("if (!/\\bdisabled=\\{/.test(text)) continue;"); } catch { return false; } })());
-ok("C2 population = 179 (the t1177 re-key) (the grips carry no disabled prop — the no-shift ruling, live; +1 the t1096 filmstrip walk name, +1 the t1098 ortho walk name, +1 the t1105 print-plate busy door, +1 the t1115 direction walk export name, +1 the t1129 sheet face gate — the cut's density face rides behind its own disabled until the cut is on; +2 the t1156 audit's untracked faces counted in — the fleet trend card's gated rows join the roster)",
-  receipt?.population === 179, `got ${receipt?.population}`);
-ok("C3 stateful = 157 (the t1177 re-key) (the panel's population tags unmoved; +30 from the t1005 refusal-name arm, +3 from the t1008 dynamic names, +1 from the t1096 filmstrip walk name, +1 from the t1098 ortho walk name, +1 from the t1105 print-plate busy name, +1 from the t1115 direction walk export's busy name, +1 from the t1129 sheet face's gated state; +2 from the t1156 audit's untracked faces (the fleet trend card's own stateful pair))",
-  receipt?.tally?.stateful === 157, `got ${receipt?.tally?.stateful}`);
+ok("C2 population = 181 (the t892 re-key) (the grips carry no disabled prop — the no-shift ruling, live; +1 the t1096 filmstrip walk name, +1 the t1098 ortho walk name, +1 the t1105 print-plate busy door, +1 the t1115 direction walk export name, +1 the t1129 sheet face gate — the cut's density face rides behind its own disabled until the cut is on; +2 the t1156 audit's untracked faces counted in — the fleet trend card's gated rows join the roster; +2 the t892 crop shelf's row verbs — the anchor + download pair joins the roster)",
+  receipt?.population === 181, `got ${receipt?.population}`);
+ok("C3 stateful = 159 (the t892 re-key) (the panel's population tags unmoved; +30 from the t1005 refusal-name arm, +3 from the t1008 dynamic names, +1 from the t1096 filmstrip walk name, +1 from the t1098 ortho walk name, +1 from the t1105 print-plate busy name, +1 from the t1115 direction walk export's busy name, +1 from the t1129 sheet face's gated state; +2 from the t1156 audit's untracked faces (the fleet trend card's own stateful pair); +2 from the t892 crop shelf's row verbs — the anchor/download pair's state-gated faces)",
+  receipt?.tally?.stateful === 159, `got ${receipt?.tally?.stateful}`);
 ok("C4 silent-static = 0 (the echo region is not an interactive tag; the t1005 arm emptied the bucket)",
   receipt?.tally?.["silent-static"] === 0, `got ${receipt?.tally?.["silent-static"]}`);
 ok("C5 silences = 22 (the flip bucket only — the t1005 arm retired the static half, the t1008 arm spoke three honest names)",

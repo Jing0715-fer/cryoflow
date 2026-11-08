@@ -38,6 +38,7 @@ import { downloadBlob } from "@/lib/download";
 import { keptIntervalOf, normalizeInterval } from "@/lib/clip-interval"; // t905 — the slab seat: both clip languages answer to one interval editor
 import { OBLIQUE_SHEET_ANNOTATION, axisIndex, buildObliqueSheetMesh, densityWindow, dimAlong, obliqueAnchorVox, obliqueCutAnnotation, obliqueDepthVox, obliqueDepthVoice, obliqueNormal, obliqueOffsetPctVoice, obliqueSupportVox, sheetLegendOf, voxelAriaText, voxelAnnotation, voxelIndexOf, voxelIntervalReadout, voxelPlaneVoice, voxelSliderVoice, type SheetLegend, type SheetMeshArrays } from "@/lib/voxel-voice"; // t906/t907 — one honest voice: the slice family speaks the voxel address the ortho tiles speak, the oblique cut speaks its depth along its own normal; t1129 — the cut's face rides the lib's anchor word; t1130 — the face's geometry words (densityWindow, buildObliqueSheetMesh) ride the lib too (the t1122 patchBoxRect precedent: geometry the family shares lives where node can ride it); t1131 — the face's legend is MADE of the mesh arrays (sheetLegendOf), never a second ramp
 import { pushContourLevel, readContourHistory, writeContourHistory } from "@/lib/contour-history"; // t1147 — the σ door's memory: the levels the user SETTLED on for THIS map ride back on the next open (the persistence doctrine's own shape: versioned envelope, one off-shape row drops the whole memory, a refusing store degrades to false, absence never written)
+import { cropBoxFractions } from "@/lib/subvolume-catalog"; // t892 — the crop shelf's re-anchor math (the pure well: header geometry in, anchored-box fractions out)
 import { downloadText } from "@/lib/download";
 // t197: the profile QC report family moved to @/lib/qc-report — the session
 // QC report is its second consumer, and the lib is the one honest home
@@ -5274,11 +5275,81 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
         return;
       }
       flashSendNote(`Sent — Import Map job "${data.job?.name ?? ""}" created beside its parent`, true);
+      void refreshCropShelf(); // t892 — the crop the send just wrote joins the shelf
     } catch (e) {
       flashSendNote(`Send failed: ${String(e)}`, false);
     } finally {
       setSendBusy(false);
     }
+  };
+
+  /* ---------------- the crop shelf (t892) ---------------- */
+
+  // The parent's SubVolumes/ folder as a working surface: every
+  // self-describing crop lists with its own header geometry (dims + start),
+  // and each row can re-anchor the kept box (the t260 anchored-box law —
+  // the sliders stand down, wireframe/tiles/export all follow) or
+  // re-download exactly that crop. The list route answers with the parent
+  // map's own start fields — the one number the client cannot see and the
+  // re-anchor math (cropBoxFractions) needs.
+  const [cropShelf, setCropShelf] = useState<{
+    parent: { dims: [number, number, number]; start: [number, number, number] } | null;
+    crops: { name: string; rel: string; dims: [number, number, number]; start: [number, number, number]; bytes: number; mtimeMs: number }[];
+  } | null>(null);
+  const cropShelfSeq = useRef(0);
+  const refreshCropShelf = useCallback(async () => {
+    const seq = ++cropShelfSeq.current;
+    try {
+      const res = await fetch(`/api/jobs/${jobId}/outputs/subvolume-list?path=${encodeURIComponent(path)}`);
+      if (!res.ok) {
+        if (seq === cropShelfSeq.current) setCropShelf(null);
+        return;
+      }
+      const data = (await res.json()) as {
+        parent: { dims: [number, number, number]; start: [number, number, number] } | null;
+        crops: { name: string; rel: string; dims: [number, number, number]; start: [number, number, number]; bytes: number; mtimeMs: number }[];
+      };
+      if (seq === cropShelfSeq.current) setCropShelf(data);
+    } catch {
+      if (seq === cropShelfSeq.current) setCropShelf(null);
+    }
+  }, [jobId, path]);
+  useEffect(() => {
+    void refreshCropShelf();
+  }, [refreshCropShelf]);
+
+  // the shelf's two row verbs share one gate: no parent geometry (or a box
+  // the math refuses) means no action — the row stays a provenance line
+  const cropFractionsOf = useCallback(
+    (
+      crop: { dims: [number, number, number]; start: [number, number, number] }
+    ): { lo: [number, number, number]; hi: [number, number, number] } | null =>
+      cropShelf?.parent ? cropBoxFractions(crop, cropShelf.parent) : null,
+    [cropShelf]
+  );
+  const anchorCrop = (crop: { dims: [number, number, number]; start: [number, number, number] }) => {
+    const box = cropFractionsOf(crop);
+    if (!box) return;
+    applyClipBoxIntent(box.lo, box.hi);
+  };
+  const downloadCrop = (crop: { name: string; dims: [number, number, number]; start: [number, number, number] }) => {
+    const box = cropFractionsOf(crop);
+    if (!box) return;
+    const qs = new URLSearchParams({
+      path,
+      x0: String(box.lo[0]),
+      x1: String(box.hi[0]),
+      y0: String(box.lo[1]),
+      y1: String(box.hi[1]),
+      z0: String(box.lo[2]),
+      z1: String(box.hi[2]),
+    });
+    const a = document.createElement("a");
+    a.href = `/api/jobs/${jobId}/outputs/subvolume?${qs.toString()}`;
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   };
 
   /* ---------------- clip region wireframe (SVG overlay) --------------- */
@@ -6863,6 +6934,112 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                     {clipSendNote.text}
                   </p>
                 )}
+                {/* t892 — the crop shelf: the SubVolumes/ folder as a working
+                    surface. Every self-describing crop lists with its own
+                    header geometry; "anchor" re-anchors the kept box (the
+                    t260 anchored-box law — sliders stand down, wireframe,
+                    2D tiles and export/send all follow), "download"
+                    re-materializes exactly that crop (the round-trip law:
+                    floor/ceil over the recomputed fractions returns the
+                    same voxel ranges the header carries). No parent
+                    geometry or a refused box = the row stays a provenance
+                    line — the actions withhold, they never guess. */}
+                <div
+                  data-testid="crop-shelf"
+                  className="mt-1.5 rounded-lg border border-violet-600/20 bg-violet-600/[0.04] px-2 py-1.5"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <Layers className="size-3 shrink-0 text-violet-600" aria-hidden="true" />
+                    <span className="text-[10px] font-semibold text-violet-700 dark:text-violet-300">recent crops</span>
+                    <span
+                      data-testid="crop-shelf-count"
+                      className="font-mono text-[9.5px] tabular-nums text-muted-foreground"
+                      title="Self-describing .mrc crops in this job's SubVolumes folder (newest first, 24 max — the Files tab lists every file)"
+                    >
+                      {cropShelf ? cropShelf.crops.length : "…"}
+                    </span>
+                    <button
+                      type="button"
+                      data-testid="crop-shelf-refresh"
+                      onClick={() => void refreshCropShelf()}
+                      title="Re-read the SubVolumes folder — a crop sent from another viewer or tab lands here"
+                      aria-label="Refresh the recent-crops shelf"
+                      className="ml-auto rounded p-0.5 text-muted-foreground transition-colors hover:bg-violet-600/15 hover:text-violet-700 dark:hover:text-violet-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    >
+                      <RefreshCcw className="size-3" aria-hidden="true" />
+                    </button>
+                  </div>
+                  {cropShelf && cropShelf.crops.length === 0 && (
+                    <p className="mt-1 text-[9.5px] leading-snug text-muted-foreground">
+                      No crops yet — &quot;send to new job&quot; and the export button write here.
+                    </p>
+                  )}
+                  {cropShelf && cropShelf.crops.length > 0 && (
+                    <ul className="mt-1 space-y-0.5" aria-label="Recent sub-volume crops">
+                      {cropShelf.crops.map((crop) => {
+                        const box = cropFractionsOf(crop);
+                        return (
+                          <li
+                            key={crop.rel}
+                            data-testid="crop-shelf-row"
+                            className="flex items-center gap-1.5 rounded-md px-1 py-0.5 hover:bg-violet-600/10"
+                          >
+                            <span
+                              className="min-w-0 flex-1 truncate font-mono text-[9.5px] text-foreground/80"
+                              title={`${crop.name} — ${fmtBytes(crop.bytes)}, cut ${new Date(crop.mtimeMs).toLocaleString()}`}
+                            >
+                              {crop.name}
+                            </span>
+                            <span
+                              className="shrink-0 font-mono text-[9px] tabular-nums text-muted-foreground"
+                              title="The crop's own dims and its voxel offset inside the map it was cut from (the header's start fields)"
+                            >
+                              {crop.dims[0]}×{crop.dims[1]}×{crop.dims[2]} @ {crop.start[0]},{crop.start[1]},{crop.start[2]}
+                            </span>
+                            <button
+                              type="button"
+                              data-testid="crop-shelf-anchor"
+                              onClick={() => anchorCrop(crop)}
+                              disabled={!box}
+                              title={
+                                box
+                                  ? "Re-anchor the kept box on this crop — the clip planes jump to exactly this geometry (sliders stand down; export and send read the box)"
+                                  : "No anchor geometry — this crop's box does not lie inside the map on display (a stale crop of a different map)"
+                              }
+                              aria-label={
+                                box
+                                  ? `Anchor the kept box on ${crop.name} (${crop.dims[0]}×${crop.dims[1]}×${crop.dims[2]} voxels)`
+                                  : `Cannot anchor ${crop.name} — its box does not lie inside the map on display`
+                              }
+                              className="rounded p-0.5 text-violet-700 transition-colors hover:bg-violet-600/20 hover:text-violet-800 dark:text-violet-300 dark:hover:text-violet-200 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                            >
+                              <BoxSelect className="size-3" aria-hidden="true" />
+                            </button>
+                            <button
+                              type="button"
+                              data-testid="crop-shelf-download"
+                              onClick={() => downloadCrop(crop)}
+                              disabled={!box}
+                              title={
+                                box
+                                  ? "Download this crop as a standalone MRC map — exactly the box the header carries"
+                                  : "No download geometry — this crop's box does not lie inside the map on display"
+                              }
+                              aria-label={
+                                box
+                                  ? `Download ${crop.name} as a standalone MRC map`
+                                  : `Cannot download ${crop.name} — its box does not lie inside the map on display`
+                              }
+                              className="rounded p-0.5 text-violet-700 transition-colors hover:bg-violet-600/20 hover:text-violet-800 dark:text-violet-300 dark:hover:text-violet-200 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                            >
+                              <Download className="size-3" aria-hidden="true" />
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
                 {/* flip/reset speak the slider language — in box mode the
                     readout's own release button is the honest control */}
                 {!clipStateRef.current.box && (
