@@ -20,13 +20,21 @@
 //     empty shelf, the viewer's t260 anchor path and fraction-download
 //     round-trip, the send-success refresh, the lib's purity, the
 //     family's testid addresses.
+// D — cropParentName, the provenance witness law (t893): the name's stem
+//     chain AND the headers' start arithmetic must AGREE before the line
+//     speaks "cut from <parent>"; every disagreement (prose-broken name,
+//     renamed/deleted parent, contradicting starts, a box outside the
+//     parent's own grid) is an honest null — and a direct crop of the map
+//     (its "parent" is not a shelf row) stays unmarked. Frame-free:
+//     shifting both starts by the same grandparent delta cannot change
+//     the answer.
 //
 // node scripts/unit-runner.mjs scripts/t1174-subvolume-catalog-unit.mjs
 //
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { cropBoxFractions, sortCrops } from "@/lib/subvolume-catalog";
+import { cropBoxFractions, cropParentName, sortCrops } from "@/lib/subvolume-catalog";
 
 const ROOT = "/home/z/my-project";
 const libSrc = readFileSync(join(ROOT, "src/lib/subvolume-catalog.ts"), "utf8");
@@ -108,6 +116,39 @@ try {
   ok("C10 the family's testid addresses (shelf, count, refresh, row, anchor, download)", ["crop-shelf", "crop-shelf-count", "crop-shelf-refresh", "crop-shelf-row", "crop-shelf-anchor", "crop-shelf-download"].every((t) => embedSrc.includes(`data-testid="${t}"`)));
   ok("C11 the honest refusal keeps its WHY (a disabled action names the road out)", /its box does not lie inside the map on display/.test(embedSrc));
   ok("C12 the fetch is seq-guarded (a stale answer cannot evict a fresh one)", /const seq = \+\+cropShelfSeq\.current;/.test(embedSrc) && /seq === cropShelfSeq\.current/.test(embedSrc));
+
+  console.log("D — cropParentName, the provenance witness law (t893)");
+  {
+    // the writer's convention: <parent stem>_crop_<ox>-<ox+sx>_<oy>-<oy+sy>_<oz>-<oz+sz>.mrc
+    const parent = { name: "map_crop_0-128_0-128_0-128.mrc", dims: [128, 128, 128], start: [10, 10, 10] };
+    const child = { name: "map_crop_0-128_0-128_0-128_crop_16-48_16-48_16-48.mrc", dims: [32, 32, 32], start: [26, 26, 26] }; // 10 + 16
+    ok("D1 a two-step chain resolves to the shelf sibling", cropParentName(child, [parent, child]) === "map_crop_0-128_0-128_0-128.mrc", cropParentName(child, [parent, child]) ?? "null");
+
+    ok("D2 a direct crop of the map stays unmarked (its parent is not a shelf row)", cropParentName({ name: "map_crop_0-64_0-64_0-64.mrc", dims: [64, 64, 64], start: [10, 10, 10] }, [child]) === null);
+    ok("D3 no _crop_ marker in the name = no witness, honest null", cropParentName({ name: "somebody.mrc", dims: [8, 8, 8], start: [0, 0, 0] }, [parent]) === null);
+    ok("D4 a name whose offsets contradict the header's dims is prose-broken", cropParentName({ name: "map_crop_0-128_0-128_0-128_crop_16-48_16-48_16-48.mrc", dims: [40, 32, 32], start: [26, 26, 26] }, [parent, child]) === null);
+    ok("D5 starts that contradict the name's offsets = the witnesses disagree, neither trusted", cropParentName({ ...child, start: [30, 26, 26] }, [parent, child]) === null);
+    ok("D6 a box poking outside the parent's own grid is refused", cropParentName({ ...child, start: [120, 26, 26] }, [parent, child]) === null); // 120+32 > 128 in the parent's frame
+    ok("D7 a renamed/deleted parent (the stem names no sibling) is honest null", cropParentName(child, [child]) === null);
+    ok("D8 a non-.mrc suffix (the writer's tongue is exactly .mrc) is no witness", cropParentName({ ...child, name: child.name.replace(/\.mrc$/, ".map") }, [parent, child]) === null);
+
+    const shiftedParent = { ...parent, start: [510, 510, 510] };
+    const shiftedChild = { ...child, start: [526, 526, 526] }; // both +500: the grandparent delta
+    ok("D9 frame-free: the same grandparent shift answers the same", cropParentName(shiftedChild, [shiftedParent, shiftedChild]) === "map_crop_0-128_0-128_0-128.mrc");
+
+    const grand = { name: "map_crop_0-128_0-128_0-128_crop_16-48_16-48_16-48_crop_0-8_0-8_0-8.mrc", dims: [8, 8, 8], start: [26, 26, 26] };
+    ok("D10 a three-deep chain names the IMMEDIATE parent (the last marker splits)", cropParentName(grand, [parent, child, grand]) === "map_crop_0-128_0-128_0-128_crop_16-48_16-48_16-48.mrc", cropParentName(grand, [parent, child, grand]) ?? "null");
+
+    ok("D11 an empty shelf has no provenance to speak", cropParentName(child, []) === null);
+    ok("D12 the viewer renders the line only through the two-witness gate (testid + text + the lib's name)", embedSrc.includes('data-testid="crop-shelf-provenance"') && /cut from <span className="font-mono">\{cutFrom\}<\/span>/.test(embedSrc) && /cropParentName\(crop, cropShelf\.crops\)/.test(embedSrc));
+    // D13 — the live-fire's red that earned its keep: in a FOREIGN
+    // layout (the map file itself sitting among the crops) C1's stem names a
+    // present sibling and the witnesses AGREE, so the line speaks "cut from
+    // map.mrc" — honest there too. The pure fn doesn't know the shelf's
+    // boundary; the ROUTE's world (it lists only the job's own SubVolumes/)
+    // is what keeps the map out of the folder and direct crops unmarked.
+    ok("D13 a sibling the stem names is a witness whoever it is (the map-as-sibling layout answers honestly)", cropParentName({ name: "map_crop_32-96_32-96_32-96.mrc", dims: [64, 64, 64], start: [32, 32, 32] }, [{ name: "map.mrc", dims: [128, 128, 128], start: [0, 0, 0] }]) === "map.mrc", "the shelf's own folder never holds the map — the route's world keeps direct crops unmarked");
+  }
 } finally {
   /* no temp dirs in this seat */
 }

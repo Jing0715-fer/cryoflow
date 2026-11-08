@@ -16,7 +16,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Axis3d, BookOpen, Bookmark, BoxSelect, Camera, Check, ClipboardCopy, CopyPlus, Download, FileJson, FilePlus2, FileText, FolderOpen, FolderPlus, Layers, Link2, Loader2, Mountain, Orbit, Pencil, Plus, RefreshCcw, RotateCw, ScanLine, Scissors, TriangleAlert, Upload, Video, X, ZoomIn } from "lucide-react";
+import { Axis3d, BookOpen, Bookmark, BoxSelect, Camera, Check, ClipboardCopy, CornerDownRight, CopyPlus, Download, FileJson, FilePlus2, FileText, FolderOpen, FolderPlus, Layers, Link2, Loader2, Mountain, Orbit, Pencil, Plus, RefreshCcw, RotateCw, ScanLine, Scissors, TriangleAlert, Upload, Video, X, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -38,7 +38,7 @@ import { downloadBlob } from "@/lib/download";
 import { keptIntervalOf, normalizeInterval } from "@/lib/clip-interval"; // t905 — the slab seat: both clip languages answer to one interval editor
 import { OBLIQUE_SHEET_ANNOTATION, axisIndex, buildObliqueSheetMesh, densityWindow, dimAlong, obliqueAnchorVox, obliqueCutAnnotation, obliqueDepthVox, obliqueDepthVoice, obliqueNormal, obliqueOffsetPctVoice, obliqueSupportVox, sheetLegendOf, voxelAriaText, voxelAnnotation, voxelIndexOf, voxelIntervalReadout, voxelPlaneVoice, voxelSliderVoice, type SheetLegend, type SheetMeshArrays } from "@/lib/voxel-voice"; // t906/t907 — one honest voice: the slice family speaks the voxel address the ortho tiles speak, the oblique cut speaks its depth along its own normal; t1129 — the cut's face rides the lib's anchor word; t1130 — the face's geometry words (densityWindow, buildObliqueSheetMesh) ride the lib too (the t1122 patchBoxRect precedent: geometry the family shares lives where node can ride it); t1131 — the face's legend is MADE of the mesh arrays (sheetLegendOf), never a second ramp
 import { pushContourLevel, readContourHistory, writeContourHistory } from "@/lib/contour-history"; // t1147 — the σ door's memory: the levels the user SETTLED on for THIS map ride back on the next open (the persistence doctrine's own shape: versioned envelope, one off-shape row drops the whole memory, a refusing store degrades to false, absence never written)
-import { cropBoxFractions } from "@/lib/subvolume-catalog"; // t892 — the crop shelf's re-anchor math (the pure well: header geometry in, anchored-box fractions out)
+import { cropBoxFractions, cropParentName } from "@/lib/subvolume-catalog"; // t892/t893 — the crop shelf's re-anchor math + provenance witness (the pure well: header geometry in, anchored-box fractions / cut-from name out)
 import { downloadText } from "@/lib/download";
 // t197: the profile QC report family moved to @/lib/qc-report — the session
 // QC report is its second consumer, and the lib is the one honest home
@@ -6943,7 +6943,12 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                     floor/ceil over the recomputed fractions returns the
                     same voxel ranges the header carries). No parent
                     geometry or a refused box = the row stays a provenance
-                    line — the actions withhold, they never guess. */}
+                    line — the actions withhold, they never guess.
+                    t893 — a crop-of-crop's row also speaks its provenance
+                    ("cut from <parent>") when the two witnesses agree:
+                    the name's stem chain AND both headers' start
+                    arithmetic; every disagreement is silent, and a direct
+                    crop of the map stays unmarked. */}
                 <div
                   data-testid="crop-shelf"
                   className="mt-1.5 rounded-lg border border-violet-600/20 bg-violet-600/[0.04] px-2 py-1.5"
@@ -6978,12 +6983,14 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                     <ul className="mt-1 space-y-0.5" aria-label="Recent sub-volume crops">
                       {cropShelf.crops.map((crop) => {
                         const box = cropFractionsOf(crop);
+                        const cutFrom = cropParentName(crop, cropShelf.crops); // t893 — the two-witness provenance (null = silent, never a guess)
                         return (
                           <li
                             key={crop.rel}
                             data-testid="crop-shelf-row"
-                            className="flex items-center gap-1.5 rounded-md px-1 py-0.5 hover:bg-violet-600/10"
+                            className="rounded-md px-1 py-0.5 hover:bg-violet-600/10"
                           >
+                            <div className="flex items-center gap-1.5">
                             <span
                               className="min-w-0 flex-1 truncate font-mono text-[9.5px] text-foreground/80"
                               title={`${crop.name} — ${fmtBytes(crop.bytes)}, cut ${new Date(crop.mtimeMs).toLocaleString()}`}
@@ -7034,6 +7041,19 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                             >
                               <Download className="size-3" aria-hidden="true" />
                             </button>
+                            </div>
+                            {cutFrom && (
+                              <div
+                                data-testid="crop-shelf-provenance"
+                                className="mt-px flex items-center gap-1 pl-0.5 text-violet-700/60 dark:text-violet-300/60"
+                                title={`The name's stem chain and both headers' start fields agree — this crop was cut from ${cutFrom}'s box. The chain anchors through: its start answers in the grandparent's frame and the re-anchor math cancels it.`}
+                              >
+                                <CornerDownRight className="size-2.5 shrink-0" aria-hidden="true" />
+                                <span className="min-w-0 truncate text-[8.5px] leading-tight">
+                                  cut from <span className="font-mono">{cutFrom}</span>
+                                </span>
+                              </div>
+                            )}
                           </li>
                         );
                       })}

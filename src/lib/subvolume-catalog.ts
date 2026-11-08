@@ -16,7 +16,10 @@
  *     follow), expressed in the PARENT FILE's voxel space (crop.start
  *     minus the parent file's own start, over the parent's dims);
  *   · sortCrops — the shelf's order: newest first, capped (a shelf, not
- *     an archive — the Files tab remains the full listing).
+ *     an archive — the Files tab remains the full listing);
+ *   · cropParentName — the provenance line (t893): which shelf sibling a
+ *     crop-of-crop was cut from, spoken only when TWO INDEPENDENT
+ *     witnesses agree (the law below).
  *
  * The laws:
  *   - null is the honest "no answer": a crop whose box lies outside the
@@ -95,4 +98,71 @@ export function cropBoxFractions(
  */
 export function sortCrops(crops: SubvolumeCrop[], cap = 24): SubvolumeCrop[] {
   return [...crops].sort((a, b) => b.mtimeMs - a.mtimeMs).slice(0, cap);
+}
+
+/**
+ * The provenance line's witness law (t893 — the crop chain's next half):
+ * a crop's header proves GEOMETRY but cannot prove WHO it was cut from
+ * (the bytes of "cut from the map" and "cut from a crop at the same spot"
+ * are identical), so the cut edge needs a second witness — and the
+ * writer's own naming convention minted one. `readMrcSubvolume`'s callers
+ * name every crop `<parent stem>_crop_<ox>-<ox+sx>_<oy>-<oy+sy>_<oz>-<oz+sz>.mrc`
+ * where the offsets answer in the CUT-FROM FILE's own grid. Two witnesses,
+ * each independent of the other:
+ *
+ *   · the NAME (the stem chain): everything before the LAST `_crop_`
+ *     marker is the parent file's name — a chain of two crops carries the
+ *     parent's whole `_crop_…` name inside its own;
+ *   · the HEADERS (the start arithmetic): `crop.start − parent.start`
+ *     must equal the name's offsets (both starts ride the grandparent's
+ *     frame — the difference cancels it), and the box must fit inside the
+ *     parent's own dims.
+ *
+ * The line speaks only when BOTH agree; every disagreement is an honest
+ * null, never a guess:
+ *   · no `_crop_` marker, or the offsets segment unparsable/mismatched
+ *     with the crop's own dims — the name is prose-broken;
+ *   · the stem names no shelf sibling (a DIRECT crop of the map: its
+ *     "parent" is the map itself, not a row on the shelf — the common
+ *     case stays unmarked, noise down; or a renamed/deleted parent —
+ *     the chain's witness is gone);
+ *   · the start arithmetic disagrees with the name — the two witnesses
+ *     contradict, and neither is trusted alone.
+ *
+ * Frame-free by construction: only start DIFFERENCES and the parent's
+ * own dims appear, so the map's geometry (even `parent: null`) is never
+ * needed. O(shelf) — one pass over the sibling list, 24 cap.
+ */
+export function cropParentName(
+  crop: Pick<SubvolumeCrop, "name" | "dims" | "start">,
+  siblings: ReadonlyArray<Pick<SubvolumeCrop, "name" | "dims" | "start">>
+): string | null {
+  const marker = "_crop_";
+  const last = crop.name.lastIndexOf(marker);
+  if (last < 0) return null;
+  // the offsets segment: "<ox>-<ox+sx>_<oy>-<oy+sy>_<oz>-<oz+sz>.mrc"
+  const suffix = crop.name.slice(last + marker.length);
+  if (!suffix.endsWith(".mrc")) return null;
+  const segs = suffix.slice(0, -4).split("_");
+  if (segs.length !== 3) return null;
+  const offsets: [number, number, number] = [0, 0, 0];
+  for (let a = 0 as 0 | 1 | 2; a < 3; a = (a + 1) as 0 | 1 | 2) {
+    const seg = segs[a];
+    const dash = seg.indexOf("-");
+    if (dash <= 0) return null;
+    const lo = Number(seg.slice(0, dash));
+    const hi = Number(seg.slice(dash + 1));
+    if (!Number.isInteger(lo) || !Number.isInteger(hi)) return null;
+    if (hi - lo !== crop.dims[a]) return null; // the name must match the header's dims
+    offsets[a] = lo;
+  }
+  const parentName = `${crop.name.slice(0, last)}.mrc`;
+  if (parentName === crop.name) return null; // a self-named chain is no chain
+  const parent = siblings.find((s) => s.name === parentName);
+  if (!parent) return null; // direct crop of the map, or the witness left the shelf
+  for (let a = 0 as 0 | 1 | 2; a < 3; a = (a + 1) as 0 | 1 | 2) {
+    if (crop.start[a] - parent.start[a] !== offsets[a]) return null;
+    if (offsets[a] + crop.dims[a] > parent.dims[a]) return null; // outside the parent's own grid
+  }
+  return parentName;
 }
