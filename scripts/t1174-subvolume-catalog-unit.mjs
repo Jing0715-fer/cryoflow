@@ -28,6 +28,12 @@
 //     (its "parent" is not a shelf row) stays unmarked. Frame-free:
 //     shifting both starts by the same grandparent delta cannot change
 //     the answer.
+// E — the line as a DOOR (t894): the parent is a shelf sibling with its
+//     own anchor geometry, so the provenance line walks UP the chain —
+//     one click re-anchors the PARENT's box through the same t260
+//     applyClipBoxIntent law (anchorCrop, never a second anchor path);
+//     the door opens only when the parent's own fractions exist, and a
+//     door that cannot open says so (plain text + the road-out title).
 //
 // node scripts/unit-runner.mjs scripts/t1174-subvolume-catalog-unit.mjs
 //
@@ -148,6 +154,11 @@ try {
     // boundary; the ROUTE's world (it lists only the job's own SubVolumes/)
     // is what keeps the map out of the folder and direct crops unmarked.
     ok("D13 a sibling the stem names is a witness whoever it is (the map-as-sibling layout answers honestly)", cropParentName({ name: "map_crop_32-96_32-96_32-96.mrc", dims: [64, 64, 64], start: [32, 32, 32] }, [{ name: "map.mrc", dims: [128, 128, 128], start: [0, 0, 0] }]) === "map.mrc", "the shelf's own folder never holds the map — the route's world keeps direct crops unmarked");
+
+  console.log("E — the provenance line as a DOOR (t894 — walk up the chain)");
+  ok("E1 the jump re-anchors the PARENT through the t260 law (the same anchorCrop verb, never a second anchor path)", /data-testid="crop-shelf-provenance-jump"/.test(embedSrc) && /onClick=\{\(\) => anchorCrop\(cutFromCrop\)\}/.test(embedSrc));
+  ok("E2 the door opens ONLY when the parent's own box exists (the gate is the parent's fractions, not the name)", /\{cutFromBox && cutFromCrop \? \(/.test(embedSrc));
+  ok("E3 a door that cannot open says so (the no-box branch keeps plain text and the road-out title)", /the parent's box does not lie inside the map on display/.test(embedSrc) && /cut from <span className="font-mono">\{cutFrom\}<\/span>/.test(embedSrc));
   }
 } finally {
   /* no temp dirs in this seat */

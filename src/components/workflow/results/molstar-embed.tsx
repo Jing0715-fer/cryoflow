@@ -6984,6 +6984,14 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                       {cropShelf.crops.map((crop) => {
                         const box = cropFractionsOf(crop);
                         const cutFrom = cropParentName(crop, cropShelf.crops); // t893 — the two-witness provenance (null = silent, never a guess)
+                        // t894 — the line is a DOOR (the t139 law: the map leads): the parent is a
+                        // shelf sibling with its own anchor geometry, so the provenance line can
+                        // walk UP the chain — one click re-anchors the PARENT's box through the same
+                        // t260 applyClipBoxIntent law (sliders stand down, the family follows). A
+                        // parent whose box refuses (a stale world) keeps the line plain text with
+                        // the honest road-out — a door that cannot open says so, it never guesses.
+                        const cutFromCrop = cutFrom ? cropShelf.crops.find((c) => c.name === cutFrom) : undefined;
+                        const cutFromBox = cutFromCrop ? cropFractionsOf(cutFromCrop) : null;
                         return (
                           <li
                             key={crop.rel}
@@ -7046,12 +7054,30 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                               <div
                                 data-testid="crop-shelf-provenance"
                                 className="mt-px flex items-center gap-1 pl-0.5 text-violet-700/60 dark:text-violet-300/60"
-                                title={`The name's stem chain and both headers' start fields agree — this crop was cut from ${cutFrom}'s box. The chain anchors through: its start answers in the grandparent's frame and the re-anchor math cancels it.`}
+                                title={
+                                  cutFromBox && cutFromCrop
+                                    ? `The name's stem chain and both headers' start fields agree — this crop was cut from ${cutFrom}'s box. Click to walk up the chain: the parent's box anchors through the same law (its start answers in the grandparent's frame and the re-anchor math cancels it).`
+                                    : `The name's stem chain and both headers' start fields agree — this crop was cut from ${cutFrom}'s box, but the parent's box does not lie inside the map on display, so the chain cannot be walked from here.`
+                                }
                               >
                                 <CornerDownRight className="size-2.5 shrink-0" aria-hidden="true" />
-                                <span className="min-w-0 truncate text-[8.5px] leading-tight">
-                                  cut from <span className="font-mono">{cutFrom}</span>
-                                </span>
+                                {cutFromBox && cutFromCrop ? (
+                                  <button
+                                    type="button"
+                                    data-testid="crop-shelf-provenance-jump"
+                                    onClick={() => anchorCrop(cutFromCrop)}
+                                    className="min-w-0 truncate text-left text-[8.5px] leading-tight transition-colors hover:text-violet-800 dark:hover:text-violet-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                    title={`Anchor the kept box on ${cutFrom} — the parent crop's own geometry (walk up the crop chain)`}
+                                    aria-label={`Walk up the crop chain — anchor the kept box on the parent crop ${cutFrom}`}
+                                  >
+                                    cut from{" "}
+                                    <span className="font-mono underline decoration-dotted underline-offset-2">{cutFrom}</span>
+                                  </button>
+                                ) : (
+                                  <span className="min-w-0 truncate text-[8.5px] leading-tight">
+                                    cut from <span className="font-mono">{cutFrom}</span>
+                                  </span>
+                                )}
                               </div>
                             )}
                           </li>

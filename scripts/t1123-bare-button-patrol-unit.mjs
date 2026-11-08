@@ -256,8 +256,8 @@ for (const f of rawButtonFiles) {
   tags += m.length;
   if (t.includes("focus-visible:ring") || riderEvidence(t)) fileRingedTags += m.length;
 }
-ok("F2 311 raw <button occurrences (the t892 re-key) (299 real tags + 4 prose; +1 the t1129 sheet face toggle — the cut block's fourth verb; +1 the t1132 legend copy chip — the key's ⧉ beside the strip; +2 the t1147 σ memory's doors — the recent-level chips and the forget door beside the slider, both ringed, the row honest-empty; +4 the t1156 audit's untracked faces brought into the fold — the fleet trend card's ring chip + its connections expander and the error page's reload + try-again, ALL ringed now; +3 the t892 crop shelf's verbs — the refresh door and the row's anchor + download pair, all ringed)", tags === 311, `got ${tags}`);
-ok("F3 every raw occurrence sits in a ringed or rider file", fileRingedTags === 311, `got ${fileRingedTags}/311`);
+ok("F2 312 raw <button occurrences (the t894 re-key) (300 real tags + 4 prose; +1 the t1129 sheet face toggle — the cut block's fourth verb; +1 the t1132 legend copy chip — the key's ⧉ beside the strip; +2 the t1147 σ memory's doors — the recent-level chips and the forget door beside the slider, both ringed, the row honest-empty; +4 the t1156 audit's untracked faces brought into the fold — the fleet trend card's ring chip + its connections expander and the error page's reload + try-again, ALL ringed now; +3 the t892 crop shelf's verbs — the refresh door and the row's anchor + download pair, all ringed; +1 the t894 provenance jump — the line's door verb, walk up the crop chain, ringed)", tags === 312, `got ${tags}`);
+ok("F3 every raw occurrence sits in a ringed or rider file", fileRingedTags === 312, `got ${fileRingedTags}/312`);
 
 // ---------------- band G: the per-button auditor gate ----------------
 const { execFileSync } = await import("node:child_process");
