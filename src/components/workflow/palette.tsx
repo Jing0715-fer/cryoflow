@@ -142,7 +142,11 @@ const FAV_KEY = "cryoflow-fav-types";
 const PAL_BASE_MS = 90;
 const PAL_STEP_MS = 24;
 
+/* the family shape (t980's law, the t889 band's named drift): every
+ * storage access guards `typeof window` FIRST — SSR renders the honest
+ * "no trail" through the guard, never a swallowed ReferenceError. */
 function readFavs(): string[] {
+  if (typeof window === "undefined") return [];
   try {
     const raw = localStorage.getItem(FAV_KEY);
     const parsed = raw ? (JSON.parse(raw) as unknown) : [];
@@ -155,6 +159,7 @@ function readFavs(): string[] {
 }
 
 function writeFavs(next: string[]): void {
+  if (typeof window === "undefined") return;
   try {
     localStorage.setItem(FAV_KEY, JSON.stringify(next));
   } catch {
@@ -163,6 +168,7 @@ function writeFavs(next: string[]): void {
 }
 
 function readRecent(): string[] {
+  if (typeof window === "undefined") return [];
   try {
     const raw = localStorage.getItem(RECENT_KEY);
     const parsed = raw ? (JSON.parse(raw) as unknown) : [];
@@ -175,6 +181,7 @@ function readRecent(): string[] {
 }
 
 function pushRecent(type: string): void {
+  if (typeof window === "undefined") return;
   try {
     const next = [type, ...readRecent().filter((t) => t !== type)].slice(0, RECENT_MAX);
     localStorage.setItem(RECENT_KEY, JSON.stringify(next));

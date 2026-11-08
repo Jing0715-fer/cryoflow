@@ -115,6 +115,9 @@ function sanitizeLast(raw: string): { form: FormState; preset: string | null } |
 }
 
 function loadLast(): { form: FormState; preset: string | null } | null {
+  // the family shape (t980's law, the t889 band's named drift): the guard,
+  // not a swallowed ReferenceError, is the SSR face
+  if (typeof window === "undefined") return null;
   try {
     const raw = localStorage.getItem(LAST_KEY);
     return raw ? sanitizeLast(raw) : null;
@@ -124,6 +127,7 @@ function loadLast(): { form: FormState; preset: string | null } | null {
 }
 
 function saveLast(form: FormState, preset: string | null): void {
+  if (typeof window === "undefined") return;
   try {
     localStorage.setItem(LAST_KEY, JSON.stringify({ form, preset }));
   } catch {

@@ -332,6 +332,9 @@ export function sendKnockNotification(draft: NotificationDraft): void {
 export const KNOCK_SOUND_KEY = "cryoflow.knock.sound";
 
 export function readKnockSound(): boolean {
+  // the family shape (t980's law, the t889 band's named drift): SSR renders
+  // the honest "off" through the guard, never a swallowed ReferenceError
+  if (typeof window === "undefined") return false;
   try {
     return window.localStorage.getItem(KNOCK_SOUND_KEY) === "1";
   } catch {
@@ -359,10 +362,12 @@ export function subscribeKnockSound(cb: () => void): () => void {
 
 export function writeKnockSound(on: boolean): void {
   soundCache = on;
-  try {
-    window.localStorage.setItem(KNOCK_SOUND_KEY, on ? "1" : "0");
-  } catch {
-    /* private mode — the preference lives for the session only */
+  if (typeof window !== "undefined") {
+    try {
+      window.localStorage.setItem(KNOCK_SOUND_KEY, on ? "1" : "0");
+    } catch {
+      /* private mode — the preference lives for the session only */
+    }
   }
   for (const cb of soundSubs) cb();
 }

@@ -10,6 +10,21 @@
 // zero IO beyond the path text); src/lib/db.ts says it out loud at import
 // time, dev-only, so the misread dies at the moment it is born.
 //
+// t891 — THE CWD TRAP'S THIRD FACE, named where future readers look first
+// (the t890 window's autopsy, in this file's own tongue): the baseline
+// above is CWD-RELATIVE BY CONSTRUCTION — `path.join(process.cwd(), ...)`
+// — and the standalone launcher chdirs into .next/standalone (its t312
+// note), so a bare `node .next/standalone/server.js` boots with a baseline
+// that points at a world that does not exist: dev never saw the trap
+// because the dev server's CWD IS the repo root. The failure mode is the
+// honest one (a loud 500, "Unable to open the database file" — never a
+// wrong world, the t1166 law holding at a new depth); the cure lives at
+// the SANCTIONED launcher: scripts/prod-3001.sh pins CRYOFLOW_DB_URL (the
+// ONE knob src/lib/db.ts honors first) beside its DATABASE_URL line, the
+// dev-server.sh law carried across. A launch method that moves the world
+// under the app is not the app's bug to swallow — it is the launcher's
+// contract to pin.
+//
 // t875 — THE LANE LAW MERGE (two lineages, two eras, one truth): t1115's
 // baseline named cryoflow.db and called .env's custom.db the template —
 // true in the lineage that WROTE it, and a lie in the lineage whose
