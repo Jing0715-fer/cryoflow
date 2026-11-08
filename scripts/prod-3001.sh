@@ -49,6 +49,14 @@ for i in 1 2 3 4 5; do
   sleep 1
 done
 export DATABASE_URL="${DATABASE_URL:-file:/home/z/my-project/db/cryoflow.db}"
+# t890 — the CWD trap's THIRD face, named on the standalone lane: the app's
+# own baseline is `cwd/db/cryoflow.db` (db-world.ts) and the standalone
+# chdirs into .next/standalone — the bare prod boot resolves a DB that
+# does not exist and answers 500 (LOUD, never wrong-silent — the t1166
+# law). The sanctioned launcher pins the ONE knob the app honors
+# (CRYOFLOW_DB_URL, db.ts's first choice), exactly as dev-server.sh does:
+# no launch method the fleet sanctions can move the world under the app.
+export CRYOFLOW_DB_URL="${CRYOFLOW_DB_URL:-file:/home/z/my-project/db/cryoflow.db}"
 export CRYOFLOW_DATA_DIR="/home/z/my-project/data"
 export RELION_HOME="/home/z/relion-install"
 export RELION_CTFFIND_EXECUTABLE="/home/z/ctffind-4.1.14/bin/ctffind"
