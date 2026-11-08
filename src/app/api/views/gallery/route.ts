@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { isLocalRequest } from "@/lib/http-guard";
 import { serverErrorMessage } from "@/lib/server-error";
+import { sanitizeView, type BookmarkView } from "@/lib/camera-bookmark-view";
 
 export const dynamic = "force-dynamic";
 
@@ -11,16 +12,22 @@ export const dynamic = "force-dynamic";
 // The dashboard's "Saved views" wall: a hunt for the perfect viewing
 // angle is work product, and work product deserves a shelf that spans
 // projects. This is a READ-ONLY aggregate — mutations stay on the
-// per-job camera-bookmarks route, which owns the strict whitelist. Here
-// entries only need enough shape to render a card (id/name/ts/thumb/view);
-// anything malformed is skipped, and a corrupt row never sinks the rest.
+// per-job camera-bookmarks route. The write side owns the whitelist for
+// NEW rows, but the shelf may hold rows an older era (or a hand-edited
+// DB) wrote — so the read relay drinks the SAME well now (the t885
+// observation's cure, t889): every view passes sanitizeView before it
+// reaches the wall, a legacy row renders exactly as a fresh one would,
+// and a view that fails the whitelist is omitted (the card survives;
+// only the apply verb loses its payload). Here entries only need enough
+// shape to render a card (id/name/ts/thumb/view); anything malformed is
+// skipped, and a corrupt row never sinks the rest.
 
 interface GalleryBookmark {
   id: string;
   name: string;
   ts: number;
   thumb?: string;
-  view?: Record<string, unknown>;
+  view?: BookmarkView;
 }
 
 const MAX_JOBS = 8; // newest-updated rows only — the wall stays a glance
@@ -84,9 +91,12 @@ export async function GET(request: Request) {
             ) {
               entry.thumb = b.thumb;
             }
-            if (b.view && typeof b.view === "object" && !Array.isArray(b.view)) {
-              entry.view = b.view as Record<string, unknown>;
-            }
+            // t889 — the read side drinks the write side's well: the same
+            // sanitizeView (idempotent on clean rows) whitelists the view
+            // before it reaches the wall; a failing view is omitted, the
+            // card survives (the honest-absence law)
+            const view = sanitizeView(b.view);
+            if (view) entry.view = view;
             bookmarks.push(entry);
           }
         }

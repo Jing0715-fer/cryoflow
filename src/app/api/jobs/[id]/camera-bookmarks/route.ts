@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { isLocalRequest } from "@/lib/http-guard";
 import { serverErrorMessage, serverErrorReply, badJsonReply } from "@/lib/server-error";
+import {
+  bounded,
+  isFiniteNum,
+  sanitizeView,
+  type BookmarkView,
+} from "@/lib/camera-bookmark-view";
 
 export const dynamic = "force-dynamic";
 
@@ -40,16 +46,6 @@ interface BookmarkSnapshot {
   minFar?: number;
 }
 
-interface BookmarkView {
-  sigma: number;
-  sign: number;
-  slice: { on: boolean; axis: string; pos: number };
-  clip: { on: boolean; x: number; y: number; z: number; invert: boolean };
-  /** t279 — the tri-planar focus point (the ortho browser's three plane
-   *  positions at save time); optional, legacy rows never carry it */
-  focus?: { x: number; y: number; z: number };
-}
-
 interface BookmarkEntry {
   id: string;
   name: string;
@@ -63,8 +59,6 @@ const MAX_BOOKMARKS = 8;
 const MAX_THUMB_CHARS = 48_000; // ~36 KB binary per JPEG data URL
 const THUMB_RE = /^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/;
 
-const isFiniteNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
-
 /** vec3 of finite numbers within sane bounds — camera positions live far
  *  below 1e9 even on zoomed-out fits, anything larger is corruption */
 function vec3(raw: unknown): number[] | undefined {
@@ -74,48 +68,9 @@ function vec3(raw: unknown): number[] | undefined {
   return v;
 }
 
-const bounded = (v: unknown, lo: number, hi: number, fallback: number): number =>
-  isFiniteNum(v) ? Math.min(hi, Math.max(lo, v)) : fallback;
-
-/** the optical half of a saved view — contour σ (and sign), the slice
- *  plane and the clip box. A bookmark that restores only the camera
- *  brings you back to the right angle looking at the WRONG threshold;
- *  view state makes "fly back" mean the whole picture. */
-function sanitizeView(raw: unknown): BookmarkView | null {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-  const v = raw as Record<string, unknown>;
-  const sl = (v.slice ?? {}) as Record<string, unknown>;
-  const cp = (v.clip ?? {}) as Record<string, unknown>;
-  const axis = sl.axis === "X" || sl.axis === "Y" || sl.axis === "Z" ? sl.axis : "Z";
-  // t279 — the focus point rides along when present; clamped to the same
-  // fractional language the ortho panel speaks, defaults are honest centres
-  let focus: BookmarkView["focus"];
-  const fc = v.focus as Record<string, unknown> | null | undefined;
-  if (fc && typeof fc === "object" && !Array.isArray(fc)) {
-    focus = {
-      x: bounded(fc.x, 0, 1, 0.5),
-      y: bounded(fc.y, 0, 1, 0.5),
-      z: bounded(fc.z, 0, 1, 0.5),
-    };
-  }
-  return {
-    sigma: bounded(v.sigma, 0.01, 100, 2),
-    sign: v.sign === -1 ? -1 : 1,
-    slice: {
-      on: sl.on === true,
-      axis,
-      pos: bounded(sl.pos, 0, 1, 0.5),
-    },
-    clip: {
-      on: cp.on === true,
-      x: bounded(cp.x, 0, 1, 1),
-      y: bounded(cp.y, 0, 1, 1),
-      z: bounded(cp.z, 0, 1, 1),
-      invert: cp.invert === true,
-    },
-    ...(focus ? { focus } : {}),
-  };
-}
+// bounded + sanitizeView live in @/lib/camera-bookmark-view now — the ONE
+// well the write route and the views/gallery read aggregate both drink
+// (the t885 observation's cure, t889).
 
 function sanitizeSnapshot(raw: unknown): BookmarkSnapshot | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;

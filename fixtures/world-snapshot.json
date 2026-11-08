@@ -1,7 +1,7 @@
 {
  "meta": {
-  "exportedAt": "2026-11-07T01:52:34.201Z",
-  "head": "216c3e2c",
+  "exportedAt": "2026-11-08T21:21:54.821Z",
+  "head": "452a3cf2",
   "db": "file:…/cryoflow.db",
   "counts": {
    "project": 1,
@@ -471,7 +471,7 @@
     "id": "cmw2lvhug000rnkq5ez3cefm1",
     "jobId": "cmw2l534d000jnkq5hy4ueq08",
     "data": "[{\"id\":\"census-iso-view-t875\",\"name\":\"Centered iso view\",\"ts\":1793826318606,\"snapshot\":{\"mode\":\"iso\",\"fov\":0.876,\"position\":[0.577,0.577,0.577],\"up\":[0,1,0],\"target\":[0,0,0],\"radius\":10,\"radiusMax\":10000,\"fog\":0,\"clipFar\":0,\"minNear\":0,\"minFar\":0},\"view\":{\"sigma\":2,\"sign\":-1,\"slice\":{\"on\":false,\"axis\":\"Z\",\"pos\":0.5},\"clip\":{\"on\":false,\"x\":1,\"y\":1,\"z\":1,\"invert\":false}}}]",
-    "updatedAt": "2026-11-04T21:05:18.616Z"
+    "updatedAt": "2026-11-08T21:21:27.436Z"
    }
   ],
   "presetShelf": [],
