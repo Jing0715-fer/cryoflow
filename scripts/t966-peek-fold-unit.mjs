@@ -119,10 +119,11 @@ ok("M7 the t968 instruments stand (the eyeball's two widths + the step witness's
 
 /* ---------- G/M8 — the t969 PANEL tier: the Overview's own mouths ---------- */
 const insp9 = insp;
+const row895 = srcOf("src/components/workflow/param-presets-row.tsx"); // t895 — the preset row's ONE birthplace
 ok("G3 the two-column grid block carries the explicit single column (the t969 narrow step: without minmax(0,1fr) the fold's auto track sizes to the inputs' nowrap mono path and the panel blows open)",
   insp9.includes('"grid grid-cols-1 gap-6 lg:grid-cols-2"'));
-ok("G4 the presets button group wraps internally (the +27px LEAK's cure: one incompressible flex item folded into two honest rows at the fold, side by side wide)",
-  insp9.includes("ml-auto flex flex-wrap items-center justify-end gap-1.5"));
+ok("G4 the presets button group wraps internally (the +27px LEAK's cure: one incompressible flex item folded into two honest rows at the fold, side by side wide; t895 — the group moved with the row to the ONE birthplace, the class rides verbatim)",
+  row895.includes("ml-auto flex flex-wrap items-center justify-end gap-1.5"));
 const walk9 = srcOf("scripts/t969-panel-offender-walk.mjs");
 ok("M8 the t969 instruments stand (the panel walk's two modes + the hit-slop exoneration — the PANEL tier is a contract now: panelOverX FALSE is the law)",
   walk9.includes('process.env.GATE === "1"') && walk9.includes("panelOverX FALSE") && walk9.includes("hit-slop"));

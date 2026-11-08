@@ -93,6 +93,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ParamPresetsRow } from "@/components/workflow/param-presets-row"; // t895 — the shelf reaches the panel face (the ONE birthplace; the inspector shares it)
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
@@ -1600,6 +1601,30 @@ function ParamsTab({
     setForm(init);
   };
 
+  // t895 — the preset shelf reaches the panel's editing face (the card's
+  // idle click, the PRIMARY editing door): "current" here is the FORM's
+  // live values (autosave makes any in-form drift transient — the form is
+  // what the user sees and what the snapshot should capture); apply writes
+  // the FORM through setForm and the panel's own debounced autosave
+  // persists — never a direct PATCH (the form state would go stale behind
+  // the store's back). The gate keys ride coerceParam, so a preset's raw
+  // numbers meet the fields' own dialect.
+  const applyPresetToForm = React.useCallback(
+    (vals: Record<string, ParamValue>) => {
+      setForm((prev) => {
+        const next = { ...prev };
+        for (const p of params) {
+          if (Object.prototype.hasOwnProperty.call(vals, p.key)) {
+            next[p.key] = coerceParam(p, vals[p.key]);
+          }
+        }
+        return next;
+      });
+      return true; // the form took the values; the autosave footer speaks the persistence
+    },
+    [params]
+  );
+
   if (params.length === 0) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
@@ -1614,6 +1639,17 @@ function ParamsTab({
 
   return (
     <Tabs defaultValue={allTabs[0] ?? "params"} className="flex min-h-0 flex-1 flex-col gap-0">
+      {/* t895 — the preset row stands ABOVE the RELION sub-tabs: a preset
+          wears on the job's whole param set, whichever tab holds the knob
+          it moves — confining it to one tab would hide it from the rest. */}
+      <div className="shrink-0 px-4 pt-3">
+        <ParamPresetsRow
+          job={job}
+          addressPrefix="panel"
+          storedValues={form}
+          applyValues={applyPresetToForm}
+        />
+      </div>
       {/* Inner RELION-style tab bar */}
       <div className="shrink-0 overflow-x-auto border-b px-4 py-2">
         <TabsList className="h-7 w-max">

@@ -147,7 +147,7 @@ const FACES3 = [
     'aria-label={posterBusy !== null ? "Copy canvas as PNG image (a poster render is running)" : jobs.length === 0 ? "Copy canvas as PNG image (the canvas is empty)" : "Copy canvas as PNG image"}'],
   ["A26", "src/components/workflow/canvas.tsx",
     'aria-label={jobs.length === 0 ? "Export workflow as JSON (the canvas is empty)" : "Export workflow as JSON"}'],
-  ["A27", "src/components/workflow/job-inspector.tsx",
+  ["A27", "src/components/workflow/param-presets-row.tsx", // t895 — the row moved to the ONE birthplace (was job-inspector.tsx); the needle rides verbatim
     'aria-label={!name.trim() ? "Save preset (name the preset first)" : name.trim().length > 60 ? "Save preset (the name is over 60 characters)" : "Save preset"}'],
   ["A28", "src/components/workflow/homecoming-sweep.tsx",
     'aria-label={owing.length === 0 ? "Bring home all (nothing is owed)" : "Bring home all"}'],
@@ -182,7 +182,7 @@ const FACES4 = [
     'aria-label={creating ? "Cancel (the workspace is being created)" : "Cancel"}'],
   ["A38", "src/components/workflow/import-workflow-dialog.tsx",
     'aria-label={busy ? "Cancel (the import is running)" : "Cancel"}'],
-  ["A39", "src/components/workflow/job-inspector.tsx",
+  ["A39", "src/components/workflow/param-presets-row.tsx", // t895 — the row moved to the ONE birthplace (was job-inspector.tsx); the needle rides verbatim
     'aria-label={busy ? "Apply preset (a preset is being applied)" : "Apply preset"}'],
   ["A40", "src/components/workflow/job-card.tsx",
     'aria-label={noteBusy ? "Clear note (the note is being saved)" : "Clear note"}'],

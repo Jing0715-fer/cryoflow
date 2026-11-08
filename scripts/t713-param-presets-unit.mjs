@@ -103,5 +103,19 @@ backing.set("cryoflow.user-param-presets:v1", JSON.stringify([null, 42, { type: 
 const filtered = loadUserParamPresets();
 must(filtered.length === 1 && filtered[0].id === "ok", "C foreign-shaped rows are filtered, the one honest row survives");
 
+// ---------- D: the ONE birthplace (t895 — the shelf reaches the panel) ----------
+console.log("D the one birthplace (t895):");
+const inspSrc = (await import("node:fs")).readFileSync("/home/z/my-project/src/components/workflow/job-inspector.tsx", "utf8");
+const panelSrc = (await import("node:fs")).readFileSync("/home/z/my-project/src/components/workflow/job-panel.tsx", "utf8");
+const rowSrc = (await import("node:fs")).readFileSync("/home/z/my-project/src/components/workflow/param-presets-row.tsx", "utf8");
+must(/import \{ ParamPresetsRow \} from "@\/components\/workflow\/param-presets-row"/.test(inspSrc), "D the inspector imports the shared row");
+must(/import \{ ParamPresetsRow \} from "@\/components\/workflow\/param-presets-row"/.test(panelSrc), "D the panel imports the shared row");
+must(!/function ParamPresetsRow/.test(inspSrc), "D no local twin survives in the inspector (twins fork, imports don't)");
+must(/addressPrefix: "inspector" \| "panel"/.test(rowSrc), "D the row's seam is the address prefix (the t713/t969/t984 addresses stay byte-stable)");
+must(/storedValues: Record<string, unknown>/.test(rowSrc) && /applyValues: \(values: Record<string, ParamValue>\)/.test(rowSrc), "D the row's seam is what CURRENT means (the surface's own truth + its own apply well)");
+must(/applyValues=\{\(vals\) => updateJobParams\(job\.id, vals\)\}/.test(inspSrc), "D the inspector's apply rides the store's single write well (the t713 law)");
+must(/const applyPresetToForm[\s\S]{0,400}setForm\(\(prev\)/.test(panelSrc) && !/updateJobParams/.test(panelSrc), "D the panel's apply writes the FORM (the debounced autosave persists — never a direct PATCH the form would miss)");
+must(/inspect\(null\);\s*\n\s*select\(job\.id\)/.test(inspSrc), "D the two faces stay mutually exclusive by construction (the t924 door — the inspector's Edit parameters closes the inspector)");
+
 console.log(`\nt713 param-presets unit: ${PASS} pass / ${FAIL} fail`);
 process.exit(FAIL === 0 ? 0 : 1);
