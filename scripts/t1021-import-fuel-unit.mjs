@@ -298,7 +298,7 @@ ok("the world as-left (16 jobs, nothing minted standing — the twin-epoch re-ke
  * rows' own page-quantized weight, immune to freelist churn. An honest
  * row growth re-keys THIS number (the t1177 discipline, unit-cured). */
 const dbFootprint = Number(execFileSync("python3", ["-c", "import sqlite3; con = sqlite3.connect('file:db/cryoflow.db?mode=ro', uri=True); pc = con.execute('PRAGMA page_count').fetchone()[0]; fl = con.execute('PRAGMA freelist_count').fetchone()[0]; ps = con.execute('PRAGMA page_size').fetchone()[0]; print((pc - fl) * ps); con.close()"], { encoding: "utf8" }).trim());
-ok("the DB footprint held (the used-pages high-water — the t1184 instrument cure: the file's byte size rode the boot count, its freelist churn regrowing 6 pages with NO film running; the fingerprint now reads the world's data weight — the t1183 re-key's 143360 stands as the first honest number; a future row growth re-keys it by name)", dbFootprint === 143360, `${dbFootprint}`);
+ok("the DB footprint held (the used-pages high-water — the t1184 instrument cure: the file's byte size rode the boot count, its freelist churn regrowing 6 pages with NO film running; the fingerprint now reads the world's data weight — the t1183 re-key's 143360 stood as the first honest number; the t897 re-key: the demo-chain resurrection's row weight landed (+4 pages × 1024, 140→144 — the 16-job completion rewrites, the edge and ledger rows the --rerun chain re-wrote), the fingerprint follows the world)", dbFootprint === 147456, `${dbFootprint}`);
 
 /* ---------- the receipt ---------- */
 const verdict = fail === 0 ? "GREEN" : "RED";

@@ -161,7 +161,10 @@ ok("C4 the vacuum is the instrument's own verb — world-snapshot.mjs vacuum",
 // re-key: the ride-churn page split, 35→36 pages, freelist 0; the
 // t1183 re-key: the film's churn bloated the file to 41 pages with 6
 // freelist — the VACUUM reclaimed them and the t1177-era 36th page —
-// the fingerprint follows the world, 147456→143360).
+// the fingerprint follows the world, 147456→143360; the t897 re-key:
+// the demo-chain resurrection's row weight landed (+4 pages × 1024,
+// 140→144 — the 16-job completion rewrites, the edge and ledger rows
+// the --rerun chain re-wrote), 143360→147456).
 {
   // t1184 — the used-pages footprint (the file's byte size rode the boot
   // count; the fingerprint reads the world's data weight now)
@@ -169,7 +172,7 @@ ok("C4 the vacuum is the instrument's own verb — world-snapshot.mjs vacuum",
     encoding: "utf8",
   }).trim();
   ok("A3 the byte face — the lane reads its canonical used-pages footprint",
-    size === "143360",
+    size === "147456",
     `size=${size}`);
 }
 

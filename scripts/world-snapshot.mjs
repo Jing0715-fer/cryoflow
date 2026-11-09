@@ -253,7 +253,8 @@ async function cmdRestore(snapPath) {
     // t1163 — the file half's own hygiene: wipe+rebuild leaves SQLite
     // pages behind (the freelist the deleteMany never returns), and the
     // page-quantized db size is a PINNED face (the t1021 fuel family
-    // asserts it — 143360 held across the epochs). VACUUM compacts the
+    // asserts it — 143360 held across the epochs until the t897 re-key:
+    // the demo-chain resurrection's row weight, 140→144 used pages). VACUUM compacts the
     // rebuilt world back to its canonical shape, so a restored world is
     // bit-for-bit the tracked world on BOTH faces: the rows (the t1160
     // roundtrip law) and the bytes (the t1021 family's own law).
