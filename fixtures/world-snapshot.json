@@ -1,14 +1,14 @@
 {
  "meta": {
-  "exportedAt": "2026-11-09T22:12:33.255Z",
-  "head": "340474b9",
+  "exportedAt": "2026-11-09T22:56:51.432Z",
+  "head": "81ae074a",
   "db": "file:…/cryoflow.db",
   "counts": {
    "project": 1,
    "workspace": 1,
    "customTemplate": 0,
-   "job": 16,
-   "edge": 15,
+   "job": 18,
+   "edge": 17,
    "overlaySession": 0,
    "bookmarkSession": 1,
    "presetShelf": 0,
@@ -356,6 +356,46 @@
     "duration": 500,
     "createdAt": "2026-11-04T21:18:22.010Z",
     "updatedAt": "2026-11-04T21:18:22.059Z"
+   },
+   {
+    "id": "cmw9ume610001suol895g4ttz",
+    "projectId": "cmw2kvuyn0000nk9itbp8mx28",
+    "workspaceId": "cmw2kvuyx0008nk9inbicb386",
+    "linkedJobId": null,
+    "type": "mapimport",
+    "name": "Sub-volume postprocess",
+    "x": 4400,
+    "y": 396,
+    "status": "completed",
+    "progress": 100,
+    "params": "{\"mapPath\":\"/home/z/my-project/data/relion/cmw2kvuyn0000nk9itbp8mx28/postprocess_ubxcuo5s/SubVolumes/postprocess_crop_0-64_0-64_0-64.mrc\"}",
+    "ranParams": "{\"mapPath\":\"/home/z/my-project/data/relion/cmw2kvuyn0000nk9itbp8mx28/postprocess_ubxcuo5s/SubVolumes/postprocess_crop_0-64_0-64_0-64.mrc\"}",
+    "result": "Map imported: postprocess_crop_0-64_0-64_0-64.mrc (64×64×64 vox · pixel 3.54 Å)",
+    "note": null,
+    "startedAt": "2026-11-09T22:48:22.059Z",
+    "duration": 500,
+    "createdAt": "2026-11-09T22:44:33.722Z",
+    "updatedAt": "2026-11-09T22:48:22.075Z"
+   },
+   {
+    "id": "cmw9uuhge0001sugnrrbzkx0k",
+    "projectId": "cmw2kvuyn0000nk9itbp8mx28",
+    "workspaceId": "cmw2kvuyx0008nk9inbicb386",
+    "linkedJobId": null,
+    "type": "mapimport",
+    "name": "Sub-volume postprocess_crop_0-64_0-64_0-64",
+    "x": 4640,
+    "y": 456,
+    "status": "idle",
+    "progress": 0,
+    "params": "{\"mapPath\":\"/home/z/my-project/data/relion/cmw2kvuyn0000nk9itbp8mx28/mapimport_895g4ttz/SubVolumes/postprocess_crop_0-64_0-64_0-64_crop_0-64_0-64_0-64.mrc\"}",
+    "ranParams": null,
+    "result": null,
+    "note": null,
+    "startedAt": null,
+    "duration": 500,
+    "createdAt": "2026-11-09T22:50:51.230Z",
+    "updatedAt": "2026-11-09T22:50:51.230Z"
    }
   ],
   "edge": [
@@ -365,6 +405,13 @@
     "fromJobId": "cmw2l533r000fnkq57dyqyaqg",
     "toJobId": "cmw2l5347000hnkq53kx1uldg",
     "createdAt": "2026-11-04T20:44:46.586Z"
+   },
+   {
+    "id": "1627b54d-6dfc-4480-9a61-6ae183e3d2fd",
+    "projectId": "cmw2kvuyn0000nk9itbp8mx28",
+    "fromJobId": "cmw2l534q000nnkq5ubxcuo5s",
+    "toJobId": "cmw9ume610001suol895g4ttz",
+    "createdAt": "2026-11-09T22:44:33.726Z"
    },
    {
     "id": "2cba00c0-ad11-4a53-b50b-6ba9c913feb2",
@@ -430,6 +477,13 @@
     "createdAt": "2026-11-04T20:44:46.540Z"
    },
    {
+    "id": "cd82da77-409a-43d4-a403-d59c507fa40f",
+    "projectId": "cmw2kvuyn0000nk9itbp8mx28",
+    "fromJobId": "cmw9ume610001suol895g4ttz",
+    "toJobId": "cmw9uuhge0001sugnrrbzkx0k",
+    "createdAt": "2026-11-09T22:50:51.238Z"
+   },
+   {
     "id": "cmw2kvuz40009nk9i0kb5xsev",
     "projectId": "cmw2kvuyn0000nk9itbp8mx28",
     "fromJobId": "cmw2kvuyq0002nk9ig5ztu2po",
@@ -478,8 +532,8 @@
   "worldLedger": [
    {
     "projectId": "cmw2kvuyn0000nk9itbp8mx28",
-    "envelope": "{\"v\":1,\"rows\":[{\"t\":1794255889555,\"jobs\":16,\"edges\":15,\"running\":0,\"completed\":16,\"failed\":0},{\"t\":1794256233471,\"jobs\":16,\"edges\":15,\"running\":1,\"completed\":15,\"failed\":0},{\"t\":1794256256610,\"jobs\":16,\"edges\":15,\"running\":0,\"completed\":16,\"failed\":0},{\"t\":1794256264662,\"jobs\":16,\"edges\":15,\"running\":1,\"completed\":15,\"failed\":0},{\"t\":1794256299759,\"jobs\":16,\"edges\":15,\"running\":0,\"completed\":16,\"failed\":0},{\"t\":1794256307834,\"jobs\":16,\"edges\":15,\"running\":1,\"completed\":15,\"failed\":0},{\"t\":1794256325506,\"jobs\":16,\"edges\":15,\"running\":0,\"completed\":16,\"failed\":0},{\"t\":1794256333617,\"jobs\":16,\"edges\":15,\"running\":1,\"completed\":15,\"failed\":0},{\"t\":1794256861721,\"jobs\":16,\"edges\":15,\"running\":0,\"completed\":16,\"failed\":0},{\"t\":1794256869829,\"jobs\":16,\"edges\":15,\"running\":0,\"completed\":15,\"failed\":0},{\"t\":1794256871163,\"jobs\":16,\"edges\":15,\"running\":1,\"completed\":15,\"failed\":0},{\"t\":1794257108723,\"jobs\":16,\"edges\":15,\"running\":0,\"completed\":16,\"failed\":0},{\"t\":1794257116800,\"jobs\":16,\"edges\":15,\"running\":1,\"completed\":15,\"failed\":0},{\"t\":1794257149303,\"jobs\":16,\"edges\":15,\"running\":0,\"completed\":16,\"failed\":0},{\"t\":1794257157447,\"jobs\":16,\"edges\":15,\"running\":1,\"completed\":15,\"failed\":0},{\"t\":1794257177932,\"jobs\":16,\"edges\":15,\"running\":0,\"completed\":16,\"failed\":0},{\"t\":1794257186013,\"jobs\":16,\"edges\":15,\"running\":1,\"completed\":15,\"failed\":0},{\"t\":1794257187345,\"jobs\":16,\"edges\":15,\"running\":0,\"completed\":16,\"failed\":0},{\"t\":1794257856522,\"jobs\":16,\"edges\":15,\"running\":1,\"completed\":15,\"failed\":0},{\"t\":1794257879666,\"jobs\":16,\"edges\":15,\"running\":0,\"completed\":16,\"failed\":0},{\"t\":1794257887727,\"jobs\":16,\"edges\":15,\"running\":1,\"completed\":15,\"failed\":0},{\"t\":1794257922804,\"jobs\":16,\"edges\":15,\"running\":0,\"completed\":16,\"failed\":0},{\"t\":1794257930852,\"jobs\":16,\"edges\":15,\"running\":1,\"completed\":15,\"failed\":0},{\"t\":1794257948553,\"jobs\":16,\"edges\":15,\"running\":0,\"completed\":16,\"failed\":0},{\"t\":1794257956633,\"jobs\":16,\"edges\":15,\"running\":1,\"completed\":15,\"failed\":0},{\"t\":1794258530418,\"jobs\":16,\"edges\":15,\"running\":0,\"completed\":16,\"failed\":0},{\"t\":1794258538530,\"jobs\":16,\"edges\":15,\"running\":1,\"completed\":15,\"failed\":0},{\"t\":1794258790648,\"jobs\":16,\"edges\":15,\"running\":0,\"completed\":16,\"failed\":0},{\"t\":1794258798766,\"jobs\":16,\"edges\":15,\"running\":1,\"completed\":15,\"failed\":0},{\"t\":1794258832452,\"jobs\":16,\"edges\":15,\"running\":0,\"completed\":16,\"failed\":0},{\"t\":1794258840553,\"jobs\":16,\"edges\":15,\"running\":1,\"completed\":15,\"failed\":0},{\"t\":1794258859831,\"jobs\":16,\"edges\":15,\"running\":0,\"completed\":16,\"failed\":0},{\"t\":1794258867920,\"jobs\":16,\"edges\":15,\"running\":1,\"completed\":15,\"failed\":0},{\"t\":1794258872832,\"jobs\":16,\"edges\":15,\"running\":0,\"completed\":16,\"failed\":0}]}",
-    "updatedAt": "2026-11-09T21:14:32.853Z"
+    "envelope": "{\"v\":1,\"rows\":[{\"t\":1794264003241,\"jobs\":16,\"edges\":15,\"running\":0,\"completed\":16,\"failed\":0},{\"t\":1794264276814,\"jobs\":17,\"edges\":15,\"running\":0,\"completed\":16,\"failed\":0},{\"t\":1794264284454,\"jobs\":17,\"edges\":16,\"running\":0,\"completed\":16,\"failed\":0},{\"t\":1794264502400,\"jobs\":17,\"edges\":16,\"running\":0,\"completed\":17,\"failed\":0},{\"t\":1794264653789,\"jobs\":18,\"edges\":16,\"running\":0,\"completed\":17,\"failed\":0},{\"t\":1794264661530,\"jobs\":18,\"edges\":17,\"running\":0,\"completed\":17,\"failed\":0}]}",
+    "updatedAt": "2026-11-09T22:54:39.915Z"
    }
   ]
  },

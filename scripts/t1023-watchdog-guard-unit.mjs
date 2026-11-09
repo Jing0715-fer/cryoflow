@@ -142,8 +142,8 @@ if (world.some((j) => j.name === "Import Fuel Gate Ride")) {
   }
   if (!world) { console.error("FATAL: the server never answered 200 (post-family-sweep)"); process.exit(2); }
 }
-if (world.length !== 16) {
-  console.error(`FATAL: world gate — jobs ${world.length} (want 16 — the twin epoch: the spine + the select twin, the t877 world-home cure)`);
+if (world.length !== 18) {
+  console.error(`FATAL: world gate — jobs ${world.length} (want 18 — the twin epoch + the t898 re-key (the shelf quartet's two crop jobs: cmw9ume61 + the nested cmw9uuhge))`);
   for (const j of world) console.error(`    · ${j.name} — ${j.status} (${j.id})`);
   process.exit(1);
 }
@@ -280,8 +280,8 @@ for (let i = 0; i < 60 && !worldAfter; i++) {
     if (r.status === 200) worldAfter = jobsArr(r.json);
   } catch { /* the beat */ }
 }
-ok("the world as-left (16 jobs — the twin-epoch re-key; the window's controlled recycle swept clean)",
-  worldAfter?.length === 16, `got ${worldAfter?.length}`);
+ok("the world as-left (18 jobs — the twin-epoch + the t898 crop-pair re-key; the window's controlled recycle swept clean)",
+  worldAfter?.length === 18, `got ${worldAfter?.length}`);
 /* t1184 — the fingerprint follows the world's DATA, not the file's fat:
  * the file's byte size rode the BOOT COUNT (boot-time writes regrow the
  * freelist — 6 free pages witnessed with NO film running), so the gate

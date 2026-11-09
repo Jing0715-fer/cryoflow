@@ -141,7 +141,7 @@ ok(
 );
 ok(
   "C3 the fuel family's world gate is the standing split-brain alarm (t1021's FATAL wording)",
-  fuelSrc.includes("world gate") && fuelSrc.includes("want 16"),
+  fuelSrc.includes("world gate") && fuelSrc.includes("want 18"), // the t898 re-key: the needle rides the source
 );
 ok("C4 the warn's production silence (the dev lesson stays a dev voice)", templateWorldWarnOf("file:/home/z/my-project/db/custom.db", { production: true }) === null);
 ok(

@@ -66,7 +66,7 @@ const p = new PrismaClient();
 let c = false, d = false;
 try {
   const jobs = await p.job.count();
-  c = jobs === 16;
+  c = jobs === 18; // the t898 re-key: 16 → 18, the shelf quartet's two crop jobs (cmw9ume61 the send's crop; cmw9uuhge the nested crop)
   const workspaces = await p.workspace.count();
   const proj = await p.project.findFirst();
   d = workspaces === 1 && proj?.name === "β-Galactosidase Tutorial (demo)";
@@ -76,7 +76,7 @@ try {
 
 pin("(a) .env carries the example's law (file:../db/cryoflow.db) and never names custom.db", a);
 pin("(b) .env.example remains the template of record — the contract line verbatim", b);
-pin("(c) the BARE child lands on the LIVING world: job.count() === 16 (the 3-job template refused; the twin epoch)", c);
+pin("(c) the BARE child lands on the LIVING world: job.count() === 18 (the 3-job template refused; the twin epoch + the t898 crop-pair re-key)", c);
 pin("(d) the landing is the living world's shape: one workspace, the demo project", d);
 pin("(e) the t1115 guard stays — the root closed AND the watchman remains", e);
 
