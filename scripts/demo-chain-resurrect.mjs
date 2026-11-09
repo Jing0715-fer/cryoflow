@@ -37,7 +37,10 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync, statSync } from "fs";
 import http from "node:http";
 
-const BASE = "http://localhost:3000";
+// t896 (re-applied t898): localhost resolves ::1 in node:http while the
+// standalone listens 127.0.0.1 only — the fleet's "Chrome localhost 死路"
+// disease in a third costume. The pin is 127.0.0.1, always.
+const BASE = "http://127.0.0.1:3000";
 const EMPIAR_DIR = "/home/z/empiar-10017/micrographs";
 const N_MIC = 24;
 const BOX = 512;
